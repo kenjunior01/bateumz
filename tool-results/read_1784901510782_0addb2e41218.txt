@@ -1,0 +1,838 @@
+     1→     1→import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+     2→     2→import { getStoredCountry, resolveLangFromCountry } from "@/lib/country-language";
+     3→     3→
+     4→     4→export type Lang = "en" | "pt" | "pt-BR" | "es" | "fr" | "hi";
+     5→     5→
+     6→     6→type Dict = Record<string, string>;
+     7→     7→
+     8→     8→// Translations are maintained for `pt` and `en` first, other locales added incrementally
+     9→     9→// Per-key fallback (see `t()` resolver below). Add localized keys as they are produced.
+    10→    10→const translations: Partial<Record<Lang, Dict>> = {
+    11→    11→  en: {
+    12→    12→    // ===== Navbar / Top =====
+    13→    13→    "nav.raffles": "Raffles",
+    14→    14→    "nav.contests": "Contests",
+    15→    15→    "nav.business": "Business",
+    16→    16→    "nav.community": "Community",
+    17→    17→    "nav.referral": "Refer & Earn",
+    18→    18→    "nav.points": "Points",
+    19→    19→    "nav.profile": "Profile",
+    20→    20→    "nav.dashboard": "Dashboard",
+    21→    21→    "nav.admin": "Admin",
+    22→    22→    "nav.signout": "Sign out",
+    23→    23→    "nav.signin": "Sign in",
+    24→    24→    "nav.signup": "Join",
+    25→    25→    "nav.notifications": "Notifications",
+    26→    26→
+    27→    27→    // Hero
+    28→    28→    "hero.title.prefix": "Your next",
+    29→    29→    "hero.title.highlight": "big moment",
+    30→    30→    "hero.subtitle": "Transparent raffles with public verification. Real prizes, real winners.",
+    31→    31→    "hero.cta": "Join now",
+    32→    32→    "hero.badge.verification": "Public verification",
+    33→    33→    "hero.badge.community": "Active community",
+    34→    34→    "hero.badge.weekly": "New every week",
+    35→    35→    "hero.badge.participants": "participants",
+    36→    36→
+    37→    37→    // Mobile bottom tab
+    38→    38→    "tab.home": "Home",
+    39→    39→    "tab.explore": "Explore",
+    40→    40→    "tab.contests": "Contests",
+    41→    41→    "tab.profile": "Profile",
+    42→    42→    "tab.menu": "Quick menu",
+    43→    43→
+    44→    44→    // FAB Mega-menu
+    45→    45→    "fab.quickAccess": "Quick access",
+    46→    46→    "fab.signin": "Sign in",
+    47→    47→    "fab.createAccount": "Create account",
+    48→    48→    "fab.dashboard": "Dashboard",
+    49→    49→    "fab.alerts": "Alerts",
+    50→    50→    "fab.account": "Account",
+    51→    51→    "fab.admin": "Admin",
+    52→    52→    "fab.logout": "Sign out",
+    53→    53→    "fab.group.raffles": "🎟️ Raffles & Contests",
+    54→    54→    "fab.group.games": "🎮 Games & Gamification",
+    55→    55→    "fab.group.business": "🏢 Business",
+    56→    56→    "fab.group.community": "👥 Community",
+    57→    57→    "fab.group.more": "ℹ️ More",
+    58→    58→    "fab.contestsTitle": "🏆 Contest Types",
+    59→    59→    "menu.marketplace": "Marketplace",
+    60→    60→    "menu.marketplace.desc": "All active",
+    61→    61→    "menu.contests": "Contests",
+    62→    62→    "menu.contests.desc": "Photo & video",
+    63→    63→    "menu.instantWin": "Instant Win",
+    64→    64→    "menu.instantWin.desc": "Scratch cards",
+    65→    65→    "menu.myTickets": "My Tickets",
+    66→    66→    "menu.directory": "Directory",
+    67→    67→    "menu.installments": "Installments",
+    68→    68→    "menu.createRaffle": "Create Raffle",
+    69→    69→    "menu.hub": "Hub",
+    70→    70→    "menu.winners": "Winners",
+    71→    71→    "menu.transparency": "Transparency",
+    72→    72→    "menu.referral": "Referral",
+    73→    73→    "menu.howItWorks": "How it works",
+    74→    74→    "menu.faq": "FAQ",
+    75→    75→    "menu.points": "Points",
+    76→    76→    "menu.badge.new": "New",
+    77→    77→    "menu.games": "Games & Fun",
+    78→    78→    "menu.games.desc": "Win prizes playing",
+    79→    79→    "menu.millionaire": "Millionaire",
+    80→    80→    "menu.spinWheel": "Spin Wheel",
+    81→    81→
+    82→    82→    // Search
+    83→    83→    "search.location": "Location",
+    84→    84→    "search.placeholderPrefix": "Search",
+    85→    85→    "search.button": "Search",
+    86→    86→    "search.clear": "Clear",
+    87→    87→    "search.voice": "Voice search",
+    88→    88→    "search.scan": "Scan code",
+    89→    89→    "search.trending": "Trending",
+    90→    90→    "search.quickAccess": "Quick access",
+    91→    91→    "search.chip.trending": "🔥 Trending",
+    92→    92→    "search.chip.new": "🆕 New",
+    93→    93→    "search.chip.ending": "⏳ Ending soon",
+    94→    94→    "search.chip.cheap": "💰 Affordable",
+    95→    95→    "search.chip.premium": "🏆 Premium",
+    96→    96→
+    97→    97→    // Categories
+    98→    98→    "cat.all": "All",
+    99→    99→    "cat.vehicles": "Vehicles",
+   100→   100→    "cat.electronics": "Electronics",
+   101→   101→    "cat.realestate": "Real estate",
+   102→   102→    "cat.travel": "Travel",
+   103→   103→    "cat.gaming": "Gaming",
+   104→   104→    "cat.fashion": "Fashion",
+   105→   105→    "cat.prizes": "Prizes",
+   106→   106→    "cat.contests": "Contests",
+   107→   107→    "cat.health": "Health",
+   108→   108→    "cat.food": "Food",
+   109→   109→    "cat.family": "Family",
+   110→   110→    "cat.more": "More",
+   111→   111→    "cat.sectionTitle": "Categories",
+   112→   112→    "cat.filterByRegion": "🌍 Filter by region:",
+   113→   113→
+   114→   114→    // Mobile actions
+   115→   115→    "mobile.viewAll": "View all",
+   116→   116→    "mobile.myTickets": "My tickets",
+   117→   117→
+   118→   118→    "ticker.live": "Live",
+   119→   119→
+   120→   120→    "common.loading": "Loading...",
+   121→   121→    "common.save": "Save",
+   122→   122→    "common.cancel": "Cancel",
+   123→   123→    "common.confirm": "Confirm",
+   124→   124→    "common.close": "Close",
+   125→   125→    "common.back": "Back",
+   126→   126→    "common.next": "Next",
+   127→   127→    "common.continue": "Continue",
+   128→   128→    "common.search": "Search",
+   129→   129→    "common.filter": "Filter",
+   130→   130→    "common.clear": "Clear",
+   131→   131→
+   132→   132→    "footer.tagline": "The platform where every raffle is a real and verifiable opportunity. Transparency is not a promise—it's proof.",
+   133→   133→    "footer.raffles": "Raffles",
+   134→   134→    "footer.winners": "Winners",
+   135→   135→    "footer.howItWorks": "How It Works",
+   136→   136→    "footer.terms": "Terms",
+   137→   137→    "footer.privacy": "Privacy",
+   138→   138→    "footer.community": "Community",
+   139→   139→    "footer.faq": "FAQ",
+   140→   140→    "footer.rights": "All rights reserved.",
+   141→   141→    "footer.transparency": "Transparency",
+   142→   142→    "footer.instantWin": "Instant Win",
+   143→   143→    "footer.referral": "Refer & Earn",
+   144→   144→    "footer.ssl": "SSL 256-bit",
+   145→   145→    "footer.blockchain": "Blockchain Verified",
+   146→   146→    "footer.rng": "Certified RNG",
+   147→   147→    "footer.checkout": "Secure checkout via PayPal:",
+   148→   148→
+   149→   149→    // Trust / How it works
+   150→   150→    "trust.title": "Security & Transparency",
+   151→   151→    "trust.subtitle": "Your trust is our top priority",
+   152→   152→    "trust.learnMore": "Learn more about our transparency",
+   153→   153→    "trust.howTitle": "How Bateu Works",
+   154→   154→    "trust.howSubtitle": "Four simple steps to fair, verifiable raffles",
+   155→   155→    "trust.step1.title": "Choose a raffle",
+   156→   156→    "trust.step1.desc": "Browse verified raffles from trusted businesses.",
+   157→   157→    "trust.step2.title": "Buy your ticket",
+   158→   158→    "trust.step2.desc": "Secure checkout via PayPal with a unique ticket number.",
+   159→   159→    "trust.step3.title": "Draw is verified",
+   160→   160→    "trust.step3.desc": "RNG + blockchain record every result publicly.",
+   161→   161→    "trust.step4.title": "Winner announced",
+   162→   162→    "trust.step4.desc": "Results published in real time with proof you can audit.",
+   163→   163→
+   164→   164→    // Winners
+   165→   165→    "winners.badge": "Verified Winners",
+   166→   166→    "winners.title": "They Played. They Won.",
+   167→   167→    "winners.subtitle": "Real people, real prizes, real proof. Every draw is publicly verified — click any winner to see verification.",
+   168→   168→    "winners.verified": "Verified",
+   169→   169→    "winners.won": "Won",
+   170→   170→    "winners.emptyTitle": "First winners coming soon!",
+   171→   171→    "winners.emptyDesc": "Once the first raffles finish, winners will appear here. Join now and be among the first.",
+   172→   172→    "winners.viewHistory": "View full winner history",
+   173→   173→    "winners.prizePhoto": "Prize / delivery photo",
+   174→   174→
+   175→   175→    // World Cup banner
+   176→   176→    "worldcup.title": "World Cup 2026",
+   177→   177→    "worldcup.subtitle": "Follow matches, teams, predictions & live games",
+   178→   178→    "worldcup.cta": "Go to Hub",
+   179→   179→    "worldcup.dismiss": "Dismiss",
+   180→   180→
+   181→   181→    // Marketplace
+   182→   182→    "marketplace.title": "Marketplace",
+   183→   183→    "marketplace.subtitle": "Discover amazing raffles and contests.",
+   184→   184→    "marketplace.searchPlaceholder": "Search raffles, contests...",
+   185→   185→    "marketplace.filters": "Filters",
+   186→   186→    "marketplace.clear": "Clear",
+   187→   187→    "marketplace.apply": "Apply",
+   188→   188→    "marketplace.noResults": "No results found",
+   189→   189→    "marketplace.noRaffles": "No raffles found",
+   190→   190→    "marketplace.empty.title": "New drops coming soon",
+   191→   191→    "marketplace.empty.subtitle": "We're preparing premium raffles and contests. Leave your email to get notified at launch.",
+   192→   192→    "marketplace.empty.emailPlaceholder": "you@email.com",
+   193→   193→    "marketplace.empty.cta": "Notify me",
+   194→   194→    "marketplace.empty.confirmed": "You're on the list — we'll email you at launch.",
+   195→   195→    "marketplace.empty.success": "You're in! We'll notify you when new raffles go live.",
+   196→   196→    "marketplace.empty.error": "Something went wrong. Please try again.",
+   197→   197→    "marketplace.empty.invalidEmail": "Please enter a valid email address.",
+   198→   198→    "marketplace.empty.orBrowse": "Or learn how it works:",
+   199→   199→
+   200→   200→    // Payments
+   201→   201→    "pay.howToPay": "How would you like to pay?",
+   202→   202→    "pay.method.mpesa": "M-Pesa",
+   203→   203→    "pay.method.mpesa.desc": "Vodacom Mozambique",
+   204→   204→    "pay.method.emola": "e-Mola",
+   205→   205→    "pay.method.emola.desc": "Movitel Mozambique",
+   206→   206→    "pay.method.card": "Card",
+   207→   207→    "pay.method.card.desc": "Visa / Mastercard",
+   208→   208→    "pay.method.multicaixa": "Multicaixa Express",
+   209→   209→    "pay.method.multicaixa.desc": "Angola mobile payment",
+   210→   210→    "pay.method.unitelMoney": "Unitel Money",
+   211→   211→    "pay.method.unitelMoney.desc": "Unitel mobile wallet",
+   212→   212→    "pay.method.africellMoney": "Africell Money",
+   213→   213→    "pay.method.africellMoney.desc": "Africell mobile wallet",
+   214→   214→    "pay.method.baiTransfer": "BAI transfer",
+   215→   215→    "pay.method.baiTransfer.desc": "Banco BAI Angola IBAN",
+   216→   216→    "pay.method.bfaTransfer": "BFA transfer",
+   217→   217→    "pay.method.bfaTransfer.desc": "Banco BFA Angola IBAN",
+   218→   218→    "pay.method.pix": "Pix",
+   219→   219→    "pay.method.pix.desc": "Brazil instant payment",
+   220→   220→    "pay.method.boleto": "Bank slip (Boleto)",
+   221→   221→    "pay.method.boleto.desc": "Due in 1-3 business days",
+   222→   222→    "pay.method.cardBR": "Card (Brazil)",
+   223→   223→    "pay.method.cardBR.desc": "Credit or debit • installments",
+   224→   224→    "pay.method.paypal": "PayPal",
+   225→   225→    "pay.method.paypal.desc": "International payment",
+   226→   226→
+   227→   227→    "pay.notConfigured.title": "{method} not configured",
+   228→   228→    "pay.notConfigured.desc": "The organizer hasn't configured {method} yet. Please contact them.",
+   229→   229→    "pay.payVia": "Pay via {method}",
+   230→   230→    "pay.sendTo": "Send to:",
+   231→   231→    "pay.amountToSend": "Amount to send",
+   232→   232→    "pay.steps": "Transfer steps:",
+   233→   233→    "pay.copyNumber": "Copy number",
+   234→   234→    "pay.afterPaymentNotice": "After paying, upload the receipt below. The organizer will confirm and your tickets will be activated.",
+   235→   235→    "pay.receiptLabel": "📎 Payment receipt",
+   236→   236→    "pay.receiptUpload": "Tap to upload receipt",
+   237→   237→
+   238→   238→    "pay.pix.copyKey": "Copy Pix key",
+   239→   239→    "pay.pix.scanQr": "Point your camera at the Pix QR code",
+   240→   240→    "pay.pix.key": "Pix key",
+   241→   241→    "pay.pix.brcode": "Pix Copy & Paste",
+   242→   242→
+   243→   243→    "pay.boleto.barcode": "Boleto digit line",
+   244→   244→    "pay.boleto.dueDate": "Due date",
+   245→   245→    "pay.boleto.payAt": "Pay at any bank, lottery agent or banking app before the due date.",
+   246→   246→
+   247→   247→    "pay.bank.iban": "IBAN",
+   248→   248→    "pay.bank.holder": "Account holder",
+   249→   249→    "pay.bank.reference": "Reference",
+   250→   250→    "pay.bank.includeRef": "Include the reference in the transfer description.",
+   251→   251→
+   252→   252→    // Prize Wheel
+   253→   253→    "wheel.title": "Spin Wheel",
+   254→   254→    "wheel.win": "You won!",
+   255→   255→    "wheel.spin": "SPIN",
+   256→   256→    "wheel.spinning": "...",
+   257→   257→    "wheel.prizes": "Available Prizes",
+   258→   258→    "wheel.addPrize": "Add Prize",
+   259→   259→    "wheel.config": "Configure",
+   260→   260→    "wheel.minSegmentsWarning": "⚠️ For precise results, we recommend at least 4-6 segments on the wheel!",
+   261→   261→    "wheel.subtitle": "Spin and win amazing prizes!",
+   262→   262→    "wheel.premiumBadge": "Premium Lucky Spin",
+   263→   263→    "wheel.cost": "Cost",
+   264→   264→    "wheel.webcam": "Webcam",
+   265→   265→    "wheel.configureTitle": "Configure Spin Wheel",
+   266→   266→    "wheel.prizeName": "Prize name",
+   267→   267→    "wheel.prizeValue": "Prize value",
+   268→   268→    "wheel.weight": "Weight",
+   269→   269→    "wheel.effectType": "Effect",
+   270→   270→    "wheel.weightHint": "Percentages are calculated from relative weights.",
+   271→   271→    "wheel.loginToSpin": "Sign in to spin the wheel",
+   272→   272→    "wheel.errorSpin": "Could not spin the wheel. Please try again.",
+   273→   273→    "wheel.loading": "Loading wheel...",
+   274→   274→    "wheel.noSegments": "This wheel has no segments configured.",
+   275→   275→    "wheel.modeHorizontal": "Horizontal layout",
+   276→   276→    "wheel.modeVertical": "Vertical layout",
+   277→   277→
+   278→   278→    // Games Hub
+   279→   279→    "gamesHub.title": "Games Hub",
+   280→   280→    "gamesHub.subtitle": "Play and win amazing prizes!",
+   281→   281→    "gamesHub.wheel": "Spin Wheel",
+   282→   282→    "gamesHub.millionaire": "Millionaire",
+   283→   283→
+   284→   284→    // Millionaire Game
+   285→   285→    "millionaire.title": "Millionaire",
+   286→   286→    "millionaire.question": "Question",
+   287→   287→    "millionaire.level": "Level",
+   288→   288→    "millionaire.timeLeft": "Time left",
+   289→   289→    "millionaire.lifelines": "Lifelines",
+   290→   290→    "millionaire.prizePyramid": "Prize Pyramid",
+   291→   291→    "millionaire.correct": "Correct!",
+   292→   292→    "millionaire.wrong": "Wrong answer!",
+   293→   293→    "millionaire.timeout": "Time out!",
+   294→   294→    "millionaire.won": "You won!",
+   295→   295→    "millionaire.lost": "Game over!",
+   296→   296→    "millionaire.tryAgain": "Try again",
+   297→   297→    "millionaire.exit": "Exit",
+   298→   298→    "millionaire.5050": "50:50",
+   299→   299→    "millionaire.audience": "Audience",
+   300→   300→    "millionaire.phone": "Phone a friend",
+   301→   301→
+   302→   302→    "fantasy.subtitle": "Pick your team and win prizes!",
+   303→   303→    "fantasy.myTeam": "My Team",
+   304→   304→    "fantasy.transfers": "Transfers",
+   305→   305→    "fantasy.leagues": "Leagues",
+   306→   306→    "fantasy.prizes": "Prizes",
+   307→   307→    "fantasy.players": "Players",
+   308→   308→    "fantasy.selectPlayer": "Select Player",
+   309→   309→    "fantasy.budget": "Budget",
+   310→   310→    "fantasy.points": "Points",
+   311→   311→    "fantasy.nextMatch": "Next Match",
+   312→   312→    "fantasy.myPoints": "My Points",
+   313→   313→
+   314→   314→    // Auth
+   315→   315→    "auth.login": "Login",
+   316→   316→    "auth.register": "Register",
+   317→   317→    "auth.email": "Email",
+   318→   318→    "auth.password": "Password",
+   319→   319→    "auth.confirmPassword": "Confirm Password",
+   320→   320→    "auth.fullName": "Full Name",
+   321→   321→    "auth.forgotPassword": "Forgot Password?",
+   322→   322→    "auth.loginSuccess": "Login successful!",
+   323→   323→    "auth.registerSuccess": "Registration successful!",
+   324→   324→    "auth.loginError": "Invalid email or password",
+   325→   325→    "auth.registerError": "Error creating account",
+   326→   326→
+   327→   327→    // Common
+   328→   328→    "loginRequired": "Login required",
+   329→   329→    "loginToPlay": "Please login to play",
+   330→   330→    "tryAgain": "Try again",
+   331→   331→    "error": "Error",
+   332→   332→    "youWon": "You won",
+   333→   333→
+   334→   334→    // ===== World Cup 2026 =====
+   335→   335→    "worldcup.results": "Resultados",
+   336→   336→    "worldcup.standings": "Classificação",
+   337→   337→    "worldcup.news": "Notícias",
+   338→   338→    "worldcup.stats": "Estatísticas",
+   339→   339→    "worldcup.topScorers": "Melhores Marcadores",
+   340→   340→    "worldcup.assists": "Assistências",
+   341→   341→    "worldcup.matches": "Jogos",
+   342→   342→    "worldcup.groups": "Grupos",
+   343→   343→    "worldcup.teams": "Equipas",
+   344→   344→    "worldcup.schedule": "Calendário",
+   345→   345→    "worldcup.venue": "Estádio",
+   346→   346→    "worldcup.live": "AO VIVO",
+   347→   347→    "worldcup.finished": "Terminado",
+   348→   348→    "worldcup.scheduled": "Agendado",
+   349→   349→
+   350→   350→    // ===== Spin Wheel Premium =====
+   351→   351→    "wheel.customize": "Personalizar Roda",
+   352→   352→    "wheel.removePrize": "Remover Prêmio",
+   353→   353→    "wheel.backgroundColor": "Cor de Fundo",
+   354→   354→    "wheel.logo": "Logo da Empresa",
+   355→   355→    "wheel.background": "Imagem de Fundo",
+   356→   356→    "wheel.duration": "Duração do Giro",
+   357→   357→    "wheel.save": "Salvar Configurações",
+   358→   358→
+   359→   359→    // ===== World Cup Challenges =====
+   360→   360→    "challenge.title": "Desafios da Copa",
+   361→   361→    "challenge.predictions": "Previsões",
+   362→   362→    "challenge.trivia": "Trivia",
+   363→   363→    "challenge.statistics": "Estatísticas",
+   364→   364→    "challenge.easy": "Fácil",
+   365→   365→    "challenge.medium": "Médio",
+   366→   366→    "challenge.hard": "Difícil",
+   367→   367→    "challenge.correct": "Correto!",
+   368→   368→    "challenge.incorrect": "Incorreto",
+   369→   369→    "challenge.points": "Pontos",
+   370→   370→    "challenge.nextChallenge": "Próximo Desafio",
+   371→   371→
+   372→   372→    // ===== Millionaire Game =====
+   373→   373→    "millionaire.fiftyFifty": "50:50",
+   374→   374→    "millionaire.call": "Ligar",
+   375→   375→    "millionaire.prizeStructure": "Pirâmide de Prémios",
+   376→   376→
+   377→   377→    // ===== Business URLs =====
+   378→   378→    "business.customUrl": "URL Personalizada",
+   379→   379→    "business.urlExample": "exemplo-empresa",
+   380→   380→    "business.urlDescription": "Crie uma URL amigável para sua empresa",
+   381→   381→    "business.urlTaken": "Esta URL já está em uso",
+   382→   382→    "business.profile": "Perfil da Empresa",
+   383→   383→    "business.raffles": "Sorteios",
+   384→   384→    "business.participants": "Participantes",
+   385→   385→    "business.revenue": "Receita",
+   386→   386→  },
+   387→   387→  pt: {
+   388→   388→    // ===== Navbar / Top =====
+   389→   389→    "nav.raffles": "Sorteios",
+   390→   390→    "nav.contests": "Concursos",
+   391→   391→    "nav.business": "Empresas",
+   392→   392→    "nav.community": "Comunidade",
+   393→   393→    "nav.referral": "Convida & Ganha",
+   394→   394→    "nav.points": "Pontos",
+   395→   395→    "nav.profile": "Perfil",
+   396→   396→    "nav.dashboard": "Painel",
+   397→   397→    "nav.admin": "Admin",
+   398→   398→    "nav.signout": "Sair",
+   399→   399→    "nav.signin": "Entrar",
+   400→   400→    "nav.signup": "Participar",
+   401→   401→    "nav.notifications": "Notificações",
+   402→   402→
+   403→   403→    // ===== Hero =====
+   404→   404→    "hero.title.prefix": "O seu próximo",
+   405→   405→    "hero.title.highlight": "grande momento",
+   406→   406→    "hero.subtitle": "Sorteios transparentes com verificação pública. Prémios reais, vencedores reais.",
+   407→   407→    "hero.cta": "Participar agora",
+   408→   408→    "hero.badge.verification": "Verificação pública",
+   409→   409→    "hero.badge.community": "Comunidade activa",
+   410→   410→    "hero.badge.weekly": "Novos toda semana",
+   411→   411→    "hero.badge.participants": "participantes",
+   412→   412→
+   413→   413→    // ===== Mobile bottom tab =====
+   414→   414→    "tab.home": "Início",
+   415→   415→    "tab.explore": "Explorar",
+   416→   416→    "tab.contests": "Concursos",
+   417→   417→    "tab.profile": "Perfil",
+   418→   418→    "tab.menu": "Menu rápido",
+   419→   419→
+   420→   420→    // ===== FAB Mega-menu =====
+   421→   421→    "fab.quickAccess": "Acesso rápido",
+   422→   422→    "fab.signin": "Entrar",
+   423→   423→    "fab.createAccount": "Criar conta",
+   424→   424→    "fab.dashboard": "Painel",
+   425→   425→    "fab.alerts": "Alertas",
+   426→   426→    "fab.account": "Conta",
+   427→   427→    "fab.admin": "Admin",
+   428→   428→    "fab.logout": "Sair",
+   429→   429→    "fab.group.raffles": "🎟️ Sorteios & Concursos",
+   430→   430→    "fab.group.games": "🎮 Jogos & Gamificação",
+   431→   431→    "fab.group.business": "🏢 Empresas",
+   432→   432→    "fab.group.community": "👥 Comunidade",
+   433→   433→    "fab.group.more": "ℹ️ Mais",
+   434→   434→    "fab.contestsTitle": "🏆 Tipos de Concursos",
+   435→   435→    "menu.marketplace": "Marketplace",
+   436→   436→    "menu.marketplace.desc": "Todos activos",
+   437→   437→    "menu.contests": "Concursos",
+   438→   438→    "menu.contests.desc": "Fotos e vídeo",
+   439→   439→    "menu.instantWin": "Instant Win",
+   440→   440→    "menu.instantWin.desc": "Raspadinhas",
+   441→   441→    "menu.myTickets": "Meus Bilhetes",
+   442→   442→    "menu.directory": "Diretório",
+   443→   443→    "menu.installments": "Prestações",
+   444→   444→    "menu.createRaffle": "Criar Sorteio",
+   445→   445→    "menu.hub": "Hub",
+   446→   446→    "menu.winners": "Vencedores",
+   447→   447→    "menu.transparency": "Transparência",
+   448→   448→    "menu.referral": "Referência",
+   449→   449→    "menu.howItWorks": "Como Funciona",
+   450→   450→    "menu.faq": "FAQ",
+   451→   451→    "menu.points": "Pontos",
+   452→   452→    "menu.badge.new": "Novo",
+   453→   453→    "menu.games": "Jogos & Diversão",
+   454→   454→    "menu.games.desc": "Ganha prémios a jogar",
+   455→   455→    "menu.millionaire": "Milionário",
+   456→   456→    "menu.spinWheel": "Roda da Sorte",
+   457→   457→
+   458→   458→    // ===== Search =====
+   459→   459→    "search.location": "Localização",
+   460→   460→    "search.placeholderPrefix": "Buscar",
+   461→   461→    "search.button": "Buscar",
+   462→   462→    "search.clear": "Limpar",
+   463→   463→    "search.voice": "Pesquisa por voz",
+   464→   464→    "search.scan": "Ler código",
+   465→   465→    "search.trending": "Tendências",
+   466→   466→    "search.quickAccess": "Acesso rápido",
+   467→   467→    "search.chip.trending": "🔥 Em alta",
+   468→   468→    "search.chip.new": "🆕 Novos",
+   469→   469→    "search.chip.ending": "⏳ A terminar",
+   470→   470→    "search.chip.cheap": "💰 Económicos",
+   471→   471→    "search.chip.premium": "🏆 Premium",
+   472→   472→
+   473→   473→    // ===== Categories =====
+   474→   474→    "cat.all": "Todos",
+   475→   475→    "cat.vehicles": "Veículos",
+   476→   476→    "cat.electronics": "Eletrónicos",
+   477→   477→    "cat.realestate": "Imóveis",
+   478→   478→    "cat.travel": "Viagens",
+   479→   479→    "cat.gaming": "Gaming",
+   480→   480→    "cat.fashion": "Moda",
+   481→   481→    "cat.prizes": "Prémios",
+   482→   482→    "cat.contests": "Concursos",
+   483→   483→    "cat.health": "Saúde",
+   484→   484→    "cat.food": "Comida",
+   485→   485→    "cat.family": "Família",
+   486→   486→    "cat.more": "Mais",
+   487→   487→    "cat.sectionTitle": "Categorias",
+   488→   488→    "cat.filterByRegion": "🌍 Filtrar por região:",
+   489→   489→
+   490→   490→    // ===== Mobile actions =====
+   491→   491→    "mobile.viewAll": "Ver Todos",
+   492→   492→    "mobile.myTickets": "Meus Bilhetes",
+   493→   493→
+   494→   494→    // ===== Live ticker =====
+   495→   495→    "ticker.live": "Ao vivo",
+   496→   496→
+   497→   497→    // ===== Common =====
+   498→   498→    "common.loading": "A carregar...",
+   499→   499→    "common.save": "Guardar",
+   500→   500→    "common.cancel": "Cancelar",
+   501→   501→    "common.confirm": "Confirmar",
+   502→   502→    "common.close": "Fechar",
+   503→   503→    "common.back": "Voltar",
+   504→   504→    "common.next": "Seguinte",
+   505→   505→    "common.continue": "Continuar",
+   506→   506→    "common.search": "Pesquisar",
+   507→   507→    "common.filter": "Filtrar",
+   508→   508→    "common.clear": "Limpar",
+   509→   509→
+   510→   510→    // ===== Footer =====
+   511→   511→    "footer.tagline": "A plataforma onde cada sorteio é uma oportunidade real e verificável. Transparência não é promessa — é prova.",
+   512→   512→    "footer.raffles": "Sorteios",
+   513→   513→    "footer.winners": "Vencedores",
+   514→   514→    "footer.howItWorks": "Como Funciona",
+   515→   515→    "footer.terms": "Termos",
+   516→   516→    "footer.privacy": "Privacidade",
+   517→   517→    "footer.community": "Comunidade",
+   518→   518→    "footer.faq": "FAQ",
+   519→   519→    "footer.rights": "Todos os direitos reservados.",
+   520→   520→    "footer.transparency": "Transparência",
+   521→   521→    "footer.instantWin": "Ganhar Já",
+   522→   522→    "footer.referral": "Indique e Ganhe",
+   523→   523→    "footer.ssl": "SSL 256-bit",
+   524→   524→    "footer.blockchain": "Verificado Blockchain",
+   525→   525→    "footer.rng": "RNG Certificado",
+   526→   526→    "footer.checkout": "Checkout seguro via PayPal:",
+   527→   527→
+   528→   528→    "trust.title": "Segurança & Transparência",
+   529→   529→    "trust.subtitle": "A sua confiança é a nossa prioridade",
+   530→   530→    "trust.learnMore": "Saiba mais sobre a nossa transparência",
+   531→   531→    "trust.howTitle": "Como Funciona a Bateu",
+   532→   532→    "trust.howSubtitle": "Quatro passos simples para sorteios justos e verificáveis",
+   533→   533→    "trust.step1.title": "Escolha um sorteio",
+   534→   534→    "trust.step1.desc": "Explore sorteios verificados de empresas de confiança.",
+   535→   535→    "trust.step2.title": "Compre o bilhete",
+   536→   536→    "trust.step2.desc": "Pagamento seguro via PayPal com número de bilhete único.",
+   537→   537→    "trust.step3.title": "Sorteio verificado",
+   538→   538→    "trust.step3.desc": "RNG + blockchain registam cada resultado publicamente.",
+   539→   539→    "trust.step4.title": "Vencedor anunciado",
+   540→   540→    "trust.step4.desc": "Resultados publicados em tempo real com prova auditável.",
+   541→   541→
+   542→   542→    "winners.badge": "Vencedores Verificados",
+   543→   543→    "winners.title": "Jogaram. Ganharam.",
+   544→   544→    "winners.subtitle": "Pessoas reais, prémios reais, prova real. Cada sorteio é verificado publicamente — clique em qualquer vencedor para ver a verificação.",
+   545→   545→    "winners.verified": "Verificado",
+   546→   546→    "winners.won": "Ganhou",
+   547→   547→    "winners.emptyTitle": "Os primeiros vencedores estão a caminho!",
+   548→   548→    "winners.emptyDesc": "Assim que os primeiros sorteios terminarem, os vencedores aparecerão aqui. Participa já e sê um dos primeiros.",
+   549→   549→    "winners.viewHistory": "Ver histórico completo de vencedores",
+   550→   550→    "winners.prizePhoto": "Foto do prémio / entrega",
+   551→   551→
+   552→   552→    "worldcup.title": "Copa do Mundo 2026",
+   553→   553→    "worldcup.subtitle": "Acompanhe jogos, equipas, previsões e jogos ao vivo",
+   554→   554→    "worldcup.cta": "Ir para Central",
+   555→   555→    "worldcup.dismiss": "Fechar",
+   556→   556→
+   557→   557→    "marketplace.title": "Marketplace",
+   558→   558→    "marketplace.subtitle": "Descubra sorteios e concursos incríveis.",
+   559→   559→    "marketplace.searchPlaceholder": "Pesquisar sorteios, concursos...",
+   560→   560→    "marketplace.filters": "Filtros",
+   561→   561→    "marketplace.clear": "Limpar",
+   562→   562→    "marketplace.apply": "Aplicar",
+   563→   563→    "marketplace.noResults": "Nenhum resultado encontrado",
+   564→   564→    "marketplace.noRaffles": "Nenhum sorteio encontrado",
+   565→   565→    "marketplace.empty.title": "Novos lançamentos em breve",
+   566→   566→    "marketplace.empty.subtitle": "Estamos a preparar sorteios e concursos premium. Deixe o seu email para ser notificado no lançamento.",
+   567→   567→    "marketplace.empty.emailPlaceholder": "seu@email.com",
+   568→   568→    "marketplace.empty.cta": "Notificar-me",
+   569→   569→    "marketplace.empty.confirmed": "Está na lista — enviaremos email no lançamento.",
+   570→   570→    "marketplace.empty.success": "Registado! Avisaremos quando novos sorteios estiverem disponíveis.",
+   571→   571→    "marketplace.empty.error": "Algo correu mal. Tente novamente.",
+   572→   572→    "marketplace.empty.invalidEmail": "Introduza um email válido.",
+   573→   573→    "marketplace.empty.orBrowse": "Ou saiba como funciona:",
+   574→   574→
+   575→   575→    // ===== Payments (checkout) =====
+   576→   576→    "pay.howToPay": "Como deseja pagar?",
+   577→   577→    "pay.method.mpesa": "M-Pesa",
+   578→   578→    "pay.method.mpesa.desc": "Vodacom Moçambique",
+   579→   579→    "pay.method.emola": "e-Mola",
+   580→   580→    "pay.method.emola.desc": "Movitel Moçambique",
+   581→   581→    "pay.method.card": "Cartão",
+   582→   582→    "pay.method.card.desc": "Visa / Mastercard",
+   583→   583→    "pay.method.multicaixa": "Multicaixa Express",
+   584→   584→    "pay.method.multicaixa.desc": "Pagamento móvel Angola",
+   585→   585→    "pay.method.unitelMoney": "Unitel Money",
+   586→   586→    "pay.method.unitelMoney.desc": "Carteira móvel Unitel",
+   587→   587→    "pay.method.africellMoney": "Africell Money",
+   588→   588→    "pay.method.africellMoney.desc": "Carteira móvel Africell",
+   589→   589→    "pay.method.baiTransfer": "Transferência BAI",
+   590→   590→    "pay.method.baiTransfer.desc": "IBAN Banco BAI Angola",
+   591→   591→    "pay.method.bfaTransfer": "Transferência BFA",
+   592→   592→    "pay.method.bfaTransfer.desc": "IBAN Banco BFA Angola",
+   593→   593→    "pay.method.pix": "Pix",
+   594→   594→    "pay.method.pix.desc": "Pagamento instantâneo Brasil",
+   595→   595→    "pay.method.boleto": "Boleto Bancário",
+   596→   596→    "pay.method.boleto.desc": "Vence em 1-3 dias úteis",
+   597→   597→    "pay.method.cardBR": "Cartão (Brasil)",
+   598→   598→    "pay.method.cardBR.desc": "Crédito ou débito • parcelado",
+   599→   599→    "pay.method.paypal": "PayPal",
+   600→   600→    "pay.method.paypal.desc": "Pagamento internacional",
+   601→   601→
+   602→   602→    "pay.notConfigured.title": "{method} não configurado",
+   603→   603→    "pay.notConfigured.desc": "A empresa ainda não configurou {method}. Contacte o organizador.",
+   604→   604→    "pay.payVia": "Pagar via {method}",
+   605→   605→    "pay.sendTo": "Enviar para:",
+   606→   606→    "pay.amountToSend": "Valor a enviar",
+   607→   607→    "pay.steps": "Passos para transferência:",
+   608→   608→    "pay.copyNumber": "Copiar número",
+   609→   609→    "pay.afterPaymentNotice": "Após o pagamento, envie o comprovativo abaixo. A empresa confirmará e os bilhetes serão activados.",
+   610→   610→    "pay.receiptLabel": "📎 Comprovativo de Pagamento",
+   611→   611→    "pay.receiptUpload": "Toque para enviar comprovativo",
+   612→   612→
+   613→   613→    // Pix specific
+   614→   614→    "pay.pix.copyKey": "Copiar chave Pix",
+   615→   615→    "pay.pix.scanQr": "Aproxime a câmara para ler o QR Pix",
+   616→   616→    "pay.pix.key": "Chave Pix",
+   617→   617→    "pay.pix.brcode": "Pix Copia & Cola",
+   618→   618→
+   619→   619→    // Boleto specific
+   620→   620→    "pay.boleto.barcode": "Linha digitável do boleto",
+   621→   621→    "pay.boleto.dueDate": "Vencimento",
+   622→   622→    "pay.boleto.payAt": "Pague em qualquer banco, lotérica ou aplicativo até a data de vencimento.",
+   623→   623→
+   624→   624→    // Bank transfer (Angola)
+   625→   625→    "pay.bank.iban": "IBAN",
+   626→   626→    "pay.bank.holder": "Titular",
+   627→   627→    "pay.bank.reference": "Referência",
+   628→   628→    "pay.bank.includeRef": "Inclua a referência na descrição da transferência.",
+   629→   629→
+   630→   630→    "wheel.title": "Roda da Sorte",
+   631→   631→    "wheel.win": "Ganhou!",
+   632→   632→    "wheel.spin": "GIRAR",
+   633→   633→    "wheel.spinning": "A girar…",
+   634→   634→    "wheel.prizes": "Prémios disponíveis",
+   635→   635→    "wheel.addPrize": "Adicionar prémio",
+   636→   636→    "wheel.config": "Configurar",
+   637→   637→    "wheel.minSegmentsWarning": "⚠️ Para resultados precisos, recomendamos pelo menos 4–6 segmentos na roda!",
+   638→   638→    "wheel.subtitle": "Gire e ganhe prémios incríveis!",
+   639→   639→    "wheel.premiumBadge": "Giro da Sorte Premium",
+   640→   640→    "wheel.cost": "Custo",
+   641→   641→    "wheel.webcam": "Webcam",
+   642→   642→    "wheel.configureTitle": "Configurar roda da sorte",
+   643→   643→    "wheel.prizeName": "Nome do prémio",
+   644→   644→    "wheel.prizeValue": "Valor do prémio",
+   645→   645→    "wheel.weight": "Peso",
+   646→   646→    "wheel.effectType": "Efeito",
+   647→   647→    "wheel.weightHint": "As percentagens são calculadas a partir dos pesos relativos.",
+   648→   648→    "wheel.loginToSpin": "Inicie sessão para girar a roda",
+   649→   649→    "wheel.errorSpin": "Não foi possível girar a roda. Tente novamente.",
+   650→   650→    "wheel.loading": "A carregar roda…",
+   651→   651→    "wheel.noSegments": "Esta roda não tem segmentos configurados.",
+   652→   652→    "wheel.modeHorizontal": "Layout horizontal",
+   653→   653→    "wheel.modeVertical": "Layout vertical",
+   654→   654→    "millionaire.title": "Quem Quer Ser Milionário?",
+   655→   655→    "millionaire.question": "Pergunta",
+   656→   656→    "millionaire.level": "Nível",
+   657→   657→    "millionaire.timeLeft": "Tempo restante",
+   658→   658→    "millionaire.lifelines": "Ajuda",
+   659→   659→    "millionaire.prizePyramid": "Pirâmide de prémios",
+   660→   660→    "millionaire.correct": "Correto!",
+   661→   661→    "millionaire.wrong": "Resposta errada!",
+   662→   662→    "millionaire.timeout": "Tempo esgotado!",
+   663→   663→    "millionaire.won": "Ganhou!",
+   664→   664→    "millionaire.lost": "Fim de jogo!",
+   665→   665→    "millionaire.tryAgain": "Tentar de novo",
+   666→   666→    "millionaire.exit": "Sair",
+   667→   667→    "millionaire.5050": "50:50",
+   668→   668→    "millionaire.audience": "Audiência",
+   669→   669→    "millionaire.phone": "Telefonar a um amigo",
+   670→   670→    "tryAgain": "Tente de novo!",
+   671→   671→    "loginRequired": "Sessão necessária",
+   672→   672→    "loginToPlay": "Inicie sessão para jogar",
+   673→   673→    "error": "Erro",
+   674→   674→    "youWon": "Ganhou",
+   675→   675→  },
+   676→   676→  "pt-BR": {
+   677→   677→    "nav.raffles": "Sorteios",
+   678→   678→    "nav.contests": "Concursos",
+   679→   679→    "nav.business": "Negócios",
+   680→   680→    "nav.community": "Comunidade",
+   681→   681→    "nav.referral": "Indique e Ganhe",
+   682→   682→    "nav.points": "Pontos",
+   683→   683→    "nav.profile": "Perfil",
+   684→   684→    "nav.dashboard": "Painel",
+   685→   685→    "nav.admin": "Admin",
+   686→   686→    "nav.signout": "Sair",
+   687→   687→    "nav.signin": "Entrar",
+   688→   688→    "nav.signup": "Cadastrar",
+   689→   689→    "nav.notifications": "Notificações",
+   690→   690→    "wheel.title": "Roleta da Sorte",
+   691→   691→    "wheel.win": "Você ganhou!",
+   692→   692→    "wheel.spin": "GIRAR",
+   693→   693→    "wheel.spinning": "...",
+   694→   694→    "wheel.prizes": "Prêmios Disponíveis",
+   695→   695→    "wheel.addPrize": "Adicionar Prêmio",
+   696→   696→    "wheel.config": "Configurar",
+   697→   697→    "wheel.minSegmentsWarning": "⚠️ Para resultados precisos, recomendamos pelo menos 4-6 segmentos na roleta!",
+   698→   698→  },
+   699→   699→  es: {
+   700→   700→    "nav.raffles": "Sorteos",
+   701→   701→    "nav.contests": "Concursos",
+   702→   702→    "nav.business": "Negocios",
+   703→   703→    "nav.community": "Comunidad",
+   704→   704→    "nav.referral": "Invita y Gana",
+   705→   705→    "nav.points": "Puntos",
+   706→   706→    "nav.profile": "Perfil",
+   707→   707→    "nav.dashboard": "Panel",
+   708→   708→    "nav.admin": "Admin",
+   709→   709→    "nav.signout": "Cerrar sesión",
+   710→   710→    "nav.signin": "Iniciar sesión",
+   711→   711→    "nav.signup": "Registrar",
+   712→   712→    "nav.notifications": "Notificaciones",
+   713→   713→    "wheel.title": "Ruleta de la Suerte",
+   714→   714→    "wheel.win": "¡Ganaste!",
+   715→   715→    "wheel.spin": "GIRAR",
+   716→   716→    "wheel.spinning": "...",
+   717→   717→    "wheel.prizes": "Premios Disponibles",
+   718→   718→    "wheel.addPrize": "Agregar Premio",
+   719→   719→    "wheel.config": "Configurar",
+   720→   720→    "wheel.minSegmentsWarning": "⚠️ Para resultados precisos, recomendamos al menos 4-6 segmentos en la ruleta!",
+   721→   721→  },
+   722→   722→  fr: {
+   723→   723→    "nav.raffles": "Tirage",
+   724→   724→    "nav.contests": "Concours",
+   725→   725→    "nav.business": "Entreprises",
+   726→   726→    "nav.community": "Communauté",
+   727→   727→    "nav.referral": "Parrainez et Gagnez",
+   728→   728→    "nav.points": "Points",
+   729→   729→    "nav.profile": "Profil",
+   730→   730→    "nav.dashboard": "Tableau de bord",
+   731→   731→    "nav.admin": "Admin",
+   732→   732→    "nav.signout": "Se déconnecter",
+   733→   733→    "nav.signin": "Se connecter",
+   734→   734→    "nav.signup": "S'inscrire",
+   735→   735→    "nav.notifications": "Notifications",
+   736→   736→    "wheel.title": "Roue de la Fortune",
+   737→   737→    "wheel.win": "Tu as gagné !",
+   738→   738→    "wheel.spin": "TOURNER",
+   739→   739→    "wheel.spinning": "...",
+   740→   740→    "wheel.prizes": "Prix Disponibles",
+   741→   741→    "wheel.addPrize": "Ajouter un Prix",
+   742→   742→    "wheel.config": "Configurer",
+   743→   743→    "wheel.minSegmentsWarning": "⚠️ Pour des résultats précis, nous recommandons au moins 4-6 segments sur la roue !",
+   744→   744→  },
+   745→   745→  hi: {
+   746→   746→    "nav.raffles": "सॉर्टी",
+   747→   747→    "nav.contests": "प्रतियोगिताएं",
+   748→   748→    "nav.business": "व्यवसाय",
+   749→   749→    "nav.community": "समुदाय",
+   750→   750→    "nav.referral": "संदेश दें और जीतें",
+   751→   751→    "nav.points": "अंक",
+   752→   752→    "nav.profile": "प्रोफाइल",
+   753→   753→    "nav.dashboard": "डैशबोर्ड",
+   754→   754→    "nav.admin": "एडमिन",
+   755→   755→    "nav.signout": "साइन आउट",
+   756→   756→    "nav.signin": "साइन इन करें",
+   757→   757→    "nav.signup": "शामिल हों",
+   758→   758→    "nav.notifications": "सूचनाएं",
+   759→   759→    "wheel.title": "भाग्य का पहिया",
+   760→   760→    "wheel.win": "आप जीत गए!",
+   761→   761→    "wheel.spin": "घुमाएं",
+   762→   762→    "wheel.spinning": "...",
+   763→   763→    "wheel.prizes": "उपलब्ध पुरस्कार",
+   764→   764→    "wheel.addPrize": "पुरस्कार जोड़ें",
+   765→   765→    "wheel.config": "कॉन्फ़िगर करें",
+   766→   766→    "wheel.minSegmentsWarning": "⚠️ सटीक परिणामों के लिए, हम पहिये पर कम से कम 4-6 खंडों की सिफारिश करते हैं!",
+   767→   767→  },
+   768→   768→};
+   769→   769→
+   770→   770→interface LanguageContextValue {
+   771→   771→  lang: Lang;
+   772→   772→  setLang: (l: Lang, options?: { explicit?: boolean }) => void;
+   773→   773→  t: (key: string, vars?: Record<string, string>) => string;
+   774→   774→}
+   775→   775→
+   776→   776→const LanguageContext = createContext<LanguageContextValue | null>(null);
+   777→   777→
+   778→   778→function format(template: string, vars?: Record<string, string>) {
+   779→   779→  if (!vars) return template;
+   780→   780→  return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
+   781→   781→}
+   782→   782→
+   783→   783→const SUPPORTED: Lang[] = ["en", "pt", "pt-BR", "es", "fr", "hi"];
+   784→   784→
+   785→   785→export function LanguageProvider({ children }: { children: ReactNode }) {
+   786→   786→  // English is the universal default. Only honor an explicit non-English pick
+   787→   787→  // made via the in-app switcher (tracked with `bateu_lang_explicit`). Legacy
+   788→   788→  // PT defaults from previous releases are reset to English automatically.
+   789→   789→  const [lang, setLangState] = useState<Lang>(() => {
+   790→   790→    if (typeof window === "undefined") return "en";
+   791→   791→    const explicit = localStorage.getItem("bateu_lang_explicit") === "1";
+   792→   792→    const stored = localStorage.getItem("bateu_lang") as Lang | null;
+   793→   793→    if (explicit && stored && SUPPORTED.includes(stored)) return stored;
+   794→   794→    return resolveLangFromCountry(getStoredCountry());
+   795→   795→  });
+   796→   796→
+   797→   797→  useEffect(() => {
+   798→   798→    localStorage.setItem("bateu_lang", lang);
+   799→   799→    document.documentElement.lang = lang;
+   800→   800→  }, [lang]);
+   801→   801→
+   802→   802→  const setLang = (l: Lang, options?: { explicit?: boolean }) => {
+   803→   803→    if (!SUPPORTED.includes(l)) return;
+   804→   804→    setLangState(l);
+   805→   805→    if (typeof window !== "undefined" && options?.explicit !== false) {
+   806→   806→      localStorage.setItem("bateu_lang_explicit", "1");
+   807→   807→    }
+   808→   808→  };
+   809→   809→
+   810→   810→  const t = (key: string, vars?: Record<string, string>) => {
+   811→   811→    // Prioritize the currently SELECTED LANGUAGE first, then English as fallback, then PT
+   812→   812→    const en = translations.en!;
+   813→   813→    const dict = translations[lang] ?? en;
+   814→   814→    const value = dict[key] ?? en[key] ?? translations.pt?.[key] ?? key;
+   815→   815→    return format(value, vars);
+   816→   816→  };
+   817→   817→
+   818→   818→  return (
+   819→   819→    <LanguageContext.Provider value={{ lang, setLang, t }}>
+   820→   820→      {children}
+   821→   821→    </LanguageContext.Provider>
+   822→   822→  );
+   823→   823→}
+   824→   824→
+   825→   825→export function useLanguage() {
+   826→   826→  const ctx = useContext(LanguageContext);
+   827→   827→  if (!ctx) {
+   828→   828→    return {
+   829→   829→      lang: "en" as Lang,
+   830→   830→      setLang: () => {},
+   831→   831→      t: (k: string, vars?: Record<string, string>) =>
+   832→   832→        format(translations.en?.[k] ?? k, vars),
+   833→   833→    };
+   834→   834→  }
+   835→   835→  return ctx;
+   836→   836→}
+   837→   837→
+   838→   838→

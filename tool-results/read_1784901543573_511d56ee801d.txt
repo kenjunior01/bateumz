@@ -1,0 +1,513 @@
+     1→import { useEffect, useMemo, useState } from "react";
+     2→import { Link } from "react-router-dom";
+     3→import { Radio, ExternalLink, Save, RotateCcw, Plus, Trash2, Sparkles, Trophy, Users, Eye, Sliders, Search, Vote, Zap, Brain, Package, Loader2, Gamepad2 } from "lucide-react";
+     4→
+     5→import { Input } from "@/components/ui/input";
+     6→import { Label } from "@/components/ui/label";
+     7→import { Slider } from "@/components/ui/slider";
+     8→import { Textarea } from "@/components/ui/textarea";
+     9→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    10→import { useToast } from "@/hooks/use-toast";
+    11→import { DEFAULT_CONFIG, LiveGameConfig } from "@/components/livegames/LiveGameSettings";
+    12→import { DEFAULT_WHEEL_PRIZES, WheelPrize } from "@/components/livegames/PrizeWheel";
+    13→import { publish } from "@/lib/liveBus";
+    14→import { supabase } from "@/integrations/supabase/client";
+    15→import { useAuth } from "@/contexts/AuthContext";
+    16→
+    17→const GAME_OPTIONS: { id: string; label: string; emoji: string }[] = [
+    18→  { id: "wheel", label: "Roda de Prémios", emoji: "🎰" },
+    19→  { id: "keyword", label: "Caça à Palavra", emoji: "🔎" },
+    20→  { id: "emoji", label: "Batalha de Emojis", emoji: "💥" },
+    21→  { id: "tap", label: "Tap Battle", emoji: "⚡" },
+    22→  { id: "quiz", label: "Quiz Battle", emoji: "🧠" },
+    23→  { id: "mystery", label: "Caixa Misteriosa", emoji: "🎁" },
+    24→  { id: "penalty", label: "Penalty Shootout", emoji: "🎯" },
+    25→  { id: "worldcup", label: "World Cup Predictor", emoji: "🌍" },
+    26→  { id: "millionaire", label: "Quem Quer Ser Milionário", emoji: "🤑" },
+    27→];
+    28→
+    29→type EmojiOpt = { id: string; emoji: string; label: string };
+    30→type KeywordCfg = { keyword: string; clue: string; points: number };
+    31→
+    32→interface MillionaireGame {
+    33→  id: string;
+    34→  name: string;
+    35→  is_published: boolean;
+    36→  created_at: string;
+    37→}
+    38→
+    39→interface SpinWheelGame {
+    40→  id: string;
+    41→  name: string;
+    42→  is_published: boolean;
+    43→  created_at: string;
+    44→}
+    45→
+    46→const DEFAULT_EMOJI: EmojiOpt[] = [
+    47→  { id: "a", emoji: "🔥", label: "Opção A" },
+    48→  { id: "b", emoji: "❤️", label: "Opção B" },
+    49→  { id: "c", emoji: "⭐", label: "Opção C" },
+    50→];
+    51→const DEFAULT_KEYWORD: KeywordCfg = { keyword: "BATEU", clue: "Sinónimo de 'acertou' em moçambicano 😉", points: 100 };
+    52→
+    53→const readJSON = <T,>(key: string, fallback: T): T => {
+    54→  try { const s = localStorage.getItem(key); return s ? { ...(fallback as any), ...JSON.parse(s) } as T : fallback; }
+    55→  catch { return fallback; }
+    56→};
+    57→const readArr = <T,>(key: string, fallback: T[]): T[] => {
+    58→  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
+    59→  catch { return fallback; }
+    60→};
+    61→
+    62→const DashboardLiveGames = () => {
+    63→  const { toast } = useToast();
+    64→  const { user } = useAuth();
+    65→  const [config, setConfig] = useState<LiveGameConfig>(() => readJSON("liveGameConfig", DEFAULT_CONFIG));
+    66→  const [wheel, setWheel] = useState<WheelPrize[]>(() => readArr("liveWheelPrizes", DEFAULT_WHEEL_PRIZES));
+    67→  const [emojis, setEmojis] = useState<EmojiOpt[]>(() => readArr("liveEmojiOptions", DEFAULT_EMOJI));
+    68→  const [keyword, setKeyword] = useState<KeywordCfg>(() => readJSON("liveKeywordConfig", DEFAULT_KEYWORD));
+    69→  const [activeGame, setActiveGame] = useState<string>(() => {
+    70→    try { return localStorage.getItem("liveActiveGame") || "wheel"; } catch { return "wheel"; }
+    71→  });
+    72→  const [millionaireGames, setMillionaireGames] = useState<MillionaireGame[]>([]);
+    73→  const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGame[]>([]);
+    74→  const [loadingDbGames, setLoadingDbGames] = useState(false);
+    75→
+    76→  const totalWeight = useMemo(() => wheel.reduce((s, p) => s + Math.max(0, p.weight || 0), 0), [wheel]);
+    77→
+    78→  const persist = (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+    79→
+    80→  const setAndBroadcastActive = (id: string) => {
+    81→    setActiveGame(id);
+    82→    try { localStorage.setItem("liveActiveGame", id); } catch {}
+    83→    publish({ type: "activeGame", payload: id });
+    84→    toast({ title: "Jogo ativo aplicado", description: `O Live Hub vai mudar para ${GAME_OPTIONS.find(g => g.id === id)?.label}.` });
+    85→  };
+    86→
+    87→  const saveAll = () => {
+    88→    persist("liveGameConfig", config);
+    89→    persist("liveWheelPrizes", wheel);
+    90→    persist("liveEmojiOptions", emojis);
+    91→    persist("liveKeywordConfig", keyword);
+    92→    toast({ title: "Configurações guardadas", description: "Os jogos da próxima live já vão usar estas regras." });
+    93→  };
+    94→
+    95→  const resetAll = () => {
+    96→    setConfig(DEFAULT_CONFIG);
+    97→    setWheel(DEFAULT_WHEEL_PRIZES);
+    98→    setEmojis(DEFAULT_EMOJI);
+    99→    setKeyword(DEFAULT_KEYWORD);
+   100→    toast({ title: "Padrões repostos" });
+   101→  };
+   102→
+   103→  // Auto-persist incrementally so other tabs (Live Hub) get the latest
+   104→  useEffect(() => persist("liveGameConfig", config), [config]);
+   105→  useEffect(() => persist("liveWheelPrizes", wheel), [wheel]);
+   106→  useEffect(() => persist("liveEmojiOptions", emojis), [emojis]);
+   107→  useEffect(() => persist("liveKeywordConfig", keyword), [keyword]);
+   108→
+   109→  const addWheelPrize = () => setWheel((p) => [...p, { id: Math.random().toString(36).slice(2, 7), label: "Novo prémio", color: "#22c55e", weight: 10 }]);
+   110→  const updWheel = (id: string, patch: Partial<WheelPrize>) => setWheel((p) => p.map((x) => x.id === id ? { ...x, ...patch } : x));
+   111→  const rmWheel = (id: string) => setWheel((p) => p.filter((x) => x.id !== id));
+   112→
+   113→  const addEmoji = () => emojis.length < 6 && setEmojis((p) => [...p, { id: Math.random().toString(36).slice(2, 6), emoji: "✨", label: `Opção ${String.fromCharCode(65 + p.length)}` }]);
+   114→  const updEmoji = (id: string, patch: Partial<EmojiOpt>) => setEmojis((p) => p.map((x) => x.id === id ? { ...x, ...patch } : x));
+   115→  const rmEmoji = (id: string) => setEmojis((p) => p.filter((x) => x.id !== id));
+   116→
+   117→  // Load DB-backed games
+   118→  useEffect(() => {
+   119→    const loadDbGames = async () => {
+   120→      setLoadingDbGames(true);
+   121→      try {
+   122→        let millQuery = supabase
+   123→          .from("millionaire_games")
+   124→          .select("id, name, is_published, created_at")
+   125→          .order("created_at", { ascending: false });
+   126→        let spinQuery = supabase
+   127→          .from("spin_wheel_games")
+   128→          .select("id, name, is_published, created_at")
+   129→          .order("created_at", { ascending: false });
+   130→
+   131→        if (user?.id) {
+   132→          millQuery = millQuery.eq("created_by", user.id);
+   133→          spinQuery = spinQuery.eq("created_by", user.id);
+   134→        } else {
+   135→          millQuery = millQuery.eq("is_published", true);
+   136→          spinQuery = spinQuery.eq("is_published", true);
+   137→        }
+   138→
+   139→        const [millRes, spinRes] = await Promise.all([millQuery, spinQuery]);
+   140→
+   141→        setMillionaireGames(millRes.data || []);
+   142→        setSpinWheelGames(spinRes.data || []);
+   143→      } catch (error) {
+   144→        console.error("Error loading DB games:", error);
+   145→        toast({ title: "Erro ao carregar jogos", description: "Não foi possível carregar os jogos de base de dados.", variant: "destructive" });
+   146→      } finally {
+   147→        setLoadingDbGames(false);
+   148→      }
+   149→    };
+   150→
+   151→    loadDbGames();
+   152→  }, [toast, user?.id]);
+   153→
+   154→  useEffect(() => { document.title = "Jogos da Live · Dashboard | Bateu"; }, []);
+   155→
+   156→  return (
+   157→    <div className="space-y-6">
+   158→
+   159→      {/* Header */}
+   160→      <header className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-card to-accent/5 p-5 md:p-7">
+   161→        <div className="flex flex-col md:flex-row md:items-center gap-4">
+   162→          <div className="flex-1">
+   163→            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold mb-2">
+   164→              <Radio className="h-3.5 w-3.5 animate-pulse" /> JOGOS DE LIVE
+   165→            </div>
+   166→            <h1 className="font-display text-2xl md:text-3xl font-bold">Configurar Jogos da sua Live</h1>
+   167→            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   168→              Personalize cada jogo como faria num concurso ou sorteio. As regras são aplicadas automaticamente ao iniciar uma live no Live Hub.
+   169→            </p>
+   170→          </div>
+   171→          <div className="flex flex-wrap gap-2">
+   172→            <Link to="/dashboard/millionaire-manager" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90">
+   173→              <Plus className="h-4 w-4" /> Gerir Milionário
+   174→            </Link>
+   175→            <Link to="/dashboard/spin-wheel-manager" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90">
+   176→              <Plus className="h-4 w-4" /> Gerir Roda da Sorte
+   177→            </Link>
+   178→            <button onClick={saveAll} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border text-sm font-medium hover:bg-secondary">
+   179→              <Save className="h-4 w-4" /> Guardar tudo
+   180→            </button>
+   181→            <button onClick={resetAll} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-foreground text-sm font-medium">
+   182→              <RotateCcw className="h-4 w-4" /> Repor padrões
+   183→            </button>
+   184→            <Link to="/lives" target="_blank" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border text-sm font-medium hover:bg-secondary">
+   185→              <ExternalLink className="h-4 w-4" /> Abrir Live Hub
+   186→            </Link>
+   187→          </div>
+   188→        </div>
+   189→      </header>
+   190→
+   191→      {/* Quick stats — feels like a contest dashboard */}
+   192→      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   193→        {[
+   194→          { icon: Trophy, label: "Jogos disponíveis", value: GAME_OPTIONS.length + millionaireGames.length + spinWheelGames.length, hint: `${GAME_OPTIONS.length} locais + ${millionaireGames.length} Milionário + ${spinWheelGames.length} Roda` },
+   195→          { icon: Sparkles, label: "Prémios na roda", value: wheel.length, hint: `${totalWeight} pts peso total` },
+   196→          { icon: Vote, label: "Opções de emoji", value: emojis.length, hint: "Máx. 6" },
+   197→          { icon: Users, label: "Modo multi-jogador", value: "✓", hint: "Tap & Quiz" },
+   198→        ].map((s, i) => (
+   199→          <div key={i} className="rounded-2xl border border-border bg-card p-4">
+   200→            <s.icon className="h-4 w-4 text-primary mb-2" />
+   201→            <p className="font-display text-xl font-bold">{s.value}</p>
+   202→            <p className="text-[11px] text-muted-foreground">{s.label}</p>
+   203→            <p className="text-[10px] text-muted-foreground/70 mt-0.5">{s.hint}</p>
+   204→          </div>
+   205→        ))}
+   206→      </section>
+   207→
+   208→      {/* Jogo ativo no momento — aplica imediatamente no Live Hub */}
+   209→      <section className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-card p-5">
+   210→        <div className="flex items-start justify-between gap-3 mb-3">
+   211→          <div>
+   212→            <div className="inline-flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
+   213→              <Radio className="h-3 w-3 animate-pulse" /> Ao vivo agora
+   214→            </div>
+   215→            <h3 className="font-display text-lg font-bold">Jogo ativo no momento</h3>
+   216→            <p className="text-xs text-muted-foreground">
+   217→              O Live Hub e o overlay vão mudar automaticamente para este jogo. Resumo visível para o anfitrião.
+   218→            </p>
+   219→          </div>
+   220→          <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold whitespace-nowrap">
+   221→            {GAME_OPTIONS.find(g => g.id === activeGame)?.emoji} {GAME_OPTIONS.find(g => g.id === activeGame)?.label}
+   222→          </span>
+   223→        </div>
+   224→        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+   225→          {GAME_OPTIONS.map((g) => (
+   226→            <button
+   227→              key={g.id}
+   228→              onClick={() => setAndBroadcastActive(g.id)}
+   229→              className={`p-3 rounded-xl border-2 text-center transition-all ${
+   230→                activeGame === g.id
+   231→                  ? "border-primary bg-primary/10 shadow-md"
+   232→                  : "border-border bg-card hover:border-primary/40"
+   233→              }`}
+   234→            >
+   235→              <div className="text-2xl mb-1">{g.emoji}</div>
+   236→              <p className="text-[10px] font-bold leading-tight">{g.label}</p>
+   237→            </button>
+   238→          ))}
+   239→        </div>
+   240→      </section>
+   241→
+   242→      {/* DB-Backed Games Section */}
+   243→      <section className="rounded-2xl border border-border bg-card p-5">
+   244→        <div className="flex items-start justify-between gap-3 mb-4">
+   245→          <div>
+   246→            <div className="inline-flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-wider mb-1">
+   247→              <Gamepad2 className="h-3 w-3" /> Jogos de Base de Dados
+   248→            </div>
+   249→            <h3 className="font-display text-lg font-bold">Jogos Publicados</h3>
+   250→            <p className="text-xs text-muted-foreground">
+   251→              Os seus jogos criados no painel. Clique para jogar ou pré-visualizar.
+   252→            </p>
+   253→          </div>
+   254→        </div>
+   255→
+   256→        {loadingDbGames ? (
+   257→          <div className="flex justify-center py-8">
+   258→            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+   259→          </div>
+   260→        ) : (
+   261→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   262→            {/* Millionaire Games */}
+   263→            <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+   264→              <h4 className="font-display font-bold text-sm mb-3 flex items-center gap-2">
+   265→                <span className="text-lg">🤑</span> Milionário ({millionaireGames.length})
+   266→              </h4>
+   267→              {millionaireGames.length === 0 ? (
+   268→                <p className="text-xs text-muted-foreground">Nenhum jogo criado ainda</p>
+   269→              ) : (
+   270→                <div className="space-y-2">
+   271→                  {millionaireGames.map((game) => (
+   272→                    <Link
+   273→                      key={game.id}
+   274→                      to={`/games/millionaire/${game.id}`}
+   275→                      target="_blank"
+   276→                      className="block p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors text-sm font-medium text-foreground"
+   277→                    >
+   278→                      <div className="flex items-center justify-between gap-2">
+   279→                        <span className="truncate">{game.name}</span>
+   280→                        <div className="flex items-center gap-2 shrink-0">
+   281→                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${game.is_published ? "bg-green-500/20 text-green-600" : "bg-muted text-muted-foreground"}`}>
+   282→                            {game.is_published ? "Publicado" : "Rascunho"}
+   283→                          </span>
+   284→                          <ExternalLink className="h-3.5 w-3.5 text-primary" />
+   285→                        </div>
+   286→                      </div>
+   287→                    </Link>
+   288→                  ))}
+   289→                </div>
+   290→              )}
+   291→            </div>
+   292→
+   293→            {/* Spin Wheel Games */}
+   294→            <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+   295→              <h4 className="font-display font-bold text-sm mb-3 flex items-center gap-2">
+   296→                <span className="text-lg">🎡</span> Roda da Sorte ({spinWheelGames.length})
+   297→              </h4>
+   298→              {spinWheelGames.length === 0 ? (
+   299→                <p className="text-xs text-muted-foreground">Nenhum jogo criado ainda</p>
+   300→              ) : (
+   301→                <div className="space-y-2">
+   302→                  {spinWheelGames.map((game) => (
+   303→                    <Link
+   304→                      key={game.id}
+   305→                      to={`/games/spin-wheel/${game.id}`}
+   306→                      target="_blank"
+   307→                      className="block p-3 rounded-lg bg-accent/10 border border-accent/20 hover:bg-accent/20 transition-colors text-sm font-medium text-foreground"
+   308→                    >
+   309→                      <div className="flex items-center justify-between gap-2">
+   310→                        <span className="truncate">{game.name}</span>
+   311→                        <div className="flex items-center gap-2 shrink-0">
+   312→                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${game.is_published ? "bg-green-500/20 text-green-600" : "bg-muted text-muted-foreground"}`}>
+   313→                            {game.is_published ? "Publicado" : "Rascunho"}
+   314→                          </span>
+   315→                          <ExternalLink className="h-3.5 w-3.5 text-accent" />
+   316→                        </div>
+   317→                      </div>
+   318→                    </Link>
+   319→                  ))}
+   320→                </div>
+   321→              )}
+   322→            </div>
+   323→          </div>
+   324→        )}
+   325→
+   326→        <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2">
+   327→          <Eye className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+   328→          <p className="text-xs text-muted-foreground">
+   329→            Gerencie os seus jogos no{" "}
+   330→            <Link to="/dashboard/millionaire-manager" className="text-primary hover:underline">
+   331→              Painel Milionário
+   332→            </Link>
+   333→            {" "}ou{" "}
+   334→            <Link to="/dashboard/spin-wheel-manager" className="text-primary hover:underline">
+   335→              Painel Roda da Sorte
+   336→            </Link>
+   337→            .
+   338→          </p>
+   339→        </div>
+   340→      </section>
+   341→
+   342→      {/* Tabs per game */}
+   343→      <Tabs defaultValue="wheel" className="w-full">
+   344→        <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1 bg-secondary">
+   345→          <TabsTrigger value="wheel" className="text-xs"><Sliders className="h-3.5 w-3.5 mr-1.5" />Roda</TabsTrigger>
+   346→          <TabsTrigger value="keyword" className="text-xs"><Search className="h-3.5 w-3.5 mr-1.5" />Palavra</TabsTrigger>
+   347→          <TabsTrigger value="emoji" className="text-xs"><Vote className="h-3.5 w-3.5 mr-1.5" />Emojis</TabsTrigger>
+   348→          <TabsTrigger value="tap" className="text-xs"><Zap className="h-3.5 w-3.5 mr-1.5" />Tap</TabsTrigger>
+   349→          <TabsTrigger value="quiz" className="text-xs"><Brain className="h-3.5 w-3.5 mr-1.5" />Quiz</TabsTrigger>
+   350→          <TabsTrigger value="mystery" className="text-xs"><Package className="h-3.5 w-3.5 mr-1.5" />Caixa</TabsTrigger>
+   351→        </TabsList>
+   352→
+   353→        {/* Roda */}
+   354→        <TabsContent value="wheel" className="mt-4">
+   355→          <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+   356→            <div className="flex items-center justify-between">
+   357→              <div>
+   358→                <h3 className="font-display text-lg font-bold">Roda de Prémios</h3>
+   359→                <p className="text-xs text-muted-foreground">Defina prémios e o peso (probabilidade relativa) de cada um.</p>
+   360→              </div>
+   361→              <button onClick={addWheelPrize} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+   362→                <Plus className="h-3.5 w-3.5" /> Adicionar prémio
+   363→              </button>
+   364→            </div>
+   365→
+   366→            <div className="space-y-2">
+   367→              {wheel.map((p) => {
+   368→                const pct = totalWeight ? (Math.max(0, p.weight) / totalWeight) * 100 : 0;
+   369→                return (
+   370→                  <div key={p.id} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-border p-2.5 bg-background/50">
+   371→                    <input type="color" value={p.color} onChange={(e) => updWheel(p.id, { color: e.target.value })}
+   372→                      className="col-span-1 h-9 w-9 rounded-md border border-border bg-transparent cursor-pointer" />
+   373→                    <Input value={p.label} onChange={(e) => updWheel(p.id, { label: e.target.value.slice(0, 40) })}
+   374→                      maxLength={40} placeholder="Nome do prémio" className="col-span-5 h-9 text-xs" />
+   375→                    <Input type="number" min={0} max={1000} value={p.weight}
+   376→                      onChange={(e) => updWheel(p.id, { weight: Math.max(0, Number(e.target.value) || 0) })}
+   377→                      className="col-span-2 h-9 text-xs" />
+   378→                    <span className="col-span-3 text-[11px] text-muted-foreground text-right">{pct.toFixed(1)}% chance</span>
+   379→                    <button onClick={() => rmWheel(p.id)} className="col-span-1 p-2 rounded-md text-destructive hover:bg-destructive/10">
+   380→                      <Trash2 className="h-4 w-4 mx-auto" />
+   381→                    </button>
+   382→                  </div>
+   383→                );
+   384→              })}
+   385→            </div>
+   386→          </div>
+   387→        </TabsContent>
+   388→
+   389→        {/* Palavra-chave */}
+   390→        <TabsContent value="keyword" className="mt-4">
+   391→          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+   392→            <div>
+   393→              <h3 className="font-display text-lg font-bold">Caça à Palavra-Chave</h3>
+   394→              <p className="text-xs text-muted-foreground">A audiência adivinha a palavra com base na pista. O primeiro a acertar vence.</p>
+   395→            </div>
+   396→            <div className="grid md:grid-cols-2 gap-3">
+   397→              <div>
+   398→                <Label className="text-xs">Palavra-chave secreta</Label>
+   399→                <Input value={keyword.keyword} maxLength={40}
+   400→                  onChange={(e) => setKeyword({ ...keyword, keyword: e.target.value.slice(0, 40) })}
+   401→                  className="mt-1" placeholder="Ex: BATEU" />
+   402→              </div>
+   403→              <div>
+   404→                <Label className="text-xs">Pontos para o vencedor: {keyword.points}</Label>
+   405→                <Slider min={10} max={500} step={10} value={[keyword.points]}
+   406→                  onValueChange={([v]) => setKeyword({ ...keyword, points: v })} className="mt-3" />
+   407→              </div>
+   408→              <div className="md:col-span-2">
+   409→                <Label className="text-xs">Pista para a audiência</Label>
+   410→                <Textarea value={keyword.clue} maxLength={240} rows={3}
+   411→                  onChange={(e) => setKeyword({ ...keyword, clue: e.target.value.slice(0, 240) })}
+   412→                  className="mt-1" />
+   413→                <p className="text-[10px] text-muted-foreground mt-1">{keyword.clue.length}/240 caracteres</p>
+   414→              </div>
+   415→            </div>
+   416→          </div>
+   417→        </TabsContent>
+   418→
+   419→        {/* Emojis */}
+   420→        <TabsContent value="emoji" className="mt-4">
+   421→          <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+   422→            <div className="flex items-center justify-between">
+   423→              <div>
+   424→                <h3 className="font-display text-lg font-bold">Batalha de Emojis</h3>
+   425→                <p className="text-xs text-muted-foreground">Defina até 6 opções de votação. Os votantes do vencedor entram no sorteio.</p>
+   426→              </div>
+   427→              <button onClick={addEmoji} disabled={emojis.length >= 6}
+   428→                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">
+   429→                <Plus className="h-3.5 w-3.5" /> Adicionar opção
+   430→              </button>
+   431→            </div>
+   432→            <div className="space-y-2">
+   433→              {emojis.map((o) => (
+   434→                <div key={o.id} className="flex items-center gap-2 rounded-xl border border-border p-2.5 bg-background/50">
+   435→                  <Input value={o.emoji} maxLength={4} onChange={(e) => updEmoji(o.id, { emoji: e.target.value })}
+   436→                    className="w-16 h-9 text-center text-lg" />
+   437→                  <Input value={o.label} maxLength={40} onChange={(e) => updEmoji(o.id, { label: e.target.value.slice(0, 40) })}
+   438→                    className="flex-1 h-9 text-xs" placeholder="Etiqueta" />
+   439→                  <button onClick={() => rmEmoji(o.id)} className="p-2 rounded-md text-destructive hover:bg-destructive/10">
+   440→                    <Trash2 className="h-4 w-4" />
+   441→                  </button>
+   442→                </div>
+   443→              ))}
+   444→            </div>
+   445→          </div>
+   446→        </TabsContent>
+   447→
+   448→        {/* Tap */}
+   449→        <TabsContent value="tap" className="mt-4">
+   450→          <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+   451→            <h3 className="font-display text-lg font-bold">Tap Battle</h3>
+   452→            <div>
+   453→              <Label className="text-xs">Duração da rodada: {config.tapDuration}s</Label>
+   454→              <Slider min={3} max={15} step={1} value={[config.tapDuration]}
+   455→                onValueChange={([v]) => setConfig({ ...config, tapDuration: v })} className="mt-2" />
+   456→            </div>
+   457→          </div>
+   458→        </TabsContent>
+   459→
+   460→        {/* Quiz */}
+   461→        <TabsContent value="quiz" className="mt-4">
+   462→          <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+   463→            <h3 className="font-display text-lg font-bold">Quiz Battle</h3>
+   464→            <div>
+   465→              <Label className="text-xs">Número de perguntas: {config.quizQuestions}</Label>
+   466→              <Slider min={3} max={10} step={1} value={[config.quizQuestions]}
+   467→                onValueChange={([v]) => setConfig({ ...config, quizQuestions: v })} className="mt-2" />
+   468→            </div>
+   469→            <div>
+   470→              <Label className="text-xs">Tempo por pergunta: {config.quizTimePerQ}s</Label>
+   471→              <Slider min={5} max={20} step={1} value={[config.quizTimePerQ]}
+   472→                onValueChange={([v]) => setConfig({ ...config, quizTimePerQ: v })} className="mt-2" />
+   473→            </div>
+   474→          </div>
+   475→        </TabsContent>
+   476→
+   477→        {/* Mystery */}
+   478→        <TabsContent value="mystery" className="mt-4">
+   479→          <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+   480→            <h3 className="font-display text-lg font-bold">Caixa Misteriosa — Probabilidades</h3>
+   481→            <p className="text-[11px] text-muted-foreground">A soma é normalizada automaticamente.</p>
+   482→            <div>
+   483→              <Label className="text-xs">Prémio Alto: {(config.mysteryHigh * 100).toFixed(0)}%</Label>
+   484→              <Slider min={0} max={1} step={0.05} value={[config.mysteryHigh]}
+   485→                onValueChange={([v]) => setConfig({ ...config, mysteryHigh: v })} className="mt-2" />
+   486→            </div>
+   487→            <div>
+   488→              <Label className="text-xs">Prémio Baixo: {(config.mysteryLow * 100).toFixed(0)}%</Label>
+   489→              <Slider min={0} max={1} step={0.05} value={[config.mysteryLow]}
+   490→                onValueChange={([v]) => setConfig({ ...config, mysteryLow: v })} className="mt-2" />
+   491→            </div>
+   492→            <div>
+   493→              <Label className="text-xs">Sem Prémio: {(config.mysteryNone * 100).toFixed(0)}%</Label>
+   494→              <Slider min={0} max={1} step={0.05} value={[config.mysteryNone]}
+   495→                onValueChange={([v]) => setConfig({ ...config, mysteryNone: v })} className="mt-2" />
+   496→            </div>
+   497→          </div>
+   498→        </TabsContent>
+   499→      </Tabs>
+   500→
+   501→      {/* Tip */}
+   502→      <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 flex items-start gap-3">
+   503→        <Eye className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+   504→        <p className="text-xs text-muted-foreground">
+   505→          Depois de guardar, abra o <strong>Live Hub</strong> para iniciar uma live com o código gerado e use o overlay como Browser Source no OBS.
+   506→        </p>
+   507→      </div>
+   508→    </div>
+   509→  );
+   510→};
+   511→
+   512→export default DashboardLiveGames;
+   513→
