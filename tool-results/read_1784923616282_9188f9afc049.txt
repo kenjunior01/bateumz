@@ -1,0 +1,609 @@
+     1→import { useState } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import {
+     4→  Trophy, Mail, Lock, User, Building2, ArrowLeft, Gift, Phone, MapPin,
+     5→  Sparkles, PartyPopper, Rocket, ChevronRight, ChevronLeft, Heart, Star, Check,
+     6→} from "lucide-react";
+     7→import { useAuth } from "@/contexts/AuthContext";
+     8→import { useNavigate, Link, useSearchParams } from "react-router-dom";
+     9→import { supabase } from "@/integrations/supabase/client";
+    10→import { lovable } from "@/integrations/lovable/index";
+    11→import { Button } from "@/components/ui/button";
+    12→import { PROVINCES, CITIES_BY_PROVINCE } from "@/lib/provinces";
+    13→import { COUNTRIES, getRegions } from "@/lib/regions";
+    14→import { playPopSound } from "@/lib/sounds";
+    15→
+    16→import mascotHappy from "@/assets/mascot-happy.png";
+    17→import mascotExcited from "@/assets/mascot-excited.png";
+    18→import mascotWinner from "@/assets/mascot-winner.png";
+    19→
+    20→const STEP_COUNT = 4;
+    21→
+    22→const INTERESTS = [
+    23→  { id: "tech", label: "📱 Tecnologia", emoji: "📱" },
+    24→  { id: "fashion", label: "👗 Moda", emoji: "👗" },
+    25→  { id: "travel", label: "✈️ Viagens", emoji: "✈️" },
+    26→  { id: "sports", label: "⚽ Desporto", emoji: "⚽" },
+    27→  { id: "food", label: "🍕 Comida", emoji: "🍕" },
+    28→  { id: "music", label: "🎵 Música", emoji: "🎵" },
+    29→  { id: "gaming", label: "🎮 Jogos", emoji: "🎮" },
+    30→  { id: "beauty", label: "💄 Beleza", emoji: "💄" },
+    31→  { id: "cars", label: "🚗 Carros", emoji: "🚗" },
+    32→  { id: "home", label: "🏠 Casa", emoji: "🏠" },
+    33→  { id: "health", label: "💪 Saúde", emoji: "💪" },
+    34→  { id: "education", label: "📚 Educação", emoji: "📚" },
+    35→];
+    36→
+    37→const CONFETTI_EMOJIS = ["🎉", "🎊", "✨", "🌟", "🎈", "🎁", "🏆", "💎"];
+    38→
+    39→function ConfettiParticle({ emoji, delay }: { emoji: string; delay: number }) {
+    40→  return (
+    41→    <motion.span
+    42→      className="absolute text-2xl pointer-events-none"
+    43→      initial={{ x: Math.random() * 300 - 150, y: -20, opacity: 1, rotate: 0 }}
+    44→      animate={{ y: 400, opacity: 0, rotate: Math.random() * 360 }}
+    45→      transition={{ duration: 2 + Math.random(), delay, ease: "easeIn" }}
+    46→    >
+    47→      {emoji}
+    48→    </motion.span>
+    49→  );
+    50→}
+    51→
+    52→const stepVariants = {
+    53→  enter: (direction: number) => ({ x: direction > 0 ? 200 : -200, opacity: 0 }),
+    54→  center: { x: 0, opacity: 1 },
+    55→  exit: (direction: number) => ({ x: direction > 0 ? -200 : 200, opacity: 0 }),
+    56→};
+    57→
+    58→export default function Register() {
+    59→  const { signUp } = useAuth();
+    60→  const navigate = useNavigate();
+    61→  const [step, setStep] = useState(0);
+    62→  const [direction, setDirection] = useState(1);
+    63→  const [accountType, setAccountType] = useState<"user" | "business">("user");
+    64→  const [name, setName] = useState("");
+    65→  const [companyName, setCompanyName] = useState("");
+    66→  const [email, setEmail] = useState("");
+    67→  const [password, setPassword] = useState("");
+    68→  const [phone, setPhone] = useState("");
+    69→  const [country, setCountry] = useState("MZ");
+    70→  const [province, setProvince] = useState("");
+    71→  const [city, setCity] = useState("");
+    72→  const [interests, setInterests] = useState<string[]>([]);
+    73→  const [error, setError] = useState("");
+    74→  const [loading, setLoading] = useState(false);
+    75→  const [success, setSuccess] = useState(false);
+    76→  const [googleLoading, setGoogleLoading] = useState(false);
+    77→  const [searchParams] = useSearchParams();
+    78→  const refCode = searchParams.get("ref") || "";
+    79→
+    80→  const goNext = () => {
+    81→    setDirection(1);
+    82→    setStep(s => Math.min(s + 1, STEP_COUNT - 1));
+    83→    playPopSound();
+    84→  };
+    85→  const goBack = () => {
+    86→    setDirection(-1);
+    87→    setStep(s => Math.max(s - 1, 0));
+    88→  };
+    89→
+    90→  const toggleInterest = (id: string) => {
+    91→    setInterests(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    92→    playPopSound();
+    93→  };
+    94→
+    95→  const passwordStrong = (pw: string) =>
+    96→    pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw);
+    97→
+    98→  const canProceed = () => {
+    99→    if (step === 0) return accountType !== null;
+   100→    if (step === 1)
+   101→      return (
+   102→        name.length >= 2 &&
+   103→        email.includes("@") &&
+   104→        passwordStrong(password) &&
+   105→        (accountType !== "business" || companyName.trim().length >= 2)
+   106→      );
+   107→    if (step === 2) return true; // optional data
+   108→    if (step === 3) return true; // interests are optional
+   109→    return true;
+   110→  };
+   111→
+   112→  const friendlyAuthError = (raw: string) => {
+   113→    const m = (raw || "").toLowerCase();
+   114→    if (m.includes("weak") || m.includes("pwned") || m.includes("known to be"))
+   115→      return "Essa senha é demasiado comum ou já foi exposta em fugas de dados. Usa uma combinação única de letras, números e símbolos (mínimo 8 caracteres).";
+   116→    if (m.includes("already registered") || m.includes("already been registered") || m.includes("user already"))
+   117→      return "Já existe uma conta com este email. Tenta entrar ou usa outro email.";
+   118→    if (m.includes("invalid email")) return "Email inválido. Verifica o endereço.";
+   119→    if (m.includes("rate limit")) return "Demasiadas tentativas. Aguarda alguns segundos e tenta novamente.";
+   120→    if (m.includes("password should be at least")) return "A senha deve ter no mínimo 8 caracteres.";
+   121→    return raw || "Não foi possível criar a conta. Tenta novamente.";
+   122→  };
+   123→
+   124→  const handleSubmit = async () => {
+   125→    setError("");
+   126→    if (!passwordStrong(password)) {
+   127→      setError("A senha precisa de pelo menos 8 caracteres, com letras e números.");
+   128→      setDirection(-1);
+   129→      setStep(1);
+   130→      return;
+   131→    }
+   132→    setLoading(true);
+   133→    const { error } = await signUp(email, password, {
+   134→      display_name: name,
+   135→      role: accountType,
+   136→      company_name: accountType === "business" ? companyName : undefined,
+   137→    });
+   138→    setLoading(false);
+   139→    if (error) {
+   140→      setError(friendlyAuthError(error.message));
+   141→    } else {
+   142→      if (refCode) {
+   143→        try {
+   144→          const { data: referrerProfile } = await supabase
+   145→            .from("profiles_public")
+   146→            .select("user_id")
+   147→            .eq("referral_code", refCode)
+   148→            .single();
+   149→          if (referrerProfile) {
+   150→            localStorage.setItem("sortex_ref", refCode);
+   151→          }
+   152→        } catch {}
+   153→      }
+   154→      localStorage.setItem(
+   155→        "bateu_signup_extra",
+   156→        JSON.stringify({
+   157→          phone,
+   158→          province,
+   159→          city,
+   160→          interests,
+   161→          company_name: accountType === "business" ? companyName : undefined,
+   162→        })
+   163→      );
+   164→      setSuccess(true);
+   165→      playPopSound();
+   166→    }
+   167→  };
+   168→
+   169→  const handleGoogleSignUp = async () => {
+   170→    setGoogleLoading(true);
+   171→    const result = await lovable.auth.signInWithOAuth("google", {
+   172→      redirect_uri: window.location.origin,
+   173→    });
+   174→    if (result.error) {
+   175→      setError(result.error.message || "Erro ao conectar com Google");
+   176→      setGoogleLoading(false);
+   177→    }
+   178→    if (result.redirected) return;
+   179→    setSuccess(true);
+   180→    playPopSound();
+   181→  };
+   182→
+   183→  const handleAppleSignUp = async () => {
+   184→    setGoogleLoading(true);
+   185→    const result = await lovable.auth.signInWithOAuth("apple", {
+   186→      redirect_uri: window.location.origin,
+   187→    });
+   188→    if (result.error) {
+   189→      setError(result.error.message || "Erro ao conectar com Apple");
+   190→      setGoogleLoading(false);
+   191→    }
+   192→    if (result.redirected) return;
+   193→    setSuccess(true);
+   194→    playPopSound();
+   195→  };
+   196→
+   197→  const mascotForStep = step === 0 ? mascotHappy : step === 1 ? mascotExcited : step === 2 ? mascotHappy : mascotWinner;
+   198→  const mascotMessage = step === 0
+   199→    ? "Vamos começar! 🎉 Escolhe o teu tipo de conta!"
+   200→    : step === 1
+   201→    ? "Excelente escolha! Agora os teus dados! 🚀"
+   202→    : step === 2
+   203→    ? "Quase lá! Conta-nos mais sobre ti! 😊"
+   204→    : "Último passo! O que te interessa? ✨";
+   205→
+   206→  if (success) {
+   207→    return (
+   208→      <div className="min-h-screen flex items-center justify-center bg-background p-4 overflow-hidden relative">
+   209→        {/* Confetti */}
+   210→        <div className="absolute inset-0 flex justify-center">
+   211→          {CONFETTI_EMOJIS.map((e, i) => (
+   212→            <ConfettiParticle key={i} emoji={e} delay={i * 0.15} />
+   213→          ))}
+   214→          {CONFETTI_EMOJIS.map((e, i) => (
+   215→            <ConfettiParticle key={`b-${i}`} emoji={e} delay={1 + i * 0.1} />
+   216→          ))}
+   217→        </div>
+   218→
+   219→        <motion.div initial={{ opacity: 0, scale: 0.8, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 12 }}
+   220→          className="glass rounded-3xl p-8 max-w-md text-center relative z-10">
+   221→          <motion.img src={mascotWinner} alt="Bateu" className="h-24 w-24 mx-auto mb-4" width={96} height={96}
+   222→            animate={{ y: [0, -15, 0], rotate: [0, 10, -10, 0] }}
+   223→            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} />
+   224→          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}>
+   225→            <h2 className="font-display text-2xl font-bold text-foreground">Bem-vindo à família! 🎊</h2>
+   226→          </motion.div>
+   227→          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+   228→            className="text-sm text-muted-foreground mt-3">
+   229→            Enviámos um link de confirmação para <strong className="text-foreground">{email}</strong>
+   230→          </motion.p>
+   231→          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+   232→            className="mt-6 space-y-3">
+   233→            <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-foreground">
+   234→              <Mail className="h-5 w-5 text-primary shrink-0" />
+   235→              <span>Verifica o teu email para ativar a conta e começar a ganhar prémios!</span>
+   236→            </div>
+   237→            <Link to="/login" className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium">
+   238→              Ir para o login <ChevronRight className="h-3 w-3" />
+   239→            </Link>
+   240→          </motion.div>
+   241→        </motion.div>
+   242→      </div>
+   243→    );
+   244→  }
+   245→
+   246→  return (
+   247→    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+   248→      {/* Background effects */}
+   249→      <div className="absolute inset-0">
+   250→        <motion.div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-primary/5 blur-[120px]"
+   251→          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ repeat: Infinity, duration: 6 }} />
+   252→        <motion.div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full bg-accent/5 blur-[120px]"
+   253→          animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.3, 0.5] }} transition={{ repeat: Infinity, duration: 8 }} />
+   254→      </div>
+   255→
+   256→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full max-w-lg z-10">
+   257→        {/* Header with mascot */}
+   258→        <div className="mb-6 text-center">
+   259→          <Link to="/" className="inline-flex items-center gap-2 mb-4">
+   260→            <img src="/assets/bateu-logo.png" alt="Bateu" className="h-10 w-10 rounded-xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+   261→            <span className="font-display text-2xl font-bold text-foreground">Bateu</span>
+   262→          </Link>
+   263→
+   264→          {/* Mascot */}
+   265→          <div className="flex items-center justify-center gap-3 mb-2">
+   266→            <motion.img src={mascotForStep} alt="Bateu" className="h-16 w-16" width={64} height={64}
+   267→              key={step}
+   268→              initial={{ scale: 0, rotate: -30 }}
+   269→              animate={{ scale: 1, rotate: 0, y: [0, -8, 0] }}
+   270→              transition={{ type: "spring", damping: 10, y: { repeat: Infinity, duration: 2 } }} />
+   271→            <motion.div key={`msg-${step}`} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+   272→              className="rounded-2xl bg-card border border-border px-4 py-2 text-xs text-foreground max-w-[200px] relative">
+   273→              {mascotMessage}
+   274→              <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 rotate-45 bg-card border-l border-b border-border" />
+   275→            </motion.div>
+   276→          </div>
+   277→        </div>
+   278→
+   279→        {/* Progress bar */}
+   280→        <div className="flex gap-2 mb-6 px-4">
+   281→          {Array.from({ length: STEP_COUNT }).map((_, i) => (
+   282→            <motion.div key={i} className="h-1.5 flex-1 rounded-full overflow-hidden bg-secondary">
+   283→              <motion.div
+   284→                className="h-full bg-primary rounded-full"
+   285→                initial={{ width: "0%" }}
+   286→                animate={{ width: i <= step ? "100%" : "0%" }}
+   287→                transition={{ duration: 0.4, delay: i * 0.05 }}
+   288→              />
+   289→            </motion.div>
+   290→          ))}
+   291→        </div>
+   292→
+   293→        <div className="glass rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+   294→          {/* Step label */}
+   295→          <div className="flex items-center justify-between mb-5">
+   296→            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+   297→              Passo {step + 1} de {STEP_COUNT}
+   298→            </span>
+   299→            {step > 0 && (
+   300→              <button onClick={goBack} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+   301→                <ChevronLeft className="h-3 w-3" /> Voltar
+   302→              </button>
+   303→            )}
+   304→          </div>
+   305→
+   306→          <AnimatePresence mode="wait" custom={direction}>
+   307→            {/* STEP 0: Account Type */}
+   308→            {step === 0 && (
+   309→              <motion.div key="step0" custom={direction} variants={stepVariants}
+   310→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   311→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Quem és tu? 🤔</h2>
+   312→                <p className="text-sm text-muted-foreground mb-6">Escolhe o tipo de conta que mais se adequa a ti</p>
+   313→
+   314→                <div className="grid gap-3">
+   315→                  <motion.button onClick={() => { setAccountType("user"); playPopSound(); }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+   316→                    className={`flex items-start gap-4 rounded-2xl p-5 text-left transition-all border-2 ${
+   317→                      accountType === "user" ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+   318→                    }`}>
+   319→                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl shrink-0 ${accountType === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+   320→                      <User className="h-6 w-6" />
+   321→                    </div>
+   322→                    <div>
+   323→                      <p className="font-bold text-foreground text-sm">🎯 Participante</p>
+   324→                      <p className="text-xs text-muted-foreground mt-0.5">Quero participar em sorteios, ganhar prémios e acumular pontos!</p>
+   325→                      {accountType === "user" && (
+   326→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1 mt-2 text-primary text-[10px] font-medium">
+   327→                          <Check className="h-3 w-3" /> Selecionado
+   328→                        </motion.div>
+   329→                      )}
+   330→                    </div>
+   331→                  </motion.button>
+   332→
+   333→                  <motion.button onClick={() => { setAccountType("business"); playPopSound(); }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+   334→                    className={`flex items-start gap-4 rounded-2xl p-5 text-left transition-all border-2 ${
+   335→                      accountType === "business" ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+   336→                    }`}>
+   337→                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl shrink-0 ${accountType === "business" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+   338→                      <Building2 className="h-6 w-6" />
+   339→                    </div>
+   340→                    <div>
+   341→                      <p className="font-bold text-foreground text-sm">🏢 Empresa</p>
+   342→                      <p className="text-xs text-muted-foreground mt-0.5">Quero criar sorteios para promover o meu negócio e engajar clientes!</p>
+   343→                      {accountType === "business" && (
+   344→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1 mt-2 text-primary text-[10px] font-medium">
+   345→                          <Check className="h-3 w-3" /> Selecionado
+   346→                        </motion.div>
+   347→                      )}
+   348→                    </div>
+   349→                  </motion.button>
+   350→                </div>
+   351→
+   352→                {/* Social Sign Up */}
+   353→                <div className="mt-5 space-y-2">
+   354→                  <Button variant="outline" className="w-full h-10 gap-3 border-border hover:bg-secondary"
+   355→                    onClick={handleGoogleSignUp} disabled={googleLoading}>
+   356→                    <svg className="h-4 w-4" viewBox="0 0 24 24">
+   357→                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+   358→                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+   359→                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+   360→                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+   361→                    </svg>
+   362→                    {googleLoading ? "A conectar..." : "Continuar com Google"}
+   363→                  </Button>
+   364→                  <Button variant="outline" className="w-full h-10 gap-3 border-border hover:bg-secondary"
+   365→                    onClick={handleAppleSignUp} disabled={googleLoading}>
+   366→                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+   367→                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+   368→                    </svg>
+   369→                    {googleLoading ? "A conectar..." : "Continuar com Apple"}
+   370→                  </Button>
+   371→                </div>
+   372→              </motion.div>
+   373→            )}
+   374→
+   375→            {/* STEP 1: Credentials */}
+   376→            {step === 1 && (
+   377→              <motion.div key="step1" custom={direction} variants={stepVariants}
+   378→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   379→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Os teus dados 📝</h2>
+   380→                <p className="text-sm text-muted-foreground mb-5">Informações essenciais para a tua conta</p>
+   381→
+   382→                <div className="space-y-4">
+   383→                  <div>
+   384→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Nome Completo</label>
+   385→                    <div className="relative">
+   386→                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   387→                      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Como te chamas?" required
+   388→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   389→                    </div>
+   390→                  </div>
+   391→
+   392→                  {accountType === "business" && (
+   393→                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+   394→                      <label className="mb-1.5 block text-xs font-medium text-foreground">Nome da Empresa</label>
+   395→                      <div className="relative">
+   396→                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   397→                        <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Nome do negócio" required
+   398→                          className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   399→                      </div>
+   400→                    </motion.div>
+   401→                  )}
+   402→
+   403→                  <div>
+   404→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Email</label>
+   405→                    <div className="relative">
+   406→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   407→                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required
+   408→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   409→                    </div>
+   410→                  </div>
+   411→
+   412→                  <div>
+   413→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Senha</label>
+   414→                    <div className="relative">
+   415→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   416→                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mín. 8 caracteres, com letras e números" required
+   417→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   418→                    </div>
+   419→                    {password.length > 0 && (
+   420→                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 space-y-1">
+   421→                        <div className="flex gap-1">
+   422→                          {[1, 2, 3, 4].map(i => (
+   423→                            <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
+   424→                              password.length >= i * 3 ? (passwordStrong(password) && password.length >= 12 ? "bg-primary" : passwordStrong(password) ? "bg-accent" : "bg-destructive") : "bg-secondary"
+   425→                            }`} />
+   426→                          ))}
+   427→                        </div>
+   428→                        <p className="text-[10px] text-muted-foreground">
+   429→                          {passwordStrong(password)
+   430→                            ? "Boa! Evita senhas óbvias como nome+ano ou \"password123\"."
+   431→                            : "Adiciona letras + números e pelo menos 8 caracteres. Evita senhas comuns (são rejeitadas por segurança)."}
+   432→                        </p>
+   433→                      </motion.div>
+   434→                    )}
+   435→                  </div>
+   436→                </div>
+   437→              </motion.div>
+   438→            )}
+   439→
+   440→            {/* STEP 2: Personal Info */}
+   441→            {step === 2 && (
+   442→              <motion.div key="step2" custom={direction} variants={stepVariants}
+   443→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   444→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Onde estás? 📍</h2>
+   445→                <p className="text-sm text-muted-foreground mb-5">Ajuda-nos a mostrar sorteios perto de ti <span className="text-[10px]">(opcional)</span></p>
+   446→
+   447→                <div className="space-y-4">
+   448→                  <div>
+   449→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Telefone</label>
+   450→                    <div className="relative">
+   451→                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   452→                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+258 84 XXX XXXX"
+   453→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   454→                    </div>
+   455→                  </div>
+   456→
+   457→                  <div>
+   458→                    <label className="mb-1.5 block text-xs font-medium text-foreground">País</label>
+   459→                    <div className="relative">
+   460→                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   461→                      <select value={country} onChange={(e) => { setCountry(e.target.value); setProvince(""); setCity(""); }}
+   462→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   463→                        {COUNTRIES.map((c) => (
+   464→                          <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
+   465→                        ))}
+   466→                      </select>
+   467→                    </div>
+   468→                  </div>
+   469→
+   470→                  <div>
+   471→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Região / Província</label>
+   472→                    <div className="relative">
+   473→                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   474→                      <select value={province} onChange={(e) => { setProvince(e.target.value); setCity(""); }}
+   475→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   476→                        <option value="">Selecione...</option>
+   477→                        {getRegions(country).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+   478→                      </select>
+   479→                    </div>
+   480→                  </div>
+   481→
+   482→                  {province && country === "MZ" && CITIES_BY_PROVINCE[province] && (
+   483→                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+   484→                      <label className="mb-1.5 block text-xs font-medium text-foreground">Cidade</label>
+   485→                      <div className="relative">
+   486→                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   487→                        <select value={city} onChange={(e) => setCity(e.target.value)}
+   488→                          className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   489→                          <option value="">Selecione...</option>
+   490→                          {CITIES_BY_PROVINCE[province].map(c => <option key={c} value={c}>{c}</option>)}
+   491→                        </select>
+   492→                      </div>
+   493→                    </motion.div>
+   494→                  )}
+   495→
+   496→                  {refCode && (
+   497→                    <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5">
+   498→                      <Gift className="h-4 w-4 text-primary shrink-0" />
+   499→                      <p className="text-xs text-foreground">Convite de amigo! Ambos ganham <span className="font-bold text-primary">50 pontos</span> 🎁</p>
+   500→                    </div>
+   501→                  )}
+   502→                </div>
+   503→              </motion.div>
+   504→            )}
+   505→
+   506→            {/* STEP 3: Interests */}
+   507→            {step === 3 && (
+   508→              <motion.div key="step3" custom={direction} variants={stepVariants}
+   509→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   510→                <h2 className="font-display text-xl font-bold text-foreground mb-1">O que te interessa? ✨</h2>
+   511→                <p className="text-sm text-muted-foreground mb-5">Vamos personalizar os sorteios para ti <span className="text-[10px]">(opcional)</span></p>
+   512→
+   513→                <div className="grid grid-cols-3 gap-2">
+   514→                  {INTERESTS.map((item, i) => (
+   515→                    <motion.button
+   516→                      key={item.id}
+   517→                      initial={{ opacity: 0, scale: 0.8 }}
+   518→                      animate={{ opacity: 1, scale: 1 }}
+   519→                      transition={{ delay: i * 0.04 }}
+   520→                      onClick={() => toggleInterest(item.id)}
+   521→                      className={`flex flex-col items-center gap-1 rounded-xl p-3 text-[11px] font-medium transition-all border-2 ${
+   522→                        interests.includes(item.id)
+   523→                          ? "border-primary bg-primary/10 text-foreground scale-105"
+   524→                          : "border-border bg-card text-muted-foreground hover:border-primary/30"
+   525→                      }`}
+   526→                    >
+   527→                      <span className="text-lg">{item.emoji}</span>
+   528→                      <span>{item.label.split(" ").slice(1).join(" ")}</span>
+   529→                      {interests.includes(item.id) && (
+   530→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+   531→                          <Heart className="h-3 w-3 text-primary fill-primary" />
+   532→                        </motion.div>
+   533→                      )}
+   534→                    </motion.button>
+   535→                  ))}
+   536→                </div>
+   537→
+   538→                {interests.length > 0 && (
+   539→                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-[10px] text-muted-foreground mt-3">
+   540→                    {interests.length} {interests.length === 1 ? "interesse" : "interesses"} selecionados 💖
+   541→                  </motion.p>
+   542→                )}
+   543→              </motion.div>
+   544→            )}
+   545→          </AnimatePresence>
+   546→
+   547→          {/* Error */}
+   548→          {error && (
+   549→            <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+   550→              className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2 mt-4">{error}</motion.p>
+   551→          )}
+   552→
+   553→          {/* Navigation buttons */}
+   554→          <div className="mt-6 flex gap-3">
+   555→            {step < STEP_COUNT - 1 ? (
+   556→              <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+   557→                onClick={goNext} disabled={!canProceed()}
+   558→                className="w-full h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground glow-primary disabled:opacity-40 flex items-center justify-center gap-2">
+   559→                Continuar <ChevronRight className="h-4 w-4" />
+   560→              </motion.button>
+   561→            ) : (
+   562→              <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+   563→                onClick={handleSubmit} disabled={loading || !canProceed()}
+   564→                className="w-full h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground glow-primary disabled:opacity-40 flex items-center justify-center gap-2">
+   565→                {loading ? (
+   566→                  <>
+   567→                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+   568→                      <Sparkles className="h-4 w-4" />
+   569→                    </motion.div>
+   570→                    A criar conta...
+   571→                  </>
+   572→                ) : (
+   573→                  <>
+   574→                    <Rocket className="h-4 w-4" /> Criar Conta!
+   575→                  </>
+   576→                )}
+   577→              </motion.button>
+   578→            )}
+   579→          </div>
+   580→
+   581→          {/* Skip optional steps */}
+   582→          {step >= 2 && step < STEP_COUNT - 1 && (
+   583→            <button onClick={goNext} className="w-full text-center text-xs text-muted-foreground mt-3 hover:text-foreground transition-colors">
+   584→              Pular este passo →
+   585→            </button>
+   586→          )}
+   587→          {step === STEP_COUNT - 1 && (
+   588→            <button onClick={handleSubmit} disabled={loading}
+   589→              className="w-full text-center text-xs text-muted-foreground mt-3 hover:text-foreground transition-colors">
+   590→              Pular e criar conta →
+   591→            </button>
+   592→          )}
+   593→        </div>
+   594→
+   595→        {/* Footer */}
+   596→        <div className="mt-5 text-center space-y-2">
+   597→          <p className="text-sm text-muted-foreground">
+   598→            Já tem conta?{" "}
+   599→            <Link to="/login" className="text-primary hover:underline font-medium">Entrar</Link>
+   600→          </p>
+   601→          <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+   602→            <ArrowLeft className="h-3 w-3" /> Voltar ao site
+   603→          </Link>
+   604→        </div>
+   605→      </motion.div>
+   606→    </div>
+   607→  );
+   608→}
+   609→
