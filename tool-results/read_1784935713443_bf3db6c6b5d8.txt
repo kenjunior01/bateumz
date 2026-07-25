@@ -1,0 +1,735 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Badge } from "@/components/ui/badge";
+     7→import { cn } from "@/lib/utils";
+     8→import { RotateCcw, ArrowUp, ArrowDown, Check } from "lucide-react";
+     9→
+    10→interface GuessEntry {
+    11→  player: number;
+    12→  value: number;
+    13→  hint: "higher" | "lower" | "correct";
+    14→  round: number;
+    15→}
+    16→
+    17→type GameState = "new-round" | "guessing" | "round-result" | "game-over";
+    18→
+    19→interface Props {
+    20→  onScore?: (name: string, score: number) => void;
+    21→  liveCode?: string;
+    22→}
+    23→
+    24→const TOTAL_ROUNDS = 5;
+    25→const MIN_NUMBER = 1;
+    26→const MAX_NUMBER = 100;
+    27→
+    28→function generateSecretNumber(): number {
+    29→  return Math.floor(Math.random() * (MAX_NUMBER - MIN_NUMBER + 1)) + MIN_NUMBER;
+    30→}
+    31→
+    32→function calculatePoints(attempts: number): number {
+    33→  return Math.max(10, 50 - attempts * 5);
+    34→}
+    35→
+    36→function NumberLine({
+    37→  rangeMin,
+    38→  rangeMax,
+    39→  secretNumber,
+    40→  revealSecret,
+    41→}: {
+    42→  rangeMin: number;
+    43→  rangeMax: number;
+    44→  secretNumber: number;
+    45→  revealSecret: boolean;
+    46→}) {
+    47→  const leftPct = ((rangeMin - MIN_NUMBER) / (MAX_NUMBER - MIN_NUMBER)) * 100;
+    48→  const rightPct = ((rangeMax - MIN_NUMBER) / (MAX_NUMBER - MIN_NUMBER)) * 100;
+    49→  const widthPct = rightPct - leftPct;
+    50→  const secretPct = ((secretNumber - MIN_NUMBER) / (MAX_NUMBER - MIN_NUMBER)) * 100;
+    51→
+    52→  return (
+    53→    <div className="w-full px-2">
+    54→      <div className="relative w-full h-10 rounded-full bg-slate-700/50 overflow-hidden border border-slate-600/30">
+    55→        {/* Dimmed left zone */}
+    56→        <div
+    57→          className="absolute top-0 left-0 h-full bg-slate-700/70"
+    58→          style={{ width: `${leftPct}%` }}
+    59→        />
+    60→        {/* Active range */}
+    61→        <motion.div
+    62→          className="absolute top-0 h-full"
+    63→          style={{
+    64→            background:
+    65→              "linear-gradient(90deg, rgba(16,185,129,0.3), rgba(16,185,129,0.6), rgba(16,185,129,0.3))",
+    66→            borderLeft: "2px solid rgba(16,185,129,0.8)",
+    67→            borderRight: "2px solid rgba(16,185,129,0.8)",
+    68→          }}
+    69→          animate={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+    70→          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    71→        >
+    72→          {/* Glow effect */}
+    73→          <div className="absolute inset-0 bg-emerald-400/10 blur-sm" />
+    74→        </motion.div>
+    75→        {/* Dimmed right zone */}
+    76→        <div
+    77→          className="absolute top-0 right-0 h-full bg-slate-700/70"
+    78→          style={{ width: `${100 - rightPct}%` }}
+    79→        />
+    80→        {/* Secret number marker (only on reveal) */}
+    81→        <AnimatePresence>
+    82→          {revealSecret && (
+    83→            <motion.div
+    84→              initial={{ scale: 0, opacity: 0 }}
+    85→              animate={{ scale: 1, opacity: 1 }}
+    86→              exit={{ scale: 0, opacity: 0 }}
+    87→              className="absolute top-1/2 -translate-y-1/2 z-10"
+    88→              style={{ left: `${secretPct}%` }}
+    89→            >
+    90→              <div className="w-4 h-4 rounded-full bg-amber-400 border-2 border-white shadow-lg shadow-amber-400/50 -ml-2" />
+    91→            </motion.div>
+    92→          )}
+    93→        </AnimatePresence>
+    94→        {/* Tick marks */}
+    95→        {[1, 25, 50, 75, 100].map((tick) => {
+    96→          const pct = ((tick - MIN_NUMBER) / (MAX_NUMBER - MIN_NUMBER)) * 100;
+    97→          return (
+    98→            <div
+    99→              key={tick}
+   100→              className="absolute top-0 h-full w-px bg-slate-500/30"
+   101→              style={{ left: `${pct}%` }}
+   102→            />
+   103→          );
+   104→        })}
+   105→      </div>
+   106→      {/* Labels */}
+   107→      <div className="flex justify-between mt-1 px-1">
+   108→        <span className="text-xs text-slate-500">{MIN_NUMBER}</span>
+   109→        <motion.span
+   110→          className="text-xs font-bold text-emerald-400"
+   111→          animate={{ left: `${leftPct}%` }}
+   112→          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   113→          style={{ position: "relative" }}
+   114→        >
+   115→          {rangeMin}
+   116→        </motion.span>
+   117→        <motion.span
+   118→          className="text-xs font-bold text-emerald-400"
+   119→          animate={{ right: `${100 - rightPct}%` }}
+   120→          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   121→          style={{ position: "relative" }}
+   122→        >
+   123→          {rangeMax}
+   124→        </motion.span>
+   125→        <span className="text-xs text-slate-500">{MAX_NUMBER}</span>
+   126→      </div>
+   127→    </div>
+   128→  );
+   129→}
+   130→
+   131→export default function GuessNumber100({ onScore, liveCode }: Props) {
+   132→  const [gameState, setGameState] = useState<GameState>("new-round");
+   133→  const [currentRound, setCurrentRound] = useState(1);
+   134→  const [currentPlayer, setCurrentPlayer] = useState(1);
+   135→  const [secretNumber, setSecretNumber] = useState<number>(0);
+   136→  const [rangeMin, setRangeMin] = useState(MIN_NUMBER);
+   137→  const [rangeMax, setRangeMax] = useState(MAX_NUMBER);
+   138→  const [guessInput, setGuessInput] = useState("");
+   139→  const [guesses, setGuesses] = useState<GuessEntry[]>([]);
+   140→  const [scores, setScores] = useState([0, 0]);
+   141→  const [roundWinner, setRoundWinner] = useState<number | null>(null);
+   142→  const [lastHint, setLastHint] = useState<"higher" | "lower" | "correct" | null>(null);
+   143→  const [roundAttempts, setRoundAttempts] = useState(0);
+   144→  const inputRef = useRef<HTMLInputElement>(null);
+   145→  const [triggerScoreAnim, setTriggerScoreAnim] = useState<number | null>(null);
+   146→
+   147→  const startNewRound = useCallback(() => {
+   148→    const newSecret = generateSecretNumber();
+   149→    setSecretNumber(newSecret);
+   150→    setRangeMin(MIN_NUMBER);
+   151→    setRangeMax(MAX_NUMBER);
+   152→    setGuessInput("");
+   153→    setGuesses([]);
+   154→    setRoundWinner(null);
+   155→    setLastHint(null);
+   156→    setRoundAttempts(0);
+   157→    setCurrentPlayer(currentRound % 2 === 0 ? 2 : 1);
+   158→    setGameState("guessing");
+   159→    setTimeout(() => inputRef.current?.focus(), 100);
+   160→  }, [currentRound]);
+   161→
+   162→  const startGame = useCallback(() => {
+   163→    setCurrentRound(1);
+   164→    setScores([0, 0]);
+   165→    setGameState("new-round");
+   166→    setTimeout(() => startNewRound(), 800);
+   167→  }, [startNewRound]);
+   168→
+   169→  useEffect(() => {
+   170→    startGame();
+   171→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   172→  }, []);
+   173→
+   174→  const handleGuess = () => {
+   175→    const guess = parseInt(guessInput, 10);
+   176→    if (isNaN(guess) || guess < MIN_NUMBER || guess > MAX_NUMBER) return;
+   177→
+   178→    const attempts = roundAttempts + 1;
+   179→    setRoundAttempts(attempts);
+   180→
+   181→    let hint: "higher" | "lower" | "correct";
+   182→    if (guess === secretNumber) {
+   183→      hint = "correct";
+   184→    } else if (guess < secretNumber) {
+   185→      hint = "higher";
+   186→    } else {
+   187→      hint = "lower";
+   188→    }
+   189→
+   190→    const entry: GuessEntry = {
+   191→      player: currentPlayer,
+   192→      value: guess,
+   193→      hint,
+   194→      round: currentRound,
+   195→    };
+   196→
+   197→    setGuesses((prev) => [...prev, entry]);
+   198→    setGuessInput("");
+   199→    setLastHint(hint);
+   200→
+   201→    if (hint === "correct") {
+   202→      const points = calculatePoints(attempts);
+   203→      setRoundWinner(currentPlayer);
+   204→      setScores((prev) => {
+   205→        const newScores = [...prev] as [number, number];
+   206→        newScores[currentPlayer - 1] += points;
+   207→        return newScores;
+   208→      });
+   209→      setTriggerScoreAnim(currentPlayer);
+   210→      setGameState("round-result");
+   211→    } else {
+   212→      // Update range
+   213→      if (hint === "higher" && guess >= rangeMin) {
+   214→        setRangeMin(guess + 1);
+   215→      } else if (hint === "lower" && guess <= rangeMax) {
+   216→        setRangeMax(guess - 1);
+   217→      }
+   218→      // Switch player
+   219→      setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+   220→      setTimeout(() => inputRef.current?.focus(), 50);
+   221→    }
+   222→  };
+   223→
+   224→  const handleNextRound = () => {
+   225→    if (currentRound >= TOTAL_ROUNDS) {
+   226→      setGameState("game-over");
+   227→      const winnerName = scores[0] > scores[1] ? "Jogador 1" : scores[1] > scores[0] ? "Jogador 2" : "Empate";
+   228→      const winnerScore = Math.max(scores[0], scores[1]);
+   229→      if (onScore) {
+   230→        if (scores[0] > scores[1]) {
+   231→          onScore("Jogador 1", scores[0]);
+   232→        } else if (scores[1] > scores[0]) {
+   233→          onScore("Jogador 2", scores[1]);
+   234→        }
+   235→      }
+   236→    } else {
+   237→      setCurrentRound((r) => r + 1);
+   238→      setGameState("new-round");
+   239→      setTimeout(() => startNewRound(), 800);
+   240→    }
+   241→  };
+   242→
+   243→  const handleRestart = () => {
+   244→    startGame();
+   245→  };
+   246→
+   247→  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+   248→    if (e.key === "Enter") {
+   249→      handleGuess();
+   250→    }
+   251→  };
+   252→
+   253→  const p1Color = "text-cyan-400";
+   254→  const p2Color = "text-pink-400";
+   255→  const p1Bg = "bg-cyan-400/10 border-cyan-400/30";
+   256→  const p2Bg = "bg-pink-400/10 border-pink-400/30";
+   257→
+   258→  const getPlayerColor = (player: number) => (player === 1 ? p1Color : p2Color);
+   259→  const getPlayerBg = (player: number) => (player === 1 ? p1Bg : p2Bg);
+   260→  const getPlayerName = (player: number) =>
+   261→    player === 1 ? "Jogador 1" : "Jogador 2";
+   262→
+   263→  const roundGuesses = guesses.filter((g) => g.round === currentRound);
+   264→
+   265→  return (
+   266→    <div className="w-full max-w-lg mx-auto p-4 space-y-4">
+   267→      {/* Scoreboard */}
+   268→      <div className="bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl p-4">
+   269→        <div className="flex items-center justify-between">
+   270→          {/* Player 1 Score */}
+   271→          <div className="flex flex-col items-center gap-1 min-w-[80px]">
+   272→            <span className={cn("text-xs font-medium uppercase tracking-wider", p1Color)}>
+   273→              Jogador 1
+   274→            </span>
+   275→            <motion.div
+   276→              key={`score-p1-${scores[0]}`}
+   277→              initial={{ scale: 1.4, color: "#22d3ee" }}
+   278→              animate={{ scale: 1, color: "#f8fafc" }}
+   279→              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+   280→              className="text-2xl font-bold text-white"
+   281→            >
+   282→              {scores[0]}
+   283→            </motion.div>
+   284→          </div>
+   285→
+   286→          {/* Title */}
+   287→          <div className="text-center">
+   288→            <h2 className="text-lg font-bold text-white tracking-tight">
+   289→              🎯 Adivinha o Número
+   290→            </h2>
+   291→            <Badge
+   292→              variant="outline"
+   293→              className="text-xs text-slate-300 border-slate-600 mt-1"
+   294→            >
+   295→              Round {currentRound}/{TOTAL_ROUNDS}
+   296→            </Badge>
+   297→          </div>
+   298→
+   299→          {/* Player 2 Score */}
+   300→          <div className="flex flex-col items-center gap-1 min-w-[80px]">
+   301→            <span className={cn("text-xs font-medium uppercase tracking-wider", p2Color)}>
+   302→              Jogador 2
+   303→            </span>
+   304→            <motion.div
+   305→              key={`score-p2-${scores[1]}`}
+   306→              initial={{ scale: 1.4, color: "#f472b6" }}
+   307→              animate={{ scale: 1, color: "#f8fafc" }}
+   308→              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+   309→              className="text-2xl font-bold text-white"
+   310→            >
+   311→              {scores[1]}
+   312→            </motion.div>
+   313→          </div>
+   314→        </div>
+   315→      </div>
+   316→
+   317→      {/* Game Info Bar */}
+   318→      <div className="flex flex-wrap items-center justify-center gap-2">
+   319→        <Badge
+   320→          variant="outline"
+   321→          className={cn(
+   322→            "text-xs border",
+   323→            currentPlayer === 1
+   324→              ? "border-cyan-400/50 text-cyan-400"
+   325→              : "border-pink-400/50 text-pink-400"
+   326→          )}
+   327→        >
+   328→          Vez de: <span className="font-bold ml-1">{getPlayerName(currentPlayer)}</span>
+   329→        </Badge>
+   330→        <Badge variant="outline" className="text-xs border-emerald-400/50 text-emerald-400">
+   331→          Intervalo: {rangeMin} - {rangeMax}
+   332→        </Badge>
+   333→        <Badge variant="outline" className="text-xs border-slate-500 text-slate-300">
+   334→          Tentativas: {roundAttempts}
+   335→        </Badge>
+   336→      </div>
+   337→
+   338→      {/* Visual Number Line */}
+   339→      <div className="py-2">
+   340→        <NumberLine
+   341→          rangeMin={rangeMin}
+   342→          rangeMax={rangeMax}
+   343→          secretNumber={secretNumber}
+   344→          revealSecret={gameState === "round-result" || gameState === "game-over"}
+   345→        />
+   346→      </div>
+   347→
+   348→      {/* New Round Overlay */}
+   349→      <AnimatePresence>
+   350→        {gameState === "new-round" && (
+   351→          <motion.div
+   352→            initial={{ opacity: 0, scale: 0.8 }}
+   353→            animate={{ opacity: 1, scale: 1 }}
+   354→            exit={{ opacity: 0, scale: 1.1 }}
+   355→            className="flex flex-col items-center justify-center py-8 gap-3"
+   356→          >
+   357→            <motion.div
+   358→              animate={{ rotate: [0, 10, -10, 0] }}
+   359→              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   360→              className="text-5xl"
+   361→            >
+   362→              🎲
+   363→            </motion.div>
+   364→            <p className="text-white text-lg font-semibold">Novo número sorteado!</p>
+   365→            <p className="text-slate-400 text-sm">Round {currentRound} começando...</p>
+   366→            <motion.div
+   367→              animate={{ opacity: [0.4, 1, 0.4] }}
+   368→              transition={{ repeat: Infinity, duration: 1.5 }}
+   369→              className="text-slate-500 text-xs"
+   370→            >
+   371→              Preparando...
+   372→            </motion.div>
+   373→          </motion.div>
+   374→        )}
+   375→      </AnimatePresence>
+   376→
+   377→      {/* Guessing State */}
+   378→      <AnimatePresence>
+   379→        {gameState === "guessing" && (
+   380→          <motion.div
+   381→            initial={{ opacity: 0, y: 20 }}
+   382→            animate={{ opacity: 1, y: 0 }}
+   383→            exit={{ opacity: 0, y: -20 }}
+   384→            className="space-y-4"
+   385→          >
+   386→            {/* Current Player Indicator */}
+   387→            <motion.div
+   388→              key={`player-indicator-${currentPlayer}`}
+   389→              initial={{ x: currentPlayer === 1 ? -50 : 50, opacity: 0 }}
+   390→              animate={{ x: 0, opacity: 1 }}
+   391→              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+   392→              className={cn(
+   393→                "flex items-center gap-2 p-3 rounded-lg border text-center justify-center",
+   394→                currentPlayer === 1 ? p1Bg : p2Bg
+   395→              )}
+   396→            >
+   397→              <div
+   398→                className={cn(
+   399→                  "w-3 h-3 rounded-full",
+   400→                  currentPlayer === 1 ? "bg-cyan-400" : "bg-pink-400"
+   401→                )}
+   402→              />
+   403→              <span className={cn("font-semibold", getPlayerColor(currentPlayer))}>
+   404→                {getPlayerName(currentPlayer)}, é a sua vez!
+   405→              </span>
+   406→            </motion.div>
+   407→
+   408→            {/* Input + Button */}
+   409→            <div className="flex gap-2">
+   410→              <input
+   411→                ref={inputRef}
+   412→                type="number"
+   413→                min={MIN_NUMBER}
+   414→                max={MAX_NUMBER}
+   415→                value={guessInput}
+   416→                onChange={(e) => setGuessInput(e.target.value)}
+   417→                onKeyDown={handleKeyDown}
+   418→                placeholder="Digite um número (1-100)"
+   419→                className={cn(
+   420→                  "flex-1 bg-slate-800/80 border rounded-lg px-4 py-3 text-white text-lg text-center",
+   421→                  "placeholder:text-slate-500 placeholder:text-sm focus:outline-none focus:ring-2 transition-all",
+   422→                  currentPlayer === 1
+   423→                    ? "border-cyan-500/30 focus:ring-cyan-500/50"
+   424→                    : "border-pink-500/30 focus:ring-pink-500/50"
+   425→                )}
+   426→              />
+   427→              <Button
+   428→                onClick={handleGuess}
+   429→                disabled={
+   430→                  !guessInput ||
+   431→                  parseInt(guessInput, 10) < MIN_NUMBER ||
+   432→                  parseInt(guessInput, 10) > MAX_NUMBER
+   433→                }
+   434→                className={cn(
+   435→                  "px-6 py-3 font-semibold text-base transition-all",
+   436→                  currentPlayer === 1
+   437→                    ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+   438→                    : "bg-pink-600 hover:bg-pink-500 text-white"
+   439→                )}
+   440→              >
+   441→                Chutar
+   442→              </Button>
+   443→            </div>
+   444→
+   445→            {/* Last Hint Animation */}
+   446→            <AnimatePresence>
+   447→              {lastHint && lastHint !== "correct" && (
+   448→                <motion.div
+   449→                  key={`hint-${guesses.length}`}
+   450→                  initial={{ opacity: 0, y: 30 }}
+   451→                  animate={{ opacity: 1, y: 0 }}
+   452→                  className="flex flex-col items-center gap-1 py-2"
+   453→                >
+   454→                  {lastHint === "higher" ? (
+   455→                    <motion.div
+   456→                      initial={{ y: 20, opacity: 0 }}
+   457→                      animate={{ y: [20, -10, 0], opacity: 1 }}
+   458→                      transition={{ duration: 0.6 }}
+   459→                      className="flex items-center gap-2"
+   460→                    >
+   461→                      <ArrowUp className="w-8 h-8 text-amber-400" />
+   462→                      <span className="text-amber-400 font-bold text-lg">
+   463→                        É MAIOR 🔼
+   464→                      </span>
+   465→                      <ArrowUp className="w-8 h-8 text-amber-400" />
+   466→                    </motion.div>
+   467→                  ) : (
+   468→                    <motion.div
+   469→                      initial={{ y: -20, opacity: 0 }}
+   470→                      animate={{ y: [-20, 10, 0], opacity: 1 }}
+   471→                      transition={{ duration: 0.6 }}
+   472→                      className="flex items-center gap-2"
+   473→                    >
+   474→                      <ArrowDown className="w-8 h-8 text-blue-400" />
+   475→                      <span className="text-blue-400 font-bold text-lg">
+   476→                        É MENOR 🔽
+   477→                      </span>
+   478→                      <ArrowDown className="w-8 h-8 text-blue-400" />
+   479→                    </motion.div>
+   480→                  )}
+   481→                </motion.div>
+   482→              )}
+   483→            </AnimatePresence>
+   484→          </motion.div>
+   485→        )}
+   486→      </AnimatePresence>
+   487→
+   488→      {/* Round Result */}
+   489→      <AnimatePresence>
+   490→        {gameState === "round-result" && roundWinner !== null && (
+   491→          <motion.div
+   492→            initial={{ opacity: 0, scale: 0.8 }}
+   493→            animate={{ opacity: 1, scale: 1 }}
+   494→            exit={{ opacity: 0, scale: 0.8 }}
+   495→            className="flex flex-col items-center gap-4 py-6"
+   496→          >
+   497→            {/* Celebration */}
+   498→            <motion.div
+   499→              animate={{
+   500→                scale: [1, 1.2, 1],
+   501→                rotate: [0, 5, -5, 0],
+   502→              }}
+   503→              transition={{ repeat: Infinity, duration: 1.5 }}
+   504→              className="text-6xl"
+   505→            >
+   506→              🎉
+   507→            </motion.div>
+   508→
+   509→            <motion.div
+   510→              initial={{ y: 20, opacity: 0 }}
+   511→              animate={{ y: 0, opacity: 1 }}
+   512→              transition={{ delay: 0.2 }}
+   513→              className="text-center space-y-2"
+   514→            >
+   515→              <div className="flex items-center justify-center gap-2">
+   516→                <Check className="w-6 h-6 text-emerald-400" />
+   517→                <span className="text-emerald-400 font-bold text-xl">Correto!</span>
+   518→                <Check className="w-6 h-6 text-emerald-400" />
+   519→              </div>
+   520→
+   521→              <p className={cn("text-2xl font-bold", getPlayerColor(roundWinner))}>
+   522→                {getPlayerName(roundWinner)} Venceu!
+   523→              </p>
+   524→
+   525→              <div className="space-y-1">
+   526→                <p className="text-slate-300 text-sm">
+   527→                  O número era{" "}
+   528→                  <span className="text-amber-400 font-bold text-lg">{secretNumber}</span>
+   529→                </p>
+   530→                <p className="text-slate-400 text-sm">
+   531→                  {roundAttempts} tentativa{roundAttempts !== 1 ? "s" : ""}
+   532→                </p>
+   533→                <p className="text-emerald-400 font-semibold text-sm">
+   534→                  +{calculatePoints(roundAttempts)} pontos
+   535→                </p>
+   536→              </div>
+   537→            </motion.div>
+   538→
+   539→            <Button
+   540→              onClick={handleNextRound}
+   541→              className={cn(
+   542→                "px-8 py-3 font-semibold text-base transition-all",
+   543→                currentPlayer === 1
+   544→                  ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+   545→                  : "bg-pink-600 hover:bg-pink-500 text-white"
+   546→              )}
+   547→            >
+   548→              {currentRound >= TOTAL_ROUNDS ? "Ver Resultado Final" : "Próximo Round →"}
+   549→            </Button>
+   550→          </motion.div>
+   551→        )}
+   552→      </AnimatePresence>
+   553→
+   554→      {/* Game Over */}
+   555→      <AnimatePresence>
+   556→        {gameState === "game-over" && (
+   557→          <motion.div
+   558→            initial={{ opacity: 0, scale: 0.8 }}
+   559→            animate={{ opacity: 1, scale: 1 }}
+   560→            exit={{ opacity: 0, scale: 0.8 }}
+   561→            className="flex flex-col items-center gap-4 py-6"
+   562→          >
+   563→            <motion.div
+   564→              animate={{ rotate: [0, 360] }}
+   565→              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+   566→              className="text-5xl"
+   567→            >
+   568→              🏆
+   569→            </motion.div>
+   570→
+   571→            <motion.h2
+   572→              initial={{ y: 20, opacity: 0 }}
+   573→              animate={{ y: 0, opacity: 1 }}
+   574→              className="text-3xl font-bold text-white"
+   575→            >
+   576→              Fim de Jogo!
+   577→            </motion.h2>
+   578→
+   579→            <div className="flex items-center gap-8 py-4">
+   580→              {/* Final P1 Score */}
+   581→              <motion.div
+   582→                initial={{ x: -30, opacity: 0 }}
+   583→                animate={{ x: 0, opacity: 1 }}
+   584→                transition={{ delay: 0.2 }}
+   585→                className={cn(
+   586→                  "flex flex-col items-center gap-2 p-4 rounded-xl border",
+   587→                  p1Bg,
+   588→                  scores[0] >= scores[1] && scores[0] !== scores[1] && "ring-2 ring-cyan-400/50"
+   589→                )}
+   590→              >
+   591→                <span className={cn("text-sm font-medium", p1Color)}>Jogador 1</span>
+   592→                <span className="text-3xl font-bold text-white">{scores[0]}</span>
+   593→                {scores[0] >= scores[1] && scores[0] !== scores[1] && (
+   594→                  <motion.span
+   595→                    initial={{ scale: 0 }}
+   596→                    animate={{ scale: 1 }}
+   597→                    className="text-xs text-cyan-400"
+   598→                  >
+   599→                    🏅 Vencedor!
+   600→                  </motion.span>
+   601→                )}
+   602→              </motion.div>
+   603→
+   604→              {/* VS */}
+   605→              <motion.span
+   606→                initial={{ scale: 0 }}
+   607→                animate={{ scale: 1 }}
+   608→                transition={{ delay: 0.3 }}
+   609→                className="text-2xl font-bold text-slate-500"
+   610→              >
+   611→                VS
+   612→              </motion.span>
+   613→
+   614→              {/* Final P2 Score */}
+   615→              <motion.div
+   616→                initial={{ x: 30, opacity: 0 }}
+   617→                animate={{ x: 0, opacity: 1 }}
+   618→                transition={{ delay: 0.2 }}
+   619→                className={cn(
+   620→                  "flex flex-col items-center gap-2 p-4 rounded-xl border",
+   621→                  p2Bg,
+   622→                  scores[1] >= scores[0] && scores[0] !== scores[1] && "ring-2 ring-pink-400/50"
+   623→                )}
+   624→              >
+   625→                <span className={cn("text-sm font-medium", p2Color)}>Jogador 2</span>
+   626→                <span className="text-3xl font-bold text-white">{scores[1]}</span>
+   627→                {scores[1] >= scores[0] && scores[0] !== scores[1] && (
+   628→                  <motion.span
+   629→                    initial={{ scale: 0 }}
+   630→                    animate={{ scale: 1 }}
+   631→                    className="text-xs text-pink-400"
+   632→                  >
+   633→                    🏅 Vencedor!
+   634→                  </motion.span>
+   635→                )}
+   636→              </motion.div>
+   637→            </div>
+   638→
+   639→            {scores[0] === scores[1] && (
+   640→              <motion.p
+   641→                initial={{ opacity: 0 }}
+   642→                animate={{ opacity: 1 }}
+   643→                className="text-amber-400 font-bold text-lg"
+   644→              >
+   645→                Empate! 🤝
+   646→              </motion.p>
+   647→            )}
+   648→
+   649→            <Button
+   650→              onClick={handleRestart}
+   651→              className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white px-8 py-3 font-semibold text-base transition-all"
+   652→            >
+   653→              <RotateCcw className="w-4 h-4 mr-2" />
+   654→              Reiniciar Tudo
+   655→            </Button>
+   656→          </motion.div>
+   657→        )}
+   658→      </AnimatePresence>
+   659→
+   660→      {/* Guess History */}
+   661→      {guesses.length > 0 && (
+   662→        <div className="space-y-2">
+   663→          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+   664→            Histórico
+   665→          </h3>
+   666→          <div className="bg-slate-800/40 rounded-lg border border-slate-700/50 max-h-48 overflow-y-auto">
+   667→            <div className="divide-y divide-slate-700/30">
+   668→              {[...guesses].reverse().map((entry, idx) => {
+   669→                const isLatest = idx === 0;
+   670→                return (
+   671→                  <motion.div
+   672→                    key={`${entry.round}-${idx}`}
+   673→                    initial={isLatest ? { opacity: 0, x: -20 } : false}
+   674→                    animate={{ opacity: 1, x: 0 }}
+   675→                    transition={{ duration: 0.3 }}
+   676→                    className={cn(
+   677→                      "flex items-center justify-between px-3 py-2 text-sm",
+   678→                      entry.player === 1 ? "bg-cyan-950/20" : "bg-pink-950/20"
+   679→                    )}
+   680→                  >
+   681→                    <span className={cn("font-medium", getPlayerColor(entry.player))}>
+   682→                      {getPlayerName(entry.player)}
+   683→                    </span>
+   684→                    <span className="text-white font-mono font-bold">{entry.value}</span>
+   685→                    <div className="flex items-center gap-1">
+   686→                      {entry.hint === "higher" && (
+   687→                        <>
+   688→                          <ArrowUp className="w-4 h-4 text-amber-400" />
+   689→                          <span className="text-amber-400 text-xs font-medium">
+   690→                            É MAIOR
+   691→                          </span>
+   692→                        </>
+   693→                      )}
+   694→                      {entry.hint === "lower" && (
+   695→                        <>
+   696→                          <ArrowDown className="w-4 h-4 text-blue-400" />
+   697→                          <span className="text-blue-400 text-xs font-medium">
+   698→                            É MENOR
+   699→                          </span>
+   700→                        </>
+   701→                      )}
+   702→                      {entry.hint === "correct" && (
+   703→                        <>
+   704→                          <Check className="w-4 h-4 text-emerald-400" />
+   705→                          <span className="text-emerald-400 text-xs font-medium">
+   706→                            Correto!
+   707→                          </span>
+   708→                        </>
+   709→                      )}
+   710→                    </div>
+   711→                  </motion.div>
+   712→                );
+   713→              })}
+   714→            </div>
+   715→          </div>
+   716→        </div>
+   717→      )}
+   718→
+   719→      {/* Restart button (visible during game) */}
+   720→      {gameState !== "game-over" && gameState !== "new-round" && (
+   721→        <div className="flex justify-center pt-2">
+   722→          <Button
+   723→            variant="ghost"
+   724→            onClick={handleRestart}
+   725→            className="text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 text-sm"
+   726→          >
+   727→            <RotateCcw className="w-4 h-4 mr-1" />
+   728→            Reiniciar Tudo
+   729→          </Button>
+   730→        </div>
+   731→      )}
+   732→    </div>
+   733→  );
+   734→}
+   735→

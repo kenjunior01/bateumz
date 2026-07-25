@@ -1,0 +1,693 @@
+     1→import { useState, useEffect, useCallback, useRef } from 'react';
+     2→import { motion, AnimatePresence } from 'framer-motion';
+     3→import { RotateCcw, Bot, Eye } from 'lucide-react';
+     4→import { Button } from '@/components/ui/button';
+     5→import { Badge } from '@/components/ui/badge';
+     6→import { cn } from '@/lib/utils';
+     7→
+     8→interface Props {
+     9→  onScore?: (name: string, score: number) => void;
+    10→  liveCode?: string;
+    11→}
+    12→
+    13→type GameMode = '1v1' | 'bot';
+    14→type GameState = 'idle' | 'showing' | 'input' | 'roundResult' | 'gameOver';
+    15→type GameSpeed = 'normal' | 'fast';
+    16→
+    17→const COLORS = [
+    18→  { name: 'Vermelho', base: 'bg-red-500', flash: 'bg-red-300 shadow-red-400 shadow-lg', dimBase: 'bg-red-500/50', border: 'border-red-400/30' },
+    19→  { name: 'Azul', base: 'bg-blue-500', flash: 'bg-blue-300 shadow-blue-400 shadow-lg', dimBase: 'bg-blue-500/50', border: 'border-blue-400/30' },
+    20→  { name: 'Verde', base: 'bg-emerald-500', flash: 'bg-emerald-300 shadow-emerald-400 shadow-lg', dimBase: 'bg-emerald-500/50', border: 'border-emerald-400/30' },
+    21→  { name: 'Amarelo', base: 'bg-yellow-500', flash: 'bg-yellow-300 shadow-yellow-400 shadow-lg', dimBase: 'bg-yellow-500/50', border: 'border-yellow-400/30' },
+    22→];
+    23→
+    24→const SPEED_MS: Record<GameSpeed, number> = { normal: 800, fast: 400 };
+    25→const GAP_MS: Record<GameSpeed, number> = { normal: 300, fast: 150 };
+    26→
+    27→function randomColor(): number {
+    28→  return Math.floor(Math.random() * 4);
+    29→}
+    30→
+    31→export default function ColorSequence({ onScore, liveCode }: Props) {
+    32→  const [mode, setMode] = useState<GameMode>('1v1');
+    33→  const [speed, setSpeed] = useState<GameSpeed>('normal');
+    34→  const [gameState, setGameState] = useState<GameState>('idle');
+    35→  const [sequence, setSequence] = useState<number[]>([]);
+    36→  const [activeFlash, setActiveFlash] = useState<number | null>(null);
+    37→  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+    38→  const [playerInput, setPlayerInput] = useState<number[]>([]);
+    39→  const [playerScores, setPlayerScores] = useState([0, 0]);
+    40→  const [round, setRound] = useState(1);
+    41→  const [shakeButton, setShakeButton] = useState<number | null>(null);
+    42→  const [playerTap, setPlayerTap] = useState<number | null>(null);
+    43→  const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+    44→  const [roundWinner, setRoundWinner] = useState<1 | 2 | null>(null);
+    45→
+    46→  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    47→  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    48→  const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    49→  const showIndexRef = useRef(0);
+    50→  const isShowingRef = useRef(false);
+    51→
+    52→  const clearAllTimers = useCallback(() => {
+    53→    if (showTimerRef.current) clearTimeout(showTimerRef.current);
+    54→    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    55→    if (botTimerRef.current) clearTimeout(botTimerRef.current);
+    56→  }, []);
+    57→
+    58→  const playerName = (p: 1 | 2) => (mode === 'bot' && p === 2) ? 'Bot' : `Jogador ${p}`;
+    59→
+    60→  const startNewGame = useCallback(() => {
+    61→    clearAllTimers();
+    62→    setSequence([]);
+    63→    setActiveFlash(null);
+    64→    setCurrentPlayer(1);
+    65→    setPlayerInput([]);
+    66→    setPlayerScores([0, 0]);
+    67→    setRound(1);
+    68→    setShakeButton(null);
+    69→    setPlayerTap(null);
+    70→    setWrongIndex(null);
+    71→    setRoundWinner(null);
+    72→    setGameState('idle');
+    73→  }, [clearAllTimers]);
+    74→
+    75→  const addRandomStep = useCallback((prev: number[]) => {
+    76→    const newSeq = [...prev, randomColor()];
+    77→    return newSeq;
+    78→  }, []);
+    79→
+    80→  const showSequence = useCallback((seq: number[], spd: GameSpeed) => {
+    81→    isShowingRef.current = true;
+    82→    setGameState('showing');
+    83→    showIndexRef.current = 0;
+    84→    setPlayerInput([]);
+    85→
+    86→    const flashDuration = SPEED_MS[spd];
+    87→    const gapDuration = GAP_MS[spd];
+    88→
+    89→    const showNext = (index: number) => {
+    90→      if (index >= seq.length) {
+    91→        isShowingRef.current = false;
+    92→        setActiveFlash(null);
+    93→        setGameState('input');
+    94→        return;
+    95→      }
+    96→
+    97→      setActiveFlash(seq[index]);
+    98→      showTimerRef.current = setTimeout(() => {
+    99→        setActiveFlash(null);
+   100→        flashTimerRef.current = setTimeout(() => {
+   101→          showNext(index + 1);
+   102→        }, gapDuration);
+   103→      }, flashDuration);
+   104→    };
+   105→
+   106→    setTimeout(() => showNext(0), 500);
+   107→  }, []);
+   108→
+   109→  const startRound = useCallback(() => {
+   110→    clearAllTimers();
+   111→    setPlayerTap(null);
+   112→    setShakeButton(null);
+   113→    setWrongIndex(null);
+   114→    setRoundWinner(null);
+   115→
+   116→    const newSeq = addRandomStep(sequence);
+   117→    setSequence(newSeq);
+   118→
+   119→    if (mode === 'bot' && currentPlayer === 2) {
+   120→      setGameState('showing');
+   121→      setTimeout(() => {
+   122→        botSimulateRound(newSeq);
+   123→      }, 800);
+   124→    } else {
+   125→      showSequence(newSeq, speed);
+   126→    }
+   127→  }, [sequence, speed, mode, currentPlayer, addRandomStep, showSequence, clearAllTimers]);
+   128→
+   129→  const botSimulateRound = useCallback((seq: number[]) => {
+   130→    setGameState('input');
+   131→
+   132→    let stepIndex = 0;
+   133→    const seqLen = seq.length;
+   134→
+   135→    const botStep = () => {
+   136→      if (stepIndex >= seqLen) {
+   137→        handlePlayerFinished(currentPlayer, seqLen);
+   138→        return;
+   139→      }
+   140→
+   141→      const expectedColor = seq[stepIndex];
+   142→      const mistakeChance = seqLen > 3 ? Math.min(0.05 + (seqLen - 3) * 0.04, 0.35) : 0.02;
+   143→      const makeMistake = Math.random() < mistakeChance;
+   144→
+   145→      setActiveFlash(expectedColor);
+   146→
+   147→      botTimerRef.current = setTimeout(() => {
+   148→        setActiveFlash(null);
+   149→
+   150→        if (makeMistake) {
+   151→          const wrongColor = (expectedColor + 1 + Math.floor(Math.random() * 3)) % 4;
+   152→          setShakeButton(wrongColor);
+   153→          setWrongIndex(stepIndex);
+   154→
+   155→          setTimeout(() => {
+   156→            handlePlayerMistake(currentPlayer as 1 | 2, wrongColor, stepIndex);
+   157→          }, 600);
+   158→          return;
+   159→        }
+   160→
+   161→        stepIndex++;
+   162→        botTimerRef.current = setTimeout(botStep, 300 + Math.random() * 200);
+   163→      }, 300 + Math.random() * 200);
+   164→    };
+   165→
+   166→    setTimeout(botStep, 600);
+   167→  }, [currentPlayer]);
+   168→
+   169→  const handlePlayerFinished = useCallback((player: 1 | 2, seqLen: number) => {
+   170→    setPlayerScores(prev => {
+   171→      const next = [...prev];
+   172→      next[player - 1] = Math.max(next[player - 1], seqLen);
+   173→      return next;
+   174→    });
+   175→
+   176→    if (mode === 'bot' && player === 2) {
+   177→      setRoundWinner(2);
+   178→      setGameState('roundResult');
+   179→    } else {
+   180→      setRoundWinner(player);
+   181→      setGameState('roundResult');
+   182→    }
+   183→  }, [mode]);
+   184→
+   185→  const handlePlayerMistake = useCallback((player: 1 | 2, _wrongColor: number, _stepIndex: number) => {
+   186→    const otherPlayer = player === 1 ? 2 : 1;
+   187→
+   188→    setPlayerScores(prev => {
+   189→      const next = [...prev];
+   190→      next[otherPlayer - 1] = Math.max(next[otherPlayer - 1], sequence.length);
+   191→      return next;
+   192→    });
+   193→
+   194→    onScore?.(playerName(otherPlayer), sequence.length);
+   195→
+   196→    setGameState('gameOver');
+   197→  }, [sequence, onScore, playerName]);
+   198→
+   199→  const handleColorPress = useCallback((colorIndex: number) => {
+   200→    if (gameState !== 'input') return;
+   201→    if (mode === 'bot' && currentPlayer === 2) return;
+   202→
+   203→    setPlayerTap(colorIndex);
+   204→    setTimeout(() => setPlayerTap(null), 200);
+   205→
+   206→    const expected = sequence[playerInput.length];
+   207→
+   208→    if (colorIndex !== expected) {
+   209→      setShakeButton(colorIndex);
+   210→      setWrongIndex(playerInput.length);
+   211→
+   212→      const otherPlayer = currentPlayer === 1 ? 2 : 1;
+   213→
+   214→      setPlayerScores(prev => {
+   215→        const next = [...prev];
+   216→        next[otherPlayer - 1] = Math.max(next[otherPlayer - 1], sequence.length);
+   217→        return next;
+   218→      });
+   219→
+   220→      onScore?.(playerName(otherPlayer as 1 | 2), sequence.length);
+   221→
+   222→      setGameState('gameOver');
+   223→      return;
+   224→    }
+   225→
+   226→    const newInput = [...playerInput, colorIndex];
+   227→    setPlayerInput(newInput);
+   228→
+   229→    if (newInput.length === sequence.length) {
+   230→      setGameState('input');
+   231→      setTimeout(() => {
+   232→        handlePlayerFinished(currentPlayer, sequence.length);
+   233→      }, 400);
+   234→    }
+   235→  }, [gameState, mode, currentPlayer, sequence, playerInput, handlePlayerFinished, onScore, playerName]);
+   236→
+   237→  const nextRound = useCallback(() => {
+   238→    const nextPlayer = (currentPlayer === 1 ? 2 : 1) as 1 | 2;
+   239→    setCurrentPlayer(nextPlayer);
+   240→    setRound(prev => prev + 1);
+   241→    setPlayerInput([]);
+   242→  }, [currentPlayer]);
+   243→
+   244→  useEffect(() => {
+   245→    if (gameState === 'idle' || gameState === 'gameOver') return;
+   246→
+   247→    if (gameState === 'roundResult') {
+   248→      const timer = setTimeout(() => {
+   249→        nextRound();
+   250→      }, mode === 'bot' && currentPlayer === 2 ? 1500 : 2000);
+   251→      return () => clearTimeout(timer);
+   252→    }
+   253→
+   254→    if (gameState === 'input' && roundWinner !== null) {
+   255→      return;
+   256→    }
+   257→  }, [gameState, nextRound, roundWinner, currentPlayer, mode]);
+   258→
+   259→  useEffect(() => {
+   260→    return () => clearAllTimers();
+   261→  }, [clearAllTimers]);
+   262→
+   263→  const progressPercent = sequence.length > 0
+   264→    ? Math.min((playerInput.length / sequence.length) * 100, 100)
+   265→    : 0;
+   266→
+   267→  const statusText = (() => {
+   268→    switch (gameState) {
+   269→      case 'idle': return 'Clique em "Iniciar" para começar';
+   270→      case 'showing': return 'Assista...';
+   271→      case 'input': return `${playerName(currentPlayer)} — Sua vez!`;
+   272→      case 'roundResult': return roundWinner
+   273→        ? `${playerName(roundWinner)} acertou! — Nível ${sequence.length}`
+   274→        : 'Próximo Round';
+   275→      case 'gameOver': {
+   276→        const winner = playerScores[0] > playerScores[1] ? 1
+   277→          : playerScores[1] > playerScores[0] ? 2 : 0;
+   278→        return winner === 0
+   279→          ? 'Empate!'
+   280→          : `${playerName(winner as 1 | 2)} venceu!`;
+   281→      }
+   282→      default: return '';
+   283→    }
+   284→  })();
+   285→
+   286→  return (
+   287→    <div className="min-w-[340px] max-w-lg mx-auto">
+   288→      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-5">
+   289→
+   290→        {/* Scoreboard */}
+   291→        <div className="bg-gradient-to-r from-violet-900/30 to-fuchsia-900/30 border border-violet-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
+   292→          <div className="flex flex-col items-center gap-1 min-w-[70px]">
+   293→            <div className={cn(
+   294→              'text-xs font-medium',
+   295→              currentPlayer === 1 && gameState === 'input' && !(mode === 'bot' && currentPlayer === 2)
+   296→                ? 'text-cyan-400'
+   297→                : 'text-slate-400'
+   298→            )}>
+   299→              {playerName(1)}
+   300→            </div>
+   301→            <motion.div
+   302→              key={`p1-${playerScores[0]}`}
+   303→              initial={{ scale: 1.4, color: '#22d3ee' }}
+   304→              animate={{ scale: 1, color: '#e2e8f0' }}
+   305→              transition={{ duration: 0.5 }}
+   306→              className="text-2xl font-bold text-slate-100"
+   307→            >
+   308→              {playerScores[0]}
+   309→            </motion.div>
+   310→            {currentPlayer === 1 && gameState === 'input' && !(mode === 'bot' && currentPlayer === 2) && (
+   311→              <motion.div
+   312→                layoutId="turn-indicator"
+   313→                className="w-2 h-2 rounded-full bg-cyan-400"
+   314→                animate={{ scale: [1, 1.3, 1] }}
+   315→                transition={{ repeat: Infinity, duration: 1 }}
+   316→              />
+   317→            )}
+   318→          </div>
+   319→
+   320→          <div className="flex flex-col items-center gap-0.5">
+   321→            <Eye className="w-4 h-4 text-violet-400 mb-0.5" />
+   322→            <span className="text-sm font-bold text-violet-300 tracking-wide">
+   323→              SEQUÊNCIA DE CORES
+   324→            </span>
+   325→            {mode === 'bot' && (
+   326→              <Bot className="w-3 h-3 text-fuchsia-400 mt-0.5" />
+   327→            )}
+   328→          </div>
+   329→
+   330→          <div className="flex flex-col items-center gap-1 min-w-[70px]">
+   331→            <div className={cn(
+   332→              'text-xs font-medium',
+   333→              currentPlayer === 2 && gameState === 'input' && !(mode === 'bot' && currentPlayer === 2)
+   334→                ? 'text-pink-400'
+   335→                : mode === 'bot'
+   336→                  ? 'text-slate-500'
+   337→                  : 'text-slate-400'
+   338→            )}>
+   339→              {playerName(2)}
+   340→            </div>
+   341→            <motion.div
+   342→              key={`p2-${playerScores[1]}`}
+   343→              initial={{ scale: 1.4, color: '#f472b6' }}
+   344→              animate={{ scale: 1, color: '#e2e8f0' }}
+   345→              transition={{ duration: 0.5 }}
+   346→              className="text-2xl font-bold text-slate-100"
+   347→            >
+   348→              {playerScores[1]}
+   349→            </motion.div>
+   350→            {currentPlayer === 2 && gameState === 'input' && !(mode === 'bot' && currentPlayer === 2) && (
+   351→              <motion.div
+   352→                layoutId="turn-indicator"
+   353→                className="w-2 h-2 rounded-full bg-pink-400"
+   354→                animate={{ scale: [1, 1.3, 1] }}
+   355→                transition={{ repeat: Infinity, duration: 1 }}
+   356→              />
+   357→            )}
+   358→          </div>
+   359→        </div>
+   360→
+   361→        {/* Controls row */}
+   362→        <div className="flex items-center justify-between gap-3 flex-wrap">
+   363→          <div className="flex items-center gap-2">
+   364→            <Button
+   365→              size="sm"
+   366→              variant={mode === '1v1' ? 'default' : 'outline'}
+   367→              onClick={() => { if (gameState !== 'showing') { startNewGame(); setMode('1v1'); } }}
+   368→              disabled={gameState === 'showing'}
+   369→              className={cn(
+   370→                'text-xs px-3 py-1 h-7',
+   371→                mode === '1v1' && 'bg-cyan-600 hover:bg-cyan-700 text-white'
+   372→              )}
+   373→            >
+   374→              1v1 Local
+   375→            </Button>
+   376→            <Button
+   377→              size="sm"
+   378→              variant={mode === 'bot' ? 'default' : 'outline'}
+   379→              onClick={() => { if (gameState !== 'showing') { startNewGame(); setMode('bot'); } }}
+   380→              disabled={gameState === 'showing'}
+   381→              className={cn(
+   382→                'text-xs px-3 py-1 h-7',
+   383→                mode === 'bot' && 'bg-fuchsia-600 hover:bg-fuchsia-700 text-white'
+   384→              )}
+   385→            >
+   386→              <Bot className="w-3 h-3 mr-1" />
+   387→              VS Bot
+   388→            </Button>
+   389→          </div>
+   390→
+   391→          <div className="flex items-center gap-2">
+   392→            <Button
+   393→              size="sm"
+   394→              variant={speed === 'normal' ? 'secondary' : 'ghost'}
+   395→              onClick={() => setSpeed('normal')}
+   396→              disabled={gameState === 'showing'}
+   397→              className="text-xs px-3 py-1 h-7"
+   398→            >
+   399→              Normal
+   400→            </Button>
+   401→            <Button
+   402→              size="sm"
+   403→              variant={speed === 'fast' ? 'secondary' : 'ghost'}
+   404→              onClick={() => setSpeed('fast')}
+   405→              disabled={gameState === 'showing'}
+   406→              className="text-xs px-3 py-1 h-7"
+   407→            >
+   408→              ⚡ Modo Rápido
+   409→            </Button>
+   410→          </div>
+   411→        </div>
+   412→
+   413→        {/* Status */}
+   414→        <div className="flex flex-col items-center gap-2">
+   415→          <AnimatePresence mode="wait">
+   416→            <motion.div
+   417→              key={statusText}
+   418→              initial={{ opacity: 0, y: -8 }}
+   419→              animate={{ opacity: 1, y: 0 }}
+   420→              exit={{ opacity: 0, y: 8 }}
+   421→              transition={{ duration: 0.25 }}
+   422→              className="text-center"
+   423→            >
+   424→              <div className="flex items-center gap-2 justify-center">
+   425→                {gameState === 'showing' && <Eye className="w-4 h-4 text-violet-400" />}
+   426→                {gameState === 'input' && (
+   427→                  <motion.div
+   428→                    className={cn(
+   429→                      'w-2.5 h-2.5 rounded-full',
+   430→                      currentPlayer === 1 ? 'bg-cyan-400' : 'bg-pink-400'
+   431→                    )}
+   432→                    animate={{ scale: [1, 1.4, 1] }}
+   433→                    transition={{ repeat: Infinity, duration: 0.8 }}
+   434→                  />
+   435→                )}
+   436→                <span className={cn(
+   437→                  'text-sm font-medium',
+   438→                  gameState === 'showing' && 'text-violet-300',
+   439→                  gameState === 'input' && (currentPlayer === 1 ? 'text-cyan-300' : 'text-pink-300'),
+   440→                  gameState === 'gameOver' && 'text-red-400',
+   441→                  gameState === 'roundResult' && 'text-emerald-400',
+   442→                  gameState === 'idle' && 'text-slate-400',
+   443→                )}>
+   444→                  {statusText}
+   445→                </span>
+   446→              </div>
+   447→            </motion.div>
+   448→          </AnimatePresence>
+   449→
+   450→          {/* Round / Nível info */}
+   451→          {gameState !== 'idle' && (
+   452→            <div className="flex items-center gap-3">
+   453→              <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
+   454→                Round {round}
+   455→              </Badge>
+   456→              <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
+   457→                Nível {sequence.length}
+   458→              </Badge>
+   459→            </div>
+   460→          )}
+   461→
+   462→          {/* Progress bar */}
+   463→          {gameState === 'input' && sequence.length > 0 && !(mode === 'bot' && currentPlayer === 2) && (
+   464→            <div className="w-full max-w-xs h-1.5 bg-slate-800 rounded-full overflow-hidden">
+   465→              <motion.div
+   466→                className={cn(
+   467→                  'h-full rounded-full',
+   468→                  currentPlayer === 1 ? 'bg-cyan-500' : 'bg-pink-500'
+   469→                )}
+   470→                initial={{ width: 0 }}
+   471→                animate={{ width: `${progressPercent}%` }}
+   472→                transition={{ duration: 0.2 }}
+   473→              />
+   474→            </div>
+   475→          )}
+   476→        </div>
+   477→
+   478→        {/* Game board - 2x2 grid */}
+   479→        <div className="flex items-center justify-center">
+   480→          <AnimatePresence>
+   481→            {gameState === 'gameOver' && (
+   482→              <motion.div
+   483→                key="game-over-overlay"
+   484→                initial={{ opacity: 0 }}
+   485→                animate={{ opacity: 1 }}
+   486→                exit={{ opacity: 0 }}
+   487→                className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/60 backdrop-blur-sm"
+   488→              >
+   489→                <motion.div
+   490→                  initial={{ scale: 0.8, opacity: 0 }}
+   491→                  animate={{ scale: 1, opacity: 1 }}
+   492→                  exit={{ scale: 0.8, opacity: 0 }}
+   493→                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+   494→                  className="text-center space-y-3 px-6"
+   495→                >
+   496→                  <div className="text-3xl font-bold text-slate-100">
+   497→                    Errou!
+   498→                  </div>
+   499→                  <div className="text-slate-300 text-sm">
+   500→                    Sequência: {sequence.length} {sequence.length === 1 ? 'cor' : 'cores'}
+   501→                  </div>
+   502→                  <div className="flex items-center justify-center gap-4 text-sm">
+   503→                    <span className={cn(
+   504→                      'font-semibold',
+   505→                      playerScores[0] > playerScores[1] ? 'text-cyan-400' : 'text-slate-400'
+   506→                    )}>
+   507→                      {playerName(1)}: {playerScores[0]}
+   508→                    </span>
+   509→                    <span className="text-slate-600">vs</span>
+   510→                    <span className={cn(
+   511→                      'font-semibold',
+   512→                      playerScores[1] > playerScores[0] ? 'text-pink-400' : 'text-slate-400'
+   513→                    )}>
+   514→                      {playerName(2)}: {playerScores[1]}
+   515→                    </span>
+   516→                  </div>
+   517→                  <Button
+   518→                    onClick={startNewGame}
+   519→                    className="bg-violet-600 hover:bg-violet-700 text-white mt-2"
+   520→                  >
+   521→                    <RotateCcw className="w-4 h-4 mr-1" />
+   522→                    Reiniciar Tudo
+   523→                  </Button>
+   524→                </motion.div>
+   525→              </motion.div>
+   526→            )}
+   527→          </AnimatePresence>
+   528→
+   529→          <div className="grid grid-cols-2 gap-4 relative">
+   530→            {COLORS.map((color, index) => {
+   531→              const isFlashing = activeFlash === index;
+   532→              const isTapping = playerTap === index;
+   533→              const isShaking = shakeButton === index;
+   534→              const isWrong = wrongIndex !== null && gameState === 'gameOver';
+   535→              const isInputActive = gameState === 'input' && !(mode === 'bot' && currentPlayer === 2);
+   536→              const isDimmed = gameState === 'showing' && !isFlashing;
+   537→
+   538→              return (
+   539→                <motion.button
+   540→                  key={index}
+   541→                  onClick={() => handleColorPress(index)}
+   542→                  disabled={gameState === 'showing' || gameState === 'gameOver' || gameState === 'roundResult' || gameState === 'idle'}
+   543→                  animate={
+   544→                    isShaking
+   545→                      ? {
+   546→                          x: [-6, 6, -5, 5, -3, 3, 0],
+   547→                          transition: { duration: 0.5 },
+   548→                        }
+   549→                      : isFlashing
+   550→                        ? { scale: 1.05 }
+   551→                        : isTapping
+   552→                          ? { scale: 0.95 }
+   553→                          : { scale: 1 }
+   554→                  }
+   555→                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+   556→                  className={cn(
+   557→                    'w-28 h-28 sm:w-36 sm:h-36 rounded-3xl transition-colors duration-150 relative overflow-hidden cursor-pointer',
+   558→                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
+   559→                    'border-2',
+   560→                    isFlashing && color.flash,
+   561→                    isFlashing && color.border,
+   562→                    !isFlashing && !isDimmed && color.base,
+   563→                    isDimmed && color.dimBase,
+   564→                    isInputActive && !isFlashing && 'hover:brightness-110',
+   565→                    isWrong && isShaking && 'ring-2 ring-red-400',
+   566→                  )}
+   567→                  style={{
+   568→                    boxShadow: isFlashing
+   569→                      ? `0 0 30px ${index === 0 ? '#ef4444' : index === 1 ? '#3b82f6' : index === 2 ? '#10b981' : '#eab308'}88`
+   570→                      : 'none',
+   571→                  }}
+   572→                >
+   573→                  {/* Ripple effect on tap */}
+   574→                  <AnimatePresence>
+   575→                    {isTapping && (
+   576→                      <motion.div
+   577→                        className="absolute inset-0 rounded-3xl"
+   578→                        initial={{ opacity: 0.5 }}
+   579→                        animate={{ opacity: 0, scale: 1.5 }}
+   580→                        exit={{ opacity: 0 }}
+   581→                        transition={{ duration: 0.4 }}
+   582→                        style={{
+   583→                          background: `radial-gradient(circle, white 0%, transparent 70%)`,
+   584→                        }}
+   585→                      />
+   586→                    )}
+   587→                  </AnimatePresence>
+   588→
+   589→                  {/* Flash glow overlay */}
+   590→                  {isFlashing && (
+   591→                    <motion.div
+   592→                      className="absolute inset-0 rounded-3xl"
+   593→                      initial={{ opacity: 0 }}
+   594→                      animate={{ opacity: 1 }}
+   595→                      exit={{ opacity: 0 }}
+   596→                      transition={{ duration: 0.1 }}
+   597→                      style={{
+   598→                        background: `radial-gradient(circle at center, rgba(255,255,255,0.4) 0%, transparent 70%)`,
+   599→                      }}
+   600→                    />
+   601→                  )}
+   602→                </motion.button>
+   603→              );
+   604→            })}
+   605→          </div>
+   606→        </div>
+   607→
+   608→        {/* Bottom controls */}
+   609→        <div className="flex items-center justify-between">
+   610→          <div className="text-xs text-slate-500">
+   611→            {gameState !== 'idle' && (
+   612→              <span>
+   613→                {playerInput.length} / {sequence.length}
+   614→              </span>
+   615→            )}
+   616→          </div>
+   617→
+   618→          <div className="flex items-center gap-2">
+   619→            {gameState === 'idle' && (
+   620→              <motion.div
+   621→                initial={{ opacity: 0, scale: 0.9 }}
+   622→                animate={{ opacity: 1, scale: 1 }}
+   623→                transition={{ delay: 0.1 }}
+   624→              >
+   625→                <Button
+   626→                  onClick={startRound}
+   627→                  className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-semibold"
+   628→                >
+   629→                  <Eye className="w-4 h-4 mr-2" />
+   630→                  Iniciar
+   631→                </Button>
+   632→              </motion.div>
+   633→            )}
+   634→
+   635→            {gameState === 'roundResult' && (
+   636→              <motion.div
+   637→                initial={{ opacity: 0, scale: 0.9 }}
+   638→                animate={{ opacity: 1, scale: 1 }}
+   639→              >
+   640→                <Button
+   641→                  onClick={nextRound}
+   642→                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   643→                >
+   644→                  Próximo Round
+   645→                </Button>
+   646→              </motion.div>
+   647→            )}
+   648→
+   649→            {gameState !== 'idle' && (
+   650→              <Button
+   651→                variant="ghost"
+   652→                size="sm"
+   653→                onClick={startNewGame}
+   654→                className="text-slate-400 hover:text-slate-200 text-xs"
+   655→              >
+   656→                <RotateCcw className="w-3 h-3 mr-1" />
+   657→                Reiniciar Tudo
+   658→              </Button>
+   659→            )}
+   660→          </div>
+   661→        </div>
+   662→
+   663→        {/* Sequence length visual indicator */}
+   664→        {sequence.length > 0 && gameState !== 'idle' && (
+   665→          <div className="flex items-center justify-center gap-1 flex-wrap">
+   666→            {sequence.map((colorIdx, i) => (
+   667→              <motion.div
+   668→                key={`seq-${round}-${i}`}
+   669→                initial={{ scale: 0, opacity: 0 }}
+   670→                animate={{ scale: 1, opacity: 1 }}
+   671→                transition={{ delay: i * 0.03 }}
+   672→                className={cn(
+   673→                  'w-3 h-3 rounded-full',
+   674→                  i < playerInput.length
+   675→                    ? COLORS[colorIdx].base
+   676→                    : gameState === 'gameOver' && i === wrongIndex
+   677→                      ? 'bg-red-400'
+   678→                      : 'bg-slate-700',
+   679→                )}
+   680→                style={{
+   681→                  boxShadow: i < playerInput.length
+   682→                    ? `0 0 6px ${colorIdx === 0 ? '#ef4444' : colorIdx === 1 ? '#3b82f6' : colorIdx === 2 ? '#10b981' : '#eab308'}66`
+   683→                    : 'none',
+   684→                }}
+   685→              />
+   686→            ))}
+   687→          </div>
+   688→        )}
+   689→      </div>
+   690→    </div>
+   691→  );
+   692→}
+   693→

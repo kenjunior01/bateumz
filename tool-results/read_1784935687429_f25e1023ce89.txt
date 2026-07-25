@@ -1,0 +1,718 @@
+     1→import { useState, useCallback, useEffect } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { Button } from "@/components/ui/button";
+     4→import { Badge } from "@/components/ui/badge";
+     5→import { cn } from "@/lib/utils";
+     6→import { RotateCcw, Coins, Bot } from "lucide-react";
+     7→
+     8→interface Props {
+     9→  onScore?: (name: string, score: number) => void;
+    10→  liveCode?: string;
+    11→}
+    12→
+    13→type Choice = "rock" | "paper" | "scissors";
+    14→type GameMode = "1v1" | "bot";
+    15→type GamePhase = "choosing" | "reveal" | "roundResult" | "gameOver";
+    16→type BetAmount = 0 | 10 | 25 | 50 | 100;
+    17→
+    18→const CHOICES: { id: Choice; emoji: string; label: string }[] = [
+    19→  { id: "rock", emoji: "\u270a", label: "Pedra" },
+    20→  { id: "paper", emoji: "\u270b", label: "Papel" },
+    21→  { id: "scissors", emoji: "\u270c\ufe0f", label: "Tesoura" },
+    22→];
+    23→
+    24→const BET_OPTIONS: BetAmount[] = [0, 10, 25, 50, 100];
+    25→
+    26→type RoundResult = "p1" | "p2" | "draw";
+    27→
+    28→function determineWinner(p1: Choice, p2: Choice): RoundResult {
+    29→  if (p1 === p2) return "draw";
+    30→  if (
+    31→    (p1 === "rock" && p2 === "scissors") ||
+    32→    (p1 === "paper" && p2 === "rock") ||
+    33→    (p1 === "scissors" && p2 === "paper")
+    34→  ) {
+    35→    return "p1";
+    36→  }
+    37→  return "p2";
+    38→}
+    39→
+    40→function getBotChoice(): Choice {
+    41→  const r = Math.random();
+    42→  if (r < 1 / 3) return "rock";
+    43→  if (r < 2 / 3) return "paper";
+    44→  return "scissors";
+    45→}
+    46→
+    47→export default function RockPaperScissors({ onScore, liveCode }: Props) {
+    48→  const [mode, setMode] = useState<GameMode>("bot");
+    49→  const [bestOf, setBestOf] = useState<3 | 5 | 7>(3);
+    50→  const [phase, setPhase] = useState<GamePhase>("choosing");
+    51→  const [p1Choice, setP1Choice] = useState<Choice | null>(null);
+    52→  const [p2Choice, setP2Choice] = useState<Choice | null>(null);
+    53→  const [p1Revealed, setP1Revealed] = useState(false);
+    54→  const [p2Revealed, setP2Revealed] = useState(false);
+    55→  const [p1Score, setP1Score] = useState(0);
+    56→  const [p2Score, setP2Score] = useState(0);
+    57→  const [round, setRound] = useState(1);
+    58→  const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
+    59→  const [p2Choosing, setP2Choosing] = useState(false);
+    60→  const [bet, setBet] = useState<BetAmount>(0);
+    61→  const [p1Streak, setP1Streak] = useState(0);
+    62→  const [p2Streak, setP2Streak] = useState(0);
+    63→  const [lastWinner, setLastWinner] = useState<"p1" | "p2" | null>(null);
+    64→
+    65→  const winsNeeded = Math.ceil(bestOf / 2);
+    66→  const p2Label = mode === "bot" ? "Bot" : "Jogador 2";
+    67→
+    68→  const resetAll = useCallback(() => {
+    69→    setPhase("choosing");
+    70→    setP1Choice(null);
+    71→    setP2Choice(null);
+    72→    setP1Revealed(false);
+    73→    setP2Revealed(false);
+    74→    setP1Score(0);
+    75→    setP2Score(0);
+    76→    setRound(1);
+    77→    setRoundResult(null);
+    78→    setP2Choosing(false);
+    79→    setP1Streak(0);
+    80→    setP2Streak(0);
+    81→    setLastWinner(null);
+    82→  }, []);
+    83→
+    84→  const nextRound = useCallback(() => {
+    85→    if (p1Score >= winsNeeded || p2Score >= winsNeeded) {
+    86→      const winnerName = p1Score >= winsNeeded ? "Jogador 1" : p2Label;
+    87→      const winnerScore = Math.max(p1Score, p2Score);
+    88→      onScore?.(winnerName, winnerScore);
+    89→      setPhase("gameOver");
+    90→      return;
+    91→    }
+    92→    setPhase("choosing");
+    93→    setP1Choice(null);
+    94→    setP2Choice(null);
+    95→    setP1Revealed(false);
+    96→    setP2Revealed(false);
+    97→    setRoundResult(null);
+    98→    setP2Choosing(false);
+    99→    setRound((r) => r + 1);
+   100→  }, [p1Score, p2Score, winsNeeded, p2Label, onScore]);
+   101→
+   102→  const handleP1Choice = useCallback(
+   103→    (choice: Choice) => {
+   104→      if (phase !== "choosing") return;
+   105→      setP1Choice(choice);
+   106→
+   107→      if (mode === "bot") {
+   108→        const botPick = getBotChoice();
+   109→        setP2Choice(botPick);
+   110→        setP2Choosing(true);
+   111→        setTimeout(() => {
+   112→          setP2Choosing(false);
+   113→        }, 400);
+   114→      } else {
+   115→        setP2Choosing(true);
+   116→      }
+   117→    },
+   118→    [phase, mode]
+   119→  );
+   120→
+   121→  const handleP2Choice = useCallback(
+   122→    (choice: Choice) => {
+   123→      if (phase !== "choosing" || !p1Choice || mode === "bot") return;
+   124→      setP2Choice(choice);
+   125→      setP2Choosing(false);
+   126→    },
+   127→    [phase, p1Choice, mode]
+   128→  );
+   129→
+   130→  const handleReveal = useCallback(() => {
+   131→    if (!p1Choice || !p2Choice) return;
+   132→    setPhase("reveal");
+   133→    setP1Revealed(false);
+   134→    setP2Revealed(false);
+   135→
+   136→    setTimeout(() => setP1Revealed(true), 200);
+   137→    setTimeout(() => setP2Revealed(true), 600);
+   138→
+   139→    setTimeout(() => {
+   140→      const result = determineWinner(p1Choice, p2Choice);
+   141→      setRoundResult(result);
+   142→
+   143→      if (result === "p1") {
+   144→        setP1Score((s) => s + 1);
+   145→        setP1Streak((s) => s + 1);
+   146→        setP2Streak(0);
+   147→        setLastWinner("p1");
+   148→      } else if (result === "p2") {
+   149→        setP2Score((s) => s + 1);
+   150→        setP2Streak((s) => s + 1);
+   151→        setP1Streak(0);
+   152→        setLastWinner("p2");
+   153→      } else {
+   154→        setP1Streak(0);
+   155→        setP2Streak(0);
+   156→        setLastWinner(null);
+   157→      }
+   158→      setPhase("roundResult");
+   159→    }, 1200);
+   160→  }, [p1Choice, p2Choice]);
+   161→
+   162→  const switchMode = useCallback(
+   163→    (newMode: GameMode) => {
+   164→      setMode(newMode);
+   165→      resetAll();
+   166→    },
+   167→    [resetAll]
+   168→  );
+   169→
+   170→  const changeBestOf = useCallback(
+   171→    (val: 3 | 5 | 7) => {
+   172→      setBestOf(val);
+   173→      resetAll();
+   174→    },
+   175→    [resetAll]
+   176→  );
+   177→
+   178→  useEffect(() => {
+   179→    if (phase === "roundResult") {
+   180→      if (p1Score >= winsNeeded || p2Score >= winsNeeded) {
+   181→        const winnerName = p1Score >= winsNeeded ? "Jogador 1" : p2Label;
+   182→        const winnerScore = Math.max(p1Score, p2Score);
+   183→        onScore?.(winnerName, winnerScore);
+   184→        setPhase("gameOver");
+   185→      }
+   186→    }
+   187→  }, [phase, p1Score, p2Score, winsNeeded, p2Label, onScore]);
+   188→
+   189→  const canReveal = p1Choice !== null && p2Choice !== null && phase === "choosing";
+   190→  const isGameOver = phase === "gameOver";
+   191→  const gameWinner = isGameOver
+   192→    ? p1Score >= winsNeeded
+   193→      ? "p1"
+   194→      : "p2"
+   195→    : null;
+   196→
+   197→  const p1Winning = isGameOver && gameWinner === "p1";
+   198→  const p2Winning = isGameOver && gameWinner === "p2";
+   199→
+   200→  const p1ChoiceData = p1Choice ? CHOICES.find((c) => c.id === p1Choice) : null;
+   201→  const p2ChoiceData = p2Choice ? CHOICES.find((c) => c.id === p2Choice) : null;
+   202→
+   203→  return (
+   204→    <div className="w-full max-w-3xl mx-auto space-y-4 bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-700/50">
+   205→      {/* Scoreboard */}
+   206→      <div className="bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl p-4">
+   207→        <div className="flex items-center justify-between">
+   208→          <motion.div
+   209→            className="text-center flex-1"
+   210→            animate={{
+   211→              scale: p1Winning ? [1, 1.1, 1] : 1,
+   212→            }}
+   213→            transition={{ repeat: p1Winning ? Infinity : 0, duration: 0.6 }}
+   214→          >
+   215→            <p className="text-cyan-400 text-xs sm:text-sm font-semibold tracking-wide uppercase">
+   216→              Jogador 1
+   217→            </p>
+   218→            <motion.p
+   219→              key={p1Score}
+   220→              initial={{ scale: 1.6, opacity: 0 }}
+   221→              animate={{ scale: 1, opacity: 1 }}
+   222→              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+   223→              className={cn(
+   224→                "text-3xl sm:text-4xl font-bold",
+   225→                p1Winning ? "text-cyan-300" : "text-white"
+   226→              )}
+   227→            >
+   228→              {p1Score}
+   229→            </motion.p>
+   230→            {p1Streak >= 2 && (
+   231→              <Badge className="mt-1 bg-orange-600/80 text-white text-xs border-0">
+   232→                \ud83d\udd25 {p1Streak}
+   233→              </Badge>
+   234→            )}
+   235→          </motion.div>
+   236→
+   237→          <div className="flex flex-col items-center px-2">
+   238→            <span className="text-slate-400 text-xs">Round {round}</span>
+   239→            <span className="text-slate-300 font-bold text-lg">\u2694\ufe0f</span>
+   240→            <span className="text-slate-500 text-xs">
+   241→              Melhor de {bestOf}
+   242→            </span>
+   243→          </div>
+   244→
+   245→          <motion.div
+   246→            className="text-center flex-1"
+   247→            animate={{
+   248→              scale: p2Winning ? [1, 1.1, 1] : 1,
+   249→            }}
+   250→            transition={{ repeat: p2Winning ? Infinity : 0, duration: 0.6 }}
+   251→          >
+   252→            <p className="text-pink-400 text-xs sm:text-sm font-semibold tracking-wide uppercase flex items-center justify-center gap-1">
+   253→              {mode === "bot" && <Bot className="w-3.5 h-3.5" />}
+   254→              {p2Label}
+   255→            </p>
+   256→            <motion.p
+   257→              key={p2Score}
+   258→              initial={{ scale: 1.6, opacity: 0 }}
+   259→              animate={{ scale: 1, opacity: 1 }}
+   260→              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+   261→              className={cn(
+   262→                "text-3xl sm:text-4xl font-bold",
+   263→                p2Winning ? "text-pink-300" : "text-white"
+   264→              )}
+   265→            >
+   266→              {p2Score}
+   267→            </motion.p>
+   268→            {p2Streak >= 2 && (
+   269→              <Badge className="mt-1 bg-orange-600/80 text-white text-xs border-0">
+   270→                \ud83d\udd25 {p2Streak}
+   271→              </Badge>
+   272→            )}
+   273→          </motion.div>
+   274→        </div>
+   275→      </div>
+   276→
+   277→      {/* Controls Row */}
+   278→      <div className="flex flex-wrap items-center justify-between gap-2">
+   279→        {/* Mode Toggle */}
+   280→        <div className="flex rounded-lg overflow-hidden border border-slate-700">
+   281→          <button
+   282→            onClick={() => switchMode("1v1")}
+   283→            className={cn(
+   284→              "px-3 py-1.5 text-xs font-medium transition-colors",
+   285→              mode === "1v1"
+   286→                ? "bg-cyan-600 text-white"
+   287→                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+   288→            )}
+   289→          >
+   290→            1v1
+   291→          </button>
+   292→          <button
+   293→            onClick={() => switchMode("bot")}
+   294→            className={cn(
+   295→              "px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1",
+   296→              mode === "bot"
+   297→                ? "bg-pink-600 text-white"
+   298→                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+   299→            )}
+   300→          >
+   301→            <Bot className="w-3 h-3" /> Bot
+   302→          </button>
+   303→        </div>
+   304→
+   305→        {/* Best Of Selector */}
+   306→        <div className="flex items-center gap-1">
+   307→          <span className="text-slate-500 text-xs mr-1">Melhor de</span>
+   308→          {([3, 5, 7] as const).map((val) => (
+   309→            <button
+   310→              key={val}
+   311→              onClick={() => changeBestOf(val)}
+   312→              disabled={phase !== "choosing" && phase !== "gameOver"}
+   313→              className={cn(
+   314→                "w-7 h-7 rounded text-xs font-bold transition-colors",
+   315→                bestOf === val
+   316→                  ? "bg-slate-600 text-white"
+   317→                  : "bg-slate-800 text-slate-500 hover:text-slate-300"
+   318→              )}
+   319→            >
+   320→              {val}
+   321→            </button>
+   322→          ))}
+   323→        </div>
+   324→
+   325→        {/* Reset */}
+   326→        <Button
+   327→          variant="ghost"
+   328→          size="sm"
+   329→          onClick={resetAll}
+   330→          className="text-slate-400 hover:text-white hover:bg-slate-800"
+   331→        >
+   332→          <RotateCcw className="w-3.5 h-3.5 mr-1" />
+   333→          Reiniciar Tudo
+   334→        </Button>
+   335→      </div>
+   336→
+   337→      {/* Bet System */}
+   338→      <div className="flex items-center gap-2">
+   339→        <Coins className="w-4 h-4 text-yellow-500" />
+   340→        <span className="text-slate-400 text-xs">Aposta:</span>
+   341→        {BET_OPTIONS.map((amount) => (
+   342→          <button
+   343→            key={amount}
+   344→            onClick={() => (bet === amount ? setBet(0) : setBet(amount))}
+   345→            disabled={phase !== "choosing"}
+   346→            className={cn(
+   347→              "px-2 py-0.5 rounded text-xs font-medium transition-colors border",
+   348→              bet === amount
+   349→                ? "bg-yellow-600/30 border-yellow-500/50 text-yellow-300"
+   350→                : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"
+   351→            )}
+   352→          >
+   353→            {amount === 0 ? "\u2014" : amount}
+   354→          </button>
+   355→        ))}
+   356→      </div>
+   357→
+   358→      {/* Main Game Area */}
+   359→      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-4 items-start">
+   360→        {/* Player 1 Side */}
+   361→        <div
+   362→          className={cn(
+   363→            "flex flex-col items-center gap-3 transition-all duration-500 rounded-xl p-3",
+   364→            phase === "roundResult" && roundResult === "p1" &&
+   365→              "bg-cyan-400/5 shadow-lg shadow-cyan-400/20",
+   366→            phase === "roundResult" && roundResult === "p2" && "opacity-40",
+   367→            isGameOver && p1Winning &&
+   368→              "bg-cyan-400/10 shadow-lg shadow-cyan-400/30",
+   369→            isGameOver && p2Winning && "opacity-40"
+   370→          )}
+   371→        >
+   372→          {/* P1 Choice Display */}
+   373→          <div className="relative">
+   374→            <AnimatePresence mode="wait">
+   375→              {p1Revealed && p1ChoiceData ? (
+   376→                <motion.div
+   377→                  key="revealed-p1"
+   378→                  initial={{ rotateY: 90, scale: 0.5, opacity: 0 }}
+   379→                  animate={{ rotateY: 0, scale: 1, opacity: 1 }}
+   380→                  exit={{ scale: 0.8, opacity: 0 }}
+   381→                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+   382→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-cyan-400/50 bg-slate-800 flex items-center justify-center text-5xl sm:text-6xl"
+   383→                >
+   384→                  {p1ChoiceData.emoji}
+   385→                </motion.div>
+   386→              ) : p1Choice ? (
+   387→                <motion.div
+   388→                  key="hidden-p1"
+   389→                  initial={{ scale: 0.8 }}
+   390→                  animate={{ scale: 1 }}
+   391→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-cyan-400/30 bg-slate-800 flex items-center justify-center"
+   392→                >
+   393→                  <motion.div
+   394→                    animate={{ rotate: [0, 10, -10, 0] }}
+   395→                    transition={{
+   396→                      repeat: Infinity,
+   397→                      duration: 2,
+   398→                      ease: "easeInOut",
+   399→                    }}
+   400→                    className="text-4xl sm:text-5xl"
+   401→                  >
+   402→                    \u2753
+   403→                  </motion.div>
+   404→                </motion.div>
+   405→              ) : (
+   406→                <motion.div
+   407→                  key="empty-p1"
+   408→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-dashed border-slate-600 bg-slate-800/50 flex items-center justify-center text-slate-600 text-3xl sm:text-4xl"
+   409→                >
+   410→                  ?
+   411→                </motion.div>
+   412→              )}
+   413→            </AnimatePresence>
+   414→          </div>
+   415→
+   416→          {/* P1 Buttons */}
+   417→          <div className="flex gap-2">
+   418→            {CHOICES.map((choice) => {
+   419→              const isSelected = p1Choice === choice.id;
+   420→              const isDisabled =
+   421→                phase !== "choosing" ||
+   422→                p2Choosing ||
+   423→                (mode === "1v1" && p1Choice !== null);
+   424→              return (
+   425→                <motion.button
+   426→                  key={choice.id}
+   427→                  whileHover={isDisabled ? {} : { scale: 1.15, y: -4 }}
+   428→                  whileTap={isDisabled ? {} : { scale: 0.9 }}
+   429→                  onClick={() => handleP1Choice(choice.id)}
+   430→                  disabled={isDisabled}
+   431→                  className={cn(
+   432→                    "w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-800 border text-2xl sm:text-3xl flex items-center justify-center transition-colors",
+   433→                    isSelected
+   434→                      ? "border-cyan-400 ring-2 ring-cyan-400 shadow-lg shadow-cyan-400/30"
+   435→                      : "border-slate-700 hover:border-cyan-500/50",
+   436→                    isDisabled && "opacity-40 cursor-not-allowed"
+   437→                  )}
+   438→                >
+   439→                  {choice.emoji}
+   440→                </motion.button>
+   441→              );
+   442→            })}
+   443→          </div>
+   444→          <p className="text-cyan-400 text-xs font-medium">
+   445→            {p1Choice ? p1ChoiceData?.label : "Escolher"}
+   446→          </p>
+   447→        </div>
+   448→
+   449→        {/* VS Center */}
+   450→        <div className="flex flex-col items-center justify-center gap-3 self-center">
+   451→          <motion.span
+   452→            animate={
+   453→              phase === "roundResult" && roundResult !== "draw"
+   454→                ? { scale: [1, 1.3, 1] }
+   455→                : {}
+   456→            }
+   457→            transition={{ repeat: 1, duration: 0.5 }}
+   458→            className="text-3xl sm:text-4xl font-black text-slate-500"
+   459→          >
+   460→            VS
+   461→          </motion.span>
+   462→
+   463→          {/* Reveal / Next Button */}
+   464→          <AnimatePresence mode="wait">
+   465→            {phase === "choosing" && canReveal && (
+   466→              <motion.div
+   467→                key="reveal-btn"
+   468→                initial={{ opacity: 0, y: 10 }}
+   469→                animate={{ opacity: 1, y: 0 }}
+   470→                exit={{ opacity: 0, y: -10 }}
+   471→              >
+   472→                <Button
+   473→                  onClick={handleReveal}
+   474→                  className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold shadow-lg"
+   475→                >
+   476→                  Revelar
+   477→                </Button>
+   478→              </motion.div>
+   479→            )}
+   480→
+   481→            {phase === "roundResult" && (
+   482→              <motion.div
+   483→                key="round-result"
+   484→                initial={{ opacity: 0, scale: 0.5 }}
+   485→                animate={{ opacity: 1, scale: 1 }}
+   486→                exit={{ opacity: 0, scale: 0.5 }}
+   487→                className="flex flex-col items-center gap-2"
+   488→              >
+   489→                {roundResult === "draw" ? (
+   490→                  <motion.p
+   491→                    initial={{ scale: 0.5 }}
+   492→                    animate={{ scale: 1 }}
+   493→                    className="text-yellow-400 font-bold text-lg"
+   494→                  >
+   495→                    Empate!
+   496→                  </motion.p>
+   497→                ) : (
+   498→                  <motion.p
+   499→                    initial={{ scale: 0.5 }}
+   500→                    animate={{ scale: 1 }}
+   501→                    className={cn(
+   502→                      "font-bold text-lg",
+   503→                      roundResult === "p1" ? "text-cyan-400" : "text-pink-400"
+   504→                    )}
+   505→                  >
+   506→                    {roundResult === "p1" ? "Jogador 1" : p2Label} Venceu!
+   507→                  </motion.p>
+   508→                )}
+   509→                {bet > 0 && roundResult !== "draw" && (
+   510→                  <motion.div
+   511→                    initial={{ opacity: 0, y: 5 }}
+   512→                    animate={{ opacity: 1, y: 0 }}
+   513→                    className="flex items-center gap-1 text-yellow-400 text-sm"
+   514→                  >
+   515→                    <Coins className="w-3.5 h-3.5" />+{bet}
+   516→                  </motion.div>
+   517→                )}
+   518→                <Button
+   519→                  onClick={nextRound}
+   520→                  variant="outline"
+   521→                  size="sm"
+   522→                  className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+   523→                >
+   524→                  Pr\u00f3ximo Round
+   525→                </Button>
+   526→              </motion.div>
+   527→            )}
+   528→
+   529→            {isGameOver && (
+   530→              <motion.div
+   531→                key="game-over"
+   532→                initial={{ opacity: 0, scale: 0.5 }}
+   533→                animate={{ opacity: 1, scale: 1 }}
+   534→                className="flex flex-col items-center gap-2"
+   535→              >
+   536→                <motion.p
+   537→                  animate={{ scale: [1, 1.15, 1] }}
+   538→                  transition={{ repeat: Infinity, duration: 1 }}
+   539→                  className={cn(
+   540→                    "font-black text-xl",
+   541→                    gameWinner === "p1" ? "text-cyan-400" : "text-pink-400"
+   542→                  )}
+   543→                >
+   544→                  \ud83c\udfc6
+   545→                </motion.p>
+   546→                <p
+   547→                  className={cn(
+   548→                    "font-bold text-sm",
+   549→                    gameWinner === "p1" ? "text-cyan-300" : "text-pink-300"
+   550→                  )}
+   551→                >
+   552→                  {gameWinner === "p1" ? "Jogador 1" : p2Label} Venceu!
+   553→                </p>
+   554→                <Button
+   555→                  onClick={resetAll}
+   556→                  size="sm"
+   557→                  className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold"
+   558→                >
+   559→                  Reiniciar Tudo
+   560→                </Button>
+   561→              </motion.div>
+   562→            )}
+   563→          </AnimatePresence>
+   564→        </div>
+   565→
+   566→        {/* Player 2 Side */}
+   567→        <div
+   568→          className={cn(
+   569→            "flex flex-col items-center gap-3 transition-all duration-500 rounded-xl p-3",
+   570→            phase === "roundResult" && roundResult === "p2" &&
+   571→              "bg-pink-400/5 shadow-lg shadow-pink-400/20",
+   572→            phase === "roundResult" && roundResult === "p1" && "opacity-40",
+   573→            isGameOver && p2Winning &&
+   574→              "bg-pink-400/10 shadow-lg shadow-pink-400/30",
+   575→            isGameOver && p1Winning && "opacity-40"
+   576→          )}
+   577→        >
+   578→          {/* P2 Choice Display */}
+   579→          <div className="relative">
+   580→            <AnimatePresence mode="wait">
+   581→              {p2Revealed && p2ChoiceData ? (
+   582→                <motion.div
+   583→                  key="revealed-p2"
+   584→                  initial={{ rotateY: -90, scale: 0.5, opacity: 0 }}
+   585→                  animate={{ rotateY: 0, scale: 1, opacity: 1 }}
+   586→                  exit={{ scale: 0.8, opacity: 0 }}
+   587→                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+   588→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-pink-400/50 bg-slate-800 flex items-center justify-center text-5xl sm:text-6xl"
+   589→                >
+   590→                  {p2ChoiceData.emoji}
+   591→                </motion.div>
+   592→              ) : p2Choice ? (
+   593→                <motion.div
+   594→                  key="hidden-p2"
+   595→                  initial={{ scale: 0.8 }}
+   596→                  animate={{ scale: 1 }}
+   597→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-pink-400/30 bg-slate-800 flex items-center justify-center"
+   598→                >
+   599→                  <motion.div
+   600→                    animate={{ rotate: [0, -10, 10, 0] }}
+   601→                    transition={{
+   602→                      repeat: Infinity,
+   603→                      duration: 2,
+   604→                      ease: "easeInOut",
+   605→                    }}
+   606→                    className="text-4xl sm:text-5xl"
+   607→                  >
+   608→                    \u2753
+   609→                  </motion.div>
+   610→                </motion.div>
+   611→              ) : (
+   612→                <motion.div
+   613→                  key="empty-p2"
+   614→                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-dashed border-slate-600 bg-slate-800/50 flex items-center justify-center text-slate-600 text-3xl sm:text-4xl"
+   615→                >
+   616→                  ?
+   617→                </motion.div>
+   618→              )}
+   619→            </AnimatePresence>
+   620→          </div>
+   621→
+   622→          {/* P2 Buttons */}
+   623→          {mode === "1v1" ? (
+   624→            <div className="flex gap-2">
+   625→              {CHOICES.map((choice) => {
+   626→                const isSelected = p2Choice === choice.id;
+   627→                const isDisabled =
+   628→                  phase !== "choosing" || !p1Choice || p2Choice !== null;
+   629→                return (
+   630→                  <motion.button
+   631→                    key={choice.id}
+   632→                    whileHover={isDisabled ? {} : { scale: 1.15, y: -4 }}
+   633→                    whileTap={isDisabled ? {} : { scale: 0.9 }}
+   634→                    onClick={() => handleP2Choice(choice.id)}
+   635→                    disabled={isDisabled}
+   636→                    className={cn(
+   637→                      "w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-800 border text-2xl sm:text-3xl flex items-center justify-center transition-colors",
+   638→                      isSelected
+   639→                        ? "border-pink-400 ring-2 ring-pink-400 shadow-lg shadow-pink-400/30"
+   640→                        : "border-slate-700 hover:border-pink-500/50",
+   641→                      isDisabled && "opacity-40 cursor-not-allowed"
+   642→                    )}
+   643→                  >
+   644→                    {choice.emoji}
+   645→                  </motion.button>
+   646→                );
+   647→              })}
+   648→            </div>
+   649→          ) : (
+   650→            <div className="flex flex-col items-center gap-1">
+   651→              <AnimatePresence>
+   652→                {p2Choosing && (
+   653→                  <motion.div
+   654→                    initial={{ opacity: 0 }}
+   655→                    animate={{ opacity: 1 }}
+   656→                    exit={{ opacity: 0 }}
+   657→                    className="flex items-center gap-1 text-pink-400 text-xs"
+   658→                  >
+   659→                    <Bot className="w-3.5 h-3.5 animate-pulse" />
+   660→                    Pensando...
+   661→                  </motion.div>
+   662→                )}
+   663→              </AnimatePresence>
+   664→              <div className="flex gap-2 opacity-30">
+   665→                {CHOICES.map((choice) => (
+   666→                  <div
+   667→                    key={choice.id}
+   668→                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl sm:text-3xl"
+   669→                  >
+   670→                    {choice.emoji}
+   671→                  </div>
+   672→                ))}
+   673→              </div>
+   674→            </div>
+   675→          )}
+   676→          <p className="text-pink-400 text-xs font-medium">
+   677→            {p2Choice &&
+   678→            (p2Revealed || phase === "roundResult" || phase === "gameOver")
+   679→              ? p2ChoiceData?.label
+   680→              : "Escolher"}
+   681→          </p>
+   682→        </div>
+   683→      </div>
+   684→
+   685→      {/* Status Messages */}
+   686→      {mode === "1v1" && phase === "choosing" && p1Choice && !p2Choice && (
+   687→        <motion.p
+   688→          initial={{ opacity: 0 }}
+   689→          animate={{ opacity: 1 }}
+   690→          className="text-center text-slate-500 text-sm"
+   691→        >
+   692→          Aguardando {p2Label} escolher...
+   693→        </motion.p>
+   694→      )}
+   695→
+   696→      {mode === "1v1" && phase === "choosing" && !p1Choice && (
+   697→        <motion.p
+   698→          initial={{ opacity: 0 }}
+   699→          animate={{ opacity: 1 }}
+   700→          className="text-center text-cyan-500/60 text-sm"
+   701→        >
+   702→          Jogador 1: fa\u00e7a sua escolha
+   703→        </motion.p>
+   704→      )}
+   705→
+   706→      {mode === "bot" && phase === "choosing" && !p1Choice && (
+   707→        <motion.p
+   708→          initial={{ opacity: 0 }}
+   709→          animate={{ opacity: 1 }}
+   710→          className="text-center text-cyan-500/60 text-sm"
+   711→        >
+   712→          Escolha para jogar contra o Bot
+   713→        </motion.p>
+   714→      )}
+   715→    </div>
+   716→  );
+   717→}
+   718→

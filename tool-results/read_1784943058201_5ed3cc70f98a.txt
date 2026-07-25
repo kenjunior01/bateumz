@@ -1,0 +1,903 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { Timer, RotateCcw, Eye, Zap, Trophy, Target, Users } from 'lucide-react';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { cn } from '@/lib/utils';
+     9→
+    10→/* ------------------------------------------------------------------ */
+    11→/*  Types                                                              */
+    12→/* ------------------------------------------------------------------ */
+    13→
+    14→interface Props {
+    15→  onScore?: (name: string, score: number) => void;
+    16→  liveCode?: string;
+    17→}
+    18→
+    19→type ShapeType = 'circle' | 'rectangle' | 'triangle';
+    20→type DiffType = 'color_change' | 'position_shift' | 'size_change' | 'missing' | 'extra';
+    21→type GameStatus = 'idle' | 'playing' | 'roundEnd' | 'gameOver';
+    22→type Player = 1 | 2;
+    23→
+    24→interface Shape {
+    25→  id: string;
+    26→  type: ShapeType;
+    27→  x: number;
+    28→  y: number;
+    29→  width: number;
+    30→  height: number;
+    31→  color: string;
+    32→  rotation: number;
+    33→}
+    34→
+    35→interface Difference {
+    36→  id: string;
+    37→  baseShapeId?: string;
+    38→  modShapeId?: string;
+    39→  type: DiffType;
+    40→  found: boolean;
+    41→  foundBy: Player | null;
+    42→  baseX: number;
+    43→  baseY: number;
+    44→  modX: number;
+    45→  modY: number;
+    46→}
+    47→
+    48→interface FloatFeedback {
+    49→  id: string;
+    50→  text: string;
+    51→  x: number;
+    52→  y: number;
+    53→  type: 'success' | 'error';
+    54→  player: Player;
+    55→}
+    56→
+    57→/* ------------------------------------------------------------------ */
+    58→/*  Constants                                                          */
+    59→/* ------------------------------------------------------------------ */
+    60→
+    61→const COLORS = [
+    62→  '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4',
+    63→  '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6',
+    64→  '#a855f7', '#6366f1', '#0ea5e9', '#d946ef', '#84cc16',
+    65→];
+    66→
+    67→const ALL_DIFF_TYPES: DiffType[] = [
+    68→  'color_change', 'position_shift', 'size_change', 'missing', 'extra',
+    69→];
+    70→
+    71→const TOTAL_ROUNDS = 5;
+    72→const ROUND_TIME = 60;
+    73→const PTS_FIND = 10;
+    74→const PTS_WRONG = -2;
+    75→const SHAPES_COUNT = 15;
+    76→const P1_COLOR = '#06b6d4';
+    77→const P2_COLOR = '#ec4899';
+    78→
+    79→/* ------------------------------------------------------------------ */
+    80→/*  Helpers                                                            */
+    81→/* ------------------------------------------------------------------ */
+    82→
+    83→let _id = 0;
+    84→const uid = (p: string) => `${p}-${++_id}`;
+    85→
+    86→const shuffle = <T,>(a: T[]): T[] => {
+    87→  const b = [...a];
+    88→  for (let i = b.length - 1; i > 0; i--) {
+    89→    const j = Math.floor(Math.random() * (i + 1));
+    90→    [b[i], b[j]] = [b[j], b[i]];
+    91→  }
+    92→  return b;
+    93→};
+    94→
+    95→const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
+    96→
+    97→const otherColor = (c: string) => {
+    98→  const pool = COLORS.filter((v) => v !== c);
+    99→  return pick(pool);
+   100→};
+   101→
+   102→const calcSpeedBonus = (timeLeft: number): number => {
+   103→  if (timeLeft >= 50) return 5;
+   104→  if (timeLeft >= 40) return 3;
+   105→  if (timeLeft >= 25) return 1;
+   106→  return 0;
+   107→};
+   108→
+   109→/* ------------------------------------------------------------------ */
+   110→/*  Scene generation                                                   */
+   111→/* ------------------------------------------------------------------ */
+   112→
+   113→function makeShape(id: string): Shape {
+   114→  const type = pick<ShapeType>(['circle', 'rectangle', 'triangle']);
+   115→  const w = 28 + Math.floor(Math.random() * 52);
+   116→  return {
+   117→    id,
+   118→    type,
+   119→    x: 3 + Math.random() * 78,
+   120→    y: 3 + Math.random() * 72,
+   121→    width: w,
+   122→    height: type === 'circle' ? w : 28 + Math.floor(Math.random() * 52),
+   123→    color: pick(COLORS),
+   124→    rotation: Math.floor(Math.random() * 360),
+   125→  };
+   126→}
+   127→
+   128→function generateBaseScene(): Shape[] {
+   129→  const shapes: Shape[] = [];
+   130→  for (let i = 0; i < SHAPES_COUNT; i++) shapes.push(makeShape(uid('s')));
+   131→  return shapes;
+   132→}
+   133→
+   134→function createRound(): {
+   135→  base: Shape[];
+   136→  modified: Shape[];
+   137→  diffs: Difference[];
+   138→} {
+   139→  const base = generateBaseScene();
+   140→  const modified = base.map((s) => ({ ...s }));
+   141→  const diffs: Difference[] = [];
+   142→  const candidates = shuffle(base);
+   143→  const types = shuffle(ALL_DIFF_TYPES);
+   144→
+   145→  for (let i = 0; i < 5; i++) {
+   146→    const t = types[i];
+   147→    const did = uid('d');
+   148→
+   149→    if (t === 'extra') {
+   150→      const ns = makeShape(uid('ex'));
+   151→      ns.x = 5 + Math.random() * 78;
+   152→      ns.y = 5 + Math.random() * 70;
+   153→      modified.push(ns);
+   154→      diffs.push({
+   155→        id: did, modShapeId: ns.id, type: t,
+   156→        found: false, foundBy: null,
+   157→        baseX: ns.x, baseY: ns.y, modX: ns.x, modY: ns.y,
+   158→      });
+   159→      continue;
+   160→    }
+   161→
+   162→    const sh = candidates[i];
+   163→
+   164→    if (t === 'missing') {
+   165→      const idx = modified.findIndex((s) => s.id === sh.id);
+   166→      if (idx !== -1) modified.splice(idx, 1);
+   167→      diffs.push({
+   168→        id: did, baseShapeId: sh.id, type: t,
+   169→        found: false, foundBy: null,
+   170→        baseX: sh.x, baseY: sh.y, modX: sh.x, modY: sh.y,
+   171→      });
+   172→    } else if (t === 'color_change') {
+   173→      const m = modified.find((s) => s.id === sh.id)!;
+   174→      m.color = otherColor(sh.color);
+   175→      diffs.push({
+   176→        id: did, baseShapeId: sh.id, modShapeId: sh.id, type: t,
+   177→        found: false, foundBy: null,
+   178→        baseX: sh.x, baseY: sh.y, modX: m.x, modY: m.y,
+   179→      });
+   180→    } else if (t === 'position_shift') {
+   181→      const m = modified.find((s) => s.id === sh.id)!;
+   182→      const dx = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 12);
+   183→      const dy = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 12);
+   184→      m.x = Math.max(3, Math.min(82, m.x + dx));
+   185→      m.y = Math.max(3, Math.min(75, m.y + dy));
+   186→      diffs.push({
+   187→        id: did, baseShapeId: sh.id, modShapeId: sh.id, type: t,
+   188→        found: false, foundBy: null,
+   189→        baseX: sh.x, baseY: sh.y, modX: m.x, modY: m.y,
+   190→      });
+   191→    } else if (t === 'size_change') {
+   192→      const m = modified.find((s) => s.id === sh.id)!;
+   193→      const bigger = Math.random() > 0.5;
+   194→      const f = bigger ? 1.4 + Math.random() * 0.5 : 0.4 + Math.random() * 0.35;
+   195→      m.width = Math.max(14, Math.min(100, Math.floor(m.width * f)));
+   196→      m.height = m.type === 'circle'
+   197→        ? m.width
+   198→        : Math.max(14, Math.min(100, Math.floor(m.height * f)));
+   199→      diffs.push({
+   200→        id: did, baseShapeId: sh.id, modShapeId: sh.id, type: t,
+   201→        found: false, foundBy: null,
+   202→        baseX: sh.x, baseY: sh.y, modX: m.x, modY: m.y,
+   203→      });
+   204→    }
+   205→  }
+   206→
+   207→  return { base, modified, diffs };
+   208→}
+   209→
+   210→/* ------------------------------------------------------------------ */
+   211→/*  Sub-components                                                     */
+   212→/* ------------------------------------------------------------------ */
+   213→
+   214→function ShapeEl({
+   215→  shape, onClick, disabled, isFound,
+   216→}: {
+   217→  shape: Shape;
+   218→  onClick?: () => void;
+   219→  disabled?: boolean;
+   220→  isFound?: boolean;
+   221→}) {
+   222→  const isTriangle = shape.type === 'triangle';
+   223→  const isCircle = shape.type === 'circle';
+   224→
+   225→  return (
+   226→    <motion.div
+   227→      className={cn('absolute', !disabled && !isFound && 'cursor-pointer')}
+   228→      style={{
+   229→        left: `${shape.x}%`,
+   230→        top: `${shape.y}%`,
+   231→        width: shape.width,
+   232→        height: shape.height,
+   233→        backgroundColor: shape.color,
+   234→        borderRadius: isCircle ? '50%' : isTriangle ? 0 : 4,
+   235→        clipPath: isTriangle ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+   236→        transform: `rotate(${shape.rotation}deg)`,
+   237→        boxShadow: isTriangle ? 'none' : `0 2px 8px ${shape.color}44`,
+   238→      }}
+   239→      initial={{ opacity: 0, scale: 0 }}
+   240→      animate={{ opacity: isFound ? 0.25 : 1, scale: 1 }}
+   241→      transition={{ duration: 0.35, type: 'spring', stiffness: 260, damping: 20 }}
+   242→      whileHover={!disabled && !isFound ? { scale: 1.12, filter: 'brightness(1.2)' } : undefined}
+   243→      whileTap={!disabled && !isFound ? { scale: 0.92 } : undefined}
+   244→      onClick={disabled || isFound ? undefined : onClick}
+   245→    />
+   246→  );
+   247→}
+   248→
+   249→function FoundMarker({ x, y, player }: { x: number; y: number; player: Player }) {
+   250→  const c = player === 1 ? P1_COLOR : P2_COLOR;
+   251→  return (
+   252→    <motion.div
+   253→      className="pointer-events-none absolute z-20"
+   254→      style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+   255→      initial={{ scale: 0, opacity: 0 }}
+   256→      animate={{ scale: 1, opacity: 1 }}
+   257→      transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+   258→    >
+   259→      <motion.div
+   260→        className="flex items-center justify-center rounded-full border-2"
+   261→        style={{ width: 36, height: 36, borderColor: c, backgroundColor: `${c}22` }}
+   262→        animate={{ scale: [1, 1.25, 1] }}
+   263→        transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
+   264→      >
+   265→        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="3">
+   266→          <polyline points="20 6 9 17 4 12" />
+   267→        </svg>
+   268→      </motion.div>
+   269→    </motion.div>
+   270→  );
+   271→}
+   272→
+   273→function FloatingText({ fb, onDone }: { fb: FloatFeedback; onDone: () => void }) {
+   274→  const c = fb.player === 1 ? P1_COLOR : P2_COLOR;
+   275→  useEffect(() => {
+   276→    const t = setTimeout(onDone, 1200);
+   277→    return () => clearTimeout(t);
+   278→  }, [onDone]);
+   279→
+   280→  return (
+   281→    <motion.div
+   282→      className="pointer-events-none absolute z-30"
+   283→      style={{ left: `${fb.x}%`, top: `${fb.y}%`, transform: 'translate(-50%, -50%)' }}
+   284→      initial={{ opacity: 1, y: 0 }}
+   285→      animate={{ opacity: 0, y: -40 }}
+   286→      transition={{ duration: 1.1, ease: 'easeOut' }}
+   287→    >
+   288→      <span
+   289→        className="whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-bold shadow-lg"
+   290→        style={{
+   291→          color: fb.type === 'success' ? c : '#ef4444',
+   292→          backgroundColor: fb.type === 'success' ? `${c}22` : '#ef444422',
+   293→          border: `1px solid ${fb.type === 'success' ? c : '#ef4444'}66`,
+   294→        }}
+   295→      >
+   296→        {fb.text}
+   297→      </span>
+   298→    </motion.div>
+   299→  );
+   300→}
+   301→
+   302→/* ------------------------------------------------------------------ */
+   303→/*  Progress dots                                                      */
+   304→/* ------------------------------------------------------------------ */
+   305→
+   306→function DiffDots({ diffs }: { diffs: Difference[] }) {
+   307→  return (
+   308→    <div className="flex items-center gap-2">
+   309→      <Target className="h-4 w-4 text-muted-foreground" />
+   310→      {diffs.map((d, i) => {
+   311→        const bg = d.found ? (d.foundBy === 1 ? P1_COLOR : P2_COLOR) : '#334155';
+   312→        return (
+   313→          <motion.div
+   314→            key={d.id}
+   315→            className="h-3.5 w-3.5 rounded-full"
+   316→            style={{ backgroundColor: bg, border: `1.5px solid ${d.found ? bg : '#475569'}` }}
+   317→            initial={{ scale: 0 }}
+   318→            animate={{ scale: 1 }}
+   319→            transition={{ delay: i * 0.06 }}
+   320→          />
+   321→        );
+   322→      })}
+   323→    </div>
+   324→  );
+   325→}
+   326→
+   327→/* ------------------------------------------------------------------ */
+   328→/*  Scene panel                                                        */
+   329→/* ------------------------------------------------------------------ */
+   330→
+   331→function ScenePanel({
+   332→  shapes, diffs, floats, onShapeClick, onFloatDone, side, playing,
+   333→}: {
+   334→  shapes: Shape[];
+   335→  diffs: Difference[];
+   336→  floats: FloatFeedback[];
+   337→  onShapeClick: (shapeId: string, px: number, py: number) => void;
+   338→  onFloatDone: (id: string) => void;
+   339→  side: 'base' | 'mod';
+   340→  playing: boolean;
+   341→}) {
+   342→  const foundIds = new Set(
+   343→    diffs
+   344→      .filter((d) => d.found)
+   345→      .flatMap((d) => [d.baseShapeId, d.modShapeId].filter(Boolean) as string[]),
+   346→  );
+   347→
+   348→  const sideFloats = floats.filter((f) => {
+   349→    return side === 'base'
+   350→      ? diffs.some((d) => Math.abs(d.baseX - f.x) < 10 && Math.abs(d.baseY - f.y) < 10)
+   351→      : diffs.some((d) => Math.abs(d.modX - f.x) < 10 && Math.abs(d.modY - f.y) < 10);
+   352→  });
+   353→
+   354→  return (
+   355→    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+   356→      {/* subtle grid */}
+   357→      <div
+   358→        className="pointer-events-none absolute inset-0 opacity-[0.04]"
+   359→        style={{
+   360→          backgroundImage:
+   361→            'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)',
+   362→          backgroundSize: '40px 40px',
+   363→        }}
+   364→      />
+   365→
+   366→      {/* label */}
+   367→      <div className="pointer-events-none absolute left-2 top-2 z-10">
+   368→        <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wider opacity-60">
+   369→          {side === 'base' ? 'Cena A' : 'Cena B'}
+   370→        </Badge>
+   371→      </div>
+   372→
+   373→      {/* shapes */}
+   374→      {shapes.map((s) => (
+   375→        <ShapeEl
+   376→          key={s.id}
+   377→          shape={s}
+   378→          disabled={!playing}
+   379→          isFound={foundIds.has(s.id)}
+   380→          onClick={() => onShapeClick(s.id, s.x, s.y)}
+   381→        />
+   382→      ))}
+   383→
+   384→      {/* found markers */}
+   385→      {diffs
+   386→        .filter((d) => d.found)
+   387→        .map((d) => (
+   388→          <FoundMarker
+   389→            key={`mk-${d.id}-${side}`}
+   390→            x={side === 'base' ? d.baseX : d.modX}
+   391→            y={side === 'base' ? d.baseY : d.modY}
+   392→            player={d.foundBy!}
+   393→          />
+   394→        ))}
+   395→
+   396→      {/* floating feedbacks */}
+   397→      {sideFloats.map((f) => (
+   398→        <FloatingText key={f.id} fb={f} onDone={() => onFloatDone(f.id)} />
+   399→      ))}
+   400→    </div>
+   401→  );
+   402→}
+   403→
+   404→/* ------------------------------------------------------------------ */
+   405→/*  Main component                                                     */
+   406→/* ------------------------------------------------------------------ */
+   407→
+   408→export default function SpotDifference({ onScore, liveCode }: Props) {
+   409→  const [status, setStatus] = useState<GameStatus>('idle');
+   410→  const [round, setRound] = useState(1);
+   411→  const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+   412→  const [p1Score, setP1Score] = useState(0);
+   413→  const [p2Score, setP2Score] = useState(0);
+   414→  const [activePlayer, setActivePlayer] = useState<Player>(1);
+   415→  const [baseShapes, setBaseShapes] = useState<Shape[]>([]);
+   416→  const [modShapes, setModShapes] = useState<Shape[]>([]);
+   417→  const [diffs, setDiffs] = useState<Difference[]>([]);
+   418→  const [floats, setFloats] = useState<FloatFeedback[]>([]);
+   419→  const [roundP1, setRoundP1] = useState(0);
+   420→  const [roundP2, setRoundP2] = useState(0);
+   421→  const [sceneKey, setSceneKey] = useState(0);
+   422→
+   423→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   424→
+   425→  const foundCount = diffs.filter((d) => d.found).length;
+   426→  const p1Found = diffs.filter((d) => d.found && d.foundBy === 1).length;
+   427→  const p2Found = diffs.filter((d) => d.found && d.foundBy === 2).length;
+   428→
+   429→  /* ---- start round ---- */
+   430→  const startRound = useCallback(() => {
+   431→    _id = 0;
+   432→    const { base, modified, diffs: d } = createRound();
+   433→    setBaseShapes(base);
+   434→    setModShapes(modified);
+   435→    setDiffs(d);
+   436→    setTimeLeft(ROUND_TIME);
+   437→    setFloats([]);
+   438→    setRoundP1(0);
+   439→    setRoundP2(0);
+   440→    setSceneKey((k) => k + 1);
+   441→    setStatus('playing');
+   442→  }, []);
+   443→
+   444→  /* ---- end round ---- */
+   445→  const endRound = useCallback(() => {
+   446→    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+   447→    if (round >= TOTAL_ROUNDS) {
+   448→      setStatus('gameOver');
+   449→      onScore?.('Jogador 1', p1Score);
+   450→      onScore?.('Jogador 2', p2Score);
+   451→    } else {
+   452→      setStatus('roundEnd');
+   453→    }
+   454→  }, [round, p1Score, p2Score, onScore]);
+   455→
+   456→  /* ---- timer ---- */
+   457→  useEffect(() => {
+   458→    if (status !== 'playing') return;
+   459→    timerRef.current = setInterval(() => {
+   460→      setTimeLeft((prev) => {
+   461→        if (prev <= 1) {
+   462→          clearInterval(timerRef.current!);
+   463→          timerRef.current = null;
+   464→          setTimeout(() => {
+   465→            setDiffs((d) => d.map((dd) => ({ ...dd, found: true })));
+   466→          }, 300);
+   467→          setTimeout(() => endRound(), 2200);
+   468→          return 0;
+   469→        }
+   470→        return prev - 1;
+   471→      });
+   472→    }, 1000);
+   473→    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+   474→  }, [status, endRound]);
+   475→
+   476→  /* ---- early end when all found ---- */
+   477→  useEffect(() => {
+   478→    if (status !== 'playing' || foundCount < 5) return;
+   479→    const t = setTimeout(() => endRound(), 1200);
+   480→    return () => clearTimeout(t);
+   481→  }, [foundCount, status, endRound]);
+   482→
+   483→  /* ---- keyboard shortcuts ---- */
+   484→  useEffect(() => {
+   485→    const handler = (e: KeyboardEvent) => {
+   486→      if (e.key === '1') setActivePlayer(1);
+   487→      if (e.key === '2') setActivePlayer(2);
+   488→    };
+   489→    window.addEventListener('keydown', handler);
+   490→    return () => window.removeEventListener('keydown', handler);
+   491→  }, []);
+   492→
+   493→  /* ---- shape click handler ---- */
+   494→  const handleShapeClick = useCallback(
+   495→    (shapeId: string, px: number, py: number, side: 'base' | 'mod') => {
+   496→      if (status !== 'playing') return;
+   497→
+   498→      setDiffs((prev) => {
+   499→        const alreadyFound = prev.find(
+   500→          (d) => d.found && (d.baseShapeId === shapeId || d.modShapeId === shapeId),
+   501→        );
+   502→        if (alreadyFound) return prev;
+   503→
+   504→        const diff = prev.find((d) => {
+   505→          if (d.type === 'missing') return side === 'base' && d.baseShapeId === shapeId;
+   506→          if (d.type === 'extra') return side === 'mod' && d.modShapeId === shapeId;
+   507→          return side === 'base' ? d.baseShapeId === shapeId : d.modShapeId === shapeId;
+   508→        });
+   509→
+   510→        if (diff) {
+   511→          const bonus = calcSpeedBonus(timeLeft);
+   512→          const pts = PTS_FIND + bonus;
+   513→          const next = prev.map((d) =>
+   514→            d.id === diff.id ? { ...d, found: true, foundBy: activePlayer as Player } : d,
+   515→          );
+   516→
+   517→          if (activePlayer === 1) {
+   518→            setP1Score((s) => s + pts);
+   519→            setRoundP1((s) => s + pts);
+   520→          } else {
+   521→            setP2Score((s) => s + pts);
+   522→            setRoundP2((s) => s + pts);
+   523→          }
+   524→
+   525→          const label = bonus > 0 ? `+${pts} (bônus +${bonus}!)` : `+${pts}`;
+   526→          setFloats((f) => [
+   527→            ...f,
+   528→            { id: uid('fb'), text: label, x: px, y: py, type: 'success' as const, player: activePlayer as Player },
+   529→          ]);
+   530→          return next;
+   531→        }
+   532→
+   533→        /* wrong click */
+   534→        if (activePlayer === 1) {
+   535→          setP1Score((s) => Math.max(0, s + PTS_WRONG));
+   536→          setRoundP1((s) => Math.max(0, s + PTS_WRONG));
+   537→        } else {
+   538→          setP2Score((s) => Math.max(0, s + PTS_WRONG));
+   539→          setRoundP2((s) => Math.max(0, s + PTS_WRONG));
+   540→        }
+   541→        setFloats((f) => [
+   542→          ...f,
+   543→          { id: uid('fb'), text: `${PTS_WRONG}`, x: px, y: py, type: 'error' as const, player: activePlayer as Player },
+   544→        ]);
+   545→        return prev;
+   546→      });
+   547→    },
+   548→    [status, activePlayer, timeLeft],
+   549→  );
+   550→
+   551→  const removeFloat = useCallback((id: string) => {
+   552→    setFloats((f) => f.filter((x) => x.id !== id));
+   553→  }, []);
+   554→
+   555→  const restart = useCallback(() => {
+   556→    if (timerRef.current) clearInterval(timerRef.current);
+   557→    setRound(1);
+   558→    setP1Score(0);
+   559→    setP2Score(0);
+   560→    setTimeLeft(ROUND_TIME);
+   561→    setDiffs([]);
+   562→    setFloats([]);
+   563→    setStatus('idle');
+   564→  }, []);
+   565→
+   566→  const timerColor = timeLeft > 30 ? '#22c55e' : timeLeft > 15 ? '#eab308' : '#ef4444';
+   567→
+   568→  /* ---- render ---- */
+   569→  return (
+   570→    <div className="relative flex min-h-[520px] w-full flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+   571→
+   572→      {/* active-player bar */}
+   573→      {status === 'playing' && (
+   574→        <motion.div
+   575→          className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+   576→          style={{ backgroundColor: activePlayer === 1 ? P1_COLOR : P2_COLOR }}
+   577→          layoutId="activeBar"
+   578→        />
+   579→      )}
+   580→
+   581→      {/* ====== HEADER ====== */}
+   582→      <div className="flex w-full max-w-3xl items-center justify-between gap-3">
+   583→        {/* P1 score */}
+   584→        <motion.div
+   585→          className={cn(
+   586→            'flex items-center gap-2 rounded-lg border px-3 py-1.5 transition-colors cursor-pointer select-none',
+   587→            activePlayer === 1 && status === 'playing'
+   588→              ? 'border-cyan-500/60 bg-cyan-500/10'
+   589→              : 'border-white/5 bg-white/[0.02]',
+   590→          )}
+   591→          onClick={() => setActivePlayer(1)}
+   592→          whileTap={{ scale: 0.97 }}
+   593→        >
+   594→          <Users className="h-4 w-4" style={{ color: P1_COLOR }} />
+   595→          <span className="text-xs font-semibold" style={{ color: P1_COLOR }}>Jogador 1</span>
+   596→          <motion.span
+   597→            key={`p1-${p1Score}`}
+   598→            className="text-lg font-black tabular-nums"
+   599→            style={{ color: P1_COLOR }}
+   600→            initial={{ scale: 1.4, y: -4 }}
+   601→            animate={{ scale: 1, y: 0 }}
+   602→          >
+   603→            {p1Score}
+   604→          </motion.span>
+   605→        </motion.div>
+   606→
+   607→        {/* centre info */}
+   608→        <div className="flex flex-col items-center gap-1">
+   609→          <div className="flex items-center gap-2">
+   610→            <Badge variant="outline" className="border-white/10 text-[11px] font-medium">
+   611→              Rodada {round}/{TOTAL_ROUNDS}
+   612→            </Badge>
+   613→            {status === 'playing' && (
+   614→              <motion.div
+   615→                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+   616→                style={{ color: timerColor, backgroundColor: `${timerColor}15` }}
+   617→                animate={timeLeft <= 10 ? { scale: [1, 1.08, 1] } : undefined}
+   618→                transition={{ repeat: Infinity, duration: 0.6 }}
+   619→              >
+   620→                <Timer className="h-3.5 w-3.5" />{timeLeft}s
+   621→              </motion.div>
+   622→            )}
+   623→          </div>
+   624→          <DiffDots diffs={diffs} />
+   625→        </div>
+   626→
+   627→        {/* P2 score */}
+   628→        <motion.div
+   629→          className={cn(
+   630→            'flex items-center gap-2 rounded-lg border px-3 py-1.5 transition-colors cursor-pointer select-none',
+   631→            activePlayer === 2 && status === 'playing'
+   632→              ? 'border-pink-500/60 bg-pink-500/10'
+   633→              : 'border-white/5 bg-white/[0.02]',
+   634→          )}
+   635→          onClick={() => setActivePlayer(2)}
+   636→          whileTap={{ scale: 0.97 }}
+   637→        >
+   638→          <motion.span
+   639→            key={`p2-${p2Score}`}
+   640→            className="text-lg font-black tabular-nums"
+   641→            style={{ color: P2_COLOR }}
+   642→            initial={{ scale: 1.4, y: -4 }}
+   643→            animate={{ scale: 1, y: 0 }}
+   644→          >
+   645→            {p2Score}
+   646→          </motion.span>
+   647→          <span className="text-xs font-semibold" style={{ color: P2_COLOR }}>Jogador 2</span>
+   648→          <Users className="h-4 w-4" style={{ color: P2_COLOR }} />
+   649→        </motion.div>
+   650→      </div>
+   651→
+   652→      {/* active-player hint */}
+   653→      {status === 'playing' && (
+   654→        <motion.p
+   655→          key={activePlayer}
+   656→          className="text-xs font-medium"
+   657→          style={{ color: activePlayer === 1 ? P1_COLOR : P2_COLOR }}
+   658→          initial={{ opacity: 0, y: -6 }}
+   659→          animate={{ opacity: 0.7, y: 0 }}
+   660→        >
+   661→          Vez do Jogador {activePlayer} — pressione{' '}
+   662→          <kbd className="rounded border border-current/30 px-1 py-px font-mono text-[10px]">{activePlayer}</kbd>
+   663→          {' '}para trocar
+   664→        </motion.p>
+   665→      )}
+   666→
+   667→      {/* ====== SCENES ====== */}
+   668→      <AnimatePresence mode="wait">
+   669→        {(status === 'playing' || status === 'roundEnd') && (
+   670→          <motion.div
+   671→            key={sceneKey}
+   672→            className="flex w-full max-w-3xl items-center gap-2"
+   673→            initial={{ opacity: 0, y: 16 }}
+   674→            animate={{ opacity: 1, y: 0 }}
+   675→            exit={{ opacity: 0, y: -16 }}
+   676→            transition={{ duration: 0.35 }}
+   677→          >
+   678→            <div className="flex-1">
+   679→              <ScenePanel
+   680→                shapes={baseShapes}
+   681→                diffs={diffs}
+   682→                floats={floats}
+   683→                onShapeClick={(id, x, y) => handleShapeClick(id, x, y, 'base')}
+   684→                onFloatDone={removeFloat}
+   685→                side="base"
+   686→                playing={status === 'playing'}
+   687→              />
+   688→            </div>
+   689→
+   690→            <motion.div
+   691→              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[10px] font-black tracking-tight"
+   692→              initial={{ rotate: -90, opacity: 0 }}
+   693→              animate={{ rotate: 0, opacity: 1 }}
+   694→              transition={{ delay: 0.2 }}
+   695→            >
+   696→              VS
+   697→            </motion.div>
+   698→
+   699→            <div className="flex-1">
+   700→              <ScenePanel
+   701→                shapes={modShapes}
+   702→                diffs={diffs}
+   703→                floats={floats}
+   704→                onShapeClick={(id, x, y) => handleShapeClick(id, x, y, 'mod')}
+   705→                onFloatDone={removeFloat}
+   706→                side="mod"
+   707→                playing={status === 'playing'}
+   708→              />
+   709→            </div>
+   710→          </motion.div>
+   711→        )}
+   712→      </AnimatePresence>
+   713→
+   714→      {/* ====== LEGEND ====== */}
+   715→      {status === 'playing' && (
+   716→        <motion.div
+   717→          className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-muted-foreground"
+   718→          initial={{ opacity: 0 }}
+   719→          animate={{ opacity: 1 }}
+   720→          transition={{ delay: 0.4 }}
+   721→        >
+   722→          <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Encontre 5 diferenças</span>
+   723→          <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> +10pts + bônus de velocidade</span>
+   724→          <span className="text-red-400/70">Erro: {PTS_WRONG}pts</span>
+   725→        </motion.div>
+   726→      )}
+   727→
+   728→      {/* ====== IDLE SCREEN ====== */}
+   729→      {status === 'idle' && (
+   730→        <motion.div
+   731→          className="flex flex-col items-center gap-6 py-10"
+   732→          initial={{ opacity: 0, y: 20 }}
+   733→          animate={{ opacity: 1, y: 0 }}
+   734→        >
+   735→          <motion.div
+   736→            className="flex items-center gap-3"
+   737→            initial={{ scale: 0.8 }}
+   738→            animate={{ scale: 1 }}
+   739→            transition={{ type: 'spring', stiffness: 200 }}
+   740→          >
+   741→            <Eye className="h-8 w-8" style={{ color: P1_COLOR }} />
+   742→            <h2 className="text-2xl font-black tracking-tight">Encontre as Diferenças</h2>
+   743→            <Eye className="h-8 w-8" style={{ color: P2_COLOR }} />
+   744→          </motion.div>
+   745→
+   746→          <div className="max-w-md space-y-2 text-center text-sm text-muted-foreground">
+   747→            <p>
+   748→              Dois jogadores competem para encontrar{' '}
+   749→              <strong className="text-foreground">5 diferenças</strong> entre duas cenas abstratas.
+   750→            </p>
+   751→            <p>
+   752→              Cada rodada dura <strong className="text-foreground">{ROUND_TIME}s</strong>. São {TOTAL_ROUNDS} rodadas no total.
+   753→            </p>
+   754→            <div className="flex flex-wrap justify-center gap-2 pt-1 text-xs">
+   755→              {[
+   756→                'Troca de cor', 'Mudança de posição', 'Mudança de tamanho',
+   757→                'Elemento faltando', 'Elemento extra',
+   758→              ].map((label, i) => (
+   759→                <Badge key={i} variant="secondary" className="gap-1 text-[10px]">
+   760→                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+   761→                  {label}
+   762→                </Badge>
+   763→              ))}
+   764→            </div>
+   765→          </div>
+   766→
+   767→          <div className="flex items-center gap-3">
+   768→            <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: P1_COLOR }}>
+   769→              <Users className="h-4 w-4" /> Jogador 1{' '}
+   770→              <kbd className="rounded border border-current/20 bg-current/5 px-1 py-px font-mono text-[10px]">[1]</kbd>
+   771→            </div>
+   772→            <span className="text-muted-foreground text-xs">vs</span>
+   773→            <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: P2_COLOR }}>
+   774→              <kbd className="rounded border border-current/20 bg-current/5 px-1 py-px font-mono text-[10px]">[2]</kbd> Jogador 2
+   775→              <Users className="h-4 w-4" />
+   776→            </div>
+   777→          </div>
+   778→
+   779→          <Button size="lg" onClick={startRound} className="gap-2 font-bold">
+   780→            <Zap className="h-4 w-4" /> Iniciar Jogo
+   781→          </Button>
+   782→        </motion.div>
+   783→      )}
+   784→
+   785→      {/* ====== ROUND END OVERLAY ====== */}
+   786→      <AnimatePresence>
+   787→        {status === 'roundEnd' && (
+   788→          <motion.div
+   789→            className="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur-sm"
+   790→            initial={{ opacity: 0 }}
+   791→            animate={{ opacity: 1 }}
+   792→            exit={{ opacity: 0 }}
+   793→          >
+   794→            <motion.div
+   795→              className="flex flex-col items-center gap-4 rounded-xl border border-white/10 bg-slate-900 p-8"
+   796→              initial={{ scale: 0.85, y: 20 }}
+   797→              animate={{ scale: 1, y: 0 }}
+   798→              exit={{ scale: 0.85, y: 20 }}
+   799→            >
+   800→              <h3 className="text-lg font-bold">Rodada {round} concluída!</h3>
+   801→              <div className="flex items-center gap-6">
+   802→                <div className="text-center">
+   803→                  <p className="text-xs text-muted-foreground">Jogador 1</p>
+   804→                  <p className="text-2xl font-black" style={{ color: P1_COLOR }}>{roundP1}</p>
+   805→                  <p className="text-[10px] text-muted-foreground">{p1Found} encontrada(s)</p>
+   806→                </div>
+   807→                <div className="h-10 w-px bg-white/10" />
+   808→                <div className="text-center">
+   809→                  <p className="text-xs text-muted-foreground">Jogador 2</p>
+   810→                  <p className="text-2xl font-black" style={{ color: P2_COLOR }}>{roundP2}</p>
+   811→                  <p className="text-[10px] text-muted-foreground">{p2Found} encontrada(s)</p>
+   812→                </div>
+   813→              </div>
+   814→              <Button
+   815→                onClick={() => {
+   816→                  setRound((r) => r + 1);
+   817→                  startRound();
+   818→                }}
+   819→                className="gap-2 font-bold"
+   820→              >
+   821→                Próxima Rodada
+   822→              </Button>
+   823→            </motion.div>
+   824→          </motion.div>
+   825→        )}
+   826→      </AnimatePresence>
+   827→
+   828→      {/* ====== GAME OVER OVERLAY ====== */}
+   829→      <AnimatePresence>
+   830→        {status === 'gameOver' && (
+   831→          <motion.div
+   832→            className="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-black/80 backdrop-blur-sm"
+   833→            initial={{ opacity: 0 }}
+   834→            animate={{ opacity: 1 }}
+   835→            exit={{ opacity: 0 }}
+   836→          >
+   837→            <motion.div
+   838→              className="flex flex-col items-center gap-5 rounded-xl border border-white/10 bg-slate-900 p-8"
+   839→              initial={{ scale: 0.8, y: 30 }}
+   840→              animate={{ scale: 1, y: 0 }}
+   841→              exit={{ scale: 0.8, y: 30 }}
+   842→            >
+   843→              <Trophy className="h-10 w-10 text-amber-400" />
+   844→              <h3 className="text-xl font-black">Fim de Jogo!</h3>
+   845→
+   846→              <div className="flex items-center gap-8">
+   847→                <div className="text-center">
+   848→                  <p className="text-xs font-medium" style={{ color: P1_COLOR }}>Jogador 1</p>
+   849→                  <motion.p
+   850→                    className="text-3xl font-black tabular-nums"
+   851→                    style={{ color: P1_COLOR }}
+   852→                    initial={{ scale: 0 }}
+   853→                    animate={{ scale: 1 }}
+   854→                    transition={{ type: 'spring', delay: 0.2 }}
+   855→                  >
+   856→                    {p1Score}
+   857→                  </motion.p>
+   858→                </div>
+   859→                <div className="h-12 w-px bg-white/10" />
+   860→                <div className="text-center">
+   861→                  <p className="text-xs font-medium" style={{ color: P2_COLOR }}>Jogador 2</p>
+   862→                  <motion.p
+   863→                    className="text-3xl font-black tabular-nums"
+   864→                    style={{ color: P2_COLOR }}
+   865→                    initial={{ scale: 0 }}
+   866→                    animate={{ scale: 1 }}
+   867→                    transition={{ type: 'spring', delay: 0.3 }}
+   868→                  >
+   869→                    {p2Score}
+   870→                  </motion.p>
+   871→                </div>
+   872→              </div>
+   873→
+   874→              <motion.p
+   875→                className="text-lg font-bold"
+   876→                initial={{ opacity: 0 }}
+   877→                animate={{ opacity: 1 }}
+   878→                transition={{ delay: 0.5 }}
+   879→              >
+   880→                {p1Score > p2Score && (
+   881→                  <span style={{ color: P1_COLOR }}>Jogador 1 venceu!</span>
+   882→                )}
+   883→                {p2Score > p1Score && (
+   884→                  <span style={{ color: P2_COLOR }}>Jogador 2 venceu!</span>
+   885→                )}
+   886→                {p1Score === p2Score && (
+   887→                  <span className="text-amber-400">Empate!</span>
+   888→                )}
+   889→              </motion.p>
+   890→
+   891→              <div className="flex gap-3">
+   892→                <Button onClick={restart} variant="outline" className="gap-2">
+   893→                  <RotateCcw className="h-4 w-4" /> Jogar Novamente
+   894→                </Button>
+   895→              </div>
+   896→            </motion.div>
+   897→          </motion.div>
+   898→        )}
+   899→      </AnimatePresence>
+   900→    </div>
+   901→  );
+   902→}
+   903→

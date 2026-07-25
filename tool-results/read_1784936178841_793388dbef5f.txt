@@ -1,0 +1,832 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Badge } from "@/components/ui/badge";
+     7→import { cn } from "@/lib/utils";
+     8→import { RotateCcw, Timer, Check, X, Zap } from "lucide-react";
+     9→
+    10→interface Props {
+    11→  onScore?: (name: string, score: number) => void;
+    12→  liveCode?: string;
+    13→}
+    14→
+    15→interface Question {
+    16→  text: string;
+    17→  answer: boolean;
+    18→  category: string;
+    19→}
+    20→
+    21→const QUESTIONS: Question[] = [
+    22→  { text: "O Sol é uma estrela.", answer: true, category: "Ciência" },
+    23→  { text: "A Terra é plana.", answer: false, category: "Ciência" },
+    24→  { text: "O Brasil é o maior país da América do Sul.", answer: true, category: "Geografia" },
+    25→  { text: "A água ferve a 100°C ao nível do mar.", answer: true, category: "Ciência" },
+    26→  { text: "O Monte Everest fica no Nepal.", answer: true, category: "Geografia" },
+    27→  { text: "A lua tem luz própria.", answer: false, category: "Ciência" },
+    28→  { text: "O Brasil foi descoberto em 1500.", answer: true, category: "História" },
+    29→  { text: "O oceano Pacífico é o maior do mundo.", answer: true, category: "Geografia" },
+    30→  { text: "Os golfinhos são peixes.", answer: false, category: "Natureza" },
+    31→  { text: "O futebol é o esporte mais popular do Brasil.", answer: true, category: "Esportes" },
+    32→  { text: "A velocidade da luz é superior à do som.", answer: true, category: "Ciência" },
+    33→  { text: "A Austrália é um continente.", answer: true, category: "Geografia" },
+    34→  { text: "O coração humano tem 4 câmaras.", answer: true, category: "Ciência" },
+    35→  { text: "O Rio Amazonas é o rio mais longo do mundo.", answer: false, category: "Geografia" },
+    36→  { text: "Napoleão Bonaparte foi imperador da França.", answer: true, category: "História" },
+    37→  { text: "O ATP é produzido nas mitocôndrias.", answer: true, category: "Ciência" },
+    38→  { text: "O Japão é um país da América do Norte.", answer: false, category: "Geografia" },
+    39→  { text: "A gastrite é uma inflamação do estômago.", answer: true, category: "Ciência" },
+    40→  { text: "O Marrocos fica na África.", answer: true, category: "Geografia" },
+    41→  { text: "O Brasil tem a maior floresta tropical do mundo.", answer: true, category: "Natureza" },
+    42→  { text: "O ouro é um gás nobre.", answer: false, category: "Ciência" },
+    43→  { text: "A Segunda Guerra Mundial terminou em 1945.", answer: true, category: "História" },
+    44→  { text: "O vinho é feito a partir de uvas.", answer: true, category: "Cultura" },
+    45→  { text: "A Terra leva exatamente 24 horas para girar em torno do Sol.", answer: false, category: "Ciência" },
+    46→  { text: "O Brasil tem 26 estados.", answer: true, category: "Geografia" },
+    47→  { text: "A manga é uma fruta originária do Brasil.", answer: false, category: "Natureza" },
+    48→  { text: "O Império Romano durou mais de 1000 anos.", answer: true, category: "História" },
+    49→  { text: "O som viaja mais rápido no vácuo do que no ar.", answer: false, category: "Ciência" },
+    50→  { text: "A bandeira do Brasil tem 27 estrelas.", answer: true, category: "Cultura" },
+    51→  { text: "O polo Norte fica na Antártida.", answer: false, category: "Geografia" },
+    52→  { text: "As baleias são mamíferos.", answer: true, category: "Natureza" },
+    53→  { text: "O vôlei foi inventado nos Estados Unidos.", answer: true, category: "Esportes" },
+    54→  { text: "A Grande Muralha da China é visível do espaço a olho nu.", answer: false, category: "Geografia" },
+    55→  { text: "O hidrogênio é o elemento mais abundante do universo.", answer: true, category: "Ciência" },
+    56→  { text: "O Brasil já sediou as Olimpíadas duas vezes.", answer: false, category: "Esportes" },
+    57→  { text: "A Vitória-Régia é uma planta aquática da Amazônia.", answer: true, category: "Natureza" },
+    58→  { text: "O euro é a moeda do Japão.", answer: false, category: "Cultura" },
+    59→  { text: "A lua é o satélite natural da Terra.", answer: true, category: "Ciência" },
+    60→  { text: "O deserto do Saara fica na Ásia.", answer: false, category: "Geografia" },
+    61→  { text: "Cristóvão Colombo chegou ao Brasil em 1500.", answer: false, category: "História" },
+    62→  { text: "O corpo humano adulto tem 206 ossos.", answer: true, category: "Ciência" },
+    63→  { text: "O Brasil é o único país que fala português na América.", answer: true, category: "Geografia" },
+    64→  { text: "A Revolução Francesa aconteceu no século XVIII.", answer: true, category: "História" },
+    65→  { text: "O basquete foi inventado por um canadense.", answer: true, category: "Esportes" },
+    66→  { text: "Vênus é o planeta mais quente do sistema solar.", answer: true, category: "Ciência" },
+    67→  { text: "A Líbia é o maior país da África.", answer: false, category: "Geografia" },
+    68→  { text: "O Feng Shui é uma prática originária da China.", answer: true, category: "Cultura" },
+    69→];
+    70→
+    71→const TOTAL_QUESTIONS = 20;
+    72→const TIME_LIMIT = 5000;
+    73→const BASE_POINTS = 10;
+    74→const MAX_BONUS = 5;
+    75→const RESULT_DISPLAY_MS = 1500;
+    76→
+    77→type GameState = "idle" | "countdown" | "question" | "result" | "finished";
+    78→
+    79→type PlayerAnswerData = {
+    80→  choice: boolean | null;
+    81→  correct: boolean;
+    82→  points: number;
+    83→  time: number | null;
+    84→};
+    85→
+    86→type PlayerState = {
+    87→  score: number;
+    88→  correct: number;
+    89→  currentAnswer: PlayerAnswerData;
+    90→};
+    91→
+    92→function createPlayer(): PlayerState {
+    93→  return {
+    94→    score: 0,
+    95→    correct: 0,
+    96→    currentAnswer: { choice: null, correct: false, points: 0, time: null },
+    97→  };
+    98→}
+    99→
+   100→function createEmptyAnswer(): PlayerAnswerData {
+   101→  return { choice: null, correct: false, points: 0, time: null };
+   102→}
+   103→
+   104→function shuffle<T>(arr: T[]): T[] {
+   105→  const a = [...arr];
+   106→  for (let i = a.length - 1; i > 0; i--) {
+   107→    const j = Math.floor(Math.random() * (i + 1));
+   108→    [a[i], a[j]] = [a[j], a[i]];
+   109→  }
+   110→  return a;
+   111→}
+   112→
+   113→const categoryEmoji: Record<string, string> = {
+   114→  Ciência: "🔬",
+   115→  Geografia: "🌍",
+   116→  História: "📜",
+   117→  Natureza: "🌿",
+   118→  Esportes: "⚽",
+   119→  Cultura: "🎭",
+   120→};
+   121→
+   122→export default function TriviaFlash({ onScore, liveCode }: Props) {
+   123→  const [gameState, setGameState] = useState<GameState>("idle");
+   124→  const [questionPool] = useState<Question[]>(() =>
+   125→    shuffle(QUESTIONS).slice(0, TOTAL_QUESTIONS)
+   126→  );
+   127→  const [currentIndex, setCurrentIndex] = useState(0);
+   128→  const [player1, setPlayer1] = useState<PlayerState>(createPlayer);
+   129→  const [player2, setPlayer2] = useState<PlayerState>(createPlayer);
+   130→  const [timeRemaining, setTimeRemaining] = useState(100);
+   131→  const [showingResult, setShowingResult] = useState(false);
+   132→  const [countdownNum, setCountdownNum] = useState(3);
+   133→  const [p1Times, setP1Times] = useState<number[]>([]);
+   134→  const [p2Times, setP2Times] = useState<number[]>([]);
+   135→
+   136→  const questionStartTime = useRef(0);
+   137→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   138→  const p1AnsweredRef = useRef(false);
+   139→  const p2AnsweredRef = useRef(false);
+   140→  const showingResultRef = useRef(false);
+   141→
+   142→  const currentQuestion = questionPool[currentIndex];
+   143→  const p1Answered = player1.currentAnswer.choice !== null;
+   144→  const p2Answered = player2.currentAnswer.choice !== null;
+   145→  const bothAnswered = p1Answered && p2Answered;
+   146→
+   147→  const timerColor = useMemo(() => {
+   148→    if (timeRemaining > 60) return "bg-emerald-500";
+   149→    if (timeRemaining > 30) return "bg-yellow-500";
+   150→    return "bg-red-500";
+   151→  }, [timeRemaining]);
+   152→
+   153→  const clearTimer = useCallback(() => {
+   154→    if (timerRef.current) {
+   155→      clearInterval(timerRef.current);
+   156→      timerRef.current = null;
+   157→    }
+   158→  }, []);
+   159→
+   160→  const advanceToNext = useCallback(() => {
+   161→    clearTimer();
+   162→    setShowingResult(true);
+   163→    showingResultRef.current = true;
+   164→
+   165→    setTimeout(() => {
+   166→      if (currentIndex + 1 >= TOTAL_QUESTIONS) {
+   167→        setGameState("finished");
+   168→      } else {
+   169→        setCurrentIndex((prev) => prev + 1);
+   170→        setPlayer1((prev) => ({ ...prev, currentAnswer: createEmptyAnswer() }));
+   171→        setPlayer2((prev) => ({ ...prev, currentAnswer: createEmptyAnswer() }));
+   172→        p1AnsweredRef.current = false;
+   173→        p2AnsweredRef.current = false;
+   174→        showingResultRef.current = false;
+   175→      }
+   176→    }, RESULT_DISPLAY_MS);
+   177→  }, [clearTimer, currentIndex]);
+   178→
+   179→  const handleAnswer = useCallback(
+   180→    (playerNum: 1 | 2, choice: boolean) => {
+   181→      if (!currentQuestion || showingResultRef.current) return;
+   182→
+   183→      const ref = playerNum === 1 ? p1AnsweredRef : p2AnsweredRef;
+   184→      if (ref.current) return;
+   185→      ref.current = true;
+   186→
+   187→      const elapsed = Date.now() - questionStartTime.current;
+   188→      const isCorrect = choice === currentQuestion.answer;
+   189→      let points = 0;
+   190→      if (isCorrect) {
+   191→        const fraction = Math.max(0, 1 - elapsed / TIME_LIMIT);
+   192→        points = BASE_POINTS + Math.round(fraction * MAX_BONUS);
+   193→      }
+   194→
+   195→      const answerData: PlayerAnswerData = { choice, correct: isCorrect, points, time: elapsed };
+   196→
+   197→      if (playerNum === 1) {
+   198→        setP1Times((prev) => [...prev, elapsed]);
+   199→        setPlayer1((prev) => ({
+   200→          ...prev,
+   201→          currentAnswer: answerData,
+   202→          score: prev.score + points,
+   203→          correct: prev.correct + (isCorrect ? 1 : 0),
+   204→        }));
+   205→      } else {
+   206→        setP2Times((prev) => [...prev, elapsed]);
+   207→        setPlayer2((prev) => ({
+   208→          ...prev,
+   209→          currentAnswer: answerData,
+   210→          score: prev.score + points,
+   211→          correct: prev.correct + (isCorrect ? 1 : 0),
+   212→        }));
+   213→      }
+   214→    },
+   215→    [currentQuestion]
+   216→  );
+   217→
+   218→  const startCountdown = useCallback(() => {
+   219→    setGameState("countdown");
+   220→    setCountdownNum(3);
+   221→    let count = 3;
+   222→    const interval = setInterval(() => {
+   223→      count -= 1;
+   224→      if (count <= 0) {
+   225→        clearInterval(interval);
+   226→        setGameState("question");
+   227→      } else {
+   228→        setCountdownNum(count);
+   229→      }
+   230→    }, 800);
+   231→  }, []);
+   232→
+   233→  const startGame = useCallback(() => {
+   234→    setPlayer1(createPlayer());
+   235→    setPlayer2(createPlayer());
+   236→    setP1Times([]);
+   237→    setP2Times([]);
+   238→    setCurrentIndex(0);
+   239→    setShowingResult(false);
+   240→    p1AnsweredRef.current = false;
+   241→    p2AnsweredRef.current = false;
+   242→    showingResultRef.current = false;
+   243→    startCountdown();
+   244→  }, [startCountdown]);
+   245→
+   246→  const handleRestart = useCallback(() => {
+   247→    clearTimer();
+   248→    startGame();
+   249→  }, [clearTimer, startGame]);
+   250→
+   251→  useEffect(() => {
+   252→    if (gameState !== "question") return;
+   253→
+   254→    questionStartTime.current = Date.now();
+   255→    setTimeRemaining(100);
+   256→    setShowingResult(false);
+   257→    showingResultRef.current = false;
+   258→    p1AnsweredRef.current = false;
+   259→    p2AnsweredRef.current = false;
+   260→
+   261→    const step = 50;
+   262→    timerRef.current = setInterval(() => {
+   263→      const elapsed = Date.now() - questionStartTime.current;
+   264→      const pct = Math.max(0, 100 - (elapsed / TIME_LIMIT) * 100);
+   265→      setTimeRemaining(pct);
+   266→
+   267→      if (elapsed >= TIME_LIMIT) {
+   268→        advanceToNext();
+   269→      }
+   270→    }, step);
+   271→
+   272→    return () => clearTimer();
+   273→  }, [gameState, currentIndex, clearTimer, advanceToNext]);
+   274→
+   275→  useEffect(() => {
+   276→    if (gameState !== "question" || !bothAnswered || showingResultRef.current) return;
+   277→    advanceToNext();
+   278→  }, [bothAnswered, gameState, advanceToNext]);
+   279→
+   280→  useEffect(() => {
+   281→    if (gameState === "finished") {
+   282→      onScore?.("Jogador 1", player1.score);
+   283→      onScore?.("Jogador 2", player2.score);
+   284→    }
+   285→  }, [gameState, onScore, player1.score, player2.score]);
+   286→
+   287→  const avgTime = (times: number[]) => {
+   288→    if (times.length === 0) return 0;
+   289→    return Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+   290→  };
+   291→
+   292→  const p1Avg = avgTime(p1Times);
+   293→  const p2Avg = avgTime(p2Times);
+   294→
+   295→  /* ===================== IDLE SCREEN ===================== */
+   296→  if (gameState === "idle") {
+   297→    return (
+   298→      <div className="flex flex-col items-center justify-center min-h-[500px] gap-6 p-4">
+   299→        <motion.div
+   300→          initial={{ scale: 0.8, opacity: 0 }}
+   301→          animate={{ scale: 1, opacity: 1 }}
+   302→          transition={{ type: "spring", stiffness: 200, damping: 12 }}
+   303→          className="text-center"
+   304→        >
+   305→          <motion.div
+   306→            animate={{ rotate: [0, 10, -10, 0] }}
+   307→            transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+   308→            className="text-6xl mb-4"
+   309→          >
+   310→            ⚡
+   311→          </motion.div>
+   312→          <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">
+   313→            TRIVIA FLASH
+   314→          </h1>
+   315→          <p className="text-slate-400 mt-3 text-lg">Rápido e Verdadeiro ou Falso!</p>
+   316→        </motion.div>
+   317→
+   318→        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2 text-sm text-slate-400">
+   319→          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 text-center">
+   320→            <span className="text-emerald-400 font-bold">20</span> Perguntas
+   321→          </div>
+   322→          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 text-center">
+   323→            <span className="text-yellow-400 font-bold">5s</span> por pergunta
+   324→          </div>
+   325→          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 text-center">
+   326→            <span className="text-cyan-400 font-bold">2</span> Jogadores
+   327→          </div>
+   328→        </div>
+   329→
+   330→        <div className="text-xs text-slate-500 space-y-1 text-center">
+   331→          <p>
+   332→            Cada pergunta tem apenas 2 opções: <span className="text-emerald-400">Verdadeiro</span> ou{" "}
+   333→            <span className="text-red-400">Falso</span>
+   334→          </p>
+   335→          <p>
+   336→            Responda rápido para ganhar <span className="text-yellow-400">bônus de velocidade</span>!
+   337→          </p>
+   338→        </div>
+   339→
+   340→        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   341→          <Button
+   342→            onClick={startGame}
+   343→            size="lg"
+   344→            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold text-lg px-10 py-6 rounded-2xl"
+   345→          >
+   346→            Começar Jogo
+   347→          </Button>
+   348→        </motion.div>
+   349→      </div>
+   350→    );
+   351→  }
+   352→
+   353→  /* ===================== COUNTDOWN SCREEN ===================== */
+   354→  if (gameState === "countdown") {
+   355→    return (
+   356→      <div className="flex flex-col items-center justify-center min-h-[500px]">
+   357→        <AnimatePresence mode="wait">
+   358→          <motion.div
+   359→            key={countdownNum}
+   360→            initial={{ scale: 2, opacity: 0 }}
+   361→            animate={{ scale: 1, opacity: 1 }}
+   362→            exit={{ scale: 0.5, opacity: 0 }}
+   363→            transition={{ duration: 0.5 }}
+   364→            className="text-8xl font-black text-white"
+   365→          >
+   366→            {countdownNum}
+   367→          </motion.div>
+   368→        </AnimatePresence>
+   369→        <motion.p
+   370→          initial={{ opacity: 0 }}
+   371→          animate={{ opacity: 1 }}
+   372→          transition={{ delay: 0.3 }}
+   373→          className="text-slate-400 mt-6 text-lg"
+   374→        >
+   375→          Preparem-se!
+   376→        </motion.p>
+   377→      </div>
+   378→    );
+   379→  }
+   380→
+   381→  /* ===================== FINISHED SCREEN ===================== */
+   382→  if (gameState === "finished") {
+   383→    const p1Won = player1.score > player2.score;
+   384→    const draw = player1.score === player2.score;
+   385→    const winner = p1Won ? 1 : draw ? 0 : 2;
+   386→
+   387→    const getPodiumBorder = (pos: number) => {
+   388→      if (winner === 0) return "border-slate-500/50";
+   389→      if (pos === winner) return "border-yellow-500/50 shadow-lg shadow-yellow-500/10";
+   390→      return "border-slate-700/50 opacity-70";
+   391→    };
+   392→
+   393→    return (
+   394→      <div className="flex flex-col items-center gap-6 p-4 min-h-[500px]">
+   395→        <motion.h1
+   396→          initial={{ y: -30, opacity: 0 }}
+   397→          animate={{ y: 0, opacity: 1 }}
+   398→          className="text-3xl md:text-4xl font-black bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent"
+   399→        >
+   400→          Resultado Final
+   401→        </motion.h1>
+   402→
+   403→        <div className="flex flex-col md:flex-row gap-4 items-stretch justify-center w-full max-w-2xl">
+   404→          <motion.div
+   405→            initial={{ x: -60, opacity: 0 }}
+   406→            animate={{ x: 0, opacity: 1 }}
+   407→            transition={{ delay: 0.2, type: "spring", stiffness: 150 }}
+   408→            className={cn("flex-1 bg-slate-800/50 border rounded-2xl p-5", getPodiumBorder(1))}
+   409→          >
+   410→            {winner === 1 && (
+   411→              <motion.div
+   412→                initial={{ scale: 0 }}
+   413→                animate={{ scale: 1 }}
+   414→                transition={{ delay: 0.8, type: "spring" }}
+   415→                className="text-3xl mb-2 text-center"
+   416→              >
+   417→                🏆
+   418→              </motion.div>
+   419→            )}
+   420→            <div className="text-cyan-400 font-bold text-lg text-center">Jogador 1</div>
+   421→            <motion.div
+   422→              key={player1.score}
+   423→              initial={{ scale: 0.5 }}
+   424→              animate={{ scale: 1 }}
+   425→              transition={{ type: "spring", stiffness: 300, damping: 10 }}
+   426→              className="text-4xl font-black text-white text-center mt-2"
+   427→            >
+   428→              {player1.score}
+   429→            </motion.div>
+   430→            <div className="text-sm text-slate-400 text-center mt-1">pontos</div>
+   431→            <div className="flex justify-center gap-4 mt-3 text-sm text-slate-400">
+   432→              <span>
+   433→                <span className="text-emerald-400 font-bold">{player1.correct}</span> corretas
+   434→              </span>
+   435→              <span>
+   436→                <span className="text-yellow-400 font-bold">{p1Avg}ms</span> média
+   437→              </span>
+   438→            </div>
+   439→          </motion.div>
+   440→
+   441→          <motion.div
+   442→            initial={{ x: 60, opacity: 0 }}
+   443→            animate={{ x: 0, opacity: 1 }}
+   444→            transition={{ delay: 0.4, type: "spring", stiffness: 150 }}
+   445→            className={cn("flex-1 bg-slate-800/50 border rounded-2xl p-5", getPodiumBorder(2))}
+   446→          >
+   447→            {winner === 2 && (
+   448→              <motion.div
+   449→                initial={{ scale: 0 }}
+   450→                animate={{ scale: 1 }}
+   451→                transition={{ delay: 0.8, type: "spring" }}
+   452→                className="text-3xl mb-2 text-center"
+   453→              >
+   454→                🏆
+   455→              </motion.div>
+   456→            )}
+   457→            <div className="text-pink-400 font-bold text-lg text-center">Jogador 2</div>
+   458→            <motion.div
+   459→              key={player2.score}
+   460→              initial={{ scale: 0.5 }}
+   461→              animate={{ scale: 1 }}
+   462→              transition={{ type: "spring", stiffness: 300, damping: 10 }}
+   463→              className="text-4xl font-black text-white text-center mt-2"
+   464→            >
+   465→              {player2.score}
+   466→            </motion.div>
+   467→            <div className="text-sm text-slate-400 text-center mt-1">pontos</div>
+   468→            <div className="flex justify-center gap-4 mt-3 text-sm text-slate-400">
+   469→              <span>
+   470→                <span className="text-emerald-400 font-bold">{player2.correct}</span> corretas
+   471→              </span>
+   472→              <span>
+   473→                <span className="text-yellow-400 font-bold">{p2Avg}ms</span> média
+   474→              </span>
+   475→            </div>
+   476→          </motion.div>
+   477→        </div>
+   478→
+   479→        {winner === 0 ? (
+   480→          <motion.div
+   481→            initial={{ opacity: 0, y: 10 }}
+   482→            animate={{ opacity: 1, y: 0 }}
+   483→            transition={{ delay: 1 }}
+   484→            className="text-xl font-bold text-slate-300 mt-2"
+   485→          >
+   486→            Empate!
+   487→          </motion.div>
+   488→        ) : (
+   489→          <motion.div
+   490→            initial={{ opacity: 0, y: 10 }}
+   491→            animate={{ opacity: 1, y: 0 }}
+   492→            transition={{ delay: 1 }}
+   493→            className={cn("text-xl font-bold mt-2", winner === 1 ? "text-cyan-400" : "text-pink-400")}
+   494→          >
+   495→            Jogador {winner} venceu! 🎉
+   496→          </motion.div>
+   497→        )}
+   498→
+   499→        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   500→          <Button
+   501→            onClick={handleRestart}
+   502→            size="lg"
+   503→            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold text-lg px-8 py-5 rounded-2xl"
+   504→          >
+   505→            <RotateCcw className="mr-2 h-5 w-5" />
+   506→            Reiniciar Tudo
+   507→          </Button>
+   508→        </motion.div>
+   509→      </div>
+   510→    );
+   511→  }
+   512→
+   513→  /* ===================== MAIN GAME SCREEN ===================== */
+   514→  return (
+   515→    <div className="flex flex-col gap-4 p-3 md:p-4 w-full max-w-3xl mx-auto">
+   516→      {/* Scoreboard */}
+   517→      <div className="bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl p-3 flex items-center justify-between">
+   518→        <div className="flex items-center gap-2">
+   519→          <span className="text-cyan-400 font-bold text-sm">Jogador 1</span>
+   520→          <motion.span
+   521→            key={`p1-${player1.score}`}
+   522→            initial={{ scale: 1.3 }}
+   523→            animate={{ scale: 1 }}
+   524→            className="text-white font-black text-lg"
+   525→          >
+   526→            {player1.score}
+   527→          </motion.span>
+   528→          <span className="text-emerald-400 text-xs">({player1.correct}✓)</span>
+   529→        </div>
+   530→        <div className="text-sm font-bold bg-slate-800/60 px-3 py-1 rounded-full">
+   531→          <Zap className="inline h-3.5 w-3.5 text-yellow-400 mr-1" />
+   532→          <span className="bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">
+   533→            TRIVIA FLASH
+   534→          </span>
+   535→        </div>
+   536→        <div className="flex items-center gap-2">
+   537→          <span className="text-emerald-400 text-xs">({player2.correct}✓)</span>
+   538→          <motion.span
+   539→            key={`p2-${player2.score}`}
+   540→            initial={{ scale: 1.3 }}
+   541→            animate={{ scale: 1 }}
+   542→            className="text-white font-black text-lg"
+   543→          >
+   544→            {player2.score}
+   545→          </motion.span>
+   546→          <span className="text-pink-400 font-bold text-sm">Jogador 2</span>
+   547→        </div>
+   548→      </div>
+   549→
+   550→      {/* Progress + Timer + Category */}
+   551→      <div className="flex items-center gap-2 flex-wrap">
+   552→        <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+   553→          Pergunta {currentIndex + 1}/{TOTAL_QUESTIONS}
+   554→        </span>
+   555→        <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden min-w-[80px]">
+   556→          <motion.div
+   557→            className={cn("h-full rounded-full", timerColor)}
+   558→            style={{ width: `${timeRemaining}%` }}
+   559→          />
+   560→        </div>
+   561→        <Badge
+   562→          variant="outline"
+   563→          className="text-xs border-slate-600 text-slate-300 whitespace-nowrap"
+   564→        >
+   565→          {categoryEmoji[currentQuestion.category] || "❓"} {currentQuestion.category}
+   566→        </Badge>
+   567→      </div>
+   568→
+   569→      {/* Question Card */}
+   570→      <AnimatePresence mode="wait">
+   571→        <motion.div
+   572→          key={currentIndex}
+   573→          initial={{ y: 40, opacity: 0 }}
+   574→          animate={{ y: 0, opacity: 1 }}
+   575→          exit={{ y: -30, opacity: 0 }}
+   576→          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+   577→          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-center"
+   578→        >
+   579→          <div className="text-sm text-slate-400 mb-3 font-medium">
+   580→            {categoryEmoji[currentQuestion.category] || "❓"} {currentQuestion.category}
+   581→          </div>
+   582→          <p className="text-xl md:text-2xl font-semibold text-white leading-relaxed">
+   583→            &ldquo;{currentQuestion.text}&rdquo;
+   584→          </p>
+   585→          {showingResult && (
+   586→            <motion.div
+   587→              initial={{ scale: 0, opacity: 0 }}
+   588→              animate={{ scale: 1, opacity: 1 }}
+   589→              className="mt-4"
+   590→            >
+   591→              <Badge
+   592→                variant="outline"
+   593→                className={cn(
+   594→                  "text-sm px-4 py-1.5 font-bold",
+   595→                  currentQuestion.answer
+   596→                    ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/10"
+   597→                    : "border-red-500/50 text-red-400 bg-red-500/10"
+   598→                )}
+   599→              >
+   600→                {currentQuestion.answer ? "Verdadeiro" : "Falso"}
+   601→              </Badge>
+   602→            </motion.div>
+   603→          )}
+   604→          {showingResult && timeRemaining <= 0 && (
+   605→            <motion.p
+   606→              initial={{ opacity: 0 }}
+   607→              animate={{ opacity: 1 }}
+   608→              className="text-red-400 font-bold mt-2 text-sm"
+   609→            >
+   610→              Tempo!
+   611→            </motion.p>
+   612→          )}
+   613→        </motion.div>
+   614→      </AnimatePresence>
+   615→
+   616→      {/* Player Zones - Side by Side on desktop, stacked on mobile */}
+   617→      <div className="flex flex-col md:flex-row gap-4">
+   618→        {/* Player 1 Zone */}
+   619→        <motion.div
+   620→          animate={
+   621→            showingResult && p1Answered
+   622→              ? player1.currentAnswer.correct
+   623→                ? { backgroundColor: ["rgba(16,185,129,0)", "rgba(16,185,129,0.15)"] }
+   624→                : { x: [0, -8, 8, -6, 6, -3, 3, 0] }
+   625→              : {}
+   626→          }
+   627→          transition={{ duration: 0.4 }}
+   628→          className={cn(
+   629→            "relative flex-1 rounded-xl border p-4",
+   630→            showingResult && p1Answered && player1.currentAnswer.correct
+   631→              ? "border-emerald-500/50"
+   632→              : showingResult && p1Answered && !player1.currentAnswer.correct
+   633→                ? "border-red-500/50"
+   634→                : "border-slate-700/50 bg-slate-900/50"
+   635→          )}
+   636→        >
+   637→          <div className="text-cyan-400 font-bold text-sm mb-3 text-center">Jogador 1</div>
+   638→          <div className="flex gap-3">
+   639→            <motion.div
+   640→              whileTap={{ scale: 0.92 }}
+   641→              whileHover={{ scale: 1.03 }}
+   642→              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+   643→              className="flex-1"
+   644→            >
+   645→              <Button
+   646→                onClick={() => handleAnswer(1, true)}
+   647→                disabled={p1Answered || showingResult}
+   648→                className={cn(
+   649→                  "w-full h-14 md:h-16 text-base md:text-lg font-bold py-3 rounded-xl transition-all",
+   650→                  p1Answered && player1.currentAnswer.choice === true && player1.currentAnswer.correct
+   651→                    ? "bg-emerald-500/40 border-emerald-500/70 text-emerald-300"
+   652→                    : p1Answered && player1.currentAnswer.choice === true && !player1.currentAnswer.correct
+   653→                      ? "bg-red-500/40 border-red-500/70 text-red-300"
+   654→                      : "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/30 border"
+   655→                )}
+   656→              >
+   657→                <Check className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+   658→                Verdadeiro
+   659→              </Button>
+   660→            </motion.div>
+   661→            <motion.div
+   662→              whileTap={{ scale: 0.92 }}
+   663→              whileHover={{ scale: 1.03 }}
+   664→              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+   665→              className="flex-1"
+   666→            >
+   667→              <Button
+   668→                onClick={() => handleAnswer(1, false)}
+   669→                disabled={p1Answered || showingResult}
+   670→                className={cn(
+   671→                  "w-full h-14 md:h-16 text-base md:text-lg font-bold py-3 rounded-xl transition-all",
+   672→                  p1Answered && player1.currentAnswer.choice === false && player1.currentAnswer.correct
+   673→                    ? "bg-emerald-500/40 border-emerald-500/70 text-emerald-300"
+   674→                    : p1Answered && player1.currentAnswer.choice === false && !player1.currentAnswer.correct
+   675→                      ? "bg-red-500/40 border-red-500/70 text-red-300"
+   676→                      : "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 border"
+   677→                )}
+   678→              >
+   679→                <X className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+   680→                Falso
+   681→              </Button>
+   682→            </motion.div>
+   683→          </div>
+   684→          {p1Answered && player1.currentAnswer.time !== null && (
+   685→            <motion.span
+   686→              initial={{ opacity: 0 }}
+   687→              animate={{ opacity: 1 }}
+   688→              className="absolute top-1 right-2 text-xs text-slate-500"
+   689→            >
+   690→              {player1.currentAnswer.time}ms
+   691→            </motion.span>
+   692→          )}
+   693→          {p1Answered && player1.currentAnswer.correct && player1.currentAnswer.points > BASE_POINTS && (
+   694→            <motion.span
+   695→              initial={{ scale: 0, x: -10 }}
+   696→              animate={{ scale: 1, x: 0 }}
+   697→              className="absolute top-1 left-2 text-xs text-yellow-400 font-bold flex items-center gap-0.5"
+   698→            >
+   699→              <Zap className="h-3 w-3" />
+   700→              +{player1.currentAnswer.points - BASE_POINTS}
+   701→            </motion.span>
+   702→          )}
+   703→          {showingResult && p1Answered && (
+   704→            <motion.div
+   705→              initial={{ opacity: 0, y: 5 }}
+   706→              animate={{ opacity: 1, y: 0 }}
+   707→              className={cn(
+   708→                "text-center text-sm font-bold mt-2",
+   709→                player1.currentAnswer.correct ? "text-emerald-400" : "text-red-400"
+   710→              )}
+   711→            >
+   712→              {player1.currentAnswer.correct ? "Correto!" : "Errado!"}
+   713→            </motion.div>
+   714→          )}
+   715→        </motion.div>
+   716→
+   717→        {/* Player 2 Zone */}
+   718→        <motion.div
+   719→          animate={
+   720→            showingResult && p2Answered
+   721→              ? player2.currentAnswer.correct
+   722→                ? { backgroundColor: ["rgba(16,185,129,0)", "rgba(16,185,129,0.15)"] }
+   723→                : { x: [0, -8, 8, -6, 6, -3, 3, 0] }
+   724→              : {}
+   725→          }
+   726→          transition={{ duration: 0.4 }}
+   727→          className={cn(
+   728→            "relative flex-1 rounded-xl border p-4",
+   729→            showingResult && p2Answered && player2.currentAnswer.correct
+   730→              ? "border-emerald-500/50"
+   731→              : showingResult && p2Answered && !player2.currentAnswer.correct
+   732→                ? "border-red-500/50"
+   733→                : "border-slate-700/50 bg-slate-900/50"
+   734→          )}
+   735→        >
+   736→          <div className="text-pink-400 font-bold text-sm mb-3 text-center">Jogador 2</div>
+   737→          <div className="flex gap-3">
+   738→            <motion.div
+   739→              whileTap={{ scale: 0.92 }}
+   740→              whileHover={{ scale: 1.03 }}
+   741→              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+   742→              className="flex-1"
+   743→            >
+   744→              <Button
+   745→                onClick={() => handleAnswer(2, true)}
+   746→                disabled={p2Answered || showingResult}
+   747→                className={cn(
+   748→                  "w-full h-14 md:h-16 text-base md:text-lg font-bold py-3 rounded-xl transition-all",
+   749→                  p2Answered && player2.currentAnswer.choice === true && player2.currentAnswer.correct
+   750→                    ? "bg-emerald-500/40 border-emerald-500/70 text-emerald-300"
+   751→                    : p2Answered && player2.currentAnswer.choice === true && !player2.currentAnswer.correct
+   752→                      ? "bg-red-500/40 border-red-500/70 text-red-300"
+   753→                      : "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/30 border"
+   754→                )}
+   755→              >
+   756→                <Check className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+   757→                Verdadeiro
+   758→              </Button>
+   759→            </motion.div>
+   760→            <motion.div
+   761→              whileTap={{ scale: 0.92 }}
+   762→              whileHover={{ scale: 1.03 }}
+   763→              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+   764→              className="flex-1"
+   765→            >
+   766→              <Button
+   767→                onClick={() => handleAnswer(2, false)}
+   768→                disabled={p2Answered || showingResult}
+   769→                className={cn(
+   770→                  "w-full h-14 md:h-16 text-base md:text-lg font-bold py-3 rounded-xl transition-all",
+   771→                  p2Answered && player2.currentAnswer.choice === false && player2.currentAnswer.correct
+   772→                    ? "bg-emerald-500/40 border-emerald-500/70 text-emerald-300"
+   773→                    : p2Answered && player2.currentAnswer.choice === false && !player2.currentAnswer.correct
+   774→                      ? "bg-red-500/40 border-red-500/70 text-red-300"
+   775→                      : "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 border"
+   776→                )}
+   777→              >
+   778→                <X className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+   779→                Falso
+   780→              </Button>
+   781→            </motion.div>
+   782→          </div>
+   783→          {p2Answered && player2.currentAnswer.time !== null && (
+   784→            <motion.span
+   785→              initial={{ opacity: 0 }}
+   786→              animate={{ opacity: 1 }}
+   787→              className="absolute top-1 right-2 text-xs text-slate-500"
+   788→            >
+   789→              {player2.currentAnswer.time}ms
+   790→            </motion.span>
+   791→          )}
+   792→          {p2Answered && player2.currentAnswer.correct && player2.currentAnswer.points > BASE_POINTS && (
+   793→            <motion.span
+   794→              initial={{ scale: 0, x: 10 }}
+   795→              animate={{ scale: 1, x: 0 }}
+   796→              className="absolute top-1 left-2 text-xs text-yellow-400 font-bold flex items-center gap-0.5"
+   797→            >
+   798→              <Zap className="h-3 w-3" />
+   799→              +{player2.currentAnswer.points - BASE_POINTS}
+   800→            </motion.span>
+   801→          )}
+   802→          {showingResult && p2Answered && (
+   803→            <motion.div
+   804→              initial={{ opacity: 0, y: 5 }}
+   805→              animate={{ opacity: 1, y: 0 }}
+   806→              className={cn(
+   807→                "text-center text-sm font-bold mt-2",
+   808→                player2.currentAnswer.correct ? "text-emerald-400" : "text-red-400"
+   809→              )}
+   810→            >
+   811→              {player2.currentAnswer.correct ? "Correto!" : "Errado!"}
+   812→            </motion.div>
+   813→          )}
+   814→        </motion.div>
+   815→      </div>
+   816→
+   817→      {/* Restart Button */}
+   818→      <div className="flex justify-center pt-1">
+   819→        <Button
+   820→          onClick={handleRestart}
+   821→          variant="ghost"
+   822→          size="sm"
+   823→          className="text-slate-500 hover:text-slate-300"
+   824→        >
+   825→          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+   826→          Reiniciar Tudo
+   827→        </Button>
+   828→      </div>
+   829→    </div>
+   830→  );
+   831→}
+   832→

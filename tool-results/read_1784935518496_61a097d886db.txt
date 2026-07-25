@@ -1,0 +1,676 @@
+     1→import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { RotateCcw, Timer, Palette } from "lucide-react";
+     4→import { Button } from "@/components/ui/button";
+     5→import { Badge } from "@/components/ui/badge";
+     6→import { cn } from "@/lib/utils";
+     7→
+     8→/* ------------------------------------------------------------------ */
+     9→/*  Types                                                              */
+    10→/* ------------------------------------------------------------------ */
+    11→
+    12→interface Props {
+    13→  onScore?: (name: string, score: number) => void;
+    14→  liveCode?: string;
+    15→}
+    16→
+    17→interface ColorDef {
+    18→  id: string;
+    19→  name: string;
+    20→  hex: string;
+    21→  tailwind: string;
+    22→  textColor: string;
+    23→}
+    24→
+    25→type GamePhase =
+    26→  | "idle"
+    27→  | "countdown"
+    28→  | "playing"
+    29→  | "roundResult"
+    30→  | "gameOver";
+    31→
+    32→interface RoundData {
+    33→  word: ColorDef;       // the word written on screen
+    34→  inkColor: ColorDef;   // the actual ink colour of the text
+    35→  choices: ColorDef[];  // the 4 buttons shown to each player
+    36→}
+    37→
+    38→/* ------------------------------------------------------------------ */
+    39→/*  Colour palette (Portuguese names)                                  */
+    40→/* ------------------------------------------------------------------ */
+    41→
+    42→const ALL_COLORS: ColorDef[] = [
+    43→  { id: "vermelho", name: "Vermelho",  hex: "#EF4444", tailwind: "bg-red-500",    textColor: "text-red-500" },
+    44→  { id: "azul",     name: "Azul",      hex: "#3B82F6", tailwind: "bg-blue-500",   textColor: "text-blue-500" },
+    45→  { id: "verde",    name: "Verde",     hex: "#22C55E", tailwind: "bg-green-500",  textColor: "text-green-500" },
+    46→  { id: "amarelo",  name: "Amarelo",   hex: "#EAB308", tailwind: "bg-yellow-500", textColor: "text-yellow-500" },
+    47→  { id: "roxo",     name: "Roxo",      hex: "#A855F7", tailwind: "bg-purple-500", textColor: "text-purple-500" },
+    48→  { id: "laranja",  name: "Laranja",   hex: "#F97316", tailwind: "bg-orange-500", textColor: "text-orange-500" },
+    49→];
+    50→
+    51→const TOTAL_ROUNDS = 15;
+    52→const INITIAL_TIME = 5000;   // ms — round 1
+    53→const MIN_TIME     = 2000;    // ms — round 15
+    54→
+    55→/* ------------------------------------------------------------------ */
+    56→/*  Helpers                                                            */
+    57→/* ------------------------------------------------------------------ */
+    58→
+    59→function shuffle<T>(arr: T[]): T[] {
+    60→  const a = [...arr];
+    61→  for (let i = a.length - 1; i > 0; i--) {
+    62→    const j = Math.floor(Math.random() * (i + 1));
+    63→    [a[i], a[j]] = [a[j], a[i]];
+    64→  }
+    65→  return a;
+    66→}
+    67→
+    68→function generateRound(roundNumber: number): RoundData {
+    69→  // Pick a random word
+    70→  const word = ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+    71→
+    72→  // Pick a DIFFERENT ink colour
+    73→  let inkColor: ColorDef;
+    74→  do {
+    75→    inkColor = ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+    76→  } while (inkColor.id === word.id);
+    77→
+    78→  // Pick 3 more random colours (excluding inkColor) to fill 4 choices
+    79→  const others = shuffle(ALL_COLORS.filter((c) => c.id !== inkColor.id)).slice(0, 3);
+    80→  const choices = shuffle([inkColor, ...others]);
+    81→
+    82→  return { word, inkColor, choices };
+    83→}
+    84→
+    85→function roundDuration(roundNumber: number): number {
+    86→  // Linearly decrease from INITIAL_TIME to MIN_TIME
+    87→  const t = (roundNumber - 1) / (TOTAL_ROUNDS - 1);
+    88→  return Math.round(INITIAL_TIME - t * (INITIAL_TIME - MIN_TIME));
+    89→}
+    90→
+    91→/* ------------------------------------------------------------------ */
+    92→/*  Animation variants                                                 */
+    93→/* ------------------------------------------------------------------ */
+    94→
+    95→const wordVariants = {
+    96→  hidden:  { scale: 0, opacity: 0, rotate: -12 },
+    97→  visible: { scale: 1, opacity: 1, rotate: 0, transition: { type: "spring", stiffness: 260, damping: 20 } },
+    98→  exit:    { scale: 0, opacity: 0, rotate: 12 },
+    99→};
+   100→
+   101→const correctPulse = {
+   102→  scale: [1, 1.18, 1],
+   103→  boxShadow: [
+   104→    "0 0 0 0 rgba(34,197,94,0)",
+   105→    "0 0 0 12px rgba(34,197,94,0.6)",
+   106→    "0 0 0 0 rgba(34,197,94,0)",
+   107→  ],
+   108→  transition: { duration: 0.45 },
+   109→};
+   110→
+   111→const wrongShake = {
+   112→  x: [0, -10, 10, -10, 10, 0],
+   113→  transition: { duration: 0.4 },
+   114→};
+   115→
+   116→const scoreBounce = {
+   117→  y: [0, -14, 0],
+   118→  transition: { type: "spring", stiffness: 400, damping: 12 },
+   119→};
+   120→
+   121→const countdownPop = {
+   122→  initial: { scale: 0, opacity: 0 },
+   123→  animate: { scale: 1, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 15 } },
+   124→  exit:    { scale: 2, opacity: 0, transition: { duration: 0.25 } },
+   125→};
+   126→
+   127→/* ------------------------------------------------------------------ */
+   128→/*  Component                                                          */
+   129→/* ------------------------------------------------------------------ */
+   130→
+   131→export default function ColorMatch({ onScore, liveCode }: Props) {
+   132→  /* ---- state ---------------------------------------------------- */
+   133→  const [phase, setPhase]               = useState<GamePhase>("idle");
+   134→  const [round, setRound]               = useState(1);
+   135→  const [p1Score, setP1Score]           = useState(0);
+   136→  const [p2Score, setP2Score]           = useState(0);
+   137→  const [p1Streak, setP1Streak]         = useState(0);
+   138→  const [p2Streak, setP2Streak]         = useState(0);
+   139→  const [roundData, setRoundData]       = useState<RoundData | null>(null);
+   140→  const [timerProgress, setTimerProgress] = useState(1);
+   141→  const [countdownVal, setCountdownVal] = useState(3);
+   142→  const [lastWinner, setLastWinner]     = useState<1 | 2 | "timeout" | null>(null);
+   143→  const [lastCorrect, setLastCorrect]    = useState<string | null>(null);
+   144→  const [p1BtnAnim, setP1BtnAnim]       = useState<"correct" | "wrong" | null>(null);
+   145→  const [p2BtnAnim, setP2BtnAnim]       = useState<"correct" | "wrong" | null>(null);
+   146→  const [p1ScoreKey, setP1ScoreKey]     = useState(0);
+   147→  const [p2ScoreKey, setP2ScoreKey]     = useState(0);
+   148→  const [p1LastPicked, setP1LastPicked] = useState<string | null>(null);
+   149→  const [p2LastPicked, setP2LastPicked] = useState<string | null>(null);
+   150→
+   151→  /* ---- refs ----------------------------------------------------- */
+   152→  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+   153→  const tickRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+   154→  const lockedRef = useRef(false);
+   155→
+   156→  /* ---- cleanup -------------------------------------------------- */
+   157→  const clearAll = useCallback(() => {
+   158→    if (timerRef.current)  { clearTimeout(timerRef.current);  timerRef.current = null; }
+   159→    if (tickRef.current)   { clearInterval(tickRef.current);  tickRef.current = null; }
+   160→    lockedRef.current = false;
+   161→  }, []);
+   162→
+   163→  useEffect(() => clearAll, [clearAll]);
+   164→
+   165→  /* ---- start game ------------------------------------------------ */
+   166→  const startGame = useCallback(() => {
+   167→    setP1Score(0); setP2Score(0);
+   168→    setP1Streak(0); setP2Streak(0);
+   169→    setRound(1);
+   170→    setLastWinner(null);
+   171→    setP1BtnAnim(null); setP2BtnAnim(null);
+   172→    setP1ScoreKey(0); setP2ScoreKey(0);
+   173→    setP1LastPicked(null); setP2LastPicked(null);
+   174→    clearAll();
+   175→    setPhase("countdown");
+   176→  }, [clearAll]);
+   177→
+   178→  /* ---- countdown sequence ----------------------------------------- */
+   179→  useEffect(() => {
+   180→    if (phase !== "countdown") return;
+   181→    if (countdownVal <= 0) {
+   182→      setPhase("playing");
+   183→      return;
+   184→    }
+   185→    const t = setTimeout(() => setCountdownVal((v) => v - 1), 800);
+   186→    return () => clearTimeout(t);
+   187→  }, [phase, countdownVal]);
+   188→
+   189→  /* ---- begin round ------------------------------------------------ */
+   190→  useEffect(() => {
+   191→    if (phase === "countdown" && countdownVal <= 0) {
+   192→      const data = generateRound(round);
+   193→      setRoundData(data);
+   194→      setTimerProgress(1);
+   195→      setLastWinner(null);
+   196→      setLastCorrect(null);
+   197→      setP1BtnAnim(null); setP2BtnAnim(null);
+   198→      setP1LastPicked(null); setP2LastPicked(null);
+   199→      lockedRef.current = false;
+   200→    }
+   201→  }, [phase, countdownVal, round]);
+   202→
+   203→  /* ---- round timer & tick ----------------------------------------- */
+   204→  useEffect(() => {
+   205→    if (phase !== "playing" || !roundData) return;
+   206→
+   207→    const duration = roundDuration(round);
+   208→    const start = performance.now();
+   209→
+   210→    tickRef.current = setInterval(() => {
+   211→      const elapsed = performance.now() - start;
+   212→      setTimerProgress(Math.max(0, 1 - elapsed / duration));
+   213→    }, 30);
+   214→
+   215→    timerRef.current = setTimeout(() => {
+   216→      clearAll();
+   217→      setLastWinner("timeout");
+   218→      setPhase("roundResult");
+   219→    }, duration);
+   220→
+   221→    return () => clearAll();
+   222→  }, [phase, round, roundData, clearAll]);
+   223→
+   224→  /* ---- next round / end game -------------------------------------- */
+   225→  const advanceRound = useCallback(() => {
+   226→    if (round >= TOTAL_ROUNDS) {
+   227→      setPhase("gameOver");
+   228→      const winner = p1Score > p2Score ? "Jogador 1" : p1Score < p2Score ? "Jogador 2" : null;
+   229→      if (winner) {
+   230→        onScore?.(winner, Math.max(p1Score, p2Score));
+   231→      }
+   232→    } else {
+   233→      setRound((r) => r + 1);
+   234→      setCountdownVal(3);
+   235→      setPhase("countdown");
+   236→    }
+   237→  }, [round, p1Score, p2Score, onScore]);
+   238→
+   239→  /* ---- handle player answer --------------------------------------- */
+   240→  const handleAnswer = useCallback(
+   241→    (player: 1 | 2, colorId: string) => {
+   242→      if (lockedRef.current || phase !== "playing" || !roundData) return;
+   243→
+   244→      const correct = colorId === roundData.inkColor.id;
+   245→
+   246→      if (correct) {
+   247→        lockedRef.current = true;
+   248→        clearAll();
+   249→
+   250→        // score + streak
+   251→        const isP1 = player === 1;
+   252→        const setScore = isP1 ? setP1Score : setP2Score;
+   253→        const setStrk  = isP1 ? setP1Streak : setP2Streak;
+   254→        const streak   = isP1 ? p1Streak : p2Streak;
+   255→        const newStreak = streak + 1;
+   256→
+   257→        setStrk(newStreak);
+   258→        setScore((s) => s + 1 + Math.min(newStreak, 5)); // up to +5 streak bonus
+   259→        setScoreKey(isP1 ? (k) => k + 1 : (k) => k);
+   260→
+   261→        // reset opponent streak
+   262→        if (isP1) setP2Streak(0); else setP1Streak(0);
+   263→
+   264→        if (isP1) { setP1BtnAnim("correct"); setP1LastPicked(colorId); }
+   265→        else      { setP2BtnAnim("correct"); setP2LastPicked(colorId); }
+   266→
+   267→        setLastWinner(player);
+   268→        setLastCorrect(roundData.inkColor.name);
+   269→        setPhase("roundResult");
+   270→      } else {
+   271→        // wrong answer → -1 (min 0), break streak
+   272→        const isP1 = player === 1;
+   273→        const setScore = isP1 ? setP1Score : setP2Score;
+   274→        const setStrk  = isP1 ? setP1Streak : setP2Streak;
+   275→
+   276→        setScore((s) => Math.max(0, s - 1));
+   277→        setStrk(0);
+   278→        setScoreKey(isP1 ? (k) => k + 1 : (k) => k);
+   279→
+   280→        if (isP1) { setP1BtnAnim("wrong"); setP1LastPicked(colorId); }
+   281→        else      { setP2BtnAnim("wrong"); setP2LastPicked(colorId); }
+   282→      }
+   283→    },
+   284→    [phase, roundData, p1Streak, p2Streak, clearAll],
+   285→  );
+   286→
+   287→  /* ---- restart from game-over ------------------------------------- */
+   288→  const restart = useCallback(() => {
+   289→    clearAll();
+   290→    setPhase("idle");
+   291→  }, [clearAll]);
+   292→
+   293→  /* ---- derived --------------------------------------------------- */
+   294→  const speedLevel = useMemo(() => Math.ceil((round / TOTAL_ROUNDS) * 10), [round]);
+   295→  const timerColor = useMemo(() => {
+   296→    if (timerProgress > 0.5) return "from-green-500 to-green-400";
+   297→    if (timerProgress > 0.25) return "from-yellow-500 to-orange-400";
+   298→    return "from-red-500 to-red-400";
+   299→  }, [timerProgress]);
+   300→
+   301→  /* ================================================================== */
+   302→  /*  RENDER                                                             */
+   303→  /* ================================================================== */
+   304→
+   305→  return (
+   306→    <div className="relative flex min-h-[600px] w-full max-w-2xl flex-col items-center justify-center rounded-2xl border border-white/10 bg-gray-950 px-4 py-6 sm:px-6">
+   307→      {/* =========== IDLE SCREEN =========== */}
+   308→      {phase === "idle" && (
+   309→        <motion.div
+   310→          key="idle"
+   311→          initial={{ opacity: 0, y: 30 }}
+   312→          animate={{ opacity: 1, y: 0 }}
+   313→          className="flex flex-col items-center gap-6 text-center"
+   314→        >
+   315→          <div className="flex items-center gap-3">
+   316→            <Palette className="h-10 w-10 text-purple-400" />
+   317→            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">
+   318→              Cor versus Palavra
+   319→            </h1>
+   320→          </div>
+   321→
+   322→          <p className="max-w-md text-gray-400 text-sm leading-relaxed">
+   323→            A palavra mostrada estará escrita numa <span className="text-white font-semibold">COR diferente</span> do
+   324→            que diz. Você deve identificar a <span className="text-cyan-400 font-semibold">COR DA TINTA</span>, não a
+   325→            palavra! Dois jogadores competem — o mais rápido ganha o ponto.
+   326→          </p>
+   327→
+   328→          <div className="flex flex-wrap justify-center gap-2">
+   329→            {ALL_COLORS.map((c) => (
+   330→              <span
+   331→                key={c.id}
+   332→                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-white"
+   333→                style={{ backgroundColor: c.hex }}
+   334→              >
+   335→                {c.name}
+   336→              </span>
+   337→            ))}
+   338→          </div>
+   339→
+   340→          <Button size="lg" onClick={startGame} className="mt-2 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 text-lg">
+   341→            Jogar
+   342→          </Button>
+   343→        </motion.div>
+   344→      )}
+   345→
+   346→      {/* =========== COUNTDOWN =========== */}
+   347→      <AnimatePresence mode="wait">
+   348→        {phase === "countdown" && countdownVal > 0 && (
+   349→          <motion.div
+   350→            key={`cd-${countdownVal}`}
+   351→            variants={countdownPop}
+   352→            initial="initial"
+   353→            animate="animate"
+   354→            exit="exit"
+   355→            className="flex flex-col items-center gap-4"
+   356→          >
+   357→            <span className="text-8xl font-black text-white drop-shadow-[0_0_30px_rgba(168,85,247,0.6)]">
+   358→              {countdownVal}
+   359→            </span>
+   360→            <span className="text-gray-400 text-sm">Preparar...</span>
+   361→          </motion.div>
+   362→        )}
+   363→
+   364→        {/* =========== PLAYING / ROUND RESULT =========== */}
+   365→        {(phase === "playing" || phase === "roundResult") && roundData && (
+   366→          <motion.div
+   367→            key={`round-${round}`}
+   368→            initial={{ opacity: 0 }}
+   369→            animate={{ opacity: 1 }}
+   370→            className="flex w-full flex-col items-center gap-4"
+   371→          >
+   372→            {/* ---- Scoreboard ---- */}
+   373→            <div className="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 px-3 py-2 sm:px-5 sm:py-3">
+   374→              <div className="flex items-center gap-2">
+   375→                <Badge className="bg-cyan-600/80 text-white text-xs">P1</Badge>
+   376→                <motion.span
+   377→                  key={p1ScoreKey}
+   378→                  animate={scoreBounce}
+   379→                  className="text-xl font-bold text-cyan-300"
+   380→                >
+   381→                  {p1Score}
+   382→                </motion.span>
+   383→                {p1Streak >= 2 && (
+   384→                  <span className="text-sm">🔥{p1Streak}</span>
+   385→                )}
+   386→              </div>
+   387→
+   388→              <span className="text-xs font-semibold tracking-widest text-gray-400 uppercase sm:text-sm">
+   389→                Cor vs Palavra
+   390→              </span>
+   391→
+   392→              <div className="flex items-center gap-2">
+   393→                {p2Streak >= 2 && (
+   394→                  <span className="text-sm">🔥{p2Streak}</span>
+   395→                )}
+   396→                <motion.span
+   397→                  key={p2ScoreKey}
+   398→                  animate={scoreBounce}
+   399→                  className="text-xl font-bold text-pink-300"
+   400→                >
+   401→                  {p2Score}
+   402→                </motion.span>
+   403→                <Badge className="bg-pink-600/80 text-white text-xs">P2</Badge>
+   404→              </div>
+   405→            </div>
+   406→
+   407→            {/* ---- Round / Timer / Speed ---- */}
+   408→            <div className="flex w-full items-center gap-3 text-xs text-gray-400 sm:text-sm">
+   409→              <span className="font-medium">
+   410→                Round {round}/{TOTAL_ROUNDS}
+   411→              </span>
+   412→
+   413→              {/* Timer bar */}
+   414→              <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-gray-800">
+   415→                <motion.div
+   416→                  className={cn("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r", timerColor)}
+   417→                  animate={{ width: `${timerProgress * 100}%` }}
+   418→                  transition={{ ease: "linear", duration: 0.05 }}
+   419→                />
+   420→              </div>
+   421→
+   422→              <div className="flex items-center gap-1">
+   423→                <Timer className="h-3.5 w-3.5" />
+   424→                <span>Vel. {speedLevel}</span>
+   425→              </div>
+   426→            </div>
+   427→
+   428→            {/* ---- Question ---- */}
+   429→            <p className="text-sm text-gray-400 mt-1 sm:text-base">
+   430→              Qual a COR do texto?
+   431→            </p>
+   432→
+   433→            {/* ---- Word display ---- */}
+   434→            <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-white/5 bg-gray-900/60 px-8 py-6 sm:min-h-[140px]">
+   435→              <AnimatePresence mode="wait">
+   436→                <motion.span
+   437→                  key={`${roundData.word.id}-${roundData.inkColor.id}`}
+   438→                  variants={wordVariants}
+   439→                  initial="hidden"
+   440→                  animate="visible"
+   441→                  exit="exit"
+   442→                  className="select-none text-5xl font-black tracking-wider sm:text-7xl"
+   443→                  style={{ color: roundData.inkColor.hex }}
+   444→                >
+   445→                  {roundData.word.name}
+   446→                </motion.span>
+   447→              </AnimatePresence>
+   448→            </div>
+   449→
+   450→            {/* ---- Round result flash ---- */}
+   451→            <AnimatePresence>
+   452→              {phase === "roundResult" && lastWinner && (
+   453→                <motion.div
+   454→                  initial={{ opacity: 0, y: -10 }}
+   455→                  animate={{ opacity: 1, y: 0 }}
+   456→                  exit={{ opacity: 0 }}
+   457→                  className={cn(
+   458→                    "rounded-lg px-4 py-2 text-sm font-bold",
+   459→                    lastWinner === "timeout" && "bg-yellow-500/20 text-yellow-300",
+   460→                    lastWinner === 1 && "bg-cyan-500/20 text-cyan-300",
+   461→                    lastWinner === 2 && "bg-pink-500/20 text-pink-300",
+   462→                  )}
+   463→                >
+   464→                  {lastWinner === "timeout" && "Tempo esgotado!"}
+   465→                  {lastWinner === 1 && "Jogador 1 — Correto! ✅"}
+   466→                  {lastWinner === 2 && "Jogador 2 — Correto! ✅"}
+   467→                  {lastCorrect && (
+   468→                    <span className="ml-1 text-gray-400">
+   469→                      (era {lastCorrect})
+   470→                    </span>
+   471→                  )}
+   472→                </motion.div>
+   473→              )}
+   474→            </AnimatePresence>
+   475→
+   476→            {/* ---- Player buttons ---- */}
+   477→            <div className="flex w-full flex-col items-center gap-6 sm:flex-row sm:justify-center">
+   478→              {/* Player 1 */}
+   479→              <div className="flex flex-col items-center gap-1">
+   480→                <span className="mb-1 text-xs font-bold text-cyan-400 tracking-widest">JOGADOR 1</span>
+   481→                <div className="grid grid-cols-2 gap-2">
+   482→                  {roundData.choices.map((c) => {
+   483→                    const isPicked = p1LastPicked === c.id;
+   484→                    return (
+   485→                      <motion.button
+   486→                        key={`p1-${c.id}`}
+   487→                        whileTap={{ scale: 0.92 }}
+   488→                        animate={
+   489→                          p1BtnAnim && isPicked
+   490→                            ? p1BtnAnim === "correct"
+   491→                              ? correctPulse
+   492→                              : wrongShake
+   493→                            : {}
+   494→                        }
+   495→                        onClick={() => handleAnswer(1, c.id)}
+   496→                        disabled={phase === "roundResult"}
+   497→                        className={cn(
+   498→                          "flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold text-white shadow-lg transition-opacity sm:px-4 sm:py-3.5 sm:text-sm",
+   499→                          c.tailwind,
+   500→                          phase === "roundResult" && "opacity-60 cursor-not-allowed",
+   501→                          p1BtnAnim === "correct" && isPicked && "ring-3 ring-green-400",
+   502→                          p1BtnAnim === "wrong" && isPicked && "ring-3 ring-red-500",
+   503→                        )}
+   504→                      >
+   505→                        <span
+   506→                          className="h-3.5 w-3.5 rounded-full border-2 border-white/60 sm:h-4 sm:w-4"
+   507→                          style={{ backgroundColor: c.hex }}
+   508→                        />
+   509→                        {c.name}
+   510→                      </motion.button>
+   511→                    );
+   512→                  })}
+   513→                </div>
+   514→              </div>
+   515→
+   516→              {/* Player 2 */}
+   517→              <div className="flex flex-col items-center gap-1">
+   518→                <span className="mb-1 text-xs font-bold text-pink-400 tracking-widest">JOGADOR 2</span>
+   519→                <div className="grid grid-cols-2 gap-2">
+   520→                  {roundData.choices.map((c) => {
+   521→                    const isPicked = p2LastPicked === c.id;
+   522→                    return (
+   523→                      <motion.button
+   524→                        key={`p2-${c.id}`}
+   525→                        whileTap={{ scale: 0.92 }}
+   526→                        animate={
+   527→                          p2BtnAnim && isPicked
+   528→                            ? p2BtnAnim === "correct"
+   529→                              ? correctPulse
+   530→                              : wrongShake
+   531→                            : {}
+   532→                        }
+   533→                        onClick={() => handleAnswer(2, c.id)}
+   534→                        disabled={phase === "roundResult"}
+   535→                        className={cn(
+   536→                          "flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold text-white shadow-lg transition-opacity sm:px-4 sm:py-3.5 sm:text-sm",
+   537→                          c.tailwind,
+   538→                          phase === "roundResult" && "opacity-60 cursor-not-allowed",
+   539→                          p2BtnAnim === "correct" && isPicked && "ring-3 ring-green-400",
+   540→                          p2BtnAnim === "wrong" && isPicked && "ring-3 ring-red-500",
+   541→                        )}
+   542→                      >
+   543→                        <span
+   544→                          className="h-3.5 w-3.5 rounded-full border-2 border-white/60 sm:h-4 sm:w-4"
+   545→                          style={{ backgroundColor: c.hex }}
+   546→                        />
+   547→                        {c.name}
+   548→                      </motion.button>
+   549→                    );
+   550→                  })}
+   551→                </div>
+   552→              </div>
+   553→            </div>
+   554→
+   555→            {/* ---- Next round button (shown after result) ---- */}
+   556→            {phase === "roundResult" && (
+   557→              <motion.div
+   558→                initial={{ opacity: 0, y: 10 }}
+   559→                animate={{ opacity: 1, y: 0 }}
+   560→                className="mt-2"
+   561→              >
+   562→                <Button
+   563→                  onClick={advanceRound}
+   564→                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-6"
+   565→                >
+   566→                  {round >= TOTAL_ROUNDS ? "Ver Resultado" : `Próximo Round →`}
+   567→                </Button>
+   568→              </motion.div>
+   569→            )}
+   570→          </motion.div>
+   571→        )}
+   572→
+   573→        {/* =========== GAME OVER =========== */}
+   574→        {phase === "gameOver" && (
+   575→          <motion.div
+   576→            key="gameOver"
+   577→            initial={{ opacity: 0, scale: 0.9 }}
+   578→            animate={{ opacity: 1, scale: 1 }}
+   579→            className="flex flex-col items-center gap-6 text-center"
+   580→          >
+   581→            <motion.div
+   582→              animate={{ rotate: [0, 10, -10, 0] }}
+   583→              transition={{ duration: 0.6, repeat: 2 }}
+   584→            >
+   585→              <Palette className="h-14 w-14 text-purple-400" />
+   586→            </motion.div>
+   587→
+   588→            <h2 className="text-3xl font-black bg-gradient-to-r from-yellow-400 to-pink-400 bg-clip-text text-transparent">
+   589→              Fim de Jogo!
+   590→            </h2>
+   591→
+   592→            {/* Final scores */}
+   593→            <div className="flex items-center gap-6">
+   594→              <div className="flex flex-col items-center gap-1">
+   595→                <span className="text-xs font-bold text-cyan-400">Jogador 1</span>
+   596→                <motion.span
+   597→                  initial={{ scale: 0 }}
+   598→                  animate={{ scale: 1 }}
+   599→                  transition={{ type: "spring", delay: 0.2 }}
+   600→                  className="text-4xl font-black text-cyan-300"
+   601→                >
+   602→                  {p1Score}
+   603→                </motion.span>
+   604→                <span className="text-xs text-gray-500">pontos</span>
+   605→              </div>
+   606→
+   607→              <span className="text-2xl font-bold text-gray-600">vs</span>
+   608→
+   609→              <div className="flex flex-col items-center gap-1">
+   610→                <span className="text-xs font-bold text-pink-400">Jogador 2</span>
+   611→                <motion.span
+   612→                  initial={{ scale: 0 }}
+   613→                  animate={{ scale: 1 }}
+   614→                  transition={{ type: "spring", delay: 0.35 }}
+   615→                  className="text-4xl font-black text-pink-300"
+   616→                >
+   617→                  {p2Score}
+   618→                </motion.span>
+   619→                <span className="text-xs text-gray-500">pontos</span>
+   620→              </div>
+   621→            </div>
+   622→
+   623→            {/* Winner announcement */}
+   624→            <motion.p
+   625→              initial={{ opacity: 0 }}
+   626→              animate={{ opacity: 1 }}
+   627→              transition={{ delay: 0.5 }}
+   628→              className={cn(
+   629→                "text-lg font-bold",
+   630→                p1Score > p2Score && "text-cyan-400",
+   631→                p2Score > p1Score && "text-pink-400",
+   632→                p1Score === p2Score && "text-yellow-400",
+   633→              )}
+   634→            >
+   635→              {p1Score > p2Score && "🏆 Jogador 1 Venceu!"}
+   636→              {p2Score > p1Score && "🏆 Jogador 2 Venceu!"}
+   637→              {p1Score === p2Score && "🤝 Empate!"}
+   638→            </motion.p>
+   639→
+   640→            {/* Streak stats */}
+   641→            <div className="flex gap-4 text-xs text-gray-400">
+   642→              <span>Maior streak P1: 🔥{p1Streak}</span>
+   643→              <span>Maior streak P2: 🔥{p2Streak}</span>
+   644→            </div>
+   645→
+   646→            {/* Restart button */}
+   647→            <div className="flex gap-3 mt-2">
+   648→              <Button
+   649→                onClick={restart}
+   650→                variant="outline"
+   651→                className="border-gray-700 text-gray-300 hover:bg-gray-800"
+   652→              >
+   653→                <RotateCcw className="mr-2 h-4 w-4" />
+   654→                Menu
+   655→              </Button>
+   656→              <Button
+   657→                onClick={startGame}
+   658→                className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-6"
+   659→              >
+   660→                Reiniciar Tudo
+   661→              </Button>
+   662→            </div>
+   663→          </motion.div>
+   664→        )}
+   665→      </AnimatePresence>
+   666→
+   667→      {/* ---- Live code badge (if provided) ---- */}
+   668→      {liveCode && (
+   669→        <Badge variant="outline" className="absolute top-3 right-3 border-gray-700 text-[10px] text-gray-500">
+   670→          {liveCode}
+   671→        </Badge>
+   672→      )}
+   673→    </div>
+   674→  );
+   675→}
+   676→

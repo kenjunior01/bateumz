@@ -1,0 +1,866 @@
+     1→"use client";
+     2→
+     3→import { useState, useCallback, useEffect, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { cn } from '@/lib/utils';
+     8→import { Brain, Trophy, RotateCcw, Timer, Play, Zap, Eye } from 'lucide-react';
+     9→
+    10→/* ------------------------------------------------------------------ */
+    11→/*  Types                                                              */
+    12→/* ------------------------------------------------------------------ */
+    13→
+    14→interface Props {
+    15→  onScore?: (name: string, score: number) => void;
+    16→  liveCode?: string;
+    17→}
+    18→
+    19→interface RoundConfig {
+    20→  gridSize: number;
+    21→  patternSize: number;
+    22→}
+    23→
+    24→interface RoundResult {
+    25→  correct: number;
+    26→  wrong: number;
+    27→  missed: number;
+    28→  points: number;
+    29→}
+    30→
+    31→type Phase = 'intro' | 'countdown' | 'memorize' | 'p1_turn' | 'p2_turn' | 'round_result' | 'game_over';
+    32→
+    33→/* ------------------------------------------------------------------ */
+    34→/*  Constants                                                          */
+    35→/* ------------------------------------------------------------------ */
+    36→
+    37→const ROUNDS: RoundConfig[] = [
+    38→  { gridSize: 3, patternSize: 3 },
+    39→  { gridSize: 3, patternSize: 3 },
+    40→  { gridSize: 3, patternSize: 4 },
+    41→  { gridSize: 4, patternSize: 4 },
+    42→  { gridSize: 4, patternSize: 5 },
+    43→  { gridSize: 4, patternSize: 5 },
+    44→  { gridSize: 5, patternSize: 6 },
+    45→  { gridSize: 5, patternSize: 7 },
+    46→];
+    47→
+    48→const TOTAL_ROUNDS = ROUNDS.length;
+    49→
+    50→const MEM_DURATION_MS: Record<number, number> = {
+    51→  0: 2800,
+    52→  1: 2600,
+    53→  2: 2800,
+    54→  3: 3000,
+    55→  4: 3200,
+    56→  5: 3000,
+    57→  6: 3800,
+    58→  7: 4200,
+    59→};
+    60→
+    61→/* ------------------------------------------------------------------ */
+    62→/*  Helpers                                                            */
+    63→/* ------------------------------------------------------------------ */
+    64→
+    65→function pickPattern(total: number, count: number): number[] {
+    66→  const pool = Array.from({ length: total }, (_, i) => i);
+    67→  for (let i = pool.length - 1; i > 0; i--) {
+    68→    const j = Math.floor(Math.random() * (i + 1));
+    69→    [pool[i], pool[j]] = [pool[j], pool[i]];
+    70→  }
+    71→  return pool.slice(0, Math.min(count, total)).sort((a, b) => a - b);
+    72→}
+    73→
+    74→function evalSelection(pattern: Set<number>, sel: Set<number>): RoundResult {
+    75→  let correct = 0;
+    76→  let wrong = 0;
+    77→  sel.forEach((i) => (pattern.has(i) ? correct++ : wrong++));
+    78→  const missed = [...pattern].filter((i) => !sel.has(i)).length;
+    79→  const points = correct * 10 - wrong * 5;
+    80→  return { correct, wrong, missed, points };
+    81→}
+    82→
+    83→/* ------------------------------------------------------------------ */
+    84→/*  Animation presets                                                  */
+    85→/* ------------------------------------------------------------------ */
+    86→
+    87→const fadeSlide = {
+    88→  initial: { opacity: 0, y: 24 },
+    89→  animate: { opacity: 1, y: 0 },
+    90→  exit: { opacity: 0, y: -16 },
+    91→  transition: { duration: 0.3 },
+    92→};
+    93→
+    94→const popIn = {
+    95→  initial: { opacity: 0, scale: 0.85 },
+    96→  animate: { opacity: 1, scale: 1 },
+    97→  exit: { opacity: 0, scale: 0.9 },
+    98→  transition: { type: 'spring' as const, stiffness: 400, damping: 25 },
+    99→};
+   100→
+   101→/* ------------------------------------------------------------------ */
+   102→/*  Sub-components                                                     */
+   103→/* ------------------------------------------------------------------ */
+   104→
+   105→function ScoreBar({
+   106→  p1Score,
+   107→  p2Score,
+   108→  round,
+   109→  highlight,
+   110→}: {
+   111→  p1Score: number;
+   112→  p2Score: number;
+   113→  round: number;
+   114→  highlight?: 1 | 2;
+   115→}) {
+   116→  return (
+   117→    <div className="flex w-full max-w-md items-center justify-between gap-2 mb-4">
+   118→      <motion.div
+   119→        animate={{ scale: highlight === 1 ? 1.08 : 1 }}
+   120→        transition={{ type: 'spring', stiffness: 300 }}
+   121→      >
+   122→        <Badge
+   123→          variant="outline"
+   124→          className={cn(
+   125→            'px-3 py-1 text-sm font-bold transition-colors',
+   126→            highlight === 1
+   127→              ? 'text-cyan-300 border-cyan-400 bg-cyan-500/20 shadow-md shadow-cyan-500/20'
+   128→              : 'text-cyan-400 border-cyan-500/50 bg-cyan-500/10',
+   129→          )}
+   130→        >
+   131→          Jogador 1: {p1Score} pts
+   132→        </Badge>
+   133→      </motion.div>
+   134→
+   135→      <Badge variant="secondary" className="text-zinc-400 bg-zinc-800/80 px-2.5 py-1 text-xs font-medium">
+   136→        Rodada {round + 1}/{TOTAL_ROUNDS}
+   137→      </Badge>
+   138→
+   139→      <motion.div
+   140→        animate={{ scale: highlight === 2 ? 1.08 : 1 }}
+   141→        transition={{ type: 'spring', stiffness: 300 }}
+   142→      >
+   143→        <Badge
+   144→          variant="outline"
+   145→          className={cn(
+   146→            'px-3 py-1 text-sm font-bold transition-colors',
+   147→            highlight === 2
+   148→              ? 'text-pink-300 border-pink-400 bg-pink-500/20 shadow-md shadow-pink-500/20'
+   149→              : 'text-pink-400 border-pink-500/50 bg-pink-500/10',
+   150→          )}
+   151→        >
+   152→          Jogador 2: {p2Score} pts
+   153→        </Badge>
+   154→      </motion.div>
+   155→    </div>
+   156→  );
+   157→}
+   158→
+   159→function PlayerBanner({ player, selected, patternSize }: { player: 1 | 2; selected: number; patternSize: number }) {
+   160→  const isP1 = player === 1;
+   161→  return (
+   162→    <motion.div
+   163→      initial={{ opacity: 0, y: -10 }}
+   164→      animate={{ opacity: 1, y: 0 }}
+   165→      className={cn(
+   166→        'rounded-xl px-5 py-2.5 text-center font-bold text-lg border',
+   167→        isP1
+   168→          ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 shadow-lg shadow-cyan-500/10'
+   169→          : 'bg-pink-500/15 text-pink-300 border-pink-500/30 shadow-lg shadow-pink-500/10',
+   170→      )}
+   171→    >
+   172→      {isP1 ? 'Jogador 1' : 'Jogador 2'} — {selected}/{patternSize} célula{selected !== 1 ? 's' : ''}
+   173→    </motion.div>
+   174→  );
+   175→}
+   176→
+   177→/* ------------------------------------------------------------------ */
+   178→/*  Grid sizes in px                                                  */
+   179→/* ------------------------------------------------------------------ */
+   180→
+   181→function cellSize(gridSize: number): number {
+   182→  if (gridSize <= 3) return 72;
+   183→  if (gridSize <= 4) return 64;
+   184→  return 54;
+   185→}
+   186→
+   187→/* ================================================================== */
+   188→/*  Main Component                                                     */
+   189→/* ================================================================== */
+   190→
+   191→export default function PatternMemory({ onScore, liveCode }: Props) {
+   192→  /* ── state ── */
+   193→  const [phase, setPhase] = useState<Phase>('intro');
+   194→  const [round, setRound] = useState(0);
+   195→  const [pattern, setPattern] = useState<Set<number>>(new Set());
+   196→  const [p1Sel, setP1Sel] = useState<Set<number>>(new Set());
+   197→  const [p2Sel, setP2Sel] = useState<Set<number>>(new Set());
+   198→  const [p1Total, setP1Total] = useState(0);
+   199→  const [p2Total, setP2Total] = useState(0);
+   200→  const [lastResult, setLastResult] = useState<{ p1: RoundResult; p2: RoundResult } | null>(null);
+   201→  const [memProgress, setMemProgress] = useState(100);
+   202→  const [countdownNum, setCountdownNum] = useState(3);
+   203→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   204→  const scoresRef = useRef({ p1: 0, p2: 0 });
+   205→  const onScoreCalled = useRef(false);
+   206→
+   207→  const cfg = ROUNDS[round] ?? ROUNDS[ROUNDS.length - 1];
+   208→  const memMs = MEM_DURATION_MS[round] ?? 3000;
+   209→  const patternArr = [...pattern];
+   210→  const cs = cellSize(cfg.gridSize);
+   211→
+   212→  /* ── cleanup helper ── */
+   213→  const clearTimer = useCallback(() => {
+   214→    if (timerRef.current) {
+   215→      clearInterval(timerRef.current);
+   216→      timerRef.current = null;
+   217→    }
+   218→  }, []);
+   219→
+   220→  /* ── round bootstrap ── */
+   221→  const initRound = useCallback((r: number) => {
+   222→    const c = ROUNDS[r];
+   223→    const pat = pickPattern(c.gridSize * c.gridSize, c.patternSize);
+   224→    setPattern(new Set(pat));
+   225→    setP1Sel(new Set());
+   226→    setP2Sel(new Set());
+   227→    setMemProgress(100);
+   228→    setLastResult(null);
+   229→    setCountdownNum(3);
+   230→    setPhase('countdown');
+   231→  }, []);
+   232→
+   233→  /* ── countdown timer ── */
+   234→  useEffect(() => {
+   235→    if (phase !== 'countdown') return;
+   236→    clearTimer();
+   237→    timerRef.current = setInterval(() => {
+   238→      setCountdownNum((prev) => {
+   239→        const next = prev - 1;
+   240→        if (next <= 0) {
+   241→          clearTimer();
+   242→          setPhase('memorize');
+   243→          return 0;
+   244→        }
+   245→        return next;
+   246→      });
+   247→    }, 700);
+   248→    return clearTimer;
+   249→  }, [phase, clearTimer]);
+   250→
+   251→  /* ── memorize timer ── */
+   252→  useEffect(() => {
+   253→    if (phase !== 'memorize') return;
+   254→    clearTimer();
+   255→    const start = Date.now();
+   256→    timerRef.current = setInterval(() => {
+   257→      const elapsed = Date.now() - start;
+   258→      const pct = Math.max(0, 100 - (elapsed / memMs) * 100);
+   259→      setMemProgress(pct);
+   260→      if (elapsed >= memMs) {
+   261→        clearTimer();
+   262→        setPhase('p1_turn');
+   263→      }
+   264→    }, 50);
+   265→    return clearTimer;
+   266→  }, [phase, memMs, clearTimer]);
+   267→
+   268→  /* ── handlers ── */
+   269→  const handleStart = useCallback(() => {
+   270→    scoresRef.current = { p1: 0, p2: 0 };
+   271→    onScoreCalled.current = false;
+   272→    setRound(0);
+   273→    setP1Total(0);
+   274→    setP2Total(0);
+   275→    setLastResult(null);
+   276→    initRound(0);
+   277→  }, [initRound]);
+   278→
+   279→  const handleTap = useCallback(
+   280→    (idx: number) => {
+   281→      if (phase !== 'p1_turn' && phase !== 'p2_turn') return;
+   282→      const setter = phase === 'p1_turn' ? setP1Sel : setP2Sel;
+   283→      setter((prev) => {
+   284→        const next = new Set(prev);
+   285→        if (next.has(idx)) next.delete(idx);
+   286→        else next.add(idx);
+   287→        return next;
+   288→      });
+   289→    },
+   290→    [phase],
+   291→  );
+   292→
+   293→  const handleConfirm = useCallback(
+   294→    (player: 1 | 2) => {
+   295→      if (player === 1 && phase === 'p1_turn') {
+   296→        setPhase('p2_turn');
+   297→        return;
+   298→      }
+   299→      if (player === 2 && phase === 'p2_turn') {
+   300→        const p1r = evalSelection(pattern, p1Sel);
+   301→        const p2r = evalSelection(pattern, p2Sel);
+   302→        setLastResult({ p1: p1r, p2: p2r });
+   303→        scoresRef.current.p1 += p1r.points;
+   304→        scoresRef.current.p2 += p2r.points;
+   305→        setP1Total(scoresRef.current.p1);
+   306→        setP2Total(scoresRef.current.p2);
+   307→        setPhase('round_result');
+   308→      }
+   309→    },
+   310→    [phase, pattern, p1Sel, p2Sel],
+   311→  );
+   312→
+   313→  const handleNextRound = useCallback(() => {
+   314→    const nr = round + 1;
+   315→    if (nr >= TOTAL_ROUNDS) {
+   316→      setPhase('game_over');
+   317→      if (onScore && !onScoreCalled.current) {
+   318→        onScoreCalled.current = true;
+   319→        const { p1, p2 } = scoresRef.current;
+   320→        if (p1 > p2) {
+   321→          onScore('Jogador 1', p1);
+   322→        } else if (p2 > p1) {
+   323→          onScore('Jogador 2', p2);
+   324→        } else {
+   325→          onScore('Jogador 1', p1);
+   326→          onScore('Jogador 2', p2);
+   327→        }
+   328→      }
+   329→    } else {
+   330→      setRound(nr);
+   331→      initRound(nr);
+   332→    }
+   333→  }, [round, initRound, onScore]);
+   334→
+   335→  const handleRestart = useCallback(() => {
+   336→    clearTimer();
+   337→    handleStart();
+   338→  }, [clearTimer, handleStart]);
+   339→
+   340→  /* ── derived ── */
+   341→  const currentSel = phase === 'p1_turn' ? p1Sel : phase === 'p2_turn' ? p2Sel : new Set<number>();
+   342→  const activePlayer: 1 | 2 = phase === 'p1_turn' ? 1 : 2;
+   343→
+   344→  /* ================================================================ */
+   345→/*  RENDER                                                           */
+   346→/* ================================================================ */
+   347→
+   348→  return (
+   349→    <div className="min-h-[480px] bg-gradient-to-b from-zinc-900 to-zinc-950 text-white flex flex-col items-center justify-center p-4 select-none overflow-hidden rounded-2xl border border-zinc-800/60 shadow-2xl">
+   350→      {/* ── Score bar ── */}
+   351→      <AnimatePresence>
+   352→        {phase !== 'intro' && (
+   353→          <motion.div
+   354→            initial={{ opacity: 0, y: -12 }}
+   355→            animate={{ opacity: 1, y: 0 }}
+   356→            exit={{ opacity: 0 }}
+   357→            className="w-full flex justify-center"
+   358→          >
+   359→            <ScoreBar
+   360→              p1Score={p1Total}
+   361→              p2Score={p2Total}
+   362→              round={round}
+   363→              highlight={phase === 'p1_turn' ? 1 : phase === 'p2_turn' ? 2 : undefined}
+   364→            />
+   365→          </motion.div>
+   366→        )}
+   367→      </AnimatePresence>
+   368→
+   369→      {/* ── Main content ── */}
+   370→      <AnimatePresence mode="wait">
+   371→        {/* ==================== INTRO ==================== */}
+   372→        {phase === 'intro' && (
+   373→          <motion.div
+   374→            key="intro"
+   375→            {...fadeSlide}
+   376→            className="flex flex-col items-center gap-5 text-center max-w-sm"
+   377→          >
+   378→            <motion.div
+   379→              initial={{ scale: 0, rotate: -20 }}
+   380→              animate={{ scale: 1, rotate: 0 }}
+   381→              transition={{ delay: 0.1, type: 'spring', stiffness: 200, damping: 15 }}
+   382→              className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-zinc-700/60 flex items-center justify-center mb-1"
+   383→            >
+   384→              <Brain className="w-10 h-10 text-cyan-400" />
+   385→            </motion.div>
+   386→
+   387→            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+   388→              <span className="bg-gradient-to-r from-cyan-400 to-cyan-300 bg-clip-text text-transparent">
+   389→                Memória
+   390→              </span>{' '}
+   391→              <span className="bg-gradient-to-r from-pink-400 to-pink-300 bg-clip-text text-transparent">
+   392→                VS
+   393→              </span>
+   394→            </h1>
+   395→
+   396→            <p className="text-zinc-400 text-sm leading-relaxed">
+   397→              Um padrão acende brevemente na grade.
+   398→              <br />
+   399→              Cada jogador recria de memória.
+   400→              <br />
+   401→              <span className="text-cyan-400/80">Acerto = +10 pts</span>{' '}
+   402→              <span className="text-zinc-600">•</span>{' '}
+   403→              <span className="text-red-400/80">Erro = −5 pts</span>
+   404→            </p>
+   405→
+   406→            <div className="flex items-center gap-3 text-xs">
+   407→              <Badge className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5">
+   408→                Jogador 1
+   409→              </Badge>
+   410→              <span className="text-zinc-500 font-extrabold text-sm">VS</span>
+   411→              <Badge className="bg-pink-500/20 text-pink-300 border border-pink-500/30 px-3 py-0.5">
+   412→                Jogador 2
+   413→              </Badge>
+   414→            </div>
+   415→
+   416→            <div className="flex flex-col gap-0.5 text-[11px] text-zinc-500 mt-1">
+   417→              <span>{TOTAL_ROUNDS} rodadas • Grade 3×3 → 5×5</span>
+   418→              <span>Padrão cresce de {ROUNDS[0].patternSize} a {ROUNDS[ROUNDS.length - 1].patternSize} células</span>
+   419→            </div>
+   420→
+   421→            <Button
+   422→              size="lg"
+   423→              onClick={handleStart}
+   424→              className="mt-2 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 shadow-lg shadow-cyan-500/20 transition-all"
+   425→            >
+   426→              <Play className="w-5 h-5 mr-2" />
+   427→              Iniciar Jogo
+   428→            </Button>
+   429→          </motion.div>
+   430→        )}
+   431→
+   432→        {/* ==================== COUNTDOWN ==================== */}
+   433→        {phase === 'countdown' && (
+   434→          <motion.div
+   435→            key="countdown"
+   436→            {...popIn}
+   437→            className="flex flex-col items-center gap-4"
+   438→          >
+   439→            <p className="text-zinc-400 text-sm font-medium">Preparar...</p>
+   440→            <AnimatePresence mode="wait">
+   441→              <motion.div
+   442→                key={countdownNum}
+   443→                initial={{ scale: 2.5, opacity: 0 }}
+   444→                animate={{ scale: 1, opacity: 1 }}
+   445→                exit={{ scale: 0.5, opacity: 0 }}
+   446→                transition={{ duration: 0.4, ease: 'easeOut' }}
+   447→                className={cn(
+   448→                  'text-8xl font-black tabular-nums',
+   449→                  countdownNum === 3 && 'text-cyan-400',
+   450→                  countdownNum === 2 && 'text-amber-400',
+   451→                  countdownNum === 1 && 'text-pink-400',
+   452→                )}
+   453→              >
+   454→                {countdownNum}
+   455→              </motion.div>
+   456→            </AnimatePresence>
+   457→            <p className="text-zinc-600 text-xs">
+   458→              Rodada {round + 1} • Grade {cfg.gridSize}×{cfg.gridSize} • {cfg.patternSize} células
+   459→            </p>
+   460→          </motion.div>
+   461→        )}
+   462→
+   463→        {/* ==================== MEMORIZE ==================== */}
+   464→        {phase === 'memorize' && (
+   465→          <motion.div
+   466→            key={`mem-${round}`}
+   467→            {...popIn}
+   468→            className="flex flex-col items-center gap-4"
+   469→          >
+   470→            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+   471→              <div className="flex items-center justify-center gap-2 mb-1">
+   472→                <Eye className="w-5 h-5 text-amber-400" />
+   473→                <p className="text-amber-300 font-bold text-lg">Memorize o padrão!</p>
+   474→              </div>
+   475→              <p className="text-zinc-500 text-xs">
+   476→                {cfg.gridSize}×{cfg.gridSize} • {cfg.patternSize} células
+   477→              </p>
+   478→            </motion.div>
+   479→
+   480→            {/* Timer bar */}
+   481→            <div className="w-full max-w-xs flex items-center gap-2">
+   482→              <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+   483→              <div className="flex-1 h-2.5 bg-zinc-800 rounded-full overflow-hidden">
+   484→                <motion.div
+   485→                  className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
+   486→                  initial={{ width: '100%' }}
+   487→                  animate={{ width: `${memProgress}%` }}
+   488→                  transition={{ duration: 0.05 }}
+   489→                />
+   490→              </div>
+   491→              <span className="text-xs text-amber-300 tabular-nums w-8 text-right">
+   492→                {((memProgress / 100) * (memMs / 1000)).toFixed(1)}s
+   493→              </span>
+   494→            </div>
+   495→
+   496→            {/* Grid with staggered lit cells */}
+   497→            <div
+   498→              className="grid gap-2"
+   499→              style={{
+   500→                gridTemplateColumns: `repeat(${cfg.gridSize}, ${cs}px)`,
+   501→              }}
+   502→            >
+   503→              {Array.from({ length: cfg.gridSize * cfg.gridSize }, (_, i) => {
+   504→                const isLit = pattern.has(i);
+   505→                const litIdx = patternArr.indexOf(i);
+   506→                const delay = isLit ? litIdx * 0.08 : 0;
+   507→                return (
+   508→                  <motion.div
+   509→                    key={i}
+   510→                    initial={{
+   511→                      backgroundColor: 'rgba(39,39,42,0.6)',
+   512→                      scale: 0.7,
+   513→                      boxShadow: '0 0 0px 0px transparent',
+   514→                      borderColor: 'rgba(63,63,70,0.4)',
+   515→                    }}
+   516→                    animate={{
+   517→                      backgroundColor: isLit ? 'rgba(245,158,11,0.45)' : 'rgba(39,39,42,0.6)',
+   518→                      scale: isLit ? 1.05 : 1,
+   519→                      boxShadow: isLit
+   520→                        ? '0 0 20px 4px rgba(245,158,11,0.35)'
+   521→                        : '0 0 0px 0px transparent',
+   522→                      borderColor: isLit ? 'rgba(251,191,36,0.7)' : 'rgba(63,63,70,0.4)',
+   523→                    }}
+   524→                    transition={{ delay, duration: 0.3, ease: 'easeOut' }}
+   525→                    className={cn(
+   526→                      'rounded-xl border-2',
+   527→                      isLit && 'animate-pulse',
+   528→                    )}
+   529→                    style={{ width: cs, height: cs }}
+   530→                  />
+   531→                );
+   532→              })}
+   533→            </div>
+   534→          </motion.div>
+   535→        )}
+   536→
+   537→        {/* ==================== P1 / P2 TURN ==================== */}
+   538→        {(phase === 'p1_turn' || phase === 'p2_turn') && (
+   539→          <motion.div
+   540→            key={phase}
+   541→            {...popIn}
+   542→            className="flex flex-col items-center gap-3"
+   543→          >
+   544→            <PlayerBanner
+   545→              player={activePlayer}
+   546→              selected={currentSel.size}
+   547→              patternSize={cfg.patternSize}
+   548→            />
+   549→
+   550→            <p className="text-zinc-500 text-xs">Toque nas células que se lembra do padrão</p>
+   551→
+   552→            <div
+   553→              className="grid gap-2"
+   554→              style={{
+   555→                gridTemplateColumns: `repeat(${cfg.gridSize}, ${cs}px)`,
+   556→              }}
+   557→            >
+   558→              {Array.from({ length: cfg.gridSize * cfg.gridSize }, (_, i) => {
+   559→                const isSelected = currentSel.has(i);
+   560→                const isP1 = phase === 'p1_turn';
+   561→                return (
+   562→                  <motion.button
+   563→                    key={i}
+   564→                    type="button"
+   565→                    whileTap={{ scale: 0.85 }}
+   566→                    whileHover={{ scale: 1.06 }}
+   567→                    onClick={() => handleTap(i)}
+   568→                    animate={{
+   569→                      backgroundColor: isSelected
+   570→                        ? isP1
+   571→                          ? 'rgba(6,182,212,0.5)'
+   572→                          : 'rgba(236,72,153,0.5)'
+   573→                        : 'rgba(39,39,42,0.6)',
+   574→                      boxShadow: isSelected
+   575→                        ? isP1
+   576→                          ? '0 0 16px 3px rgba(6,182,212,0.35)'
+   577→                          : '0 0 16px 3px rgba(236,72,153,0.35)'
+   578→                        : '0 0 0px 0px transparent',
+   579→                      borderColor: isSelected
+   580→                        ? isP1
+   581→                          ? 'rgba(34,211,238,0.7)'
+   582→                          : 'rgba(244,114,182,0.7)'
+   583→                        : 'rgba(63,63,70,0.4)',
+   584→                      scale: 1,
+   585→                    }}
+   586→                    transition={{ duration: 0.15 }}
+   587→                    className={cn(
+   588→                      'rounded-xl border-2 cursor-pointer outline-none',
+   589→                      !isSelected && 'hover:border-zinc-600',
+   590→                      isP1 ? 'focus-visible:ring-cyan-500' : 'focus-visible:ring-pink-500',
+   591→                    )}
+   592→                    style={{ width: cs, height: cs }}
+   593→                  >
+   594→                    <AnimatePresence>
+   595→                      {isSelected && (
+   596→                        <motion.div
+   597→                          initial={{ scale: 0, opacity: 0 }}
+   598→                          animate={{ scale: 1, opacity: 1 }}
+   599→                          exit={{ scale: 0, opacity: 0 }}
+   600→                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+   601→                          className="w-full h-full flex items-center justify-center"
+   602→                        >
+   603→                          <Zap
+   604→                            className={cn(
+   605→                              'w-5 h-5',
+   606→                              isP1 ? 'text-cyan-200' : 'text-pink-200',
+   607→                            )}
+   608→                          />
+   609→                        </motion.div>
+   610→                      )}
+   611→                    </AnimatePresence>
+   612→                  </motion.button>
+   613→                );
+   614→              })}
+   615→            </div>
+   616→
+   617→            <Button
+   618→              size="lg"
+   619→              onClick={() => handleConfirm(activePlayer)}
+   620→              className={cn(
+   621→                'mt-3 font-bold px-8 shadow-lg transition-all',
+   622→                activePlayer === 1
+   623→                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25'
+   624→                  : 'bg-pink-600 hover:bg-pink-500 text-white shadow-pink-500/25',
+   625→              )}
+   626→            >
+   627→              Confirmar ({currentSel.size})
+   628→            </Button>
+   629→          </motion.div>
+   630→        )}
+   631→
+   632→        {/* ==================== ROUND RESULT ==================== */}
+   633→        {phase === 'round_result' && lastResult && (
+   634→          <motion.div
+   635→            key={`result-${round}`}
+   636→            {...popIn}
+   637→            className="flex flex-col items-center gap-4 w-full max-w-sm"
+   638→          >
+   639→            <p className="text-zinc-300 font-bold text-base">Resultado da Rodada {round + 1}</p>
+   640→
+   641→            {/* Pattern reveal grid */}
+   642→            <div
+   643→              className="grid gap-1.5"
+   644→              style={{
+   645→                gridTemplateColumns: `repeat(${cfg.gridSize}, 32px)`,
+   646→              }}
+   647→            >
+   648→              {Array.from({ length: cfg.gridSize * cfg.gridSize }, (_, i) => {
+   649→                const inP = pattern.has(i);
+   650→                return (
+   651→                  <motion.div
+   652→                    key={i}
+   653→                    initial={{ opacity: 0, scale: 0.5 }}
+   654→                    animate={{ opacity: 1, scale: 1 }}
+   655→                    transition={{ delay: i * 0.02 }}
+   656→                    className={cn(
+   657→                      'w-8 h-8 rounded-md border',
+   658→                      inP
+   659→                        ? 'bg-amber-500/40 border-amber-400/60 shadow-sm shadow-amber-500/20'
+   660→                        : 'bg-zinc-800/50 border-zinc-700/30',
+   661→                    )}
+   662→                  />
+   663→                );
+   664→              })}
+   665→            </div>
+   666→            <p className="text-zinc-500 text-[11px]">Padrão correto</p>
+   667→
+   668→            {/* Player results cards */}
+   669→            <div className="grid grid-cols-2 gap-3 w-full">
+   670→              {[
+   671→                { label: 'Jogador 1', result: lastResult.p1, color: 'cyan' as const },
+   672→                { label: 'Jogador 2', result: lastResult.p2, color: 'pink' as const },
+   673→              ].map(({ label, result, color }) => (
+   674→                <motion.div
+   675→                  key={label}
+   676→                  initial={{ opacity: 0, x: color === 'cyan' ? -20 : 20 }}
+   677→                  animate={{ opacity: 1, x: 0 }}
+   678→                  transition={{ delay: 0.3 }}
+   679→                  className={cn(
+   680→                    'rounded-xl border p-3 text-center',
+   681→                    color === 'cyan'
+   682→                      ? 'bg-cyan-500/10 border-cyan-500/30'
+   683→                      : 'bg-pink-500/10 border-pink-500/30',
+   684→                  )}
+   685→                >
+   686→                  <p
+   687→                    className={cn(
+   688→                      'text-xs font-bold mb-2',
+   689→                      color === 'cyan' ? 'text-cyan-400' : 'text-pink-400',
+   690→                    )}
+   691→                  >
+   692→                    {label}
+   693→                  </p>
+   694→                  <div className="space-y-1 text-[11px]">
+   695→                    <div className="flex justify-between text-zinc-400">
+   696→                      <span>Acertos</span>
+   697→                      <span className="text-green-400 font-bold">+{result.correct}</span>
+   698→                    </div>
+   699→                    <div className="flex justify-between text-zinc-400">
+   700→                      <span>Erros</span>
+   701→                      <span className="text-red-400 font-bold">−{result.wrong}</span>
+   702→                    </div>
+   703→                    <div className="flex justify-between text-zinc-400">
+   704→                      <span>Esquecidos</span>
+   705→                      <span className="text-zinc-300">{result.missed}</span>
+   706→                    </div>
+   707→                    <div className="border-t border-zinc-700/50 pt-1 mt-1 flex justify-between">
+   708→                      <span
+   709→                        className={cn(
+   710→                          'font-bold',
+   711→                          color === 'cyan' ? 'text-cyan-300' : 'text-pink-300',
+   712→                        )}
+   713→                      >
+   714→                        Pontos
+   715→                      </span>
+   716→                      <span
+   717→                        className={cn(
+   718→                          'font-extrabold text-base',
+   719→                          result.points >= 0
+   720→                            ? 'text-green-400'
+   721→                            : 'text-red-400',
+   722→                        )}
+   723→                      >
+   724→                        {result.points >= 0 ? '+' : ''}
+   725→                        {result.points}
+   726→                      </span>
+   727→                    </div>
+   728→                  </div>
+   729→                </motion.div>
+   730→              ))}
+   731→            </div>
+   732→
+   733→            {/* Running total */}
+   734→            <div className="flex items-center gap-4 text-sm mt-1">
+   735→              <span className="text-cyan-400 font-bold">J1: {p1Total}</span>
+   736→              <span className="text-zinc-600">—</span>
+   737→              <span className="text-pink-400 font-bold">J2: {p2Total}</span>
+   738→            </div>
+   739→
+   740→            <Button
+   741→              size="lg"
+   742→              onClick={handleNextRound}
+   743→              className="mt-1 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 shadow-lg"
+   744→            >
+   745→              {round + 1 < TOTAL_ROUNDS ? 'Próxima Rodada' : 'Ver Resultado Final'}
+   746→            </Button>
+   747→          </motion.div>
+   748→        )}
+   749→
+   750→        {/* ==================== GAME OVER ==================== */}
+   751→        {phase === 'game_over' && (
+   752→          <motion.div
+   753→            key="game_over"
+   754→            {...fadeSlide}
+   755→            className="flex flex-col items-center gap-5 text-center max-w-sm"
+   756→          >
+   757→            <motion.div
+   758→              initial={{ scale: 0, rotate: -30 }}
+   759→              animate={{ scale: 1, rotate: 0 }}
+   760→              transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 12 }}
+   761→              className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/30 flex items-center justify-center"
+   762→            >
+   763→              <Trophy className="w-10 h-10 text-amber-400" />
+   764→            </motion.div>
+   765→
+   766→            <h2 className="text-2xl sm:text-3xl font-extrabold">Resultado Final</h2>
+   767→
+   768→            {/* Winner banner */}
+   769→            {p1Total > p2Total && (
+   770→              <motion.div
+   771→                initial={{ opacity: 0, scale: 0.8 }}
+   772→                animate={{ opacity: 1, scale: 1 }}
+   773→                transition={{ delay: 0.4 }}
+   774→                className="bg-cyan-500/15 border border-cyan-500/40 rounded-xl px-6 py-3"
+   775→              >
+   776→                <p className="text-cyan-300 font-extrabold text-xl">🏆 Jogador 1 Venceu!</p>
+   777→                <p className="text-cyan-400/80 text-sm mt-1">Com {p1Total} pontos</p>
+   778→              </motion.div>
+   779→            )}
+   780→            {p2Total > p1Total && (
+   781→              <motion.div
+   782→                initial={{ opacity: 0, scale: 0.8 }}
+   783→                animate={{ opacity: 1, scale: 1 }}
+   784→                transition={{ delay: 0.4 }}
+   785→                className="bg-pink-500/15 border border-pink-500/40 rounded-xl px-6 py-3"
+   786→              >
+   787→                <p className="text-pink-300 font-extrabold text-xl">🏆 Jogador 2 Venceu!</p>
+   788→                <p className="text-pink-400/80 text-sm mt-1">Com {p2Total} pontos</p>
+   789→              </motion.div>
+   790→            )}
+   791→            {p1Total === p2Total && (
+   792→              <motion.div
+   793→                initial={{ opacity: 0, scale: 0.8 }}
+   794→                animate={{ opacity: 1, scale: 1 }}
+   795→                transition={{ delay: 0.4 }}
+   796→                className="bg-zinc-500/15 border border-zinc-500/40 rounded-xl px-6 py-3"
+   797→              >
+   798→                <p className="text-zinc-200 font-extrabold text-xl">🤝 Empate!</p>
+   799→                <p className="text-zinc-400 text-sm mt-1">Ambos com {p1Total} pontos</p>
+   800→              </motion.div>
+   801→            )}
+   802→
+   803→            {/* Final score comparison */}
+   804→            <div className="flex items-center gap-6 mt-1">
+   805→              <motion.div
+   806→                initial={{ opacity: 0, x: -30 }}
+   807→                animate={{ opacity: 1, x: 0 }}
+   808→                transition={{ delay: 0.5 }}
+   809→                className="text-center"
+   810→              >
+   811→                <p className="text-cyan-400 text-3xl font-black tabular-nums">{p1Total}</p>
+   812→                <p className="text-cyan-400/60 text-xs font-bold mt-1">Jogador 1</p>
+   813→              </motion.div>
+   814→
+   815→              <div className="text-zinc-600 font-black text-lg">VS</div>
+   816→
+   817→              <motion.div
+   818→                initial={{ opacity: 0, x: 30 }}
+   819→                animate={{ opacity: 1, x: 0 }}
+   820→                transition={{ delay: 0.5 }}
+   821→                className="text-center"
+   822→              >
+   823→                <p className="text-pink-400 text-3xl font-black tabular-nums">{p2Total}</p>
+   824→                <p className="text-pink-400/60 text-xs font-bold mt-1">Jogador 2</p>
+   825→              </motion.div>
+   826→            </div>
+   827→
+   828→            {/* Score bar visualization */}
+   829→            {p1Total + p2Total > 0 && (
+   830→              <div className="w-full max-w-xs h-3 bg-zinc-800 rounded-full overflow-hidden flex mt-1">
+   831→                <motion.div
+   832→                  initial={{ width: 0 }}
+   833→                  animate={{
+   834→                    width: `${(p1Total / (p1Total + p2Total)) * 100}%`,
+   835→                  }}
+   836→                  transition={{ delay: 0.7, duration: 0.8, ease: 'easeOut' }}
+   837→                  className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400"
+   838→                />
+   839→                <motion.div
+   840→                  initial={{ width: 0 }}
+   841→                  animate={{
+   842→                    width: `${(p2Total / (p1Total + p2Total)) * 100}%`,
+   843→                  }}
+   844→                  transition={{ delay: 0.7, duration: 0.8, ease: 'easeOut' }}
+   845→                  className="h-full bg-gradient-to-r from-pink-400 to-pink-500"
+   846→                />
+   847→              </div>
+   848→            )}
+   849→
+   850→            <div className="flex gap-3 mt-2">
+   851→              <Button
+   852→                variant="outline"
+   853→                size="lg"
+   854→                onClick={handleRestart}
+   855→                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white font-bold px-6"
+   856→              >
+   857→                <RotateCcw className="w-4 h-4 mr-2" />
+   858→                Jogar Novamente
+   859→              </Button>
+   860→            </div>
+   861→          </motion.div>
+   862→        )}
+   863→      </AnimatePresence>
+   864→    </div>
+   865→  );
+   866→}
