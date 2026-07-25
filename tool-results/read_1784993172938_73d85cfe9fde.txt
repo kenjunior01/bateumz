@@ -1,0 +1,778 @@
+     1→import { useEffect, useState, useCallback, useRef } from 'react';
+     2→import { motion, AnimatePresence } from 'framer-motion';
+     3→import { RotateCcw, Timer, Grid3X3 } from 'lucide-react';
+     4→import { Button } from '@/components/ui/button';
+     5→import { Badge } from '@/components/ui/badge';
+     6→import { cn } from '@/lib/utils';
+     7→
+     8→/* ------------------------------------------------------------------ */
+     9→/*  Types                                                              */
+    10→/* ------------------------------------------------------------------ */
+    11→
+    12→interface Props {
+    13→  onScore?: (name: string, score: number) => void;
+    14→  liveCode?: string;
+    15→}
+    16→
+    17→type GridSize = '4x4' | '4x5';
+    18→type TimerOption = 0 | 60 | 90 | 120;
+    19→type GameState = 'idle' | 'playing' | 'ended';
+    20→type CardStatus = 'hidden' | 'flipping' | 'matched' | 'shaking';
+    21→
+    22→interface CardData {
+    23→  id: number;
+    24→  pairId: number;
+    25→  shape: ShapeName;
+    26→  color: string;
+    27→  status: CardStatus;
+    28→}
+    29→
+    30→/* ------------------------------------------------------------------ */
+    31→/*  Shape definitions – SVG path-based geometric patterns              */
+    32→/* ------------------------------------------------------------------ */
+    33→
+    34→type ShapeName =
+    35→  | 'circle'
+    36→  | 'star'
+    37→  | 'diamond'
+    38→  | 'heart'
+    39→  | 'triangle'
+    40→  | 'square'
+    41→  | 'hexagon'
+    42→  | 'cross'
+    43→  | 'moon'
+    44→  | 'lightning';
+    45→
+    46→const SHAPE_DEFS: Record<ShapeName, { color: string; label: string }> = {
+    47→  circle:    { color: '#06b6d4', label: 'C\u00edrculo' },
+    48→  star:      { color: '#eab308', label: 'Estrela' },
+    49→  diamond:   { color: '#ec4899', label: 'Diamante' },
+    50→  heart:     { color: '#ef4444', label: 'Cora\u00e7\u00e3o' },
+    51→  triangle:  { color: '#22c55e', label: 'Tri\u00e2ngulo' },
+    52→  square:    { color: '#3b82f6', label: 'Quadrado' },
+    53→  hexagon:   { color: '#a855f7', label: 'Hex\u00e1gono' },
+    54→  cross:     { color: '#f97316', label: 'Cruz' },
+    55→  moon:      { color: '#6366f1', label: 'Lua' },
+    56→  lightning: { color: '#f59e0b', label: 'Raio' },
+    57→};
+    58→
+    59→const ALL_SHAPES: ShapeName[] = [
+    60→  'circle', 'star', 'diamond', 'heart', 'triangle',
+    61→  'square', 'hexagon', 'cross', 'moon', 'lightning',
+    62→];
+    63→
+    64→/* ------------------------------------------------------------------ */
+    65→/*  SVG shape renderer                                                 */
+    66→/* ------------------------------------------------------------------ */
+    67→
+    68→function ShapeSVG({ shape, color }: { shape: ShapeName; color: string }) {
+    69→  const c = color;
+    70→  switch (shape) {
+    71→    case 'circle':
+    72→      return (
+    73→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    74→          <circle cx="20" cy="20" r="16" fill={c} />
+    75→        </svg>
+    76→      );
+    77→    case 'star':
+    78→      return (
+    79→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    80→          <polygon
+    81→            points="20,2 25.09,14.59 38.18,15.78 28.5,24.39 31.18,37.22 20,30.5 8.82,37.22 11.5,24.39 1.82,15.78 14.91,14.59"
+    82→            fill={c}
+    83→          />
+    84→        </svg>
+    85→      );
+    86→    case 'diamond':
+    87→      return (
+    88→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    89→          <polygon points="20,2 38,20 20,38 2,20" fill={c} />
+    90→        </svg>
+    91→      );
+    92→    case 'heart':
+    93→      return (
+    94→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    95→          <path
+    96→            d="M20 35 C10 27, 0 20, 0 13 A8 8 0 0 1 20 8 A8 8 0 0 1 40 13 C40 20, 30 27, 20 35Z"
+    97→            fill={c}
+    98→          />
+    99→        </svg>
+   100→      );
+   101→    case 'triangle':
+   102→      return (
+   103→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   104→          <polygon points="20,3 38,37 2,37" fill={c} />
+   105→        </svg>
+   106→      );
+   107→    case 'square':
+   108→      return (
+   109→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   110→          <rect x="5" y="5" width="30" height="30" rx="3" fill={c} />
+   111→        </svg>
+   112→      );
+   113→    case 'hexagon':
+   114→      return (
+   115→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   116→          <polygon
+   117→            points="20,2 36.66,11 36.66,29 20,38 3.34,29 3.34,11"
+   118→            fill={c}
+   119→          />
+   120→        </svg>
+   121→      );
+   122→    case 'cross':
+   123→      return (
+   124→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   125→          <path d="M14,2 H26 V14 H38 V26 H26 V38 H14 V26 H2 V14 H14Z" fill={c} />
+   126→        </svg>
+   127→      );
+   128→    case 'moon':
+   129→      return (
+   130→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   131→          <path
+   132→            d="M28 20 A12 12 0 1 1 20 4 A9 9 0 0 0 28 20Z"
+   133→            fill={c}
+   134→          />
+   135→        </svg>
+   136→      );
+   137→    case 'lightning':
+   138→      return (
+   139→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   140→          <polygon
+   141→            points="22,2 8,22 17,22 14,38 32,16 23,16"
+   142→            fill={c}
+   143→          />
+   144→        </svg>
+   145→      );
+   146→    default:
+   147→      return null;
+   148→  }
+   149→}
+   150→
+   151→/* ------------------------------------------------------------------ */
+   152→/*  Helpers                                                            */
+   153→/* ------------------------------------------------------------------ */
+   154→
+   155→function shuffle<T>(arr: T[]): T[] {
+   156→  const a = [...arr];
+   157→  for (let i = a.length - 1; i > 0; i--) {
+   158→    const j = Math.floor(Math.random() * (i + 1));
+   159→    [a[i], a[j]] = [a[j], a[i]];
+   160→  }
+   161→  return a;
+   162→}
+   163→
+   164→const GRID_CONFIG: Record<GridSize, { cols: number; rows: number; pairs: number }> = {
+   165→  '4x4': { cols: 4, rows: 4, pairs: 8 },
+   166→  '4x5': { cols: 5, rows: 4, pairs: 10 },
+   167→};
+   168→
+   169→/* ------------------------------------------------------------------ */
+   170→/*  Face-down pattern SVG (decorative back of card)                    */
+   171→/* ------------------------------------------------------------------ */
+   172→
+   173→function CardBackPattern() {
+   174→  return (
+   175→    <svg
+   176→      viewBox="0 0 40 50"
+   177→      className="w-full h-full opacity-20"
+   178→      xmlns="http://www.w3.org/2000/svg"
+   179→    >
+   180→      <rect width="40" height="50" rx="4" fill="none" stroke="currentColor" strokeWidth="0.8" />
+   181→      <line x1="0" y1="25" x2="40" y2="25" stroke="currentColor" strokeWidth="0.4" />
+   182→      <line x1="20" y1="0" x2="20" y2="50" stroke="currentColor" strokeWidth="0.4" />
+   183→      <line x1="0" y1="0" x2="40" y2="50" stroke="currentColor" strokeWidth="0.3" />
+   184→      <line x1="40" y1="0" x2="0" y2="50" stroke="currentColor" strokeWidth="0.3" />
+   185→      <circle cx="20" cy="25" r="6" fill="none" stroke="currentColor" strokeWidth="0.5" />
+   186→    </svg>
+   187→  );
+   188→}
+   189→
+   190→/* ------------------------------------------------------------------ */
+   191→/*  Match / Mismatch toast                                             */
+   192→/* ------------------------------------------------------------------ */
+   193→
+   194→function FeedbackToast({ message, color }: { message: string; color: string }) {
+   195→  return (
+   196→    <motion.div
+   197→      initial={{ opacity: 0, y: 10, scale: 0.8 }}
+   198→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   199→      exit={{ opacity: 0, y: -20, scale: 0.8 }}
+   200→      transition={{ duration: 0.3 }}
+   201→      className={cn(
+   202→        'absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold z-30 whitespace-nowrap pointer-events-none',
+   203→        color,
+   204→      )}
+   205→    >
+   206→      {message}
+   207→    </motion.div>
+   208→  );
+   209→}
+   210→
+   211→/* ------------------------------------------------------------------ */
+   212→/*  Single Card component                                              */
+   213→/* ------------------------------------------------------------------ */
+   214→
+   215→interface CardProps {
+   216→  card: CardData;
+   217→  index: number;
+   218→  disabled: boolean;
+   219→  onClick: (index: number) => void;
+   220→}
+   221→
+   222→function GameCard({ card, index, disabled, onClick }: CardProps) {
+   223→  const isFlipped = card.status === 'flipping' || card.status === 'matched';
+   224→  const isShaking = card.status === 'shaking';
+   225→  const isMatched = card.status === 'matched';
+   226→  const shapeDef = SHAPE_DEFS[card.shape];
+   227→
+   228→  return (
+   229→    <motion.div
+   230→      className="relative"
+   231→      style={{ perspective: 600 }}
+   232→      layout
+   233→    >
+   234→      <AnimatePresence>
+   235→        {isMatched && (
+   236→          <motion.div
+   237→            key={`glow-${card.id}`}
+   238→            initial={{ opacity: 0, scale: 0.8 }}
+   239→            animate={{ opacity: [0, 1, 0.6], scale: [0.8, 1.15, 1] }}
+   240→            transition={{ duration: 0.6, ease: 'easeOut' }}
+   241→            className="absolute inset-0 rounded-xl z-10 pointer-events-none"
+   242→            style={{
+   243→              boxShadow: `0 0 20px 4px ${shapeDef.color}66, 0 0 40px 8px ${shapeDef.color}33`,
+   244→            }}
+   245→          />
+   246→        )}
+   247→      </AnimatePresence>
+   248→
+   249→      <motion.button
+   250→        type="button"
+   251→        disabled={disabled || isFlipped || isMatched}
+   252→        onClick={() => onClick(index)}
+   253→        animate={
+   254→          isShaking
+   255→            ? { x: [0, -6, 6, -6, 6, -3, 3, 0] }
+   256→            : isMatched
+   257→              ? { scale: [1, 1.12, 1] }
+   258→              : {}
+   259→        }
+   260→        transition={
+   261→          isShaking
+   262→            ? { duration: 0.5, ease: 'easeInOut' }
+   263→            : isMatched
+   264→              ? { duration: 0.4, ease: 'easeOut' }
+   265→              : {}
+   266→        }
+   267→        className={cn(
+   268→          'relative w-16 h-20 sm:w-20 sm:h-24 rounded-xl cursor-pointer focus:outline-none transition-shadow',
+   269→          isMatched && 'cursor-default',
+   270→          disabled && !isFlipped && !isMatched && 'cursor-not-allowed opacity-60',
+   271→        )}
+   272→        style={{
+   273→          transformStyle: 'preserve-3d',
+   274→        }}
+   275→        aria-label={`Carta ${index + 1}`}
+   276→      >
+   277→        {/* ---- Back face (face-down) ---- */}
+   278→        <motion.div
+   279→          className={cn(
+   280→            'absolute inset-0 rounded-xl border bg-slate-800 border-slate-700 flex items-center justify-center',
+   281→          )}
+   282→          style={{
+   283→            backfaceVisibility: 'hidden',
+   284→            WebkitBackfaceVisibility: 'hidden',
+   285→          }}
+   286→          animate={{ rotateY: isFlipped ? 180 : 0 }}
+   287→          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+   288→        >
+   289→          <div className="text-slate-500 flex flex-col items-center justify-center">
+   290→            <CardBackPattern />
+   291→            <span className="text-slate-500 text-lg font-bold mt-0.5">?</span>
+   292→          </div>
+   293→          <span className="absolute bottom-0.5 right-1 text-[9px] text-slate-600 font-mono">
+   294→            {index + 1 <= 9 ? index + 1 : ''}
+   295→          </span>
+   296→        </motion.div>
+   297→
+   298→        {/* ---- Front face (face-up) ---- */}
+   299→        <motion.div
+   300→          className={cn(
+   301→            'absolute inset-0 rounded-xl border border-slate-300 dark:border-slate-400 bg-white dark:bg-slate-100 flex items-center justify-center',
+   302→            isMatched && 'border-green-400',
+   303→          )}
+   304→          style={{
+   305→            backfaceVisibility: 'hidden',
+   306→            WebkitBackfaceVisibility: 'hidden',
+   307→          }}
+   308→          animate={{ rotateY: isFlipped ? 0 : -180 }}
+   309→          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+   310→        >
+   311→          <ShapeSVG shape={card.shape} color={shapeDef.color} />
+   312→          {isMatched && (
+   313→            <motion.span
+   314→              initial={{ opacity: 0, scale: 0 }}
+   315→              animate={{ opacity: 1, scale: 1 }}
+   316→              transition={{ delay: 0.3, duration: 0.25 }}
+   317→              className="absolute top-0.5 right-0.5 text-green-500 text-xs"
+   318→            >
+   319→              ✓
+   320→            </motion.span>
+   321→          )}
+   322→        </motion.div>
+   323→      </motion.button>
+   324→    </motion.div>
+   325→  );
+   326→}
+   327→
+   328→/* ================================================================== */
+   329→/*  Main component                                                     */
+   330→/* ================================================================== */
+   331→
+   332→export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
+   333→  /* ---- State ---- */
+   334→  const [gameState, setGameState] = useState<GameState>('idle');
+   335→  const [gridSize, setGridSize] = useState<GridSize>('4x4');
+   336→  const [timerOption, setTimerOption] = useState<TimerOption>(90);
+   337→  const [cards, setCards] = useState<CardData[]>([]);
+   338→  const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
+   339→  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+   340→  const [scores, setScores] = useState<[number, number]>([0, 0]);
+   341→  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+   342→  const [canFlip, setCanFlip] = useState(false);
+   343→  const [feedback, setFeedback] = useState<{ message: string; color: string; id: number } | null>(null);
+   344→  const [winner, setWinner] = useState<1 | 2 | 'draw' | null>(null);
+   345→
+   346→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   347→  const feedbackIdRef = useRef(0);
+   348→
+   349→  const config = GRID_CONFIG[gridSize];
+   350→  const totalPairs = config.pairs;
+   351→  const matchedCount = cards.filter(c => c.status === 'matched').length / 2;
+   352→  const pairsLeft = totalPairs - matchedCount;
+   353→
+   354→  /* ---- Derived ---- */
+   355→  const activeGlow =
+   356→    currentPlayer === 1
+   357→      ? 'shadow-[0_0_20px_4px_rgba(6,182,212,0.35)] border-cyan-500/50'
+   358→      : 'shadow-[0_0_20px_4px_rgba(236,72,153,0.35)] border-pink-500/50';
+   359→
+   360→  /* ---- Init game ---- */
+   361→  const initGame = useCallback(() => {
+   362→    const shapes = shuffle(ALL_SHAPES).slice(0, totalPairs);
+   363→    const deck: CardData[] = [];
+   364→    shapes.forEach((shape, pairIdx) => {
+   365→      const color = SHAPE_DEFS[shape].color;
+   366→      deck.push({ id: deck.length, pairId: pairIdx, shape, color, status: 'hidden' });
+   367→      deck.push({ id: deck.length, pairId: pairIdx, shape, color, status: 'hidden' });
+   368→    });
+   369→    const shuffled = shuffle(deck);
+   370→    setCards(shuffled);
+   371→    setFlippedIndices([]);
+   372→    setCurrentPlayer(1);
+   373→    setScores([0, 0]);
+   374→    setCanFlip(true);
+   375→    setFeedback(null);
+   376→    setWinner(null);
+   377→    setTimeRemaining(timerOption);
+   378→    setGameState('playing');
+   379→  }, [totalPairs, timerOption]);
+   380→
+   381→  /* ---- Timer effect ---- */
+   382→  useEffect(() => {
+   383→    if (gameState !== 'playing' || timerOption === 0) return;
+   384→    timerRef.current = setInterval(() => {
+   385→      setTimeRemaining(prev => {
+   386→        if (prev <= 1) {
+   387→          clearInterval(timerRef.current!);
+   388→          return 0;
+   389→        }
+   390→        return prev - 1;
+   391→      });
+   392→    }, 1000);
+   393→    return () => {
+   394→      if (timerRef.current) clearInterval(timerRef.current);
+   395→    };
+   396→  }, [gameState, timerOption]);
+   397→
+   398→  /* ---- End game when timer hits 0 ---- */
+   399→  const endGame = useCallback(() => {
+   400→    setGameState('ended');
+   401→    setCanFlip(false);
+   402→    if (timerRef.current) clearInterval(timerRef.current);
+   403→
+   404→    const timeBonus = timerOption > 0 ? timeRemaining : 0;
+   405→
+   406→    if (scores[0] > scores[1]) {
+   407→      setWinner(1);
+   408→      onScore?.('Jogador 1', scores[0] * 10 + timeBonus);
+   409→    } else if (scores[1] > scores[0]) {
+   410→      setWinner(2);
+   411→      onScore?.('Jogador 2', scores[1] * 10 + timeBonus);
+   412→    } else {
+   413→      setWinner('draw');
+   414→    }
+   415→  }, [scores, timerOption, timeRemaining, onScore]);
+   416→
+   417→  useEffect(() => {
+   418→    if (gameState === 'playing' && timerOption > 0 && timeRemaining === 0) {
+   419→      endGame();
+   420→    }
+   421→  }, [timeRemaining, gameState, timerOption, endGame]);
+   422→
+   423→  /* ---- Keyboard support (keys 1-9 and 0 for 10) ---- */
+   424→  const handleCardClick = useCallback(
+   425→    (index: number) => {
+   426→      if (!canFlip || gameState !== 'playing') return;
+   427→      const card = cards[index];
+   428→      if (card.status !== 'hidden') return;
+   429→      if (flippedIndices.includes(index)) return;
+   430→
+   431→      const newFlipped = [...flippedIndices, index];
+   432→      const updated = cards.map((c, i) => (i === index ? { ...c, status: 'flipping' as CardStatus } : c));
+   433→      setCards(updated);
+   434→      setFlippedIndices(newFlipped);
+   435→
+   436→      if (newFlipped.length === 2) {
+   437→        setCanFlip(false);
+   438→        const [a, b] = newFlipped;
+   439→        if (updated[a].pairId === updated[b].pairId) {
+   440→          setTimeout(() => {
+   441→            setCards(prev =>
+   442→              prev.map((c, i) => (i === a || i === b ? { ...c, status: 'matched' as CardStatus } : c)),
+   443→            );
+   444→            setScores(prev => {
+   445→              const next = [...prev] as [number, number];
+   446→              next[currentPlayer - 1] += 1;
+   447→              return next;
+   448→            });
+   449→            showFeedback('Par!', 'bg-green-600 text-white');
+   450→            setFlippedIndices([]);
+   451→            setCanFlip(true);
+   452→          }, 500);
+   453→        } else {
+   454→          showFeedback('N\u00e3o \u00e9 par', 'bg-red-600 text-white');
+   455→          setTimeout(() => {
+   456→            setCards(prev =>
+   457→              prev.map((c, i) =>
+   458→                i === a || i === b ? { ...c, status: 'shaking' as CardStatus } : c,
+   459→              ),
+   460→            );
+   461→          }, 400);
+   462→          setTimeout(() => {
+   463→            setCards(prev =>
+   464→              prev.map((c, i) =>
+   465→                i === a || i === b ? { ...c, status: 'hidden' as CardStatus } : c,
+   466→              ),
+   467→            );
+   468→            setFlippedIndices([]);
+   469→            setCurrentPlayer(prev => (prev === 1 ? 2 : 1));
+   470→            setCanFlip(true);
+   471→          }, 1000);
+   472→        }
+   473→      }
+   474→    },
+   475→    [canFlip, cards, flippedIndices, currentPlayer, gameState],
+   476→  );
+   477→
+   478→  useEffect(() => {
+   479→    if (gameState !== 'playing' || !canFlip) return;
+   480→    function handleKey(e: KeyboardEvent) {
+   481→      let idx = -1;
+   482→      if (e.key >= '1' && e.key <= '9') idx = parseInt(e.key) - 1;
+   483→      else if (e.key === '0' && cards.length >= 10) idx = 9;
+   484→      else return;
+   485→      if (idx >= 0 && idx < cards.length) {
+   486→        handleCardClick(idx);
+   487→      }
+   488→    }
+   489→    window.addEventListener('keydown', handleKey);
+   490→    return () => window.removeEventListener('keydown', handleKey);
+   491→  }, [gameState, canFlip, cards, handleCardClick]);
+   492→
+   493→  /* ---- Check if all matched ---- */
+   494→  useEffect(() => {
+   495→    if (gameState !== 'playing') return;
+   496→    if (matchedCount === totalPairs) {
+   497→      endGame();
+   498→    }
+   499→  }, [matchedCount, totalPairs, gameState, endGame]);
+   500→
+   501→  /* ---- Show feedback toast ---- */
+   502→  const showFeedback = useCallback((message: string, color: string) => {
+   503→    const id = ++feedbackIdRef.current;
+   504→    setFeedback({ message, color, id });
+   505→    setTimeout(() => setFeedback(prev => (prev && prev.id === id ? null : prev)), 900);
+   506→  }, []);
+   507→
+   508→  /* ---- Reset to idle ---- */
+   509→  const resetAll = () => {
+   510→    if (timerRef.current) clearInterval(timerRef.current);
+   511→    setGameState('idle');
+   512→    setCards([]);
+   513→    setFlippedIndices([]);
+   514→    setScores([0, 0]);
+   515→    setCurrentPlayer(1);
+   516→    setTimeRemaining(0);
+   517→    setCanFlip(false);
+   518→    setFeedback(null);
+   519→    setWinner(null);
+   520→  };
+   521→
+   522→  /* ---- Format timer ---- */
+   523→  const fmt = (s: number) => {
+   524→    const m = Math.floor(s / 60);
+   525→    const sec = s % 60;
+   526→    return `${m}:${sec.toString().padStart(2, '0')}`;
+   527→  };
+   528→
+   529→  /* ================================================================== */
+   530→  /*  Render                                                            */
+   531→  /* ================================================================== */
+   532→
+   533→  return (
+   534→    <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto select-none">
+   535→      {/* ---- Title ---- */}
+   536→      <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">
+   537→        MEM\u00d3RIA VS CARTAS
+   538→      </h2>
+   539→
+   540→      {/* ---- Scoreboard ---- */}
+   541→      <div className="w-full rounded-xl bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 p-3 flex items-center justify-between">
+   542→        {/* P1 score */}
+   543→        <div
+   544→          className={cn(
+   545→            'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all',
+   546→            currentPlayer === 1 && gameState === 'playing'
+   547→              ? 'bg-cyan-500/20 ring-1 ring-cyan-400'
+   548→              : 'opacity-70',
+   549→          )}
+   550→        >
+   551→          <div className="w-3 h-3 rounded-full bg-cyan-400" />
+   552→          <span className="text-cyan-300 font-semibold text-sm">Jogador 1</span>
+   553→          <motion.span
+   554→            key={`s1-${scores[0]}`}
+   555→            initial={{ scale: 0.5, y: -8 }}
+   556→            animate={{ scale: 1, y: 0 }}
+   557→            className="text-white font-bold text-lg"
+   558→          >
+   559→            {scores[0]}
+   560→          </motion.span>
+   561→          <span className="text-cyan-400/60 text-xs">pares</span>
+   562→        </div>
+   563→
+   564→        {/* Center status */}
+   565→        <div className="flex flex-col items-center gap-1">
+   566→          {gameState === 'playing' && (
+   567→            <AnimatePresence mode="wait">
+   568→              <motion.span
+   569→                key={currentPlayer}
+   570→                initial={{ opacity: 0, x: currentPlayer === 1 ? -10 : 10 }}
+   571→                animate={{ opacity: 1, x: 0 }}
+   572→                exit={{ opacity: 0 }}
+   573→                className={cn(
+   574→                  'text-xs font-semibold px-2 py-0.5 rounded-full',
+   575→                  currentPlayer === 1
+   576→                    ? 'text-cyan-300 bg-cyan-500/10'
+   577→                    : 'text-pink-300 bg-pink-500/10',
+   578→                )}
+   579→              >
+   580→                Sua vez
+   581→              </motion.span>
+   582→            </AnimatePresence>
+   583→          )}
+   584→          {gameState === 'idle' && (
+   585→            <span className="text-slate-400 text-xs">Pronto para jogar</span>
+   586→          )}
+   587→          {gameState === 'ended' && winner && winner !== 'draw' && (
+   588→            <motion.span
+   589→              initial={{ scale: 0 }}
+   590→              animate={{ scale: 1 }}
+   591→              className={cn(
+   592→                'text-sm font-bold',
+   593→                winner === 1 ? 'text-cyan-300' : 'text-pink-300',
+   594→              )}
+   595→            >
+   596→              Jogador {winner} Venceu!
+   597→            </motion.span>
+   598→          )}
+   599→          {gameState === 'ended' && winner === 'draw' && (
+   600→            <motion.span
+   601→              initial={{ scale: 0 }}
+   602→              animate={{ scale: 1 }}
+   603→              className="text-sm font-bold text-yellow-300"
+   604→            >
+   605→              Empate!
+   606→            </motion.span>
+   607→          )}
+   608→        </div>
+   609→
+   610→        {/* P2 score */}
+   611→        <div
+   612→          className={cn(
+   613→            'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all',
+   614→            currentPlayer === 2 && gameState === 'playing'
+   615→              ? 'bg-pink-500/20 ring-1 ring-pink-400'
+   616→              : 'opacity-70',
+   617→          )}
+   618→        >
+   619→          <span className="text-pink-400/60 text-xs">pares</span>
+   620→          <motion.span
+   621→            key={`s2-${scores[1]}`}
+   622→            initial={{ scale: 0.5, y: -8 }}
+   623→            animate={{ scale: 1, y: 0 }}
+   624→            className="text-white font-bold text-lg"
+   625→          >
+   626→            {scores[1]}
+   627→          </motion.span>
+   628→          <span className="text-pink-300 font-semibold text-sm">Jogador 2</span>
+   629→          <div className="w-3 h-3 rounded-full bg-pink-400" />
+   630→        </div>
+   631→      </div>
+   632→
+   633→      {/* ---- Controls row ---- */}
+   634→      <div className="w-full flex flex-wrap items-center justify-center gap-2">
+   635→        {/* Grid size toggle */}
+   636→        <div className="flex items-center gap-1">
+   637→          <Grid3X3 className="w-3.5 h-3.5 text-slate-400" />
+   638→          <span className="text-xs text-slate-400 mr-1">Tabuleiro</span>
+   639→          {(['4x4', '4x5'] as GridSize[]).map(g => (
+   640→            <Button
+   641→              key={g}
+   642→              size="sm"
+   643→              variant={gridSize === g ? 'default' : 'outline'}
+   644→              className={cn(
+   645→                'h-7 px-2.5 text-xs',
+   646→                gridSize === g && 'bg-slate-700 hover:bg-slate-600',
+   647→              )}
+   648→              disabled={gameState === 'playing'}
+   649→              onClick={() => setGridSize(g)}
+   650→            >
+   651→              {g}
+   652→            </Button>
+   653→          ))}
+   654→        </div>
+   655→
+   656→        {/* Timer toggle */}
+   657→        <div className="flex items-center gap-1">
+   658→          <Timer className="w-3.5 h-3.5 text-slate-400" />
+   659→          <span className="text-xs text-slate-400 mr-1">Tempo</span>
+   660→          {([0, 60, 90, 120] as TimerOption[]).map(t => (
+   661→            <Button
+   662→              key={t}
+   663→              size="sm"
+   664→              variant={timerOption === t ? 'default' : 'outline'}
+   665→              className={cn(
+   666→                'h-7 px-2.5 text-xs',
+   667→                timerOption === t && 'bg-slate-700 hover:bg-slate-600',
+   668→              )}
+   669→              disabled={gameState === 'playing'}
+   670→              onClick={() => setTimerOption(t)}
+   671→            >
+   672→              {t === 0 ? 'Sem timer' : `${t}s`}
+   673→            </Button>
+   674→          ))}
+   675→        </div>
+   676→      </div>
+   677→
+   678→      {/* ---- Timer display ---- */}
+   679→      {timerOption > 0 && gameState === 'playing' && (
+   680→        <motion.div
+   681→          initial={{ opacity: 0, y: -5 }}
+   682→          animate={{ opacity: 1, y: 0 }}
+   683→          className="flex items-center gap-2"
+   684→        >
+   685→          <Badge
+   686→            variant="outline"
+   687→            className={cn(
+   688→              'font-mono text-sm px-3 py-0.5',
+   689→              timeRemaining <= 10
+   690→                ? 'border-red-500 text-red-400 bg-red-500/10'
+   691→                : timeRemaining <= 30
+   692→                  ? 'border-yellow-500 text-yellow-400 bg-yellow-500/10'
+   693→                  : 'border-slate-500 text-slate-300',
+   694→            )}
+   695→          >
+   696→            {fmt(timeRemaining)}
+   697→          </Badge>
+   698→        </motion.div>
+   699→      )}
+   700→
+   701→      {/* ---- Card grid ---- */}
+   702→      {gameState === 'idle' && (
+   703→        <div className="flex flex-col items-center gap-4 py-8">
+   704→          <div className="text-slate-400 text-sm text-center max-w-xs">
+   705→            Jogo de mem\u00f3ria competitivo. Dois jogadores revezam turnos no mesmo tabuleiro.
+   706→            Encontre os pares para marcar pontos!
+   707→          </div>
+   708→          <Button
+   709→            onClick={initGame}
+   710→            className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white px-6"
+   711→          >
+   712→            Iniciar Jogo
+   713→          </Button>
+   714→        </div>
+   715→      )}
+   716→
+   717→      {(gameState === 'playing' || gameState === 'ended') && (
+   718→        <div
+   719→          className={cn(
+   720→            'relative rounded-xl p-3 transition-all duration-500 border-2',
+   721→            gameState === 'playing' && activeGlow,
+   722→            gameState === 'ended' && 'border-slate-700',
+   723→          )}
+   724→        >
+   725→          {/* Feedback toast */}
+   726→          <AnimatePresence>
+   727→            {feedback && (
+   728→              <FeedbackToast
+   729→                key={feedback.id}
+   730→                message={feedback.message}
+   731→                color={feedback.color}
+   732→              />
+   733→            )}
+   734→          </AnimatePresence>
+   735→
+   736→          <div
+   737→            className="grid gap-2"
+   738→            style={{
+   739→              gridTemplateColumns: `repeat(${config.cols}, minmax(0, 1fr))`,
+   740→            }}
+   741→          >
+   742→            {cards.map((card, idx) => (
+   743→              <GameCard
+   744→                key={card.id}
+   745→                card={card}
+   746→                index={idx}
+   747→                disabled={!canFlip}
+   748→                onClick={handleCardClick}
+   749→              />
+   750→            ))}
+   751→          </div>
+   752→        </div>
+   753→      )}
+   754→
+   755→      {/* ---- Footer: restart + pairs left ---- */}
+   756→      {(gameState === 'playing' || gameState === 'ended') && (
+   757→        <div className="flex items-center gap-4 mt-1">
+   758→          <Button
+   759→            variant="outline"
+   760→            size="sm"
+   761→            onClick={resetAll}
+   762→            className="gap-1.5 text-slate-300 border-slate-600 hover:bg-slate-800"
+   763→          >
+   764→            <RotateCcw className="w-3.5 h-3.5" />
+   765→            Reiniciar Tudo
+   766→          </Button>
+   767→          <Badge
+   768→            variant="secondary"
+   769→            className="bg-slate-800 text-slate-300 border border-slate-700"
+   770→          >
+   771→            Pares restantes: {pairsLeft}
+   772→          </Badge>
+   773→        </div>
+   774→      )}
+   775→    </div>
+   776→  );
+   777→}
+   778→
