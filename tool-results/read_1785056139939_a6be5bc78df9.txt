@@ -1,0 +1,852 @@
+   100→  const parser = new DOMParser();
+   101→  const doc = parser.parseFromString(html, "text/html");
+   102→  const headings = doc.querySelectorAll("h2, h3");
+   103→  const items: TOCItem[] = [];
+   104→  headings.forEach((h, i) => {
+   105→    const id = `section-${i}`;
+   106→    h.id = id;
+   107→    items.push({ id, text: h.textContent || `Seção ${i + 1}`, level: h.tagName === "H2" ? 2 : 3 });
+   108→  });
+   109→  return items;
+   110→}
+   111→
+   112→function injectAnchorIds(html: string, toc: TOCItem[]): string {
+   113→  const parser = new DOMParser();
+   114→  const doc = parser.parseFromString(html, "text/html");
+   115→  const headings = doc.querySelectorAll("h2, h3");
+   116→  headings.forEach((h, i) => {
+   117→    if (toc[i]) h.id = toc[i].id;
+   118→  });
+   119→  return doc.body.innerHTML;
+   120→}
+   121→
+   122→/* ─── Ícones de redes sociais (SVGs customizados) ─── */
+   123→function SocialIcon({ name, className }: { name: string; className?: string }) {
+   124→  switch (name) {
+   125→    case "whatsapp":
+   126→      return (
+   127→        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+   128→          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+   129→        </svg>
+   130→      );
+   131→    case "twitter":
+   132→      return (
+   133→        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+   134→          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+   135→        </svg>
+   136→      );
+   137→    case "facebook":
+   138→      return (
+   139→        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+   140→          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+   141→        </svg>
+   142→      );
+   143→    case "telegram":
+   144→      return (
+   145→        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+   146→          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+   147→        </svg>
+   148→      );
+   149→    default:
+   150→      return <Share2 className={className} />;
+   151→  }
+   152→}
+   153→
+   154→/* ══════════════════════════════════════════════════════════════════
+   155→   Componente Principal
+   156→   ══════════════════════════════════════════════════════════════════ */
+   157→export default function BlogPostDetail() {
+   158→  const { slug } = useParams();
+   159→  const navigate = useNavigate();
+   160→  const { user } = useAuth();
+   161→
+   162→  const [post, setPost] = useState<BlogPost | null>(null);
+   163→  const [relatedPosts, setRelatedPosts] = useState<RelatedPost[]>([]);
+   164→  const [loading, setLoading] = useState(true);
+   165→  const [error, setError] = useState(false);
+   166→  const [liked, setLiked] = useState(false);
+   167→  const [likeCount, setLikeCount] = useState(0);
+   168→  const [viewCount, setViewCount] = useState(0);
+   169→  const [copiedLink, setCopiedLink] = useState(false);
+   170→  const [activeSection, setActiveSection] = useState("");
+   171→  const [showBackToTop, setShowBackToTop] = useState(false);
+   172→  const [toc, setToc] = useState<TOCItem[]>([]);
+   173→  const contentRef = useRef<HTMLDivElement>(null);
+   174→
+   175→  /* ─── Carregar post ─── */
+   176→  useEffect(() => {
+   177→    if (!slug) return;
+   178→    let cancelled = false;
+   179→
+   180→    const loadPost = async () => {
+   181→      setLoading(true);
+   182→      setError(false);
+   183→      try {
+   184→        const { data, error: fetchError } = await (supabase as any)
+   185→          .from("blog_posts")
+   186→          .select(
+   187→            `id, title, slug, content, summary, image_url, published_at, seo_keywords, seo_title, seo_description, view_count, like_count, share_count, reading_time_min, is_featured, is_trending, category:blog_categories(name, slug, color, icon), author:author_id(email, user_metadata->full_name)`
+   188→          )
+   189→          .eq("slug", slug)
+   190→          .eq("published", true)
+   191→          .single();
+   192→
+   193→        if (fetchError) throw fetchError;
+   194→        if (!data || cancelled) return;
+   195→
+   196→        const postData = data as BlogPost;
+   197→        setPost(postData);
+   198→        setLikeCount(postData.like_count || 0);
+   199→        setViewCount((postData.view_count || 0) + 1);
+   200→
+   201→        /* Incrementar visualizações */
+   202→        supabase.rpc("increment_blog_view", { post_slug: slug }).catch(() => {});
+   203→
+   204→        /* Gerar sumário */
+   205→        if (postData.content) {
+   206→          const parsed = parseTOC(postData.content);
+   207→          setToc(parsed);
+   208→        }
+   209→      } catch {
+   210→        if (!cancelled) {
+   211→          setError(true);
+   212→          toast.error("Artigo não encontrado ou indisponível.");
+   213→        }
+   214→      } finally {
+   215→        if (!cancelled) setLoading(false);
+   216→      }
+   217→    };
+   218→
+   219→    loadPost();
+   220→    return () => { cancelled = true; };
+   221→  }, [slug]);
+   222→
+   223→  /* ─── Carregar posts relacionados ─── */
+   224→  useEffect(() => {
+   225→    if (!slug) return;
+   226→    (supabase as any)
+   227→      .from("blog_posts")
+   228→      .select(
+   229→        `id, title, slug, summary, image_url, published_at, view_count, reading_time_min, category:blog_categories(name, slug, color)`
+   230→      )
+   231→      .eq("published", true)
+   232→      .neq("slug", slug)
+   233→      .order("published_at", { ascending: false })
+   234→      .limit(4)
+   235→      .then(({ data }) => {
+   236→        if (data) setRelatedPosts(data as RelatedPost[]);
+   237→      })
+   238→      .catch(() => {});
+   239→  }, [slug]);
+   240→
+   241→  /* ─── Scroll → seção ativa do sumário + back-to-top ─── */
+   242→  useEffect(() => {
+   243→    if (toc.length === 0) return;
+   244→    const handleScroll = () => {
+   245→      const scrollY = window.scrollY;
+   246→      setShowBackToTop(scrollY > 600);
+   247→      if (!contentRef.current) return;
+   248→      for (let i = toc.length - 1; i >= 0; i--) {
+   249→        const el = document.getElementById(toc[i].id);
+   250→        if (el && el.offsetTop - 140 <= scrollY) {
+   251→          setActiveSection(toc[i].id);
+   252→          return;
+   253→        }
+   254→      }
+   255→      setActiveSection(toc[0]?.id || "");
+   256→    };
+   257→    window.addEventListener("scroll", handleScroll, { passive: true });
+   258→    handleScroll();
+   259→    return () => window.removeEventListener("scroll", handleScroll);
+   260→  }, [toc]);
+   261→
+   262→  /* ─── SEO helpers ─── */
+   263→  const pageTitle = post?.seo_title || post?.title || "Blog";
+   264→  const pageDesc = post?.seo_description || post?.summary || "";
+   265→  const pageUrl = `${SITE_URL}/blog/${slug}`;
+   266→  const postImage = post?.image_url || "";
+   267→
+   268→  /* ─── Conteúdo com anchors injetados ─── */
+   269→  const enrichedContent = useMemo(() => {
+   270→    if (!post?.content || toc.length === 0) return post?.content || "";
+   271→    return injectAnchorIds(post.content, toc);
+   272→  }, [post?.content, toc]);
+   273→
+   274→  /* ─── Ações ─── */
+   275→  const handleLike = useCallback(async () => {
+   276→    if (!slug) return;
+   277→    const userId = user?.id || ANON_USER_ID;
+   278→    const willLike = !liked;
+   279→    setLiked(willLike);
+   280→    setLikeCount((c) => (willLike ? c + 1 : Math.max(0, c - 1)));
+   281→    try {
+   282→      await supabase.rpc("toggle_blog_like", { post_slug: slug, user_id: userId });
+   283→    } catch {
+   284→      setLiked(!willLike);
+   285→      setLikeCount((c) => (willLike ? c - 1 : c + 1));
+   286→    }
+   287→  }, [slug, user?.id, liked]);
+   288→
+   289→  const shareText = encodeURIComponent(`${post?.title} – ${SITE_NAME}`);
+   290→  const shareUrl = encodeURIComponent(pageUrl);
+   291→
+   292→  const shareLinks = useMemo(
+   293→    () => [
+   294→      {
+   295→        name: "WhatsApp",
+   296→        icon: "whatsapp",
+   297→        href: `https://wa.me/?text=${shareText}%20${shareUrl}`,
+   298→        color: "bg-green-600 hover:bg-green-700",
+   299→      },
+   300→      {
+   301→        name: "Twitter",
+   302→        icon: "twitter",
+   303→        href: `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`,
+   304→        color: "bg-black hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-black",
+   305→      },
+   306→      {
+   307→        name: "Facebook",
+   308→        icon: "facebook",
+   309→        href: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`,
+   310→        color: "bg-blue-600 hover:bg-blue-700",
+   311→      },
+   312→      {
+   313→        name: "Telegram",
+   314→        icon: "telegram",
+   315→        href: `https://t.me/share/url?url=${shareUrl}&text=${shareText}`,
+   316→        color: "bg-sky-500 hover:bg-sky-600",
+   317→      },
+   318→    ],
+   319→    [shareText, shareUrl]
+   320→  );
+   321→
+   322→  const handleNativeShare = useCallback(() => {
+   323→    if (navigator.share) {
+   324→      navigator.share({ title: post?.title, url: pageUrl });
+   325→    } else {
+   326→      navigator.clipboard.writeText(pageUrl).then(() => {
+   327→        setCopiedLink(true);
+   328→        toast.success("Link copiado!");
+   329→        setTimeout(() => setCopiedLink(false), 2500);
+   330→      });
+   331→    }
+   332→  }, [post?.title, pageUrl]);
+   333→
+   334→  const handleCopyLink = useCallback(() => {
+   335→    navigator.clipboard.writeText(pageUrl).then(() => {
+   336→      setCopiedLink(true);
+   337→      toast.success("Link copiado para a área de transferência!");
+   338→      setTimeout(() => setCopiedLink(false), 2500);
+   339→    });
+   340→  }, [pageUrl]);
+   341→
+   342→  const scrollToTop = useCallback(() => {
+   343→    window.scrollTo({ top: 0, behavior: "smooth" });
+   344→  }, []);
+   345→
+   346→  /* ══════════════════════════════════════════════════════════════
+   347→     Loading skeleton
+   348→     ══════════════════════════════════════════════════════════════ */
+   349→  if (loading) {
+   350→    return (
+   351→      <div className="min-h-screen bg-background">
+   352→        <div className="container mx-auto px-4 py-6">
+   353→          <Skeleton className="h-5 w-64 mb-8" />
+   354→        </div>
+   355→        <div className="relative h-[40vh] md:h-[55vh] w-full">
+   356→          <Skeleton className="w-full h-full" />
+   357→        </div>
+   358→        <div className="container mx-auto px-4 mt-10">
+   359→          <div className="max-w-4xl mx-auto space-y-6">
+   360→            <Skeleton className="h-10 w-3/4" />
+   361→            <div className="flex gap-4">
+   362→              <Skeleton className="h-5 w-32" />
+   363→              <Skeleton className="h-5 w-24" />
+   364→              <Skeleton className="h-5 w-28" />
+   365→            </div>
+   366→            <Skeleton className="h-px w-full" />
+   367→            {Array.from({ length: 8 }).map((_, i) => (
+   368→              <Skeleton
+   369→                key={i}
+   370→                className="h-5 w-full"
+   371→                style={{ width: `${85 + Math.random() * 15}%` }}
+   372→              />
+   373→            ))}
+   374→          </div>
+   375→        </div>
+   376→      </div>
+   377→    );
+   378→  }
+   379→
+   380→  /* ══════════════════════════════════════════════════════════════
+   381→     Error state
+   382→     ══════════════════════════════════════════════════════════════ */
+   383→  if (error || !post) {
+   384→    return (
+   385→      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 p-8 text-center">
+   386→        <motion.div
+   387→          initial={{ scale: 0.8, opacity: 0 }}
+   388→          animate={{ scale: 1, opacity: 1 }}
+   389→          transition={{ type: "spring", stiffness: 200 }}
+   390→        >
+   391→          <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+   392→        </motion.div>
+   393→        <h1 className="text-2xl font-bold">Artigo não encontrado</h1>
+   394→        <p className="text-muted-foreground max-w-md">
+   395→          O artigo que você procura pode ter sido removido ou o link está incorreto.
+   396→        </p>
+   397→        <Button onClick={() => navigate("/blog")} variant="outline" className="gap-2">
+   398→          <ArrowLeft className="h-4 w-4" /> Voltar ao Blog
+   399→        </Button>
+   400→      </div>
+   401→    );
+   402→  }
+   403→
+   404→  const categoryColor = post.category?.color || "bg-primary";
+   405→
+   406→  return (
+   407→    <motion.div
+   408→      className="min-h-screen bg-background"
+   409→      initial={{ opacity: 0, y: 20 }}
+   410→      animate={{ opacity: 1, y: 0 }}
+   411→      transition={{ duration: 0.5, ease: "easeOut" }}
+   412→    >
+   413→      {/* ══════ SEO ══════ */}
+   414→      <Helmet>
+   415→        <title>{pageTitle} | {SITE_NAME}</title>
+   416→        <meta name="description" content={pageDesc} />
+   417→        <meta name="robots" content="index, follow" />
+   418→        <link rel="canonical" href={pageUrl} />
+   419→        {/* Open Graph */}
+   420→        <meta property="og:type" content="article" />
+   421→        <meta property="og:title" content={pageTitle} />
+   422→        <meta property="og:description" content={pageDesc} />
+   423→        <meta property="og:url" content={pageUrl} />
+   424→        <meta property="og:image" content={postImage} />
+   425→        <meta property="og:site_name" content={SITE_NAME} />
+   426→        <meta property="og:locale" content="pt_BR" />
+   427→        {post.published_at && (
+   428→          <meta property="article:published_time" content={post.published_at} />
+   429→        )}
+   430→        {post.seo_keywords?.map((kw) => (
+   431→          <meta property="article:tag" content={kw} key={kw} />
+   432→        ))}
+   433→        {/* Twitter Card */}
+   434→        <meta name="twitter:card" content="summary_large_image" />
+   435→        <meta name="twitter:title" content={pageTitle} />
+   436→        <meta name="twitter:description" content={pageDesc} />
+   437→        <meta name="twitter:image" content={postImage} />
+   438→      </Helmet>
+   439→
+   440→      {/* ══════ Breadcrumbs ══════ */}
+   441→      <div className="container mx-auto px-4 pt-4 pb-2">
+   442→        <Breadcrumb>
+   443→          <BreadcrumbList>
+   444→            <BreadcrumbItem>
+   445→              <BreadcrumbLink asChild>
+   446→                <Link to="/">
+   447→                  <Home className="h-3.5 w-3.5" />
+   448→                </Link>
+   449→              </BreadcrumbLink>
+   450→            </BreadcrumbItem>
+   451→            <BreadcrumbSeparator />
+   452→            <BreadcrumbItem>
+   453→              <BreadcrumbLink asChild>
+   454→                <Link to="/blog">Blog</Link>
+   455→              </BreadcrumbLink>
+   456→            </BreadcrumbItem>
+   457→            {post.category && (
+   458→              <>
+   459→                <BreadcrumbSeparator />
+   460→                <BreadcrumbItem>
+   461→                  <BreadcrumbLink asChild>
+   462→                    <Link to={`/blog?categoria=${post.category.slug}`}>
+   463→                      {post.category.name}
+   464→                    </Link>
+   465→                  </BreadcrumbLink>
+   466→                </BreadcrumbItem>
+   467→              </>
+   468→            )}
+   469→            <BreadcrumbSeparator />
+   470→            <BreadcrumbItem>
+   471→              <BreadcrumbPage className="line-clamp-1 max-w-[200px] md:max-w-[300px]">
+   472→                {post.title}
+   473→              </BreadcrumbPage>
+   474→            </BreadcrumbItem>
+   475→          </BreadcrumbList>
+   476→        </Breadcrumb>
+   477→      </div>
+   478→
+   479→      {/* ══════ Hero ══════ */}
+   480→      <div className="relative h-[40vh] md:h-[55vh] w-full overflow-hidden">
+   481→        <img
+   482→          src={post.image_url || "/placeholder.svg"}
+   483→          alt={post.title}
+   484→          className="w-full h-full object-cover"
+   485→        />
+   486→        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+   487→
+   488→        {/* Badges flutuantes */}
+   489→        <div className="absolute top-4 right-4 z-10 flex gap-2">
+   490→          {post.is_featured && (
+   491→            <Badge className="gap-1 bg-yellow-500 text-black border-none font-bold shadow-lg">
+   492→              <Sparkles className="h-3 w-3" /> Destaque
+   493→            </Badge>
+   494→          )}
+   495→          {post.is_trending && (
+   496→            <Badge className="gap-1 bg-orange-500 text-white border-none font-bold shadow-lg">
+   497→              <TrendingUp className="h-3 w-3" /> Em alta
+   498→            </Badge>
+   499→          )}
+   500→        </div>
+   501→
+   502→        <div className="absolute bottom-0 left-0 right-0 container mx-auto px-4 pb-8">
+   503→          <div className="space-y-4">
+   504→            <Link to="/blog">
+   505→              <Button
+   506→                variant="ghost"
+   507→                size="sm"
+   508→                className="mb-4 text-white hover:bg-white/20 -ml-2"
+   509→              >
+   510→                <ArrowLeft className="h-4 w-4 mr-2" /> Voltar ao Blog
+   511→              </Button>
+   512→            </Link>
+   513→
+   514→            <Badge className={`${categoryColor} text-white border-none shadow-lg`}>
+   515→              {post.category?.icon && <span className="mr-1">{post.category.icon}</span>}
+   516→              {post.category?.name || "Geral"}
+   517→            </Badge>
+   518→
+   519→            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-white leading-tight">
+   520→              {post.title}
+   521→            </h1>
+   522→
+   523→            <p className="text-white/80 text-base md:text-lg max-w-2xl line-clamp-2">
+   524→              {post.summary}
+   525→            </p>
+   526→
+   527→            <div className="flex flex-wrap items-center gap-4 md:gap-6 text-white/80 text-sm">
+   528→              <div className="flex items-center gap-1.5">
+   529→                <Calendar className="h-4 w-4" />
+   530→                {formatDate(post.published_at)}
+   531→              </div>
+   532→              {post.reading_time_min && (
+   533→                <div className="flex items-center gap-1.5">
+   534→                  <Clock className="h-4 w-4" />
+   535→                  {post.reading_time_min} min de leitura
+   536→                </div>
+   537→              )}
+   538→              <div className="flex items-center gap-1.5">
+   539→                <Eye className="h-4 w-4" />
+   540→                {formatNumber(viewCount)} visualizações
+   541→              </div>
+   542→              <div className="flex items-center gap-1.5">
+   543→                <User className="h-4 w-4" />
+   544→                {post.author?.full_name || "Equipe Bateumz"}
+   545→              </div>
+   546→            </div>
+   547→          </div>
+   548→        </div>
+   549→      </div>
+   550→
+   551→      {/* ══════ Conteúdo principal + sidebars ══════ */}
+   552→      <div className="container mx-auto px-4 mt-10 pb-20">
+   553→        <div className="flex gap-12 relative">
+   554→
+   555→          {/* ── Sticky share bar (desktop xl+) ── */}
+   556→          <div className="hidden xl:flex flex-col items-center gap-2 sticky top-24 self-start z-10">
+   557→            {shareLinks.map((s) => (
+   558→              <a
+   559→                key={s.name}
+   560→                href={s.href}
+   561→                target="_blank"
+   562→                rel="noopener noreferrer"
+   563→                className={`${s.color} text-white w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-md`}
+   564→                title={s.name}
+   565→              >
+   566→                <SocialIcon name={s.icon} className="h-4 w-4" />
+   567→              </a>
+   568→            ))}
+   569→            <button
+   570→              onClick={handleCopyLink}
+   571→              className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-md"
+   572→              title="Copiar link"
+   573→            >
+   574→              {copiedLink ? (
+   575→                <Check className="h-4 w-4 text-green-500" />
+   576→              ) : (
+   577→                <Copy className="h-4 w-4" />
+   578→              )}
+   579→            </button>
+   580→            <Separator className="my-2 w-6" />
+   581→            <button
+   582→              onClick={handleLike}
+   583→              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-md ${
+   584→                liked
+   585→                  ? "bg-red-500 text-white"
+   586→                  : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground"
+   587→              }`}
+   588→              title="Curtir"
+   589→            >
+   590→              <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+   591→            </button>
+   592→          </div>
+   593→
+   594→          {/* ── TOC Sidebar (desktop lg+) ── */}
+   595→          {toc.length > 1 && (
+   596→            <aside className="hidden lg:block w-56 shrink-0 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+   597→              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+   598→                Sumário
+   599→              </div>
+   600→              <nav className="flex flex-col gap-1 border-l border-border pl-3">
+   601→                {toc.map((item) => (
+   602→                  <a
+   603→                    key={item.id}
+   604→                    href={`#${item.id}`}
+   605→                    onClick={(e) => {
+   606→                      e.preventDefault();
+   607→                      document
+   608→                        .getElementById(item.id)
+   609→                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+   610→                    }}
+   611→                    className={`text-xs leading-relaxed transition-colors py-0.5 hover:text-primary ${
+   612→                      item.level === 3 ? "pl-3" : ""
+   613→                    } ${
+   614→                      activeSection === item.id
+   615→                        ? "text-primary font-semibold border-l-2 border-primary -ml-px pl-2"
+   616→                        : "text-muted-foreground"
+   617→                    }`}
+   618→                  >
+   619→                    {item.text}
+   620→                  </a>
+   621→                ))}
+   622→              </nav>
+   623→            </aside>
+   624→          )}
+   625→
+   626→          {/* ── Main content ── */}
+   627→          <article className="flex-1 min-w-0 max-w-3xl">
+   628→            <div
+   629→              ref={contentRef}
+   630→              className="prose prose-lg dark:prose-invert max-w-none
+   631→                prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight
+   632→                prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
+   633→                prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
+   634→                prose-p:text-muted-foreground prose-p:leading-relaxed
+   635→                prose-a:text-primary prose-a:underline-offset-4 hover:prose-a:text-primary/80
+   636→                prose-img:rounded-xl prose-img:shadow-lg
+   637→                prose-blockquote:border-l-4 prose-blockquote:border-primary
+   638→                prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-4
+   639→                prose-li:text-muted-foreground
+   640→                prose-strong:text-foreground
+   641→                prose-table:border prose-th:border prose-th:bg-muted prose-td:border
+   642→                prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+   643→                prose-pre:bg-muted prose-pre:rounded-xl prose-pre:shadow-md
+   644→                [&_iframe]:rounded-xl [&_iframe]:shadow-lg
+   645→                scroll-mt-28"
+   646→              dangerouslySetInnerHTML={{ __html: enrichedContent }}
+   647→            />
+   648→
+   649→            {/* ── Barra de ações mobile ── */}
+   650→            <div className="xl:hidden mt-10 pt-6 border-t border-border">
+   651→              <div className="flex items-center justify-between flex-wrap gap-4">
+   652→                <div className="flex items-center gap-3">
+   653→                  <Button
+   654→                    variant={liked ? "default" : "outline"}
+   655→                    size="sm"
+   656→                    onClick={handleLike}
+   657→                    className={
+   658→                      liked
+   659→                        ? "bg-red-500 hover:bg-red-600 text-white border-none gap-1.5"
+   660→                        : "gap-1.5"
+   661→                    }
+   662→                  >
+   663→                    <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+   664→                    Curtir
+   665→                    {likeCount > 0 && (
+   666→                      <span className="text-xs opacity-70">({formatNumber(likeCount)})</span>
+   667→                    )}
+   668→                  </Button>
+   669→                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+   670→                    <Eye className="h-4 w-4" /> {formatNumber(viewCount)}
+   671→                  </div>
+   672→                </div>
+   673→                <div className="flex items-center gap-1.5">
+   674→                  {shareLinks.map((s) => (
+   675→                    <a
+   676→                      key={s.name}
+   677→                      href={s.href}
+   678→                      target="_blank"
+   679→                      rel="noopener noreferrer"
+   680→                      className={`${s.color} text-white w-9 h-9 rounded-full flex items-center justify-center transition-transform hover:scale-110`}
+   681→                      title={s.name}
+   682→                    >
+   683→                      <SocialIcon name={s.icon} className="h-3.5 w-3.5" />
+   684→                    </a>
+   685→                  ))}
+   686→                  <Button
+   687→                    variant="outline"
+   688→                    size="sm"
+   689→                    onClick={handleNativeShare}
+   690→                    className="gap-1.5"
+   691→                  >
+   692→                    {copiedLink ? (
+   693→                      <Check className="h-4 w-4 text-green-500" />
+   694→                    ) : (
+   695→                      <Copy className="h-4 w-4" />
+   696→                    )}
+   697→                    Compartilhar
+   698→                  </Button>
+   699→                </div>
+   700→              </div>
+   701→            </div>
+   702→
+   703→            {/* ── Tags ── */}
+   704→            {post.seo_keywords && post.seo_keywords.length > 0 && (
+   705→              <div className="mt-8 pt-6 border-t border-border">
+   706→                <div className="flex items-center gap-2 mb-3">
+   707→                  <Tag className="h-4 w-4 text-muted-foreground" />
+   708→                  <span className="text-sm font-medium text-muted-foreground">Tags</span>
+   709→                </div>
+   710→                <div className="flex flex-wrap gap-2">
+   711→                  {post.seo_keywords.map((keyword, i) => (
+   712→                    <Badge key={i} variant="outline" className="text-xs">
+   713→                      {keyword}
+   714→                    </Badge>
+   715→                  ))}
+   716→                </div>
+   717→              </div>
+   718→            )}
+   719→
+   720→            {/* ── Caixa do autor ── */}
+   721→            <Card className="mt-10 border-primary/10">
+   722→              <CardContent className="p-6 flex items-start gap-4">
+   723→                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+   724→                  <span className="text-2xl font-black text-primary">B</span>
+   725→                </div>
+   726→                <div className="space-y-1">
+   727→                  <h4 className="font-bold text-base">
+   728→                    {post.author?.full_name || "Equipe Bateumz"}
+   729→                  </h4>
+   730→                  <p className="text-sm text-muted-foreground leading-relaxed">
+   731→                    Conteúdo produzido pela equipe Bateumz — especialistas em sorteios,
+   732→                    loterias e prêmios. Acompanhe as últimas novidades do mundo dos jogos
+   733→                    e não perca nenhuma oportunidade.
+   734→                  </p>
+   735→                  {post.author?.email && (
+   736→                    <p className="text-xs text-muted-foreground/70">{post.author.email}</p>
+   737→                  )}
+   738→                </div>
+   739→              </CardContent>
+   740→            </Card>
+   741→
+   742→            {/* ── Posts relacionados (inline, visível em todas as telas) ── */}
+   743→            {relatedPosts.length > 0 && (
+   744→              <section className="mt-14">
+   745→                <div className="flex items-center gap-2 mb-6">
+   746→                  <BookOpen className="h-5 w-5 text-primary" />
+   747→                  <h2 className="text-xl font-black uppercase tracking-tight">
+   748→                    Artigos Relacionados
+   749→                  </h2>
+   750→                </div>
+   751→                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   752→                  {relatedPosts.slice(0, 3).map((rp) => (
+   753→                    <Link key={rp.id} to={`/blog/${rp.slug}`} className="group">
+   754→                      <Card className="overflow-hidden h-full transition-all hover:shadow-lg hover:border-primary/30">
+   755→                        <div className="relative h-36 overflow-hidden">
+   756→                          <img
+   757→                            src={rp.image_url || "/placeholder.svg"}
+   758→                            alt={rp.title}
+   759→                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+   760→                          />
+   761→                          {rp.category && (
+   762→                            <Badge
+   763→                              className="absolute bottom-2 left-2 text-white border-none text-[10px]"
+   764→                              style={{
+   765→                                backgroundColor: rp.category.color || undefined,
+   766→                              }}
+   767→                            >
+   768→                              {rp.category.name}
+   769→                            </Badge>
+   770→                          )}
+   771→                        </div>
+   772→                        <CardContent className="p-4 space-y-2">
+   773→                          <h3 className="font-bold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+   774→                            {rp.title}
+   775→                          </h3>
+   776→                          <p className="text-xs text-muted-foreground line-clamp-2">
+   777→                            {rp.summary}
+   778→                          </p>
+   779→                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground/70">
+   780→                            <span>{formatDate(rp.published_at)}</span>
+   781→                            {rp.reading_time_min && (
+   782→                              <span className="flex items-center gap-1">
+   783→                                <Clock className="h-3 w-3" /> {rp.reading_time_min} min
+   784→                              </span>
+   785→                            )}
+   786→                            <span className="flex items-center gap-1">
+   787→                              <Eye className="h-3 w-3" />{" "}
+   788→                              {formatNumber(rp.view_count || 0)}
+   789→                            </span>
+   790→                          </div>
+   791→                        </CardContent>
+   792→                      </Card>
+   793→                    </Link>
+   794→                  ))}
+   795→                </div>
+   796→              </section>
+   797→            )}
+   798→
+   799→            {/* ── Footer CTA ── */}
+   800→            <Card className="mt-14 bg-gradient-to-r from-primary to-primary/80 border-none overflow-hidden">
+   801→              <CardContent className="p-8 md:p-10 flex flex-col md:flex-row items-center gap-6">
+   802→                <div className="flex-1 text-center md:text-left space-y-2">
+   803→                  <h3 className="text-2xl font-black uppercase text-white">
+   804→                    Quer participar de sorteios reais?
+   805→                  </h3>
+   806→                  <p className="text-white/80 text-sm md:text-base">
+   807→                    Acesse nosso marketplace e concorra a prêmios incríveis. Novos sorteios
+   808→                    toda semana!
+   809→                  </p>
+   810→                </div>
+   811→                <Link to="/marketplace">
+   812→                  <Button
+   813→                    size="lg"
+   814→                    className="bg-white text-primary hover:bg-white/90 font-black uppercase shadow-xl gap-2 text-base"
+   815→                  >
+   816→                    <Sparkles className="h-5 w-5" />
+   817→                    Ver Sorteios
+   818→                    <ChevronRight className="h-4 w-4" />
+   819→                  </Button>
+   820→                </Link>
+   821→              </CardContent>
+   822→            </Card>
+   823→          </article>
+   824→
+   825→          {/* ── Sidebar direita (desktop lg+) ── */}
+   826→          <aside className="hidden lg:block w-72 shrink-0 space-y-6 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+   827→            {/* Compartilhar */}
+   828→            <Card className="border-primary/10">
+   829→              <CardHeader className="pb-3">
+   830→                <CardTitle className="text-base flex items-center gap-2">
+   831→                  <Share2 className="h-4 w-4 text-primary" /> Compartilhar
+   832→                </CardTitle>
+   833→              </CardHeader>
+   834→              <CardContent className="space-y-3">
+   835→                <p className="text-xs text-muted-foreground">
+   836→                  Gostou do artigo? Compartilhe com seus amigos!
+   837→                </p>
+   838→                <div className="grid grid-cols-2 gap-2">
+   839→                  {shareLinks.map((s) => (
+   840→                    <a
+   841→                      key={s.name}
+   842→                      href={s.href}
+   843→                      target="_blank"
+   844→                      rel="noopener noreferrer"
+   845→                      className={`${s.color} text-white text-xs font-medium rounded-lg py-2 px-3 flex items-center gap-2 transition-transform hover:scale-[1.02]`}
+   846→                    >
+   847→                      <SocialIcon name={s.icon} className="h-3.5 w-3.5" />
+   848→                      {s.name}
+   849→                    </a>
+   850→                  ))}
+   851→                </div>
+   852→                <Button
+   853→                  variant="outline"
+   854→                  size="sm"
+   855→                  onClick={handleCopyLink}
+   856→                  className="w-full gap-1.5 text-xs"
+   857→                >
+   858→                  {copiedLink ? (
+   859→                    <Check className="h-3.5 w-3.5 text-green-500" />
+   860→                  ) : (
+   861→                    <Copy className="h-3.5 w-3.5" />
+   862→                  )}
+   863→                  {copiedLink ? "Copiado!" : "Copiar link"}
+   864→                </Button>
+   865→              </CardContent>
+   866→            </Card>
+   867→
+   868→            {/* Curtir */}
+   869→            <Card className="border-primary/10">
+   870→              <CardContent className="p-4 flex items-center gap-4">
+   871→                <Button
+   872→                  variant={liked ? "default" : "outline"}
+   873→                  size="lg"
+   874→                  onClick={handleLike}
+   875→                  className={`rounded-full h-12 w-12 p-0 shrink-0 ${
+   876→                    liked
+   877→                      ? "bg-red-500 hover:bg-red-600 text-white border-none"
+   878→                      : ""
+   879→                  }`}
+   880→                >
+   881→                  <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
+   882→                </Button>
+   883→                <div>
+   884→                  <div className="font-bold text-lg">{formatNumber(likeCount)}</div>
+   885→                  <div className="text-xs text-muted-foreground">curtidas</div>
+   886→                </div>
+   887→              </CardContent>
+   888→            </Card>
+   889→
+   890→            {/* Posts relacionados sidebar */}
+   891→            {relatedPosts.length > 0 && (
+   892→              <Card className="border-primary/10">
+   893→                <CardHeader className="pb-3">
+   894→                  <CardTitle className="text-base flex items-center gap-2">
+   895→                    <BookOpen className="h-4 w-4 text-primary" /> Relacionados
+   896→                  </CardTitle>
+   897→                </CardHeader>
+   898→                <CardContent className="space-y-4">
+   899→                  {relatedPosts.slice(0, 3).map((rp) => (
+   900→                    <Link
+   901→                      key={rp.id}
+   902→                      to={`/blog/${rp.slug}`}
+   903→                      className="group flex gap-3 items-start"
+   904→                    >
+   905→                      <div className="w-16 h-12 rounded-md overflow-hidden shrink-0 bg-muted">
+   906→                        <img
+   907→                          src={rp.image_url || "/placeholder.svg"}
+   908→                          alt={rp.title}
+   909→                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+   910→                        />
+   911→                      </div>
+   912→                      <div className="min-w-0 space-y-0.5">
+   913→                        <h4 className="text-xs font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+   914→                          {rp.title}
+   915→                        </h4>
+   916→                        <span className="text-[10px] text-muted-foreground/70">
+   917→                          {formatDate(rp.published_at)}
+   918→                        </span>
+   919→                      </div>
+   920→                    </Link>
+   921→                  ))}
+   922→                </CardContent>
+   923→              </Card>
+   924→            )}
+   925→          </aside>
+   926→        </div>
+   927→      </div>
+   928→
+   929→      {/* ══════ Botão voltar ao topo ══════ */}
+   930→      <motion.div
+   931→        className="fixed bottom-6 right-6 z-50"
+   932→        initial={{ opacity: 0, y: 20 }}
+   933→        animate={{
+   934→          opacity: showBackToTop ? 1 : 0,
+   935→          y: showBackToTop ? 0 : 20,
+   936→          pointerEvents: showBackToTop ? "auto" : "none",
+   937→        }}
+   938→        transition={{ duration: 0.2 }}
+   939→      >
+   940→        <Button
+   941→          onClick={scrollToTop}
+   942→          size="icon"
+   943→          className="rounded-full h-12 w-12 shadow-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
+   944→        >
+   945→          <ArrowUp className="h-5 w-5" />
+   946→        </Button>
+   947→      </motion.div>
+   948→    </motion.div>
+   949→  );
+   950→}
+   951→

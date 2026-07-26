@@ -1,0 +1,602 @@
+   350→    return (
+   351→      <div className="min-h-screen bg-background">
+   352→        <div className="container mx-auto px-4 py-6">
+   353→          <Skeleton className="h-5 w-64 mb-8" />
+   354→        </div>
+   355→        <div className="relative h-[40vh] md:h-[55vh] w-full">
+   356→          <Skeleton className="w-full h-full" />
+   357→        </div>
+   358→        <div className="container mx-auto px-4 mt-10">
+   359→          <div className="max-w-4xl mx-auto space-y-6">
+   360→            <Skeleton className="h-10 w-3/4" />
+   361→            <div className="flex gap-4">
+   362→              <Skeleton className="h-5 w-32" />
+   363→              <Skeleton className="h-5 w-24" />
+   364→              <Skeleton className="h-5 w-28" />
+   365→            </div>
+   366→            <Skeleton className="h-px w-full" />
+   367→            {Array.from({ length: 8 }).map((_, i) => (
+   368→              <Skeleton
+   369→                key={i}
+   370→                className="h-5 w-full"
+   371→                style={{ width: `${85 + Math.random() * 15}%` }}
+   372→              />
+   373→            ))}
+   374→          </div>
+   375→        </div>
+   376→      </div>
+   377→    );
+   378→  }
+   379→
+   380→  /* ══════════════════════════════════════════════════════════════
+   381→     Error state
+   382→     ══════════════════════════════════════════════════════════════ */
+   383→  if (error || !post) {
+   384→    return (
+   385→      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 p-8 text-center">
+   386→        <motion.div
+   387→          initial={{ scale: 0.8, opacity: 0 }}
+   388→          animate={{ scale: 1, opacity: 1 }}
+   389→          transition={{ type: "spring", stiffness: 200 }}
+   390→        >
+   391→          <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+   392→        </motion.div>
+   393→        <h1 className="text-2xl font-bold">Artigo não encontrado</h1>
+   394→        <p className="text-muted-foreground max-w-md">
+   395→          O artigo que você procura pode ter sido removido ou o link está incorreto.
+   396→        </p>
+   397→        <Button onClick={() => navigate("/blog")} variant="outline" className="gap-2">
+   398→          <ArrowLeft className="h-4 w-4" /> Voltar ao Blog
+   399→        </Button>
+   400→      </div>
+   401→    );
+   402→  }
+   403→
+   404→  const categoryColor = post.category?.color || "bg-primary";
+   405→
+   406→  return (
+   407→    <motion.div
+   408→      className="min-h-screen bg-background"
+   409→      initial={{ opacity: 0, y: 20 }}
+   410→      animate={{ opacity: 1, y: 0 }}
+   411→      transition={{ duration: 0.5, ease: "easeOut" }}
+   412→    >
+   413→      {/* ══════ SEO ══════ */}
+   414→      <Helmet>
+   415→        <title>{pageTitle} | {SITE_NAME}</title>
+   416→        <meta name="description" content={pageDesc} />
+   417→        <meta name="robots" content="index, follow" />
+   418→        <link rel="canonical" href={pageUrl} />
+   419→        {/* Open Graph */}
+   420→        <meta property="og:type" content="article" />
+   421→        <meta property="og:title" content={pageTitle} />
+   422→        <meta property="og:description" content={pageDesc} />
+   423→        <meta property="og:url" content={pageUrl} />
+   424→        <meta property="og:image" content={postImage} />
+   425→        <meta property="og:site_name" content={SITE_NAME} />
+   426→        <meta property="og:locale" content="pt_BR" />
+   427→        {post.published_at && (
+   428→          <meta property="article:published_time" content={post.published_at} />
+   429→        )}
+   430→        {post.seo_keywords?.map((kw) => (
+   431→          <meta property="article:tag" content={kw} key={kw} />
+   432→        ))}
+   433→        {/* Twitter Card */}
+   434→        <meta name="twitter:card" content="summary_large_image" />
+   435→        <meta name="twitter:title" content={pageTitle} />
+   436→        <meta name="twitter:description" content={pageDesc} />
+   437→        <meta name="twitter:image" content={postImage} />
+   438→      </Helmet>
+   439→
+   440→      {/* ══════ Breadcrumbs ══════ */}
+   441→      <div className="container mx-auto px-4 pt-4 pb-2">
+   442→        <Breadcrumb>
+   443→          <BreadcrumbList>
+   444→            <BreadcrumbItem>
+   445→              <BreadcrumbLink asChild>
+   446→                <Link to="/">
+   447→                  <Home className="h-3.5 w-3.5" />
+   448→                </Link>
+   449→              </BreadcrumbLink>
+   450→            </BreadcrumbItem>
+   451→            <BreadcrumbSeparator />
+   452→            <BreadcrumbItem>
+   453→              <BreadcrumbLink asChild>
+   454→                <Link to="/blog">Blog</Link>
+   455→              </BreadcrumbLink>
+   456→            </BreadcrumbItem>
+   457→            {post.category && (
+   458→              <>
+   459→                <BreadcrumbSeparator />
+   460→                <BreadcrumbItem>
+   461→                  <BreadcrumbLink asChild>
+   462→                    <Link to={`/blog?categoria=${post.category.slug}`}>
+   463→                      {post.category.name}
+   464→                    </Link>
+   465→                  </BreadcrumbLink>
+   466→                </BreadcrumbItem>
+   467→              </>
+   468→            )}
+   469→            <BreadcrumbSeparator />
+   470→            <BreadcrumbItem>
+   471→              <BreadcrumbPage className="line-clamp-1 max-w-[200px] md:max-w-[300px]">
+   472→                {post.title}
+   473→              </BreadcrumbPage>
+   474→            </BreadcrumbItem>
+   475→          </BreadcrumbList>
+   476→        </Breadcrumb>
+   477→      </div>
+   478→
+   479→      {/* ══════ Hero ══════ */}
+   480→      <div className="relative h-[40vh] md:h-[55vh] w-full overflow-hidden">
+   481→        <img
+   482→          src={post.image_url || "/placeholder.svg"}
+   483→          alt={post.title}
+   484→          className="w-full h-full object-cover"
+   485→        />
+   486→        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+   487→
+   488→        {/* Badges flutuantes */}
+   489→        <div className="absolute top-4 right-4 z-10 flex gap-2">
+   490→          {post.is_featured && (
+   491→            <Badge className="gap-1 bg-yellow-500 text-black border-none font-bold shadow-lg">
+   492→              <Sparkles className="h-3 w-3" /> Destaque
+   493→            </Badge>
+   494→          )}
+   495→          {post.is_trending && (
+   496→            <Badge className="gap-1 bg-orange-500 text-white border-none font-bold shadow-lg">
+   497→              <TrendingUp className="h-3 w-3" /> Em alta
+   498→            </Badge>
+   499→          )}
+   500→        </div>
+   501→
+   502→        <div className="absolute bottom-0 left-0 right-0 container mx-auto px-4 pb-8">
+   503→          <div className="space-y-4">
+   504→            <Link to="/blog">
+   505→              <Button
+   506→                variant="ghost"
+   507→                size="sm"
+   508→                className="mb-4 text-white hover:bg-white/20 -ml-2"
+   509→              >
+   510→                <ArrowLeft className="h-4 w-4 mr-2" /> Voltar ao Blog
+   511→              </Button>
+   512→            </Link>
+   513→
+   514→            <Badge className={`${categoryColor} text-white border-none shadow-lg`}>
+   515→              {post.category?.icon && <span className="mr-1">{post.category.icon}</span>}
+   516→              {post.category?.name || "Geral"}
+   517→            </Badge>
+   518→
+   519→            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-white leading-tight">
+   520→              {post.title}
+   521→            </h1>
+   522→
+   523→            <p className="text-white/80 text-base md:text-lg max-w-2xl line-clamp-2">
+   524→              {post.summary}
+   525→            </p>
+   526→
+   527→            <div className="flex flex-wrap items-center gap-4 md:gap-6 text-white/80 text-sm">
+   528→              <div className="flex items-center gap-1.5">
+   529→                <Calendar className="h-4 w-4" />
+   530→                {formatDate(post.published_at)}
+   531→              </div>
+   532→              {post.reading_time_min && (
+   533→                <div className="flex items-center gap-1.5">
+   534→                  <Clock className="h-4 w-4" />
+   535→                  {post.reading_time_min} min de leitura
+   536→                </div>
+   537→              )}
+   538→              <div className="flex items-center gap-1.5">
+   539→                <Eye className="h-4 w-4" />
+   540→                {formatNumber(viewCount)} visualizações
+   541→              </div>
+   542→              <div className="flex items-center gap-1.5">
+   543→                <User className="h-4 w-4" />
+   544→                {post.author?.full_name || "Equipe Bateumz"}
+   545→              </div>
+   546→            </div>
+   547→          </div>
+   548→        </div>
+   549→      </div>
+   550→
+   551→      {/* ══════ Conteúdo principal + sidebars ══════ */}
+   552→      <div className="container mx-auto px-4 mt-10 pb-20">
+   553→        <div className="flex gap-12 relative">
+   554→
+   555→          {/* ── Sticky share bar (desktop xl+) ── */}
+   556→          <div className="hidden xl:flex flex-col items-center gap-2 sticky top-24 self-start z-10">
+   557→            {shareLinks.map((s) => (
+   558→              <a
+   559→                key={s.name}
+   560→                href={s.href}
+   561→                target="_blank"
+   562→                rel="noopener noreferrer"
+   563→                className={`${s.color} text-white w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-md`}
+   564→                title={s.name}
+   565→              >
+   566→                <SocialIcon name={s.icon} className="h-4 w-4" />
+   567→              </a>
+   568→            ))}
+   569→            <button
+   570→              onClick={handleCopyLink}
+   571→              className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-md"
+   572→              title="Copiar link"
+   573→            >
+   574→              {copiedLink ? (
+   575→                <Check className="h-4 w-4 text-green-500" />
+   576→              ) : (
+   577→                <Copy className="h-4 w-4" />
+   578→              )}
+   579→            </button>
+   580→            <Separator className="my-2 w-6" />
+   581→            <button
+   582→              onClick={handleLike}
+   583→              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-md ${
+   584→                liked
+   585→                  ? "bg-red-500 text-white"
+   586→                  : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground"
+   587→              }`}
+   588→              title="Curtir"
+   589→            >
+   590→              <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+   591→            </button>
+   592→          </div>
+   593→
+   594→          {/* ── TOC Sidebar (desktop lg+) ── */}
+   595→          {toc.length > 1 && (
+   596→            <aside className="hidden lg:block w-56 shrink-0 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+   597→              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+   598→                Sumário
+   599→              </div>
+   600→              <nav className="flex flex-col gap-1 border-l border-border pl-3">
+   601→                {toc.map((item) => (
+   602→                  <a
+   603→                    key={item.id}
+   604→                    href={`#${item.id}`}
+   605→                    onClick={(e) => {
+   606→                      e.preventDefault();
+   607→                      document
+   608→                        .getElementById(item.id)
+   609→                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+   610→                    }}
+   611→                    className={`text-xs leading-relaxed transition-colors py-0.5 hover:text-primary ${
+   612→                      item.level === 3 ? "pl-3" : ""
+   613→                    } ${
+   614→                      activeSection === item.id
+   615→                        ? "text-primary font-semibold border-l-2 border-primary -ml-px pl-2"
+   616→                        : "text-muted-foreground"
+   617→                    }`}
+   618→                  >
+   619→                    {item.text}
+   620→                  </a>
+   621→                ))}
+   622→              </nav>
+   623→            </aside>
+   624→          )}
+   625→
+   626→          {/* ── Main content ── */}
+   627→          <article className="flex-1 min-w-0 max-w-3xl">
+   628→            <div
+   629→              ref={contentRef}
+   630→              className="prose prose-lg dark:prose-invert max-w-none
+   631→                prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight
+   632→                prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
+   633→                prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
+   634→                prose-p:text-muted-foreground prose-p:leading-relaxed
+   635→                prose-a:text-primary prose-a:underline-offset-4 hover:prose-a:text-primary/80
+   636→                prose-img:rounded-xl prose-img:shadow-lg
+   637→                prose-blockquote:border-l-4 prose-blockquote:border-primary
+   638→                prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-4
+   639→                prose-li:text-muted-foreground
+   640→                prose-strong:text-foreground
+   641→                prose-table:border prose-th:border prose-th:bg-muted prose-td:border
+   642→                prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+   643→                prose-pre:bg-muted prose-pre:rounded-xl prose-pre:shadow-md
+   644→                [&_iframe]:rounded-xl [&_iframe]:shadow-lg
+   645→                scroll-mt-28"
+   646→              dangerouslySetInnerHTML={{ __html: enrichedContent }}
+   647→            />
+   648→
+   649→            {/* ── Barra de ações mobile ── */}
+   650→            <div className="xl:hidden mt-10 pt-6 border-t border-border">
+   651→              <div className="flex items-center justify-between flex-wrap gap-4">
+   652→                <div className="flex items-center gap-3">
+   653→                  <Button
+   654→                    variant={liked ? "default" : "outline"}
+   655→                    size="sm"
+   656→                    onClick={handleLike}
+   657→                    className={
+   658→                      liked
+   659→                        ? "bg-red-500 hover:bg-red-600 text-white border-none gap-1.5"
+   660→                        : "gap-1.5"
+   661→                    }
+   662→                  >
+   663→                    <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+   664→                    Curtir
+   665→                    {likeCount > 0 && (
+   666→                      <span className="text-xs opacity-70">({formatNumber(likeCount)})</span>
+   667→                    )}
+   668→                  </Button>
+   669→                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+   670→                    <Eye className="h-4 w-4" /> {formatNumber(viewCount)}
+   671→                  </div>
+   672→                </div>
+   673→                <div className="flex items-center gap-1.5">
+   674→                  {shareLinks.map((s) => (
+   675→                    <a
+   676→                      key={s.name}
+   677→                      href={s.href}
+   678→                      target="_blank"
+   679→                      rel="noopener noreferrer"
+   680→                      className={`${s.color} text-white w-9 h-9 rounded-full flex items-center justify-center transition-transform hover:scale-110`}
+   681→                      title={s.name}
+   682→                    >
+   683→                      <SocialIcon name={s.icon} className="h-3.5 w-3.5" />
+   684→                    </a>
+   685→                  ))}
+   686→                  <Button
+   687→                    variant="outline"
+   688→                    size="sm"
+   689→                    onClick={handleNativeShare}
+   690→                    className="gap-1.5"
+   691→                  >
+   692→                    {copiedLink ? (
+   693→                      <Check className="h-4 w-4 text-green-500" />
+   694→                    ) : (
+   695→                      <Copy className="h-4 w-4" />
+   696→                    )}
+   697→                    Compartilhar
+   698→                  </Button>
+   699→                </div>
+   700→              </div>
+   701→            </div>
+   702→
+   703→            {/* ── Tags ── */}
+   704→            {post.seo_keywords && post.seo_keywords.length > 0 && (
+   705→              <div className="mt-8 pt-6 border-t border-border">
+   706→                <div className="flex items-center gap-2 mb-3">
+   707→                  <Tag className="h-4 w-4 text-muted-foreground" />
+   708→                  <span className="text-sm font-medium text-muted-foreground">Tags</span>
+   709→                </div>
+   710→                <div className="flex flex-wrap gap-2">
+   711→                  {post.seo_keywords.map((keyword, i) => (
+   712→                    <Badge key={i} variant="outline" className="text-xs">
+   713→                      {keyword}
+   714→                    </Badge>
+   715→                  ))}
+   716→                </div>
+   717→              </div>
+   718→            )}
+   719→
+   720→            {/* ── Caixa do autor ── */}
+   721→            <Card className="mt-10 border-primary/10">
+   722→              <CardContent className="p-6 flex items-start gap-4">
+   723→                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+   724→                  <span className="text-2xl font-black text-primary">B</span>
+   725→                </div>
+   726→                <div className="space-y-1">
+   727→                  <h4 className="font-bold text-base">
+   728→                    {post.author?.full_name || "Equipe Bateumz"}
+   729→                  </h4>
+   730→                  <p className="text-sm text-muted-foreground leading-relaxed">
+   731→                    Conteúdo produzido pela equipe Bateumz — especialistas em sorteios,
+   732→                    loterias e prêmios. Acompanhe as últimas novidades do mundo dos jogos
+   733→                    e não perca nenhuma oportunidade.
+   734→                  </p>
+   735→                  {post.author?.email && (
+   736→                    <p className="text-xs text-muted-foreground/70">{post.author.email}</p>
+   737→                  )}
+   738→                </div>
+   739→              </CardContent>
+   740→            </Card>
+   741→
+   742→            {/* ── Posts relacionados (inline, visível em todas as telas) ── */}
+   743→            {relatedPosts.length > 0 && (
+   744→              <section className="mt-14">
+   745→                <div className="flex items-center gap-2 mb-6">
+   746→                  <BookOpen className="h-5 w-5 text-primary" />
+   747→                  <h2 className="text-xl font-black uppercase tracking-tight">
+   748→                    Artigos Relacionados
+   749→                  </h2>
+   750→                </div>
+   751→                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   752→                  {relatedPosts.slice(0, 3).map((rp) => (
+   753→                    <Link key={rp.id} to={`/blog/${rp.slug}`} className="group">
+   754→                      <Card className="overflow-hidden h-full transition-all hover:shadow-lg hover:border-primary/30">
+   755→                        <div className="relative h-36 overflow-hidden">
+   756→                          <img
+   757→                            src={rp.image_url || "/placeholder.svg"}
+   758→                            alt={rp.title}
+   759→                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+   760→                          />
+   761→                          {rp.category && (
+   762→                            <Badge
+   763→                              className="absolute bottom-2 left-2 text-white border-none text-[10px]"
+   764→                              style={{
+   765→                                backgroundColor: rp.category.color || undefined,
+   766→                              }}
+   767→                            >
+   768→                              {rp.category.name}
+   769→                            </Badge>
+   770→                          )}
+   771→                        </div>
+   772→                        <CardContent className="p-4 space-y-2">
+   773→                          <h3 className="font-bold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+   774→                            {rp.title}
+   775→                          </h3>
+   776→                          <p className="text-xs text-muted-foreground line-clamp-2">
+   777→                            {rp.summary}
+   778→                          </p>
+   779→                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground/70">
+   780→                            <span>{formatDate(rp.published_at)}</span>
+   781→                            {rp.reading_time_min && (
+   782→                              <span className="flex items-center gap-1">
+   783→                                <Clock className="h-3 w-3" /> {rp.reading_time_min} min
+   784→                              </span>
+   785→                            )}
+   786→                            <span className="flex items-center gap-1">
+   787→                              <Eye className="h-3 w-3" />{" "}
+   788→                              {formatNumber(rp.view_count || 0)}
+   789→                            </span>
+   790→                          </div>
+   791→                        </CardContent>
+   792→                      </Card>
+   793→                    </Link>
+   794→                  ))}
+   795→                </div>
+   796→              </section>
+   797→            )}
+   798→
+   799→            {/* ── Footer CTA ── */}
+   800→            <Card className="mt-14 bg-gradient-to-r from-primary to-primary/80 border-none overflow-hidden">
+   801→              <CardContent className="p-8 md:p-10 flex flex-col md:flex-row items-center gap-6">
+   802→                <div className="flex-1 text-center md:text-left space-y-2">
+   803→                  <h3 className="text-2xl font-black uppercase text-white">
+   804→                    Quer participar de sorteios reais?
+   805→                  </h3>
+   806→                  <p className="text-white/80 text-sm md:text-base">
+   807→                    Acesse nosso marketplace e concorra a prêmios incríveis. Novos sorteios
+   808→                    toda semana!
+   809→                  </p>
+   810→                </div>
+   811→                <Link to="/marketplace">
+   812→                  <Button
+   813→                    size="lg"
+   814→                    className="bg-white text-primary hover:bg-white/90 font-black uppercase shadow-xl gap-2 text-base"
+   815→                  >
+   816→                    <Sparkles className="h-5 w-5" />
+   817→                    Ver Sorteios
+   818→                    <ChevronRight className="h-4 w-4" />
+   819→                  </Button>
+   820→                </Link>
+   821→              </CardContent>
+   822→            </Card>
+   823→          </article>
+   824→
+   825→          {/* ── Sidebar direita (desktop lg+) ── */}
+   826→          <aside className="hidden lg:block w-72 shrink-0 space-y-6 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+   827→            {/* Compartilhar */}
+   828→            <Card className="border-primary/10">
+   829→              <CardHeader className="pb-3">
+   830→                <CardTitle className="text-base flex items-center gap-2">
+   831→                  <Share2 className="h-4 w-4 text-primary" /> Compartilhar
+   832→                </CardTitle>
+   833→              </CardHeader>
+   834→              <CardContent className="space-y-3">
+   835→                <p className="text-xs text-muted-foreground">
+   836→                  Gostou do artigo? Compartilhe com seus amigos!
+   837→                </p>
+   838→                <div className="grid grid-cols-2 gap-2">
+   839→                  {shareLinks.map((s) => (
+   840→                    <a
+   841→                      key={s.name}
+   842→                      href={s.href}
+   843→                      target="_blank"
+   844→                      rel="noopener noreferrer"
+   845→                      className={`${s.color} text-white text-xs font-medium rounded-lg py-2 px-3 flex items-center gap-2 transition-transform hover:scale-[1.02]`}
+   846→                    >
+   847→                      <SocialIcon name={s.icon} className="h-3.5 w-3.5" />
+   848→                      {s.name}
+   849→                    </a>
+   850→                  ))}
+   851→                </div>
+   852→                <Button
+   853→                  variant="outline"
+   854→                  size="sm"
+   855→                  onClick={handleCopyLink}
+   856→                  className="w-full gap-1.5 text-xs"
+   857→                >
+   858→                  {copiedLink ? (
+   859→                    <Check className="h-3.5 w-3.5 text-green-500" />
+   860→                  ) : (
+   861→                    <Copy className="h-3.5 w-3.5" />
+   862→                  )}
+   863→                  {copiedLink ? "Copiado!" : "Copiar link"}
+   864→                </Button>
+   865→              </CardContent>
+   866→            </Card>
+   867→
+   868→            {/* Curtir */}
+   869→            <Card className="border-primary/10">
+   870→              <CardContent className="p-4 flex items-center gap-4">
+   871→                <Button
+   872→                  variant={liked ? "default" : "outline"}
+   873→                  size="lg"
+   874→                  onClick={handleLike}
+   875→                  className={`rounded-full h-12 w-12 p-0 shrink-0 ${
+   876→                    liked
+   877→                      ? "bg-red-500 hover:bg-red-600 text-white border-none"
+   878→                      : ""
+   879→                  }`}
+   880→                >
+   881→                  <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
+   882→                </Button>
+   883→                <div>
+   884→                  <div className="font-bold text-lg">{formatNumber(likeCount)}</div>
+   885→                  <div className="text-xs text-muted-foreground">curtidas</div>
+   886→                </div>
+   887→              </CardContent>
+   888→            </Card>
+   889→
+   890→            {/* Posts relacionados sidebar */}
+   891→            {relatedPosts.length > 0 && (
+   892→              <Card className="border-primary/10">
+   893→                <CardHeader className="pb-3">
+   894→                  <CardTitle className="text-base flex items-center gap-2">
+   895→                    <BookOpen className="h-4 w-4 text-primary" /> Relacionados
+   896→                  </CardTitle>
+   897→                </CardHeader>
+   898→                <CardContent className="space-y-4">
+   899→                  {relatedPosts.slice(0, 3).map((rp) => (
+   900→                    <Link
+   901→                      key={rp.id}
+   902→                      to={`/blog/${rp.slug}`}
+   903→                      className="group flex gap-3 items-start"
+   904→                    >
+   905→                      <div className="w-16 h-12 rounded-md overflow-hidden shrink-0 bg-muted">
+   906→                        <img
+   907→                          src={rp.image_url || "/placeholder.svg"}
+   908→                          alt={rp.title}
+   909→                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+   910→                        />
+   911→                      </div>
+   912→                      <div className="min-w-0 space-y-0.5">
+   913→                        <h4 className="text-xs font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+   914→                          {rp.title}
+   915→                        </h4>
+   916→                        <span className="text-[10px] text-muted-foreground/70">
+   917→                          {formatDate(rp.published_at)}
+   918→                        </span>
+   919→                      </div>
+   920→                    </Link>
+   921→                  ))}
+   922→                </CardContent>
+   923→              </Card>
+   924→            )}
+   925→          </aside>
+   926→        </div>
+   927→      </div>
+   928→
+   929→      {/* ══════ Botão voltar ao topo ══════ */}
+   930→      <motion.div
+   931→        className="fixed bottom-6 right-6 z-50"
+   932→        initial={{ opacity: 0, y: 20 }}
+   933→        animate={{
+   934→          opacity: showBackToTop ? 1 : 0,
+   935→          y: showBackToTop ? 0 : 20,
+   936→          pointerEvents: showBackToTop ? "auto" : "none",
+   937→        }}
+   938→        transition={{ duration: 0.2 }}
+   939→      >
+   940→        <Button
+   941→          onClick={scrollToTop}
+   942→          size="icon"
+   943→          className="rounded-full h-12 w-12 shadow-2xl bg-primary hover:bg-primary/90 text-primary-foreground"
+   944→        >
+   945→          <ArrowUp className="h-5 w-5" />
+   946→        </Button>
+   947→      </motion.div>
+   948→    </motion.div>
+   949→  );
+   950→}
+   951→
