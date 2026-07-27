@@ -1,0 +1,667 @@
+   285→            className="relative z-[51] hidden lg:block overflow-hidden"
+   286→          >
+   287→            <div
+   288→              style={{ background: currentAnnouncement.gradient }}
+   289→              className="relative overflow-hidden"
+   290→            >
+   291→              {/* Animated shimmer overlay */
+   292→              <div className="absolute inset-0 animate-shimmer" aria-hidden="true" />
+   293→              <div className="navbar-announcement-inner relative flex items-center justify-between px-6 py-2">
+   294→                <div className="flex items-center gap-3 min-w-0">
+   295→                  <motion.span
+   296→                    animate={{ rotate: [0, 10, -10, 0] }}
+   297→                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   298→                    className="text-xl"
+   299→                    aria-hidden="true"
+   300→                  >
+   301→                    {currentAnnouncement.emoji}
+   302→                  </motion.span>
+   303→                  <p className="text-xs font-semibold text-primary-foreground truncate">
+   304→                    {currentAnnouncement.text}
+   305→                  </p>
+   306→                </div>
+   307→                <div className="flex items-center gap-2 shrink-0">
+   308→                  <Link
+   309→                    to={currentAnnouncement.cta.href}
+   310→                    onClick={dismissAnnouncement}
+   311→                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold text-primary-foreground backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-105 active:scale-95"
+   312→                  >
+   313→                    {currentAnnouncement.cta.label}
+   314→                    <ArrowRight className="h-3 w-3" />
+   315→                  </Link>
+   316→                  <button
+   317→                    onClick={dismissAnnouncement}
+   318→                    className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-primary-foreground/70 transition-colors hover:bg-white/30 hover:text-primary-foreground"
+   319→                    aria-label="Fechar anúncio"
+   320→                  >
+   321→                    <X className="h-3 w-3" />
+   322→                  </button>
+   323→                </div>
+   324→              </div>
+   325→            </div>
+   326→          </motion.div>
+   327→        )}
+   328→      </AnimatePresence>
+   329→
+   330→      {/* ─── Desktop Navbar ─── */}
+   331→      <motion.nav
+   332→        ref={navRef}
+   333→        initial={{ y: -20, opacity: 0 }}
+   334→        animate={{ y: hidden ? -100 : 0, opacity: 1 }}
+   335→        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   336→        onMouseMove={handleMouseMove}
+   337→        className={
+   338→          "navbar-shell fixed top-0 left-0 right-0 z-50 hidden lg:block transition-transform duration-300" +
+   339→          (announcementDismissed ? " top-0" : (currentAnnouncement && !announcementDismissed ? "top-[38px]" : "top-0")
+   340→        }
+   341→      >
+   342→        {/* Cursor-follow spotlight (desktop only, soft radial glow) */}
+   343→        <div className="navbar-spotlight" aria-hidden="true" />
+   344→
+   345→        {/* Premium scroll progress indicator */}
+   346→        <motion.div
+   347→          aria-hidden="true"
+   348→          className="navbar-scroll-progress"
+   349→          style={{ scaleX: progressScaleX }}
+   350→        />
+   351→        {/* Animated aurora accent strip on top */}
+   352→        <div className="navbar-aurora-strip" aria-hidden="true" />
+   353→        {/* Animated gradient accent line at bottom */
+   354→        <div
+   355→          className="absolute bottom-0 left-0 right-0 h-[2px]"
+   356→          style={{
+   357→            background: "linear-gradient(90deg, transparent, var(--region-primary, hsl(var(--primary))) 20%, hsl(var(--accent)) 50%, var(--region-primary, hsl(var(--primary))) 80%, transparent)",
+   358→            backgroundSize: "300% 100%",
+   359→            animation: "border-flow 4s linear infinite",
+   360→            opacity: scrolled ? 1 : 0.4,
+   361→          }}
+   362→        />
+   363→
+   364→        {/* Navbar body */
+   365→        <div
+   366→          className={
+   367→            "relative transition-all duration-500 ease-out " +
+   368→            (scrolled ? "navbar-scrolled glass-strong shadow-elegant" : "glass-subtle")
+   369→          }
+   370→        >
+   371→          <div
+   372→            className={
+   373→              "container mx-auto flex items-center justify-between transition-all duration-500 " +
+   374→              (scrolled ? "px-6 py-2" : "px-6 py-3.5")
+   375→          }
+   376→          >
+   377→            {/* ── Logo Cluster ── */}
+   378→            <Link to="/" className="group relative flex items-center gap-2.5">
+   379→              <motion.div
+   380→                whileHover={{ scale: 1.1, rotate: -3 }}
+   381→                whileTap={{ scale: 0.95 }}
+   382→                className="navbar-logo-ring relative"
+   383→              >
+   384→                <img
+   385→                  src={bateuLogo}
+   386→                  alt="Bateu"
+   387→                  className={"transition-all duration-500 " + (scrolled ? "h-8 w-8" : "h-9 w-9")}
+   388→                />
+   389→                <div className="absolute inset-0 rounded-full bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+   390→              </motion.div>
+   391→              <div className="flex items-center gap-2">
+   392→                <span
+   393→                  className={"navbar-brand-text font-display font-bold transition-all duration-500 text-gradient-primary " + (scrolled ? "text-lg" : "text-xl")}
+   394→                >
+   395→                  Bateu
+   396→                </span>
+   397→                <span className="navbar-verified-dot hidden md:inline-flex" title={rt("nav.verified", "Plataforma verificada")}>
+   398→                  <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   399→                </span>
+   400→                {/* Live activity orb */}
+   401→                <Link
+   402→                  to="/lives-agora"
+   403→                  className="navbar-live-orb hidden items-center md:inline-flex"
+   404→                  title={rt("nav.live.count", "Lives a decorrer agora")}
+   405→                  aria-label={`${liveCount} ${rt("nav.live.count", "Lives a decorrer agora")}`}
+   406→                >
+   407→                  <span className="navbar-live-orb-ring" aria-hidden="true" />
+   408→                  <span className="tabular-nums">{liveCount}</span>
+   409→                  <span className="hidden xl:inline opacity-80">{rt("nav.live", "AO VIVO")}</span>
+   410→                </Link>
+   411→              </div>
+   412→            </Link>
+   413→
+   414→            {/* ── Navigation Menu ── */}
+   415→            <div className="hidden lg:flex">
+   416→              <NavigationMenu>
+   417→                <NavigationMenuList className="gap-0.5">
+   418→                  {groups.map((g, gi) => (
+   419→                    <NavigationMenuItem key={g.label}>
+   420→                      <NavigationMenuTrigger
+   421→                        className={
+   422→                          "navbar-trigger bg-transparent text-sm font-medium transition-all duration-200 data-[state=open]:text-foreground " +
+   423→                          "text-muted-foreground hover:text-foreground " +
+   424→                          "hover:bg-secondary/50 data-[state=open]:bg-secondary/50 " +
+   425→                          "rounded-lg px-3 py-2"
+   426→                        }
+   427→                      >
+   428→                        <span className="flex items-center gap-2">
+   429→                          <span className="navbar-group-icon">
+   430→                            <g.icon className="h-[11px] w-[11px]" strokeWidth={2.2} />
+   431→                          </span>
+   432→                          {g.label}
+   433→                          {/* Entertainment trigger gets live pulse dot */}
+   434→                          {(gi === 2 || (gi === 0 && liveCount > 0)) && (
+   435→                            <span className="relative flex h-2 w-2">
+   436→                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+   437→                              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+   438→                            </span>
+   439→                          )}
+   440→                          {/* Trending indicator for groups with trending items */
+   441→                          {g.items.some(i => i.trending) && (
+   442→                            <span className="hidden xl:inline-flex items-center gap-1 ml-1 rounded-md bg-accent/12 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+   443→                              <Flame className="h-2.5 w-2.5" />
+   444→                              <span className="hidden 2xl:inline">Trending</span>
+   445→                            </span>
+   446→                          )}
+   447→                        </span>
+   448→                      </NavigationMenuTrigger>
+   449→                      <NavigationMenuContent>
+   450→                        <div className="navbar-mega-panel premium-card rounded-2xl p-2 w-[480px]">
+   451→                          <div className="navbar-mega-header mb-1 flex items-center justify-between px-2 pt-1">
+   452→                            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+   453→                              <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   454→                              {g.label}
+   455→                            </span>
+   456→                            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-accent/80">
+   457→                              <Sparkles className="h-3 w-3" />
+   458→                              {rt("nav.mega.explore", "Explorar")}
+   459→                            </span>
+   460→                          </div>
+   461→                          <ul className="gap-0.5">
+   462→                            {g.items.map((item, ii) => (
+   463→                              <motion.li
+   464→                                key={item.label}
+   465→                                initial={{ opacity: 0, x: -8 }}
+   466→                                animate={{ opacity: 1, x: 0 }}
+   467→                                transition={{ delay: ii * 0.04, duration: 0.2 }}
+   468→                              >
+   469→                                <Link
+   470→                                  to={item.href}
+   471→                                  className="group/item flex items-start gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-primary/5"
+   472→                                >
+   473→                                  <div
+   474→                                    className={
+   475→                                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 " +
+   476→                                      "bg-gradient-to-br from-primary/10 to-accent/5 " +
+   477→                                      "text-primary group-hover/item:from-primary/20 group-hover/item:to-accent/10 " +
+   478→                                      "group-hover/item:shadow-md group-hover/item:scale-105"
+   479→                                    }
+   480→                                  >
+   481→                                    <item.icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+   482→                                  </div>
+   483→                                  <div className="flex-1 min-w-0">
+   484→                                    <div className="flex items-center gap-2">
+   485→                                      <span className="text-sm font-semibold text-foreground group-hover/item:text-gradient-primary transition-colors">
+   486→                                        {item.label}
+   487→                                      </span>
+   488→                                      {/* Trending badge for items marked as trending */}
+   489→                                      {item.trending && (
+   490→                                        <span className="flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+   491→                                          <Flame className="h-2.5 w-2.5" />
+   492→                                          <span>Trending</span>
+   493→                                        </span>
+   494→                                      )}
+   495→                                      {item.live && (
+   496→                                        <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+   497→                                          <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   498→                                          AO VIVO
+   499→                                        </span>
+   500→                                      )}
+   501→                                      {item.badge && !item.live && !item.trending && (
+   502→                                        <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+   503→                                          {item.badge}
+   504→                                        </span>
+   505→                                      )}
+   506→                                    </div>
+   507→                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+   508→                                      {item.desc}
+   509→                                    </p>
+   510→                                  </div>
+   511→                                  <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover/item:text-primary/60 group-hover/item:translate-x-0.5 transition-all -rotate-90 mt-0.5" />
+   512→                                </Link>
+   513→                              </motion.li>
+   514→                            ))}
+   515→                          </ul>
+   516→                          {/* Spotlight card — featured action at the bottom of each mega panel */}
+   517→                          <Link to={g.spotlight.href} className="navbar-spotlight-card group/spotlight flex items-center gap-3">
+   518→                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+   519→                              <Rocket className="h-4 w-4" strokeWidth={2.2} />
+   520→                            </span>
+   521→                            <div className="min-w-0 flex-1">
+   522→                              <p className="truncate text-sm font-bold text-primary-foreground">
+   523→                                {g.spotlight.label}
+   524→                              </p>
+   525→                              <p className="truncate text-xs text-primary-foreground/80">
+   526→                                {g.spotlight.desc}
+   527→                              </p>
+   528→                            </div>
+   529→                            <span className="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5">
+   530→                              {g.spotlight.cta}
+   531→                              <ArrowRight className="h-3 w-3" />
+   532→                            </span>
+   533→                          </Link>
+   534→                        </div>
+   535→                      </NavigationMenuContent>
+   536→                    </NavigationMenuItem>
+   537→                  ))}
+   538→                </NavigationMenuList>
+   539→              </NavigationMenu>
+   540→            </div>
+   541→
+   542→            {/* ── Right Actions ── */}
+   543→            <div className="hidden items-center gap-1.5 lg:flex">
+   544→              {/* Premium search trigger — command palette style */}
+   545→              <Link
+   546→                to="/marketplace"
+   547→                className="navbar-search-trigger group flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md transition-colors hover:bg-secondary/50 hover:text-foreground"
+   548→                aria-label={rt("nav.search", "Pesquisar")}
+   549→              >
+   550→                <Search className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+   551→                <span className="hidden xl:inline">{rt("nav.search.placeholder", "Pesquisar sorteios...")}</span>
+   552→                <kbd className="navbar-kbd hidden xl:inline-flex">⌘K</kbd>
+   553→              </Link>
+   554→              <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md">
+   555→                <RegionCountrySwitcher compact />
+   556→                <LanguageSwitcher />
+   557→                <ThemeToggle />
+   558→              </div>
+   559→
+   560→              {/* Notification bell (desktop) */}
+   561→              {user && (
+   562→                <Link
+   563→                  to={role === "business" ? "/dashboard/notifications" : "/profile"}
+   564→                  className="navbar-bell relative flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   565→                  aria-label={t("nav.notifications", "Notificações")}
+   566→                >
+   567→                  <Bell className="h-[18px] w-[18px]" />
+   568→                  {unread > 0 && (
+   569→                    <span className="navbar-bell-badge absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground px-1 shadow-glow">
+   570→                      {unread > 9 ? "9+" : unread}
+   571→                    </span>
+   572→                  )}
+   573→                </Link>
+   574→              )}
+   575→
+   576→              <div className="w-px h-6 bg-border/60 mx-1" />
+   577→
+   578→              {/* Authed user section */}
+   579→              {user ? (
+   580→                <motion.div
+   581→                  className="navbar-user-cluster flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md"
+   582→                  initial={{ opacity: 0, x: 10 }}
+   583→                  animate={{ opacity: 1, x: 0 }}
+   584→                  transition={{ delay: 0.1 }}
+   585→                >
+   586→                  {/* Wallet balance pill */
+   587→                  {walletBalance !== null && (
+   588→                    <Link
+   589→                      to="/wallet"
+   590→                      className="navbar-wallet-pill group relative"
+   591→                      title={rt("nav.wallet", "Carteira")}
+   592→                      aria-label={rt("nav.wallet", "Carteira")}
+   593→                    >
+   594→                      <span className="navbar-wallet-shine" aria-hidden="true" />
+   595→                      <Wallet className="h-3.5 w-3.5 relative" />
+   596→                      <span className="tabular-nums relative">{format(walletBalance)}</span>
+   597→                    </Link>
+   598→                  )}
+   599→                  {/* Points pill */}
+   600→                  <Link
+   601→                    to="/my-points"
+   602→                    className="navbar-points-pill group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-200 hover:bg-secondary/50"
+   603→                    title={t("nav.points", "Pontos")}
+   604→                  >
+   605→                    <Star className="h-4 w-4 text-accent fill-accent/30 transition-transform group-hover:rotate-12" />
+   606→                    <span className="text-gradient-primary font-semibold">
+   607→                      {t("nav.points")}
+   608→                    </span>
+   609→                  </Link>
+   610→                  {/* Avatar bubble */}
+   611→                  <Link
+   612→                    to={role === "admin" ? "/admin" : role === "business" ? "/dashboard" : "/profile"}
+   613→                    className="navbar-avatar-ring"
+   614→                    title={profile?.display_name || t("nav.profile", "Perfil")}
+   615→                    aria-label={t("nav.profile", "Perfil")}
+   616→                  >
+   617→                    {profile?.avatar_url ? (
+   618→                      <img src={profile.avatar_url} alt={profile?.display_name || "Perfil"} />
+   619→                    ) : (
+   620→                      <span>{initials}</span>
+   621→                    )}
+   622→                  </Link>
+   623→                  {role === "admin" && (
+   624→                    <Link
+   625→                      to="/admin"
+   626→                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-destructive transition-all duration-200 hover:bg-destructive/10"
+   627→                    >
+   628→                      <Crown className="h-3.5 w-3.5" />
+   629→                      {t("nav.admin")}
+   630→                    </Link>
+   631→                  )}
+   632→                  <button
+   633→                    onClick={signOut}
+   634→                    className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   635→                    title={t("nav.signout", "Sair")}
+   636→                    aria-label={t("nav.signout", "Sair")}
+   637→                  >
+   638→                    {t("nav.signout")}
+   639→                  </button>
+   640→                </motion.div>
+   641→              ) : (
+   642→                <motion.div
+   643→                  className="flex items-center gap-2"
+   644→                  initial={{ opacity: 0, x: 10 }}
+   645→                  animate={{ opacity: 1, x: 0 }}
+   646→                  transition={{ delay: 0.1 }}
+   647→                >
+   648→                  <Link
+   649→                    to="/login"
+   650→                    className="hover-lift rounded-xl px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-secondary/50"
+   651→                  >
+   652→                    {t("nav.signin")}
+   653→                  </Link>
+   654→                  <Link
+   655→                    to="/register"
+   656→                    className="btn-premium glow-primary hover-lift flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-primary-foreground"
+   657→                  >
+   658→                    <Zap className="h-4 w-4" />
+   659→                    {t("nav.signup")}
+   660→                  </Link>
+   661→                </motion.div>
+   662→              )}
+   663→            </div>
+   664→
+   665→            {/* Mobile toggle */}
+   666→            <div className="flex items-center gap-1 lg:hidden">
+   667→              <Link
+   668→                to="/marketplace"
+   669→                className="flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   670→                aria-label={rt("nav.search", "Pesquisar")}
+   671→              >
+   672→                <Search className="h-5 w-5" />
+   673→              </Link>
+   674→              <LanguageSwitcher />
+   675→              <ThemeToggle />
+   676→              <motion.button
+   677→                whileTap={{ scale: 0.9 }}
+   678→                className="relative flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   679→                onClick={() => setOpen(!open)}
+   680→                aria-label="Menu"
+   681→              >
+   682→                <AnimatePresence mode="wait" initial={false}>
+   683→                  {open ? (
+   684→                    <motion.span
+   685→                      key="close"
+   686→                      initial={{ rotate: -90, opacity: 0 }}
+   687→                      animate={{ rotate: 0, opacity: 1 }}
+   688→                      exit={{ rotate: 90, opacity: 0 }}
+   689→                      transition={{ duration: 0.15 }}
+   690→                    >
+   691→                      <X className="h-5 w-5" />
+   692→                    </motion.span>
+   693→                  ) : (
+   694→                    <motion.span
+   695→                      key="menu"
+   696→                      initial={{ rotate: 90, opacity: 0 }}
+   697→                      animate={{ rotate: 0, opacity: 1 }}
+   698→                      exit={{ rotate: -90, opacity: 0 }}
+   699→                      transition={{ duration: 0.15 }}
+   700→                    >
+   701→                      <Menu className="h-5 w-5" />
+   702→                    </motion.span>
+   703→                  )}
+   704→                </AnimatePresence>
+   705→              </motion.button>
+   706→            </div>
+   707→          </div>
+   708→        </div>
+   709→      </motion.nav>
+   710→
+   711→      {/* ─── Mobile Menu ─── */}
+   712→      <AnimatePresence>
+   713→        {open && (
+   714→          <>
+   715→            {/* Backdrop */}
+   716→            <motion.div
+   717→              initial={{ opacity: 0 }}
+   718→              animate={{ opacity: 1 }}
+   719→              exit={{ opacity: 0 }}
+   720→              transition={{ duration: 0.2 }}
+   721→              className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
+   722→              onClick={() => setOpen(false)}
+   723→            />
+   724→
+   725→            {/* Panel */}
+   726→            <motion.div
+   727→              initial={{ y: "-10%", opacity: 0 }}
+   728→              animate={{ y: 0, opacity: 1 }}
+   729→              exit={{ y: "-10%", opacity: 0 }}
+   730→              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   731→              className="fixed top-0 left-0 right-0 z-50 lg:hidden"
+   732→            >
+   733→              <div className="glass-strong shadow-elegant border-b border-border/50">
+   734→                {/* Mobile header */}
+   735→                <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+   736→                  <Link to="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+   737→                    <img src={bateuLogo} alt="Bateu" className="h-8 w-8" />
+   738→                    <span className="font-display text-lg font-bold text-gradient-primary">Bateu</span>
+   739→                    <span className="navbar-verified-dot ml-0.5 inline-flex" title={rt("nav.verified", "Plataforma verificada")}>
+   740→                      <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   741→                    </span>
+   742→                  </Link>
+   743→                  <motion.button
+   744→                    whileTap={{ scale: 0.9 }}
+   745→                    onClick={() => setOpen(false)}
+   746→                    className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground hover:bg-secondary/50 transition-colors"
+   747→                  >
+   748→                    <X className="h-5 w-5" />
+   749→                  </motion.button>
+   750→                </div>
+   751→
+   752→                {/* Menu items */}
+   753→                <div className="flex flex-col gap-1 px-3 py-3 max-h-[78vh] overflow-y-auto">
+   754→                  {/* Quick actions row */}
+   755→                  <motion.div
+   756→                    initial={{ opacity: 0, y: -8 }}
+   757→                    animate={{ opacity: 1, y: 0 }}
+   758→                    transition={{ delay: 0.04 }}
+   759→                    className="grid grid-cols-4 gap-2 mb-3 px-1"
+   760→                  >
+   761→                    {quickActions.map((qa) => (
+   762→                      <Link
+   763→                        key={qa.label}
+   764→                        to={qa.href}
+   765→                        onClick={() => setOpen(false)}
+   766→                        className="navbar-quick-action"
+   767→                      >
+   768→                        <span className="navbar-quick-action-icon relative">
+   769→                          <qa.icon className="h-4 w-4" strokeWidth={1.9} />
+   770→                          {qa.live && (
+   771→                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent pulse-live" />
+   772→                          )}
+   773→                        </span>
+   774→                        <span>{qa.label}</span>
+   775→                      </Link>
+   776→                    ))}
+   777→                  </motion.div>
+   778→
+   779→                  {/* Live counter + search row */}
+   780→                  <div className="mb-3 flex items-center gap-2 px-1">
+   781→                    <Link
+   782→                      to="/lives-agora"
+   783→                      onClick={() => setOpen(false)}
+   784→                      className="navbar-mobile-live"
+   785→                    >
+   786→                      <span className="navbar-live-orb-ring" aria-hidden="true" />
+   787→                      <span className="tabular-nums">{liveCount}</span>
+   788→                      <span className="opacity-90">{rt("nav.live", "AO VIVO")}</span>
+   789→                    </Link>
+   790→                    <Link
+   791→                      to="/marketplace"
+   792→                      onClick={() => setOpen(false)}
+   793→                      className="navbar-search-trigger flex flex-1 items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md"
+   794→                    >
+   795→                      <Search className="h-3.5 w-3.5" />
+   796→                      <span className="flex-1 text-left">{rt("nav.search.placeholder", "Pesquisar sorteios...")}</span>
+   797→                    </Link>
+   798→                  </div>
+   799→
+   800→                  {/* Auth CTA for unauthenticated users */}
+   801→                  {!user && (
+   802→                    <Link
+   803→                      to="/register"
+   804→                      onClick={() => setOpen(false)}
+   805→                      className="navbar-hero-cta mb-3 flex items-center gap-3 rounded-2xl p-4"
+   806→                    >
+   807→                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+   808→                        <Flame className="h-5 w-5" />
+   809→                      </span>
+   810→                      <div className="min-w-0 flex-1">
+   811→                        <p className="text-sm font-bold text-primary-foreground">
+   812→                          {rt("nav.hero.cta.title", "Participe e ganhe 50 pontos")}
+   813→                        </p>
+   814→                        <p className="truncate text-xs text-primary-foreground/80">
+   815→                          {rt("nav.hero.cta.subtitle", "Sorteios, jogos e prémios a aguardar")}
+   816→                        </p>
+   817→                      </div>
+   818→                      <Zap className="h-4 w-4 text-primary-foreground" />
+   819→                    </Link>
+   820→                  )}
+   821→
+   822→                  {/* Navigation groups */}
+   823→                  {groups.map((g, gi) => (
+   824→                    <motion.div
+   825→                      key={g.label}
+   826→                      initial={{ opacity: 0, y: 10 }}
+   827→                      animate={{ opacity: 1, y: 0 }}
+   828→                      transition={{ delay: 0.08 + gi * 0.05 }}
+   829→                    >
+   830→                      <p className="mb-1.5 flex items-center gap-1.5 px-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+   831→                        <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   832→                        {g.label}
+   833→                      </p>
+   834→                      <div className="flex flex-col gap-0.5">
+   835→                        {g.items.map((item) => (
+   836→                          <Link
+   837→                            key={item.label}
+   838→                            to={item.href}
+   839→                            onClick={() => setOpen(false)}
+   840→                            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-all duration-200 hover:bg-primary/5 active:scale-[0.98]"
+   841→                          >
+   842→                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/5 text-primary group-hover:from-primary/20 group-hover:to-accent/10 transition-all">
+   843→                              <item.icon className="h-4 w-4" strokeWidth={1.8} />
+   844→                            </div>
+   845→                            <span className="flex-1 font-medium">{item.label}</span>
+   846→                            {item.trending && (
+   847→                              <span className="flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">
+   848→                                <Flame className="h-3 w-3" />
+   849→                                <span>Trending</span>
+   850→                              </span>
+   851→                            )}
+   852→                            {item.live && (
+   853→                              <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase text-accent">
+   854→                                <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   855→                                AO VIVO
+   856→                              </span>
+   857→                            )}
+   858→                            {item.badge && !item.live && !item.trending && (
+   859→                              <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+   860→                                {item.badge}
+   861→                              </span>
+   862→                            )}
+   863→                          </Link>
+   864→                        ))}
+   865→                      </div>
+   866→                      {/* Spotlight mini-CTA inside mobile group */}
+   867→                      <Link
+   868→                        to={g.spotlight.href}
+   869→                        onClick={() => setOpen(false)}
+   870→                        className="navbar-spotlight-card group/spotlight mt-1 mb-2 flex items-center gap-3"
+   871→                      >
+   872→                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+   873→                          <Rocket className="h-3.5 w-3.5" strokeWidth={2.2} />
+   874→                        </span>
+   875→                        <div className="min-w-0 flex-1">
+   876→                          <p className="truncate text-xs font-bold text-primary-foreground">{g.spotlight.label}</p>
+   877→                          <p className="truncate text-[11px] text-primary-foreground/75">{g.spotlight.desc}</p>
+   878→                        </div>
+   879→                        <ArrowRight className="h-3.5 w-3.5 text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5" />
+   880→                      </Link>
+   881→                    </motion.div>
+   882→                  ))}
+   883→
+   884→                  {/* Mobile CTA / user menu */}
+   885→                  <motion.div
+   886→                    initial={{ opacity: 0, y: 10 }}
+   887→                    animate={{ opacity: 1, y: 0 }}
+   888→                    transition={{ delay: 0.08 + groups.length * 0.05 + 0.05 }}
+   889→                    className="pt-2 pb-1"
+   890→                  >
+   891→                    {!user ? (
+   892→                      <div className="grid grid-cols-2 gap-2 px-1">
+   893→                        <Link
+   894→                          to="/login"
+   895→                          onClick={() => setOpen(false)}
+   896→                          className="hover-lift flex items-center justify-center rounded-xl border border-border bg-secondary/50 py-2.5 text-sm font-semibold transition-all hover:bg-secondary"
+   897→                        >
+   898→                          {t("nav.signin")}
+   899→                        </Link>
+   900→                        <Link
+   901→                          to="/register"
+   902→                          onClick={() => setOpen(false)}
+   903→                          className="btn-premium glow-primary hover-lift flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-primary-foreground"
+   904→                        >
+   905→                          <Zap className="h-4 w-4" />
+   906→                          {t("nav.signup")}
+   907→                        </Link>
+   908→                      </div>
+   909→                    ) : (
+   910→                      <div className="flex flex-col gap-1.5 px-1">
+   911→                        {walletBalance !== null && (
+   912→                          <Link
+   913→                            to="/wallet"
+   914→                            onClick={() => setOpen(false)}
+   915→                            className="navbar-wallet-pill group relative w-full justify-center py-2.5"
+   916→                          >
+   917→                            <span className="navbar-wallet-shine" aria-hidden="true" />
+   918→                            <Wallet className="h-4 w-4 relative" />
+   919→                            <span className="relative">{rt("nav.wallet", "Carteira")}: {format(walletBalance)}</span>
+   920→                          </Link>
+   921→                        )}
+   922→                        <Link
+   923→                          to="/my-points"
+   924→                          onClick={() => setOpen(false)}
+   925→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-primary/5 transition-colors"
+   926→                        >
+   927→                          <Star className="h-4 w-4 text-accent fill-accent/30" />
+   928→                          <span className="text-gradient-primary font-semibold">{t("nav.points")}</span>
+   929→                        </Link>
+   930→                        <button
+   931→                          onClick={() => { setOpen(false); signOut(); }}
+   932→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors text-left"
+   933→                        >
+   934→                          <LifeBuoy className="h-4 w-4" />
+   935→                          {t("nav.signout")}
+   936→                        </button>
+   937→                      </div>
+   938→                    )}
+   939→                  </motion.div>
+   940→                </div>
+   941→              </div>
+   942→            </motion.div>
+   943→          </>
+   944→        )}
+   945→      </AnimatePresence>
+   946→    </>
+   947→  );
+   948→};
+   949→
+   950→export default Navbar;
+   951→

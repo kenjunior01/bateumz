@@ -1,0 +1,775 @@
+     1	     1	import { useState, useEffect, useMemo, useRef } from "react";
+     2	     2	import {
+     3	     3	  motion,
+     4	     4	  AnimatePresence,
+     5	     5	  useInView,
+     6	     6	  useMotionValue,
+     7	     7	  useTransform,
+     8	     8	  useSpring,
+     9	     9	} from "framer-motion";
+    10	    10	import {
+    11	    11	  ArrowRight,
+    12	    12	  Shield,
+    13	    13	  Users,
+    14	    14	  Clock,
+    15	    15	  Trophy,
+    16	    16	  Zap,
+    17	    17	  Radio,
+    18	    18	  Sparkles,
+    19	    19	  Star,
+    20	    20	  Gamepad2,
+    21	    21	  Eye,
+    22	    22	  TrendingUp,
+    23	    23	  ChevronDown,
+    24	    24	} from "lucide-react";
+    25	    25	import { Link } from "react-router-dom";
+    26	    26	import { supabase } from "@/integrations/supabase/client";
+    27	    27	import { useLanguage } from "@/contexts/LanguageContext";
+    28	    28	import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    29	    29	import CountdownTimer from "./CountdownTimer";
+    30	    30	import bateuLogo from "@/assets/bateu-logo.png";
+    31	    31	
+    32	    32	interface FeaturedRaffle {
+    33	    33	  id: string;
+    34	    34	  title: string;
+    35	    35	  prize_title: string;
+    36	    36	  end_date: string | null;
+    37	    37	  image_url?: string | null;
+    38	    38	  ticket_price?: number;
+    39	    39	}
+    40	    40	
+    41	    41	/* ── Brand color tokens (with regional fallbacks) ──────────────────── */
+    42	    42	const REGION_PRIMARY = "var(--region-primary, hsl(var(--primary)))";
+    43	    43	const REGION_SECONDARY = "var(--region-secondary, hsl(var(--accent)))";
+    44	    44	const REGION_GLOW = "var(--region-primary, hsl(var(--primary-glow)))";
+    45	    45	
+    46	    46	/* ── Framer Motion Variants ────────────────────────────────────────── */
+    47	    47	const containerVariants = {
+    48	    48	  hidden: {},
+    49	    49	  visible: {
+    50	    50	    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
+    51	    51	  },
+    52	    52	};
+    53	    53	
+    54	    54	const fadeUp = {
+    55	    55	  hidden: { opacity: 0, y: 28 },
+    56	    56	  visible: {
+    57	    57	    opacity: 1,
+    58	    58	    y: 0,
+    59	    59	    transition: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
+    60	    60	  },
+    61	    61	};
+    62	    62	
+    63	    63	const scaleIn = {
+    64	    64	  hidden: { opacity: 0, scale: 0.9 },
+    65	    65	  visible: {
+    66	    66	    opacity: 1,
+    67	    67	    scale: 1,
+    68	    68	    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    69	    69	  },
+    70	    70	};
+    71	    71	
+    72	    72	const fadeIn = {
+    73	    73	  hidden: { opacity: 0 },
+    74	    74	  visible: { opacity: 1, transition: { duration: 0.9 } },
+    75	    75	};
+    76	    76	
+    77	    77	/* ── Animated Counter ──────────────────────────────────────────────── */
+    78	    78	const AnimatedCounter = ({
+    79	    79	  value,
+    80	    80	  duration = 2,
+    81	    81	}: {
+    82	    82	  value: number;
+    83	    83	  duration?: number;
+    84	    84	}) => {
+    85	    85	  const [display, setDisplay] = useState(0);
+    86	    86	  const springValue = useSpring(0, { stiffness: 40, damping: 25 });
+    87	    87	
+    88	    88	  useEffect(() => {
+    89	    89	    springValue.set(value);
+    90	    90	  }, [value, springValue]);
+    91	    91	
+    92	    92	  useEffect(() => {
+    93	    93	    const unsubscribe = springValue.on("change", (v) =>
+    94	    94	      setDisplay(Math.round(v))
+    95	    95	    );
+    96	    96	    return unsubscribe;
+    97	    97	  }, [springValue]);
+    98	    98	
+    99	    99	  return <>{display.toLocaleString("pt-MZ")}</>;
+   100	   100	};
+   101	   101	
+   102	   102	/* ── Decorative Orbit Ring ─────────────────────────────────────────── */
+   103	   103	const OrbitRing = ({
+   104	   104	  className,
+   105	   105	  delay = 0,
+   106	   106	}: {
+   107	   107	  className?: string;
+   108	   108	  delay?: number;
+   109	   109	}) => (
+   110	   110	  <motion.div
+   111	   111	    className={`absolute rounded-full border pointer-events-none ${className || ""}`}
+   112	   112	    style={{
+   113	   113	      borderColor: `color-mix(in srgb, ${REGION_PRIMARY} 8%, transparent)`,
+   114	   114	    }}
+   115	   115	    animate={{ rotate: 360 }}
+   116	   116	    transition={{
+   117	   117	      duration: 35 + delay * 10,
+   118	   118	      repeat: Infinity,
+   119	   119	      ease: "linear",
+   120	   120	    }}
+   121	   121	  >
+   122	   122	    <motion.div
+   123	   123	      className="absolute -top-1 left-1/2 h-2 w-2 rounded-full"
+   124	   124	      style={{ background: REGION_SECONDARY, opacity: 0.4 }}
+   125	   125	      animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0.7, 0.4] }}
+   126	   126	      transition={{ duration: 3, repeat: Infinity, delay }}
+   127	   127	    />
+   128	   128	  </motion.div>
+   129	   129	);
+   130	   130	
+   131	   131	/* ── Aurora Ribbon (slow undulating gradient band) ─────────────────── */
+   132	   132	const AuroraRibbon = () => (
+   133	   133	  <motion.div
+   134	   134	    aria-hidden
+   135	   135	    className="absolute inset-0 pointer-events-none overflow-hidden"
+   136	   136	    style={{ opacity: 0.45 }}
+   137	   137	  >
+   138	   138	    <motion.div
+   139	   139	      className="absolute -inset-x-1/2 -top-1/4 h-[60%] w-[200%] blur-[80px]"
+   140	   140	      style={{
+   141	   141	        background: `linear-gradient(115deg,
+   142	   142	          transparent 0%,
+   143	   143	          color-mix(in srgb, ${REGION_PRIMARY} 18%, transparent) 25%,
+   144	   144	          transparent 40%,
+   145	   145	          color-mix(in srgb, ${REGION_SECONDARY} 22%, transparent) 60%,
+   146	   146	          transparent 75%,
+   147	   147	          color-mix(in srgb, ${REGION_GLOW} 14%, transparent) 90%,
+   148	   148	          transparent 100%)`,
+   149	   149	        backgroundSize: "200% 100%",
+   150	   150	      }}
+   151	   151	      animate={{
+   152	   152	        backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+   153	   153	      }}
+   154	   154	      transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+   155	   155	    />
+   156	   156	  </motion.div>
+   157	   157	);
+   158	   158	
+   159	   159	/* ── Floating particles (constellation) ───────────────────────────── */
+   160	   160	const PARTICLES = [
+   161	   161	  { left: "8%", top: "18%", size: 3, color: REGION_PRIMARY, opacity: 0.32, dur: 4, xRange: [0, 8], yRange: [0, -18] },
+   162	   162	  { left: "14%", top: "65%", size: 4, color: REGION_GLOW, opacity: 0.16, dur: 5.5, xRange: [0, -6], yRange: [0, -12] },
+   163	   163	  { left: "85%", top: "22%", size: 2.5, color: REGION_SECONDARY, opacity: 0.28, dur: 3.5, xRange: [0, 10], yRange: [0, -20] },
+   164	   164	  { left: "78%", top: "70%", size: 3.5, color: REGION_SECONDARY, opacity: 0.22, dur: 6, xRange: [0, -8], yRange: [0, -14] },
+   165	   165	  { left: "45%", top: "12%", size: 2, color: REGION_PRIMARY, opacity: 0.2, dur: 4.5, xRange: [0, 5], yRange: [0, -22] },
+   166	   166	  { left: "60%", top: "82%", size: 3, color: REGION_GLOW, opacity: 0.14, dur: 5, xRange: [0, -10], yRange: [0, -16] },
+   167	   167	  { left: "25%", top: "40%", size: 2, color: REGION_SECONDARY, opacity: 0.24, dur: 7, xRange: [0, 6], yRange: [0, -10] },
+   168	   168	  { left: "92%", top: "50%", size: 2.5, color: REGION_PRIMARY, opacity: 0.18, dur: 4.8, xRange: [0, -5], yRange: [0, -15] },
+   169	   169	  { left: "35%", top: "82%", size: 2, color: REGION_SECONDARY, opacity: 0.2, dur: 6.2, xRange: [0, 7], yRange: [0, -12] },
+   170	   170	  { left: "70%", top: "35%", size: 2, color: REGION_PRIMARY, opacity: 0.16, dur: 5.4, xRange: [0, -6], yRange: [0, -16] },
+   171	   171	];
+   172	   172	
+   173	   173	const HeroSection = () => {
+   174	   174	  const { t } = useLanguage();
+   175	   175	  const { rt } = useRegionalTheme();
+   176	   176	  const ref = useRef<HTMLDivElement>(null);
+   177	   177	  const inView = useInView(ref, { once: true, amount: 0.15 });
+   178	   178	
+   179	   179	  // Mouse parallax values
+   180	   180	  const mouseX = useMotionValue(0);
+   181	   181	  const mouseY = useMotionValue(0);
+   182	   182	
+   183	   183	  const [participantCount, setParticipantCount] = useState(0);
+   184	   184	  const [liveCount, setLiveCount] = useState(0);
+   185	   185	  const [featuredRaffle, setFeaturedRaffle] = useState<FeaturedRaffle | null>(
+   186	   186	    null
+   187	   187	  );
+   188	   188	  const [countdownEnabled, setCountdownEnabled] = useState(false);
+   189	   189	
+   190	   190	  useEffect(() => {
+   191	   191	    const load = async () => {
+   192	   192	      try {
+   193	   193	        const [
+   194	   194	          { count },
+   195	   195	          { data: settings },
+   196	   196	          { count: liveGameCount },
+   197	   197	        ] = await Promise.all([
+   198	   198	          supabase.from("participants").select("id", { count: "exact", head: true }),
+   199	   199	          (supabase as any)
+   200	   200	            .from("platform_settings_public")
+   201	   201	            .select("key, value")
+   202	   202	            .eq("key", "featured")
+   203	   203	            .maybeSingle(),
+   204	   204	          supabase
+   205	   205	            .from("live_sessions")
+   206	   206	            .select("id", { count: "exact", head: true })
+   207	   207	            .eq("status", "active"),
+   208	   208	        ]);
+   209	   209	
+   210	   210	        setParticipantCount(count || 0);
+   211	   211	        setLiveCount(liveGameCount || 0);
+   212	   212	
+   213	   213	        if (settings?.value) {
+   214	   214	          const featured = settings.value as any;
+   215	   215	          const isEnabled = featured.countdownEnabled === true;
+   216	   216	          setCountdownEnabled(isEnabled);
+   217	   217	
+   218	   218	          if (isEnabled && featured.raffleId) {
+   219	   219	            const { data: raffle } = await supabase
+   220	   220	              .from("raffles")
+   221	   221	              .select("id, title, prize_title, end_date, image_url, ticket_price")
+   222	   222	              .eq("id", featured.raffleId)
+   223	   223	              .eq("status", "active")
+   224	   224	              .maybeSingle();
+   225	   225	
+   226	   226	            if (raffle) setFeaturedRaffle(raffle);
+   227	   227	          }
+   228	   228	        }
+   229	   229	      } catch {
+   230	   230	        /* silently fail — non-critical UI */
+   231	   231	      }
+   232	   232	    };
+   233	   233	    load();
+   234	   234	  }, []);
+   235	   235	
+   236	   236	  // Parallax mouse move
+   237	   237	  const handleMouseMove = (e: React.MouseEvent) => {
+   238	   238	    if (!ref.current) return;
+   239	   239	    const rect = ref.current.getBoundingClientRect();
+   240	   240	    mouseX.set((e.clientX - rect.left) / rect.width - 0.5);
+   241	   241	    mouseY.set((e.clientY - rect.top) / rect.height - 0.5);
+   242	   242	  };
+   243	   243	
+   244	   244	  // Layered parallax transforms — different depths
+   245	   245	  const farX = useTransform(mouseX, [-0.5, 0.5], [-8, 8]);
+   246	   246	  const farY = useTransform(mouseY, [-0.5, 0.5], [-6, 6]);
+   247	   247	  const midX = useTransform(mouseX, [-0.5, 0.5], [-18, 18]);
+   248	   248	  const midY = useTransform(mouseY, [-0.5, 0.5], [-12, 12]);
+   249	   249	  const nearX = useTransform(mouseX, [-0.5, 0.5], [12, -12]);
+   250	   250	  const nearY = useTransform(mouseY, [-0.5, 0.5], [8, -8]);
+   251	   251	
+   252	   252	  // 3D tilt transforms for the centerpiece card
+   253	   253	  const tiltRotateX = useTransform(mouseY, [-0.5, 0.5], [3, -3]);
+   254	   254	  const tiltRotateY = useTransform(mouseX, [-0.5, 0.5], [-3, 3]);
+   255	   255	  const smoothTiltX = useSpring(tiltRotateX, { stiffness: 120, damping: 18 });
+   256	   256	  const smoothTiltY = useSpring(tiltRotateY, { stiffness: 120, damping: 18 });
+   257	   257	
+   258	   258	  const formattedCount = useMemo(
+   259	   259	    () =>
+   260	   260	      participantCount > 0
+   261	   261	        ? `+${participantCount.toLocaleString("pt-MZ")}`
+   262	   262	        : "",
+   263	   263	    [participantCount]
+   264	   264	  );
+   265	   265	
+   266	   266	  const accentGrad = `linear-gradient(135deg, ${REGION_PRIMARY}, ${REGION_SECONDARY})`;
+   267	   267	  const headlineGrad = `linear-gradient(120deg,
+   268	   268	    color-mix(in srgb, ${REGION_PRIMARY} 92%, hsl(var(--foreground))),
+   269	   269	    color-mix(in srgb, ${REGION_SECONDARY} 85%, hsl(var(--foreground))) 60%,
+   270	   270	    color-mix(in srgb, ${REGION_GLOW} 90%, hsl(var(--foreground))))`;
+   271	   271	
+   272	   272	  return (
+   273	   273	    <section
+   274	   274	      ref={ref}
+   275	   275	      onMouseMove={handleMouseMove}
+   276	   276	      className="relative overflow-hidden py-20 md:py-28 lg:py-32"
+   277	   277	    >
+   278	   278	      {/* ═══════════════════ Layered atmospheric background ═══════════════════ */}
+   279	   279	      {/* 1. Animated mesh gradient base */}
+   280	   280	      <div className="absolute inset-0 mesh-gradient-animated" />
+   281	   281	
+   282	   282	      {/* 2. Aurora ribbon (undulating gradient bands) */}
+   283	   283	      <AuroraRibbon />
+   284	   284	
+   285	   285	      {/* 3. Far parallax orb (large, blurred, slow) */}
+   286	   286	      <motion.div
+   287	   287	        className="absolute -left-32 top-[15%] h-80 w-80 md:h-96 md:w-96 rounded-full blur-[140px] pointer-events-none"
+   288	   288	        style={{
+   289	   289	          background: `color-mix(in srgb, ${REGION_PRIMARY} 16%, transparent)`,
+   290	   290	          x: farX,
+   291	   291	          y: farY,
+   292	   292	        }}
+   293	   293	        animate={{ scale: [1, 1.06, 1] }}
+   294	   294	        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+   295	   295	      />
+   296	   296	      {/* 4. Mid parallax orb (medium, accent) */}
+   297	   297	      <motion.div
+   298	   298	        className="absolute -right-24 top-[25%] h-64 w-64 md:h-72 md:w-72 rounded-full blur-[120px] pointer-events-none"
+   299	   299	        style={{
+   300	   300	          background: `color-mix(in srgb, ${REGION_SECONDARY} 14%, transparent)`,
+   301	   301	          x: midX,
+   302	   302	          y: midY,
+   303	   303	        }}
+   304	   304	        animate={{ scale: [1.05, 1, 1.05] }}
+   305	   305	        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+   306	   306	      />
+   307	   307	      {/* 5. Bottom glow (ground pool) */}
+   308	   308	      <motion.div
+   309	   309	        className="absolute left-1/2 bottom-[-10%] h-48 w-[28rem] -translate-x-1/2 rounded-full blur-[100px] pointer-events-none"
+   310	   310	        style={{
+   311	   311	          background: `color-mix(in srgb, ${REGION_GLOW} 12%, transparent)`,
+   312	   312	          x: nearX,
+   313	   313	          y: nearY,
+   314	   314	        }}
+   315	   315	        animate={{ y: [0, -15, 0] }}
+   316	   316	        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+   317	   317	      />
+   318	   318	
+   319	   319	      {/* 6. Decorative orbit rings */}
+   320	   320	      <div
+   321	   321	        className="absolute inset-0 pointer-events-none overflow-hidden"
+   322	   322	        aria-hidden="true"
+   323	   323	      >
+   324	   324	        <OrbitRing
+   325	   325	          className="w-[500px] h-[500px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+   326	   326	          delay={0}
+   327	   327	        />
+   328	   328	        <OrbitRing
+   329	   329	          className="w-[700px] h-[700px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+   330	   330	          delay={2}
+   331	   331	        />
+   332	   332	      </div>
+   333	   333	
+   334	   334	      {/* 7. Subtle grid pattern overlay */}
+   335	   335	      <div
+   336	   336	        aria-hidden
+   337	   337	        className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.06]"
+   338	   338	        style={{
+   339	   339	          backgroundImage: `linear-gradient(to right, ${REGION_PRIMARY} 1px, transparent 1px),
+   340	   340	            linear-gradient(to bottom, ${REGION_PRIMARY} 1px, transparent 1px)`,
+   341	   341	          backgroundSize: "64px 64px",
+   342	   342	          maskImage:
+   343	   343	            "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+   344	   344	          WebkitMaskImage:
+   345	   345	            "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+   346	   346	        }}
+   347	   347	      />
+   348	   348	
+   349	   349	      {/* 8. Floating logo watermark */}
+   350	   350	      <motion.img
+   351	   351	        src={bateuLogo}
+   352	   352	        alt=""
+   353	   353	        aria-hidden="true"
+   354	   354	        className="absolute right-[-5%] top-1/2 -translate-y-1/2 w-52 md:w-72 lg:w-96 opacity-[0.03] dark:opacity-[0.05] pointer-events-none select-none"
+   355	   355	        animate={{ y: [0, -14, 0], rotate: [0, 1.5, 0] }}
+   356	   356	        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+   357	   357	      />
+   358	   358	
+   359	   359	      {/* 9. Floating particles */}
+   360	   360	      <div
+   361	   361	        className="absolute inset-0 pointer-events-none overflow-hidden"
+   362	   362	        aria-hidden="true"
+   363	   363	      >
+   364	   364	        {PARTICLES.map((p, i) => (
+   365	   365	          <motion.div
+   366	   366	            key={i}
+   367	   367	            className="absolute rounded-full"
+   368	   368	            style={{
+   369	   369	              left: p.left,
+   370	   370	              top: p.top,
+   371	   371	              width: p.size,
+   372	   372	              height: p.size,
+   373	   373	              background: p.color,
+   374	   374	              opacity: p.opacity,
+   375	   375	            }}
+   376	   376	            animate={{ y: p.yRange, x: p.xRange }}
+   377	   377	            transition={{
+   378	   378	              duration: p.dur,
+   379	   379	              repeat: Infinity,
+   380	   380	              ease: "easeInOut",
+   381	   381	              delay: i * 0.5,
+   382	   382	            }}
+   383	   383	          />
+   384	   384	        ))}
+   385	   385	      </div>
+   386	   386	
+   387	   387	      {/* ═══════════════════ Main Content ═══════════════════ */}
+   388	   388	      <div className="container relative z-10 mx-auto px-4 sm:px-6">
+   389	   389	        <motion.div
+   390	   390	          variants={containerVariants}
+   391	   391	          initial="hidden"
+   392	   392	          animate={inView ? "visible" : "hidden"}
+   393	   393	          className="max-w-5xl mx-auto"
+   394	   394	        >
+   395	   395	          {/* ═══════════════════ Premium Glass Card (with 3D tilt) ═══════════════════ */}
+   396	   396	          <motion.div
+   397	   397	            variants={fadeIn}
+   398	   398	            style={{
+   399	   399	              rotateX: smoothTiltX,
+   400	   400	              rotateY: smoothTiltY,
+   401	   401	              transformStyle: "preserve-3d",
+   402	   402	              perspective: 1400,
+   403	   403	            }}
+   404	   404	            className="relative"
+   405	   405	          >
+   406	   406	            <motion.div
+   407	   407	              variants={fadeIn}
+   408	   408	              className="relative overflow-hidden rounded-[2rem] border border-border/50 glass-strong shadow-elegant"
+   409	   409	            >
+   410	   410	              {/* Animated gradient border frame */}
+   411	   411	              <div
+   412	   412	                className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-60"
+   413	   413	                style={{
+   414	   414	                  background: `linear-gradient(135deg,
+   415	   415	                    color-mix(in srgb, ${REGION_PRIMARY} 45%, transparent),
+   416	   416	                    transparent 35%,
+   417	   417	                    transparent 65%,
+   418	   418	                    color-mix(in srgb, ${REGION_SECONDARY} 45%, transparent))`,
+   419	   419	                  maskImage:
+   420	   420	                    "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+   421	   421	                  WebkitMaskImage:
+   422	   422	                    "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+   423	   423	                  maskComposite: "exclude",
+   424	   424	                  WebkitMaskComposite: "xor",
+   425	   425	                  padding: "1.5px",
+   426	   426	                }}
+   427	   427	                aria-hidden
+   428	   428	              />
+   429	   429	
+   430	   430	              {/* Top animated shimmer bar */}
+   431	   431	              <div
+   432	   432	                className="absolute inset-x-0 top-0 h-[2px] opacity-90"
+   433	   433	                aria-hidden
+   434	   434	              >
+   435	   435	                <div className="h-full w-full border-flow rounded-t-[2rem]" />
+   436	   436	              </div>
+   437	   437	
+   438	   438	              {/* Inner top highlight reflection */}
+   439	   439	              <div
+   440	   440	                aria-hidden
+   441	   441	                className="pointer-events-none absolute inset-x-0 top-0 h-1/3 opacity-50"
+   442	   442	                style={{
+   443	   443	                  background: `linear-gradient(180deg,
+   444	   444	                    color-mix(in srgb, ${REGION_PRIMARY} 8%, transparent) 0%,
+   445	   445	                    transparent 100%)`,
+   446	   446	                }}
+   447	   447	              />
+   448	   448	
+   449	   449	              {/* Inner content */}
+   450	   450	              <div className="relative px-5 py-10 md:px-12 md:py-14 lg:px-16 lg:py-16 text-center">
+   451	   451	                {/* ── Eyebrow row: Live badge + Viewer count ── */}
+   452	   452	                <motion.div
+   453	   453	                  variants={scaleIn}
+   454	   454	                  className="mb-7 flex items-center justify-center gap-3 flex-wrap"
+   455	   455	                >
+   456	   456	                  <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full badge-premium text-xs font-semibold tracking-wide">
+   457	   457	                    <span className="relative flex h-2 w-2">
+   458	   458	                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+   459	   459	                      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+   460	   460	                    </span>
+   461	   461	                    <span style={{ color: REGION_PRIMARY }}>
+   462	   462	                      {rt("hero.badge.live", "Jogos ao Vivo Agora")}
+   463	   463	                    </span>
+   464	   464	                    <Radio
+   465	   465	                      className="h-3 w-3"
+   466	   466	                      style={{ color: REGION_SECONDARY }}
+   467	   467	                    />
+   468	   468	                  </span>
+   469	   469	
+   470	   470	                  {liveCount > 0 && (
+   471	   471	                    <motion.span
+   472	   472	                      initial={{ opacity: 0, scale: 0.8 }}
+   473	   473	                      animate={{ opacity: 1, scale: 1 }}
+   474	   474	                      transition={{ delay: 0.5, duration: 0.4 }}
+   475	   475	                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass-subtle text-[11px] font-medium text-muted-foreground"
+   476	   476	                    >
+   477	   477	                      <Eye className="h-3 w-3 text-accent" />
+   478	   478	                      <span className="pulse-live text-accent font-bold text-xs">
+   479	   479	                        {liveCount}
+   480	   480	                      </span>
+   481	   481	                      <span>ao vivo</span>
+   482	   482	                    </motion.span>
+   483	   483	                  )}
+   484	   484	                </motion.div>
+   485	   485	
+   486	   486	                {/* ── Headline ── */}
+   487	   487	                <motion.h1
+   488	   488	                  variants={fadeUp}
+   489	   489	                  className="mb-4 font-display text-3xl sm:text-4xl md:text-5xl lg:text-[4rem] font-bold leading-[1.05] tracking-tight"
+   490	   490	                >
+   491	   491	                  <span className="inline-block">
+   492	   492	                    {rt("hero.title.prefix", t("hero.title.prefix"))}
+   493	   493	                  </span>{" "}
+   494	   494	                  <span
+   495	   495	                    className="relative inline-block text-neon animate-shimmer"
+   496	   496	                    style={{
+   497	   497	                      backgroundImage: headlineGrad,
+   498	   498	                      WebkitBackgroundClip: "text",
+   499	   499	                      WebkitTextFillColor: "transparent",
+   500	   500	                      backgroundClip: "text",
+   501	   501	                    }}
+   502	   502	                  >
+   503	   503	                    {rt("hero.title.highlight", t("hero.title.highlight"))}
+   504	   504	                    {/* Animated underline glow */}
+   505	   505	                    <motion.span
+   506	   506	                      className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full opacity-60"
+   507	   507	                      style={{ background: accentGrad }}
+   508	   508	                      initial={{ scaleX: 0 }}
+   509	   509	                      animate={inView ? { scaleX: 1 } : {}}
+   510	   510	                      transition={{
+   511	   511	                        delay: 0.8,
+   512	   512	                        duration: 0.8,
+   513	   513	                        ease: [0.22, 1, 0.36, 1],
+   514	   514	                      }}
+   515	   515	                      aria-hidden
+   516	   516	                    />
+   517	   517	                  </span>
+   518	   518	                </motion.h1>
+   519	   519	
+   520	   520	                {/* ── Subtitle ── */}
+   521	   521	                <motion.p
+   522	   522	                  variants={fadeUp}
+   523	   523	                  className="mx-auto mb-9 max-w-xl text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed"
+   524	   524	                >
+   525	   525	                  {rt("hero.subtitle", t("hero.subtitle"))}
+   526	   526	                </motion.p>
+   527	   527	
+   528	   528	                {/* ── Featured Raffle Showcase ── */}
+   529	   529	                <AnimatePresence>
+   530	   530	                  {countdownEnabled &&
+   531	   531	                    featuredRaffle &&
+   532	   532	                    featuredRaffle.end_date && (
+   533	   533	                      <motion.div
+   534	   534	                        initial={{ opacity: 0, scale: 0.92, y: 12 }}
+   535	   535	                        animate={{ opacity: 1, scale: 1, y: 0 }}
+   536	   536	                        exit={{ opacity: 0, scale: 0.92, y: -8 }}
+   537	   537	                        transition={{
+   538	   538	                          duration: 0.5,
+   539	   539	                          ease: [0.22, 1, 0.36, 1],
+   540	   540	                        }}
+   541	   541	                        className="mb-9 flex justify-center"
+   542	   542	                      >
+   543	   543	                        <div className="relative card-3d premium-card rounded-2xl px-6 py-5 inline-flex flex-col items-center gap-3 overflow-hidden max-w-md w-full">
+   544	   544	                          {/* Animated accent border top */}
+   545	   545	                          <div className="absolute top-0 left-0 right-0 h-[2px] border-flow rounded-t-2xl" />
+   546	   546	
+   547	   547	                          {/* Subtle glow behind trophy */}
+   548	   548	                          <div
+   549	   549	                            className="absolute -top-8 left-1/2 -translate-x-1/2 h-20 w-20 rounded-full blur-[40px] pointer-events-none"
+   550	   550	                            style={{
+   551	   551	                              background: `color-mix(in srgb, ${REGION_SECONDARY} 28%, transparent)`,
+   552	   552	                            }}
+   553	   553	                            aria-hidden
+   554	   554	                          />
+   555	   555	
+   556	   556	                          <div className="relative flex items-center gap-2 text-sm font-bold">
+   557	   557	                            <Trophy
+   558	   558	                              className="h-5 w-5"
+   559	   559	                              style={{ color: REGION_PRIMARY }}
+   560	   560	                            />
+   561	   561	                            <span className="text-foreground">
+   562	   562	                              {featuredRaffle.title}
+   563	   563	                            </span>
+   564	   564	                          </div>
+   565	   565	
+   566	   566	                          <div className="flex items-center gap-2">
+   567	   567	                            <span
+   568	   568	                              className="text-base md:text-lg font-extrabold"
+   569	   569	                              style={{ color: REGION_SECONDARY }}
+   570	   570	                            >
+   571	   571	                              {featuredRaffle.prize_title}
+   572	   572	                            </span>
+   573	   573	                          </div>
+   574	   574	
+   575	   575	                          <CountdownTimer
+   576	   576	                            targetDate={new Date(featuredRaffle.end_date)}
+   577	   577	                          />
+   578	   578	
+   579	   579	                          <Link
+   580	   580	                            to={`/rifas/${featuredRaffle.id}`}
+   581	   581	                            className="group inline-flex items-center gap-1.5 text-xs font-semibold transition-colors"
+   582	   582	                            style={{ color: REGION_PRIMARY }}
+   583	   583	                          >
+   584	   584	                            Participar agora
+   585	   585	                            <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
+   586	   586	                          </Link>
+   587	   587	                        </div>
+   588	   588	                      </motion.div>
+   589	   589	                    )}
+   590	   590	                </AnimatePresence>
+   591	   591	
+   592	   592	                {/* ── CTA Buttons ── */}
+   593	   593	                <motion.div
+   594	   594	                  variants={fadeUp}
+   595	   595	                  className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10"
+   596	   596	                >
+   597	   597	                  <Link
+   598	   598	                    to="/marketplace"
+   599	   599	                    className="btn-premium group relative inline-flex items-center gap-2.5 rounded-2xl px-8 py-3.5 md:px-9 md:py-4 text-sm md:text-base font-bold text-primary-foreground glow-primary"
+   600	   600	                  >
+   601	   601	                    <Zap className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
+   602	   602	                    {rt("hero.cta", t("hero.cta"))}
+   603	   603	                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+   604	   604	                  </Link>
+   605	   605	
+   606	   606	                  <Link
+   607	   607	                    to="/jogos"
+   608	   608	                    className="group relative inline-flex items-center gap-2.5 rounded-2xl px-7 py-3.5 md:px-8 md:py-4 text-sm md:text-base font-semibold glass-subtle hover:bg-card/60 transition-all duration-300 hover-lift"
+   609	   609	                    style={{ color: REGION_PRIMARY }}
+   610	   610	                  >
+   611	   611	                    <Gamepad2 className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
+   612	   612	                    {rt("hero.cta.games", "Explorar Jogos")}
+   613	   613	                    <Sparkles className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+   614	   614	                  </Link>
+   615	   615	                </motion.div>
+   616	   616	
+   617	   617	                {/* ── Animated Stats Row ── */}
+   618	   618	                <motion.div
+   619	   619	                  variants={fadeUp}
+   620	   620	                  className="grid grid-cols-3 gap-3 md:gap-5 max-w-xl mx-auto mb-9"
+   621	   621	                >
+   622	   622	                  {[
+   623	   623	                    {
+   624	   624	                      value: participantCount,
+   625	   625	                      label: t("hero.badge.participants"),
+   626	   626	                      icon: Users,
+   627	   627	                      suffix: "+",
+   628	   628	                    },
+   629	   629	                    {
+   630	   630	                      value: liveCount,
+   631	   631	                      label: "Ao vivo",
+   632	   632	                      icon: Radio,
+   633	   633	                      suffix: "",
+   634	   634	                    },
+   635	   635	                    {
+   636	   636	                      value: null,
+   637	   637	                      label: rt("hero.badge.weekly", t("hero.badge.weekly")),
+   638	   638	                      icon: TrendingUp,
+   639	   639	                      suffix: "",
+   640	   640	                    },
+   641	   641	                  ].map((stat, i) => (
+   642	   642	                    <motion.div
+   643	   643	                      key={stat.label}
+   644	   644	                      initial={{ opacity: 0, y: 14 }}
+   645	   645	                      whileInView={{ opacity: 1, y: 0 }}
+   646	   646	                      viewport={{ once: true }}
+   647	   647	                      transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
+   648	   648	                      className="relative flex flex-col items-center gap-1.5 py-3 rounded-2xl glass-subtle hover-lift overflow-hidden"
+   649	   649	                    >
+   650	   650	                      {/* Subtle gradient accent at top */}
+   651	   651	                      <div
+   652	   652	                        aria-hidden
+   653	   653	                        className="absolute inset-x-0 top-0 h-[2px] opacity-50"
+   654	   654	                        style={{ background: accentGrad }}
+   655	   655	                      />
+   656	   656	                      <stat.icon
+   657	   657	                        className="h-4 w-4"
+   658	   658	                        style={{ color: REGION_PRIMARY }}
+   659	   659	                      />
+   660	   660	                      {stat.value !== null ? (
+   661	   661	                        <span
+   662	   662	                          className="text-lg md:text-xl font-bold font-display tabular-nums"
+   663	   663	                          style={{ color: REGION_PRIMARY }}
+   664	   664	                        >
+   665	   665	                          {stat.suffix}
+   666	   666	                          <AnimatedCounter value={stat.value} />
+   667	   667	                        </span>
+   668	   668	                      ) : (
+   669	   669	                        <span
+   670	   670	                          className="text-lg md:text-xl font-bold font-display"
+   671	   671	                          style={{ color: REGION_PRIMARY }}
+   672	   672	                        >
+   673	   673	                          ✓
+   674	   674	                        </span>
+   675	   675	                      )}
+   676	   676	                      <span className="text-[10px] md:text-[11px] text-muted-foreground font-medium leading-tight text-center">
+   677	   677	                        {stat.label}
+   678	   678	                      </span>
+   679	   679	                    </motion.div>
+   680	   680	                  ))}
+   681	   681	                </motion.div>
+   682	   682	
+   683	   683	                {/* ── Trust Badges ── */}
+   684	   684	                <motion.div
+   685	   685	                  variants={fadeUp}
+   686	   686	                  className="flex flex-wrap items-center justify-center gap-2.5 md:gap-4"
+   687	   687	                >
+   688	   688	                  {[
+   689	   689	                    { icon: Shield, label: t("hero.badge.verification") },
+   690	   690	                    {
+   691	   691	                      icon: Users,
+   692	   692	                      label: formattedCount
+   693	   693	                        ? `${formattedCount} ${t("hero.badge.participants")}`
+   694	   694	                        : t("hero.badge.community"),
+   695	   695	                    },
+   696	   696	                    { icon: Clock, label: t("hero.badge.weekly") },
+   697	   697	                    {
+   698	   698	                      icon: Star,
+   699	   699	                      label: rt("hero.badge.prizes", "Prémios Reais"),
+   700	   700	                    },
+   701	   701	                  ].map((badge, i) => (
+   702	   702	                    <motion.span
+   703	   703	                      key={badge.label}
+   704	   704	                      initial={{ opacity: 0, y: 10 }}
+   705	   705	                      whileInView={{ opacity: 1, y: 0 }}
+   706	   706	                      viewport={{ once: true }}
+   707	   707	                      transition={{ delay: 1 + i * 0.08, duration: 0.4 }}
+   708	   708	                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full badge-premium text-[11px] md:text-xs text-muted-foreground font-medium hover-lift"
+   709	   709	                    >
+   710	   710	                      <badge.icon
+   711	   711	                        className="h-3.5 w-3.5"
+   712	   712	                        style={{ color: REGION_PRIMARY }}
+   713	   713	                      />
+   714	   714	                      {badge.label}
+   715	   715	                    </motion.span>
+   716	   716	                  ))}
+   717	   717	                </motion.div>
+   718	   718	              </div>
+   719	   719	            </motion.div>
+   720	   720	          </motion.div>
+   721	   721	
+   722	   722	          {/* ═══════════════════ Brand signature below card ═══════════════════ */}
+   723	   723	          <motion.div
+   724	   724	            variants={fadeUp}
+   725	   725	            className="mt-8 flex items-center justify-center gap-2.5"
+   726	   726	          >
+   727	   727	            <img
+   728	   728	              src={bateuLogo}
+   729	   729	              alt="Bateu"
+   730	   730	              className="h-6 w-6 rounded-md opacity-70 animate-glow-pulse"
+   731	   731	            />
+   732	   732	            <span
+   733	   733	              className="font-display text-sm font-bold tracking-tight opacity-50"
+   734	   734	              style={{ color: "var(--region-primary, hsl(var(--foreground)))" }}
+   735	   735	            >
+   736	   736	              Bateu
+   737	   737	            </span>
+   738	   738	            <span className="text-[11px] text-muted-foreground opacity-40">·</span>
+   739	   739	            <span className="text-[11px] text-muted-foreground opacity-50 font-medium">
+   740	   740	              {rt("hero.badge.live", "Jogos ao Vivo Agora")}
+   741	   741	            </span>
+   742	   742	          </motion.div>
+   743	   743	
+   744	   744	          {/* ═══════════════════ Scroll cue ═══════════════════ */}
+   745	   745	          <motion.div
+   746	   746	            initial={{ opacity: 0 }}
+   747	   747	            animate={inView ? { opacity: 1 } : {}}
+   748	   748	            transition={{ delay: 1.4, duration: 0.6 }}
+   749	   749	            className="mt-10 flex flex-col items-center gap-1.5"
+   750	   750	          >
+   751	   751	            <motion.div
+   752	   752	              animate={{ y: [0, 6, 0] }}
+   753	   753	              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+   754	   754	              className="flex items-center justify-center h-7 w-7 rounded-full glass-subtle"
+   755	   755	              aria-hidden
+   756	   756	            >
+   757	   757	              <ChevronDown
+   758	   758	                className="h-3.5 w-3.5"
+   759	   759	                style={{ color: REGION_PRIMARY }}
+   760	   760	              />
+   761	   761	            </motion.div>
+   762	   762	            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
+   763	   763	              Descobrir
+   764	   764	            </span>
+   765	   765	          </motion.div>
+   766	   766	        </motion.div>
+   767	   767	      </div>
+   768	   768	
+   769	   769	      {/* ═══════════════════ Bottom fade edge ═══════════════════ */}
+   770	   770	      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+   771	   771	    </section>
+   772	   772	  );
+   773	   773	};
+   774	   774	
+   775	   775	export default HeroSection;

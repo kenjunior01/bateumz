@@ -1,0 +1,538 @@
+   300→              <div className="flex items-center gap-2">
+   301→                <span
+   302→                  className={"navbar-brand-text font-display font-bold transition-all duration-500 text-gradient-primary " + (scrolled ? "text-lg" : "text-xl")}
+   303→                >
+   304→                  Bateu
+   305→                </span>
+   306→                {/* Verified micro-dot — trust signal */}
+   307→                <span className="navbar-verified-dot hidden md:inline-flex" title={rt("nav.verified", "Plataforma verificada")}>
+   308→                  <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   309→                </span>
+   310→                {/* Live activity orb — shows real-time active streams count */}
+   311→                <Link
+   312→                  to="/lives-agora"
+   313→                  className="navbar-live-orb hidden items-center md:inline-flex"
+   314→                  title={rt("nav.live.count", "Lives a decorrer agora")}
+   315→                  aria-label={`${liveCount} ${rt("nav.live.count", "Lives a decorrer agora")}`}
+   316→                >
+   317→                  <span className="navbar-live-orb-ring" aria-hidden="true" />
+   318→                  <span className="tabular-nums">{liveCount}</span>
+   319→                  <span className="hidden xl:inline opacity-80">{rt("nav.live", "AO VIVO")}</span>
+   320→                </Link>
+   321→              </div>
+   322→            </Link>
+   323→
+   324→            {/* Navigation Menu */}
+   325→            <div className="hidden lg:flex">
+   326→              <NavigationMenu>
+   327→                <NavigationMenuList className="gap-0.5">
+   328→                  {groups.map((g, gi) => (
+   329→                    <NavigationMenuItem key={g.label}>
+   330→                      <NavigationMenuTrigger
+   331→                        className={
+   332→                          "navbar-trigger bg-transparent text-sm font-medium transition-all duration-200 data-[state=open]:text-foreground " +
+   333→                          "text-muted-foreground hover:text-foreground " +
+   334→                          "hover:bg-secondary/50 data-[state=open]:bg-secondary/50 " +
+   335→                          "rounded-lg px-3 py-2"
+   336→                        }
+   337→                      >
+   338→                        <span className="flex items-center gap-2">
+   339→                          <span className="navbar-group-icon">
+   340→                            <g.icon className="h-[11px] w-[11px]" strokeWidth={2.2} />
+   341→                          </span>
+   342→                          {g.label}
+   343→                          {gi === 2 && (
+   344→                            <span className="relative flex h-2 w-2">
+   345→                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+   346→                              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+   347→                            </span>
+   348→                          )}
+   349→                        </span>
+   350→                      </NavigationMenuTrigger>
+   351→                      <NavigationMenuContent>
+   352→                        <div className="navbar-mega-panel premium-card rounded-2xl p-2 w-[480px]">
+   353→                          <div className="navbar-mega-header mb-1 flex items-center justify-between px-2 pt-1">
+   354→                            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+   355→                              <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   356→                              {g.label}
+   357→                            </span>
+   358→                            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-accent/80">
+   359→                              <Sparkles className="h-3 w-3" />
+   360→                              {rt("nav.mega.explore", "Explorar")}
+   361→                            </span>
+   362→                          </div>
+   363→                          <ul className="gap-0.5">
+   364→                            {g.items.map((item, ii) => (
+   365→                              <motion.li
+   366→                                key={item.label}
+   367→                                initial={{ opacity: 0, x: -8 }}
+   368→                                animate={{ opacity: 1, x: 0 }}
+   369→                                transition={{ delay: ii * 0.04, duration: 0.2 }}
+   370→                              >
+   371→                                <Link
+   372→                                  to={item.href}
+   373→                                  className="group/item flex items-start gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-primary/5"
+   374→                                >
+   375→                                  <div
+   376→                                    className={
+   377→                                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 " +
+   378→                                      "bg-gradient-to-br from-primary/10 to-accent/5 " +
+   379→                                      "text-primary group-hover/item:from-primary/20 group-hover/item:to-accent/10 " +
+   380→                                      "group-hover/item:shadow-md group-hover/item:scale-105"
+   381→                                    }
+   382→                                  >
+   383→                                    <item.icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+   384→                                  </div>
+   385→                                  <div className="flex-1 min-w-0">
+   386→                                    <div className="flex items-center gap-2">
+   387→                                      <span className="text-sm font-semibold text-foreground group-hover/item:text-gradient-primary transition-colors">
+   388→                                        {item.label}
+   389→                                      </span>
+   390→                                      {item.live && (
+   391→                                        <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+   392→                                          <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   393→                                          AO VIVO
+   394→                                        </span>
+   395→                                      )}
+   396→                                      {item.badge && !item.live && (
+   397→                                        <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+   398→                                          {item.badge}
+   399→                                        </span>
+   400→                                      )}
+   401→                                    </div>
+   402→                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+   403→                                      {item.desc}
+   404→                                    </p>
+   405→                                  </div>
+   406→                                  <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover/item:text-primary/60 group-hover/item:translate-x-0.5 transition-all -rotate-90 mt-0.5" />
+   407→                                </Link>
+   408→                              </motion.li>
+   409→                            ))}
+   410→                          </ul>
+   411→                          {/* Spotlight card — featured action at the bottom of each mega panel */}
+   412→                          <Link to={g.spotlight.href} className="navbar-spotlight-card group/spotlight flex items-center gap-3">
+   413→                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+   414→                              <Rocket className="h-4 w-4" strokeWidth={2.2} />
+   415→                            </span>
+   416→                            <div className="min-w-0 flex-1">
+   417→                              <p className="truncate text-sm font-bold text-primary-foreground">
+   418→                                {g.spotlight.label}
+   419→                              </p>
+   420→                              <p className="truncate text-xs text-primary-foreground/80">
+   421→                                {g.spotlight.desc}
+   422→                              </p>
+   423→                            </div>
+   424→                            <span className="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5">
+   425→                              {g.spotlight.cta}
+   426→                              <ArrowRight className="h-3 w-3" />
+   427→                            </span>
+   428→                          </Link>
+   429→                        </div>
+   430→                      </NavigationMenuContent>
+   431→                    </NavigationMenuItem>
+   432→                  ))}
+   433→                </NavigationMenuList>
+   434→              </NavigationMenu>
+   435→            </div>
+   436→
+   437→            {/* Right Actions */}
+   438→            <div className="hidden items-center gap-1.5 lg:flex">
+   439→              {/* Premium search trigger — command palette style */}
+   440→              <Link
+   441→                to="/marketplace"
+   442→                className="navbar-search-trigger group flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md transition-colors hover:bg-secondary/50 hover:text-foreground"
+   443→                aria-label={rt("nav.search", "Pesquisar")}
+   444→              >
+   445→                <Search className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+   446→                <span className="hidden xl:inline">{rt("nav.search.placeholder", "Pesquisar sorteios...")}</span>
+   447→                <kbd className="navbar-kbd hidden xl:inline-flex">⌘K</kbd>
+   448→              </Link>
+   449→              <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md">
+   450→                <RegionCountrySwitcher compact />
+   451→                <LanguageSwitcher />
+   452→                <ThemeToggle />
+   453→              </div>
+   454→
+   455→              {/* Notification bell (desktop) */}
+   456→              {user && (
+   457→                <Link
+   458→                  to={role === "business" ? "/dashboard/notifications" : "/profile"}
+   459→                  className="navbar-bell relative flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   460→                  aria-label={t("nav.notifications", "Notificações")}
+   461→                >
+   462→                  <Bell className="h-[18px] w-[18px]" />
+   463→                  {unread > 0 && (
+   464→                    <span className="navbar-bell-badge absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground px-1 shadow-glow">
+   465→                      {unread > 9 ? "9+" : unread}
+   466→                    </span>
+   467→                  )}
+   468→                </Link>
+   469→              )}
+   470→
+   471→              <div className="w-px h-6 bg-border/60 mx-1" />
+   472→
+   473→              {user ? (
+   474→                <motion.div
+   475→                  className="navbar-user-cluster flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md"
+   476→                  initial={{ opacity: 0, x: 10 }}
+   477→                  animate={{ opacity: 1, x: 0 }}
+   478→                  transition={{ delay: 0.1 }}
+   479→                >
+   480→                  {/* Wallet balance pill — gold-tinted, shows live balance */}
+   481→                  {walletBalance !== null && (
+   482→                    <Link
+   483→                      to="/wallet"
+   484→                      className="navbar-wallet-pill group relative"
+   485→                      title={rt("nav.wallet", "Carteira")}
+   486→                      aria-label={rt("nav.wallet", "Carteira")}
+   487→                    >
+   488→                      <span className="navbar-wallet-shine" aria-hidden="true" />
+   489→                      <Wallet className="h-3.5 w-3.5 relative" />
+   490→                      <span className="tabular-nums relative">{format(walletBalance)}</span>
+   491→                    </Link>
+   492→                  )}
+   493→                  {/* Points pill */}
+   494→                  <Link
+   495→                    to="/my-points"
+   496→                    className="navbar-points-pill group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-200 hover:bg-secondary/50"
+   497→                    title={t("nav.points", "Pontos")}
+   498→                  >
+   499→                    <Star className="h-4 w-4 text-accent fill-accent/30 transition-transform group-hover:rotate-12" />
+   500→                    <span className="text-gradient-primary font-semibold">
+   501→                      {t("nav.points")}
+   502→                    </span>
+   503→                  </Link>
+   504→                  {/* Avatar bubble — gradient halo with initials or profile image */}
+   505→                  <Link
+   506→                    to={role === "admin" ? "/admin" : role === "business" ? "/dashboard" : "/profile"}
+   507→                    className="navbar-avatar-ring"
+   508→                    title={profile?.display_name || t("nav.profile", "Perfil")}
+   509→                    aria-label={t("nav.profile", "Perfil")}
+   510→                  >
+   511→                    {profile?.avatar_url ? (
+   512→                      <img src={profile.avatar_url} alt={profile?.display_name || "Perfil"} />
+   513→                    ) : (
+   514→                      <span>{initials}</span>
+   515→                    )}
+   516→                  </Link>
+   517→                  {role === "admin" && (
+   518→                    <Link
+   519→                      to="/admin"
+   520→                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-destructive transition-all duration-200 hover:bg-destructive/10"
+   521→                    >
+   522→                      <Crown className="h-3.5 w-3.5" />
+   523→                      {t("nav.admin")}
+   524→                    </Link>
+   525→                  )}
+   526→                  <button
+   527→                    onClick={signOut}
+   528→                    className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   529→                    title={t("nav.signout", "Sair")}
+   530→                    aria-label={t("nav.signout", "Sair")}
+   531→                  >
+   532→                    {t("nav.signout")}
+   533→                  </button>
+   534→                </motion.div>
+   535→              ) : (
+   536→                <motion.div
+   537→                  className="flex items-center gap-2"
+   538→                  initial={{ opacity: 0, x: 10 }}
+   539→                  animate={{ opacity: 1, x: 0 }}
+   540→                  transition={{ delay: 0.1 }}
+   541→                >
+   542→                  <Link
+   543→                    to="/login"
+   544→                    className="hover-lift rounded-xl px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-secondary/50"
+   545→                  >
+   546→                    {t("nav.signin")}
+   547→                  </Link>
+   548→                  <Link
+   549→                    to="/register"
+   550→                    className="btn-premium glow-primary hover-lift flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-primary-foreground"
+   551→                  >
+   552→                    <Zap className="h-4 w-4" />
+   553→                    {t("nav.signup")}
+   554→                  </Link>
+   555→                </motion.div>
+   556→              )}
+   557→            </div>
+   558→
+   559→            {/* Mobile toggle */}
+   560→            <div className="flex items-center gap-1 lg:hidden">
+   561→              <Link
+   562→                to="/marketplace"
+   563→                className="flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   564→                aria-label={rt("nav.search", "Pesquisar")}
+   565→              >
+   566→                <Search className="h-5 w-5" />
+   567→              </Link>
+   568→              <LanguageSwitcher />
+   569→              <ThemeToggle />
+   570→              <motion.button
+   571→                whileTap={{ scale: 0.9 }}
+   572→                className="relative flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   573→                onClick={() => setOpen(!open)}
+   574→                aria-label="Menu"
+   575→              >
+   576→                <AnimatePresence mode="wait" initial={false}>
+   577→                  {open ? (
+   578→                    <motion.span
+   579→                      key="close"
+   580→                      initial={{ rotate: -90, opacity: 0 }}
+   581→                      animate={{ rotate: 0, opacity: 1 }}
+   582→                      exit={{ rotate: 90, opacity: 0 }}
+   583→                      transition={{ duration: 0.15 }}
+   584→                    >
+   585→                      <X className="h-5 w-5" />
+   586→                    </motion.span>
+   587→                  ) : (
+   588→                    <motion.span
+   589→                      key="menu"
+   590→                      initial={{ rotate: 90, opacity: 0 }}
+   591→                      animate={{ rotate: 0, opacity: 1 }}
+   592→                      exit={{ rotate: -90, opacity: 0 }}
+   593→                      transition={{ duration: 0.15 }}
+   594→                    >
+   595→                      <Menu className="h-5 w-5" />
+   596→                    </motion.span>
+   597→                  )}
+   598→                </AnimatePresence>
+   599→              </motion.button>
+   600→            </div>
+   601→          </div>
+   602→        </div>
+   603→      </motion.nav>
+   604→
+   605→      {/* Mobile Menu Overlay */}
+   606→      <AnimatePresence>
+   607→        {open && (
+   608→          <>
+   609→            {/* Backdrop */}
+   610→            <motion.div
+   611→              initial={{ opacity: 0 }}
+   612→              animate={{ opacity: 1 }}
+   613→              exit={{ opacity: 0 }}
+   614→              transition={{ duration: 0.2 }}
+   615→              className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
+   616→              onClick={() => setOpen(false)}
+   617→            />
+   618→
+   619→            {/* Panel */}
+   620→            <motion.div
+   621→              initial={{ y: "-10%", opacity: 0 }}
+   622→              animate={{ y: 0, opacity: 1 }}
+   623→              exit={{ y: "-10%", opacity: 0 }}
+   624→              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   625→              className="fixed top-0 left-0 right-0 z-50 lg:hidden"
+   626→            >
+   627→              <div className="glass-strong shadow-elegant border-b border-border/50">
+   628→                {/* Mobile header */}
+   629→                <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+   630→                  <Link to="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+   631→                    <img src={bateuLogo} alt="Bateu" className="h-8 w-8" />
+   632→                    <span className="font-display text-lg font-bold text-gradient-primary">Bateu</span>
+   633→                    <span className="navbar-verified-dot ml-0.5 inline-flex" title={rt("nav.verified", "Plataforma verificada")}>
+   634→                      <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   635→                    </span>
+   636→                  </Link>
+   637→                  <motion.button
+   638→                    whileTap={{ scale: 0.9 }}
+   639→                    onClick={() => setOpen(false)}
+   640→                    className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground hover:bg-secondary/50 transition-colors"
+   641→                  >
+   642→                    <X className="h-5 w-5" />
+   643→                  </motion.button>
+   644→                </div>
+   645→
+   646→                {/* Menu items */}
+   647→                <div className="flex flex-col gap-1 px-3 py-3 max-h-[78vh] overflow-y-auto">
+   648→                  {/* Quick actions row — one-tap access */}
+   649→                  <motion.div
+   650→                    initial={{ opacity: 0, y: -8 }}
+   651→                    animate={{ opacity: 1, y: 0 }}
+   652→                    transition={{ delay: 0.04 }}
+   653→                    className="grid grid-cols-4 gap-2 mb-3 px-1"
+   654→                  >
+   655→                    {quickActions.map((qa) => (
+   656→                      <Link
+   657→                        key={qa.label}
+   658→                        to={qa.href}
+   659→                        onClick={() => setOpen(false)}
+   660→                        className="navbar-quick-action"
+   661→                      >
+   662→                        <span className="navbar-quick-action-icon relative">
+   663→                          <qa.icon className="h-4 w-4" strokeWidth={1.9} />
+   664→                          {qa.live && (
+   665→                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent pulse-live" />
+   666→                          )}
+   667→                        </span>
+   668→                        <span>{qa.label}</span>
+   669→                      </Link>
+   670→                    ))}
+   671→                  </motion.div>
+   672→
+   673→                  {/* Live counter chip + search row */}
+   674→                  <div className="mb-3 flex items-center gap-2 px-1">
+   675→                    <Link
+   676→                      to="/lives-agora"
+   677→                      onClick={() => setOpen(false)}
+   678→                      className="navbar-mobile-live"
+   679→                    >
+   680→                      <span className="navbar-live-orb-ring" aria-hidden="true" />
+   681→                      <span className="tabular-nums">{liveCount}</span>
+   682→                      <span className="opacity-90">{rt("nav.live", "AO VIVO")}</span>
+   683→                    </Link>
+   684→                    <Link
+   685→                      to="/marketplace"
+   686→                      onClick={() => setOpen(false)}
+   687→                      className="navbar-search-trigger flex flex-1 items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md"
+   688→                    >
+   689→                      <Search className="h-3.5 w-3.5" />
+   690→                      <span className="flex-1 text-left">{rt("nav.search.placeholder", "Pesquisar sorteios...")}</span>
+   691→                    </Link>
+   692→                  </div>
+   693→
+   694→                  {/* Premium hero CTA (only when not authed) */}
+   695→                  {!user && (
+   696→                    <Link
+   697→                      to="/register"
+   698→                      onClick={() => setOpen(false)}
+   699→                      className="navbar-hero-cta mb-3 flex items-center gap-3 rounded-2xl p-4"
+   700→                    >
+   701→                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+   702→                        <Flame className="h-5 w-5" />
+   703→                      </span>
+   704→                      <div className="min-w-0 flex-1">
+   705→                        <p className="text-sm font-bold text-primary-foreground">
+   706→                          {rt("nav.hero.cta.title", "Participe e ganhe 50 pontos")}
+   707→                        </p>
+   708→                        <p className="truncate text-xs text-primary-foreground/80">
+   709→                          {rt("nav.hero.cta.subtitle", "Sorteios, jogos e prémios a aguardar")}
+   710→                        </p>
+   711→                      </div>
+   712→                      <Zap className="h-4 w-4 text-primary-foreground" />
+   713→                    </Link>
+   714→                  )}
+   715→                  {groups.map((g, gi) => (
+   716→                    <motion.div
+   717→                      key={g.label}
+   718→                      initial={{ opacity: 0, y: 10 }}
+   719→                      animate={{ opacity: 1, y: 0 }}
+   720→                      transition={{ delay: 0.08 + gi * 0.05 }}
+   721→                    >
+   722→                      <p className="mb-1.5 flex items-center gap-1.5 px-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+   723→                        <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   724→                        {g.label}
+   725→                      </p>
+   726→                      <div className="flex flex-col gap-0.5">
+   727→                        {g.items.map((item) => (
+   728→                          <Link
+   729→                            key={item.label}
+   730→                            to={item.href}
+   731→                            onClick={() => setOpen(false)}
+   732→                            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-all duration-200 hover:bg-primary/5 active:scale-[0.98]"
+   733→                          >
+   734→                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/5 text-primary group-hover:from-primary/20 group-hover:to-accent/10 transition-all">
+   735→                              <item.icon className="h-4 w-4" strokeWidth={1.8} />
+   736→                            </div>
+   737→                            <span className="flex-1 font-medium">{item.label}</span>
+   738→                            {item.live && (
+   739→                              <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase text-accent">
+   740→                                <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   741→                                AO VIVO
+   742→                              </span>
+   743→                            )}
+   744→                            {item.badge && !item.live && (
+   745→                              <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+   746→                                {item.badge}
+   747→                              </span>
+   748→                            )}
+   749→                          </Link>
+   750→                        ))}
+   751→                      </div>
+   752→                      {/* Spotlight mini-CTA inside mobile group */}
+   753→                      <Link
+   754→                        to={g.spotlight.href}
+   755→                        onClick={() => setOpen(false)}
+   756→                        className="navbar-spotlight-card group/spotlight mt-1 mb-2 flex items-center gap-3"
+   757→                      >
+   758→                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+   759→                          <Rocket className="h-3.5 w-3.5" strokeWidth={2.2} />
+   760→                        </span>
+   761→                        <div className="min-w-0 flex-1">
+   762→                          <p className="truncate text-xs font-bold text-primary-foreground">{g.spotlight.label}</p>
+   763→                          <p className="truncate text-[11px] text-primary-foreground/75">{g.spotlight.desc}</p>
+   764→                        </div>
+   765→                        <ArrowRight className="h-3.5 w-3.5 text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5" />
+   766→                      </Link>
+   767→                    </motion.div>
+   768→                  ))}
+   769→
+   770→                  {/* Mobile CTA */}
+   771→                  <motion.div
+   772→                    initial={{ opacity: 0, y: 10 }}
+   773→                    animate={{ opacity: 1, y: 0 }}
+   774→                    transition={{ delay: 0.08 + groups.length * 0.05 + 0.05 }}
+   775→                    className="pt-2 pb-1"
+   776→                  >
+   777→                    {!user ? (
+   778→                      <div className="grid grid-cols-2 gap-2 px-1">
+   779→                        <Link
+   780→                          to="/login"
+   781→                          onClick={() => setOpen(false)}
+   782→                          className="hover-lift flex items-center justify-center rounded-xl border border-border bg-secondary/50 py-2.5 text-sm font-semibold transition-all hover:bg-secondary"
+   783→                        >
+   784→                          {t("nav.signin")}
+   785→                        </Link>
+   786→                        <Link
+   787→                          to="/register"
+   788→                          onClick={() => setOpen(false)}
+   789→                          className="btn-premium glow-primary hover-lift flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-primary-foreground"
+   790→                        >
+   791→                          <Zap className="h-4 w-4" />
+   792→                          {t("nav.signup")}
+   793→                        </Link>
+   794→                      </div>
+   795→                    ) : (
+   796→                      <div className="flex flex-col gap-1.5 px-1">
+   797→                        {walletBalance !== null && (
+   798→                          <Link
+   799→                            to="/wallet"
+   800→                            onClick={() => setOpen(false)}
+   801→                            className="navbar-wallet-pill group relative w-full justify-center py-2.5"
+   802→                          >
+   803→                            <span className="navbar-wallet-shine" aria-hidden="true" />
+   804→                            <Wallet className="h-4 w-4 relative" />
+   805→                            <span className="relative">{rt("nav.wallet", "Carteira")}: {format(walletBalance)}</span>
+   806→                          </Link>
+   807→                        )}
+   808→                        <Link
+   809→                          to="/my-points"
+   810→                          onClick={() => setOpen(false)}
+   811→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-primary/5 transition-colors"
+   812→                        >
+   813→                          <Star className="h-4 w-4 text-accent fill-accent/30" />
+   814→                          <span className="text-gradient-primary font-semibold">{t("nav.points")}</span>
+   815→                        </Link>
+   816→                        <button
+   817→                          onClick={() => { setOpen(false); signOut(); }}
+   818→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors text-left"
+   819→                        >
+   820→                          <LifeBuoy className="h-4 w-4" />
+   821→                          {t("nav.signout")}
+   822→                        </button>
+   823→                      </div>
+   824→                    )}
+   825→                  </motion.div>
+   826→                </div>
+   827→              </div>
+   828→            </motion.div>
+   829→          </>
+   830→        )}
+   831→      </AnimatePresence>
+   832→    </>
+   833→  );
+   834→};
+   835→
+   836→export default Navbar;
+   837→

@@ -1,0 +1,586 @@
+     1→import { useEffect, useMemo, useRef, useState } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import {
+     4→  Download, Trash2, Users, Trophy, Sliders, Copy, Check, ExternalLink,
+     5→  AlertTriangle, Radio, Play, Square, Crown, Activity, Gamepad2,
+     6→  ChevronDown, ChevronUp, Sparkles, Flame, RotateCcw, Zap,
+     7→} from "lucide-react";
+     8→import { LeaderEntry } from "./LiveLeaderboard";
+     9→import { buildOverlayUrl, getPublicBaseUrl, isOnPublicDomain } from "@/lib/publicUrl";
+    10→import { useToast } from "@/hooks/use-toast";
+    11→
+    12→interface Props {
+    13→  liveCode: string;
+    14→  entries: LeaderEntry[];
+    15→  onClear: () => void;
+    16→  onResetConfig: () => void;
+    17→  /* ---- Optional lifecycle hooks (revolutionized panel) ----
+    18→   * All optional so the original 4-prop API stays backward compatible.
+    19→   * When provided, the panel renders a full live-session cockpit. */
+    20→  isLive?: boolean;
+    21→  startedAt?: number;
+    22→  activeGame?: string; // human label, e.g. "Quiz Battle"
+    23→  onStartLive?: () => void;
+    24→  onEndLive?: () => void;
+    25→  onCrown?: (name: string, score: number) => void;
+    26→}
+    27→
+    28→const fmtTime = (s: number) =>
+    29→  `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+    30→
+    31→/* -------------------------------------------------------------- Helpers -- */
+    32→
+    33→/** Animated count-up number using requestAnimationFrame + easeOutCubic. */
+    34→const AnimatedNumber = ({ value, duration = 600 }: { value: number; duration?: number }) => {
+    35→  const [display, setDisplay] = useState(value);
+    36→  const fromRef = useRef(value);
+    37→  const rafRef = useRef<number | null>(null);
+    38→
+    39→  useEffect(() => {
+    40→    const from = fromRef.current;
+    41→    const to = value;
+    42→    if (from === to) { setDisplay(to); return; }
+    43→    const start = performance.now();
+    44→    const tick = (now: number) => {
+    45→      const t = Math.min(1, (now - start) / duration);
+    46→      const eased = 1 - Math.pow(1 - t, 3);
+    47→      setDisplay(Math.round(from + (to - from) * eased));
+    48→      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    49→      else fromRef.current = to;
+    50→    };
+    51→    rafRef.current = requestAnimationFrame(tick);
+    52→    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    53→  }, [value, duration]);
+    54→
+    55→  return <>{display.toLocaleString("pt-PT")}</>;
+    56→};
+    57→
+    58→/** 60-second engagement pulse bucketed in 5s windows. */
+    59→const useEngagementPulse = (entries: LeaderEntry[]) =>
+    60→  useMemo(() => {
+    61→    const now = Date.now();
+    62→    const BUCKETS = 12;
+    63→    const WINDOW_MS = 60_000;
+    64→    const STEP = WINDOW_MS / BUCKETS;
+    65→    const buckets = Array.from({ length: BUCKETS }, (_, i) => {
+    66→      const end = now - (BUCKETS - 1 - i) * STEP;
+    67→      const start = end - STEP;
+    68→      return entries.filter((e) => e.at >= start && e.at < end).length;
+    69→    });
+    70→    const max = Math.max(1, ...buckets);
+    71→    const total = buckets.reduce((a, b) => a + b, 0);
+    72→    const recent = buckets.slice(-3).reduce((a, b) => a + b, 0);
+    73→    return { buckets, max, total, recent };
+    74→  }, [entries]);
+    75→
+    76→/** Top-N games by play count. */
+    77→const useGameBreakdown = (entries: LeaderEntry[], n = 3) =>
+    78→  useMemo(() => {
+    79→    const map = new Map<string, number>();
+    80→    entries.forEach((e) => map.set(e.game, (map.get(e.game) || 0) + 1));
+    81→    return Array.from(map.entries())
+    82→      .map(([game, plays]) => ({ game, plays }))
+    83→      .sort((a, b) => b.plays - a.plays)
+    84→      .slice(0, n);
+    85→  }, [entries]);
+    86→
+    87→/** Tiny SVG sparkline with gradient fill + live cursor dot. */
+    88→const Sparkline = ({ buckets, max }: { buckets: number[]; max: number }) => {
+    89→  const W = 100, H = 28;
+    90→  const pts = buckets.map((b, i) => {
+    91→    const x = (i / Math.max(1, buckets.length - 1)) * W;
+    92→    const y = H - (b / max) * (H - 4) - 2;
+    93→    return [x, y] as const;
+    94→  });
+    95→  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+    96→  const area = `${line} L${W},${H} L0,${H} Z`;
+    97→  return (
+    98→    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-7">
+    99→      <defs>
+   100→        <linearGradient id="lcp-spark-fill" x1="0" y1="0" x2="0" y2="1">
+   101→          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+   102→          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+   103→        </linearGradient>
+   104→        <linearGradient id="lcp-spark-stroke" x1="0" y1="0" x2="1" y2="0">
+   105→          <stop offset="0%" stopColor="var(--region-primary, hsl(var(--primary)))" />
+   106→          <stop offset="100%" stopColor="var(--region-secondary, hsl(var(--accent)))" />
+   107→        </linearGradient>
+   108→      </defs>
+   109→      <path d={area} fill="url(#lcp-spark-fill)" />
+   110→      <path
+   111→        d={line}
+   112→        fill="none"
+   113→        stroke="url(#lcp-spark-stroke)"
+   114→        strokeWidth="1.5"
+   115→        strokeLinecap="round"
+   116→        strokeLinejoin="round"
+   117→      />
+   118→      {pts.length > 0 && (
+   119→        <circle
+   120→          cx={pts[pts.length - 1][0]}
+   121→          cy={pts[pts.length - 1][1]}
+   122→          r="1.8"
+   123→          fill="var(--region-secondary, hsl(var(--accent)))"
+   124→        />
+   125→      )}
+   126→    </svg>
+   127→  );
+   128→};
+   129→
+   130→/* -------------------------------------------------------------- Component */
+   131→
+   132→const LiveControlPanel = ({
+   133→  liveCode,
+   134→  entries,
+   135→  onClear,
+   136→  onResetConfig,
+   137→  isLive,
+   138→  startedAt,
+   139→  activeGame,
+   140→  onStartLive,
+   141→  onEndLive,
+   142→  onCrown,
+   143→}: Props) => {
+   144→  const { toast } = useToast();
+   145→  const [copied, setCopied] = useState(false);
+   146→  const [elapsed, setElapsed] = useState(0);
+   147→  const [confirmClear, setConfirmClear] = useState(false);
+   148→  const [showObsHint, setShowObsHint] = useState(false);
+   149→  const [crowned, setCrowned] = useState<string | null>(null);
+   150→
+   151→  // Session timer (only when lifecycle hooks are provided)
+   152→  useEffect(() => {
+   153→    if (!isLive || !startedAt) return;
+   154→    setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+   155→    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+   156→    return () => clearInterval(t);
+   157→  }, [isLive, startedAt]);
+   158→
+   159→  const stats = useMemo(() => {
+   160→    const players = new Set(entries.map((e) => e.name));
+   161→    const games = new Set(entries.map((e) => e.game));
+   162→    const sorted = [...entries].sort((a, b) => b.score - a.score);
+   163→    const top = sorted[0];
+   164→    const totalScore = entries.reduce((a, b) => a + b.score, 0);
+   165→    return { players: players.size, games: games.size, plays: entries.length, top, totalScore };
+   166→  }, [entries]);
+   167→
+   168→  const pulse = useEngagementPulse(entries);
+   169→  const breakdown = useGameBreakdown(entries, 3);
+   170→  const maxBreakdown = Math.max(1, ...breakdown.map((b) => b.plays));
+   171→  const heating = pulse.recent >= 3;
+   172→
+   173→  const overlayUrl = buildOverlayUrl(liveCode);
+   174→  const baseUrl = getPublicBaseUrl();
+   175→  const onPublic = isOnPublicDomain();
+   176→
+   177→  const copyOverlay = async () => {
+   178→    try {
+   179→      await navigator.clipboard.writeText(overlayUrl);
+   180→      setCopied(true);
+   181→      setTimeout(() => setCopied(false), 1500);
+   182→      toast({ title: "URL copiada", description: "Cola como Browser Source no OBS." });
+   183→    } catch {
+   184→      toast({ title: "Não foi possível copiar", variant: "destructive" });
+   185→    }
+   186→  };
+   187→
+   188→  const exportCSV = () => {
+   189→    if (!entries.length) return;
+   190→    const header = "name,score,game,timestamp\n";
+   191→    const rows = entries
+   192→      .map((e) =>
+   193→        [
+   194→          `"${(e.name || "").replace(/"/g, '""')}"`,
+   195→          e.score,
+   196→          `"${(e.game || "").replace(/"/g, '""')}"`,
+   197→          new Date(e.at).toISOString(),
+   198→        ].join(","),
+   199→      )
+   200→      .join("\n");
+   201→    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
+   202→    const url = URL.createObjectURL(blob);
+   203→    const a = document.createElement("a");
+   204→    a.href = url;
+   205→    a.download = `live-${liveCode || "sem-codigo"}-participantes.csv`;
+   206→    a.click();
+   207→    URL.revokeObjectURL(url);
+   208→    toast({ title: "CSV exportado", description: `${entries.length} registo(s).` });
+   209→  };
+   210→
+   211→  // Two-tap confirm to prevent accidental wipes
+   212→  const handleClear = () => {
+   213→    if (!confirmClear) {
+   214→      setConfirmClear(true);
+   215→      setTimeout(() => setConfirmClear(false), 3000);
+   216→      return;
+   217→    }
+   218→    onClear();
+   219→    setConfirmClear(false);
+   220→    toast({ title: "Leaderboard limpo" });
+   221→  };
+   222→
+   223→  const handleCrown = () => {
+   224→    if (!stats.top || !onCrown) return;
+   225→    onCrown(stats.top.name, stats.top.score);
+   226→    setCrowned(stats.top.name);
+   227→    setTimeout(() => setCrowned(null), 2000);
+   228→  };
+   229→
+   230→  const lifecycleEnabled = isLive !== undefined;
+   231→
+   232→  return (
+   233→    <motion.div
+   234→      initial={{ opacity: 0, y: 12 }}
+   235→      animate={{ opacity: 1, y: 0 }}
+   236→      className="relative rounded-3xl premium-card overflow-hidden shadow-elegant"
+   237→    >
+   238→      {/* Subtle mesh backdrop */}
+   239→      <div className="absolute inset-0 mesh-gradient pointer-events-none" />
+   240→
+   241→      {/* ---------------------------------------------------------- Header */}
+   242→      <div className="relative px-4 py-3 border-b border-border/60 flex items-center gap-2.5 overflow-hidden">
+   243→        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/5 to-transparent" />
+   244→        <div className="relative h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+   245→          <Sliders className="h-4 w-4 text-primary-foreground" />
+   246→        </div>
+   247→        <div className="relative flex-1 min-w-0">
+   248→          <h3 className="font-display text-sm font-bold leading-tight">Painel de Controlo</h3>
+   249→          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Estúdio da Live</p>
+   250→        </div>
+   251→        {lifecycleEnabled && isLive ? (
+   252→          <span className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30">
+   253→            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 pulse-live" />
+   254→            <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 tracking-wider">AO VIVO</span>
+   255→          </span>
+   256→        ) : (
+   257→          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/60 border border-border">
+   258→            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+   259→            <span className="text-[9px] font-bold text-muted-foreground tracking-wider">EM ESPERA</span>
+   260→          </span>
+   261→        )}
+   262→      </div>
+   263→
+   264→      <div className="relative p-4 space-y-4">
+   265→        {/* ----------------------------------------- Live status hero / start */}
+   266→        {lifecycleEnabled && (
+   267→          <div
+   268→            className={`relative rounded-2xl border p-3 overflow-hidden transition-colors ${
+   269→              isLive
+   270→                ? "border-emerald-500/30 bg-emerald-500/5"
+   271→                : "border-dashed border-primary/30 bg-primary/5"
+   272→            }`}
+   273→          >
+   274→            {isLive ? (
+   275→              <div className="flex items-center gap-3">
+   276→                <div className="h-10 w-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+   277→                  <Radio className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   278→                </div>
+   279→                <div className="flex-1 min-w-0">
+   280→                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+   281→                    Transmissão ativa
+   282→                  </p>
+   283→                  <p className="font-display text-xl font-bold text-emerald-700 dark:text-emerald-300 tabular-nums leading-none mt-0.5">
+   284→                    {fmtTime(elapsed)}
+   285→                  </p>
+   286→                </div>
+   287→                {onEndLive && (
+   288→                  <button
+   289→                    onClick={onEndLive}
+   290→                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-destructive text-destructive-foreground text-[11px] font-bold hover:bg-destructive/90 transition-colors"
+   291→                  >
+   292→                    <Square className="h-3 w-3 fill-current" /> Encerrar
+   293→                  </button>
+   294→                )}
+   295→              </div>
+   296→            ) : (
+   297→              <div className="flex items-center gap-3">
+   298→                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+   299→                  <Play className="h-5 w-5 text-primary fill-current" />
+   300→                </div>
+   301→                <div className="flex-1 min-w-0">
+   302→                  <p className="text-sm font-bold">A live ainda não começou</p>
+   303→                  <p className="text-[10px] text-muted-foreground">
+   304→                    Inicia para registar pontuações e gerar o código.
+   305→                  </p>
+   306→                </div>
+   307→                {onStartLive && (
+   308→                  <button
+   309→                    onClick={onStartLive}
+   310→                    className="btn-premium inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-primary-foreground text-[11px] font-bold"
+   311→                  >
+   312→                    <Play className="h-3 w-3 fill-current" /> Iniciar
+   313→                  </button>
+   314→                )}
+   315→              </div>
+   316→            )}
+   317→            {activeGame && isLive && (
+   318→              <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+   319→                <Gamepad2 className="h-3 w-3" />
+   320→                <span>
+   321→                  Jogo ativo: <span className="font-bold text-foreground">{activeGame}</span>
+   322→                </span>
+   323→              </div>
+   324→            )}
+   325→          </div>
+   326→        )}
+   327→
+   328→        {/* ---------------------------------------------------- Stats grid */}
+   329→        <div className="grid grid-cols-3 gap-2 stagger-children">
+   330→          {[
+   331→            { icon: Users, label: "Jogadores", value: stats.players, tint: "text-primary" },
+   332→            { icon: Trophy, label: "Jogadas", value: stats.plays, tint: "text-amber-500" },
+   333→            { icon: Gamepad2, label: "Jogos", value: stats.games, tint: "text-accent-foreground" },
+   334→          ].map((s, i) => (
+   335→            <div
+   336→              key={i}
+   337→              className="relative rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-3 text-center hover-lift"
+   338→            >
+   339→              <s.icon className={`h-4 w-4 mx-auto mb-1.5 ${s.tint}`} />
+   340→              <p className="font-display text-xl font-bold tabular-nums leading-none">
+   341→                <AnimatedNumber value={s.value} />
+   342→              </p>
+   343→              <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-1">{s.label}</p>
+   344→            </div>
+   345→          ))}
+   346→        </div>
+   347→
+   348→        {/* ------------------------------------------- Engagement pulse */}
+   349→        <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+   350→          <div className="flex items-center justify-between mb-2">
+   351→            <div className="flex items-center gap-1.5">
+   352→              <Activity className={`h-3.5 w-3.5 ${heating ? "text-orange-500" : "text-primary"}`} />
+   353→              <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+   354→                Pulso de engajamento
+   355→              </span>
+   356→            </div>
+   357→            <AnimatePresence mode="wait">
+   358→              {heating ? (
+   359→                <motion.span
+   360→                  key="hot"
+   361→                  initial={{ opacity: 0, scale: 0.8 }}
+   362→                  animate={{ opacity: 1, scale: 1 }}
+   363→                  exit={{ opacity: 0 }}
+   364→                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 text-[9px] font-bold"
+   365→                >
+   366→                  <Flame className="h-2.5 w-2.5" /> AQUECENDO
+   367→                </motion.span>
+   368→              ) : (
+   369→                <motion.span
+   370→                  key="calm"
+   371→                  initial={{ opacity: 0, scale: 0.8 }}
+   372→                  animate={{ opacity: 1, scale: 1 }}
+   373→                  exit={{ opacity: 0 }}
+   374→                  className="text-[9px] text-muted-foreground font-mono"
+   375→                >
+   376→                  {pulse.recent}/15s
+   377→                </motion.span>
+   378→              )}
+   379→            </AnimatePresence>
+   380→          </div>
+   381→          <Sparkline buckets={pulse.buckets} max={pulse.max} />
+   382→          <div className="flex items-center justify-between mt-1.5 text-[9px] text-muted-foreground">
+   383→            <span>há 60s</span>
+   384→            <span className="font-mono font-bold text-foreground/70">
+   385→              {pulse.total} jogadas · {stats.totalScore.toLocaleString("pt-PT")} pts
+   386→            </span>
+   387→            <span>agora</span>
+   388→          </div>
+   389→        </div>
+   390→
+   391→        {/* ------------------------------------------- Top leader spotlight */}
+   392→        <AnimatePresence mode="wait">
+   393→          {stats.top ? (
+   394→            <motion.div
+   395→              key={stats.top.id}
+   396→              initial={{ opacity: 0, y: 8 }}
+   397→              animate={{ opacity: 1, y: 0 }}
+   398→              exit={{ opacity: 0 }}
+   399→              className="relative rounded-2xl gradient-border p-[1px] overflow-hidden"
+   400→            >
+   401→              <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3">
+   402→                <div className="flex items-center gap-3">
+   403→                  <div className="relative h-11 w-11 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shrink-0 shadow-lg">
+   404→                    <Crown className="h-5 w-5 text-white" />
+   405→                    <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-300 animate-glow-pulse" />
+   406→                  </div>
+   407→                  <div className="flex-1 min-w-0">
+   408→                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
+   409→                      Líder atual
+   410→                    </p>
+   411→                    <p className="text-sm font-bold truncate">{stats.top.name}</p>
+   412→                    <p className="text-[10px] text-muted-foreground truncate">{stats.top.game}</p>
+   413→                  </div>
+   414→                  <div className="text-right">
+   415→                    <p
+   416→                      key={stats.top.score}
+   417→                      className="font-display text-lg font-bold text-amber-500 tabular-nums leading-none score-pop"
+   418→                    >
+   419→                      {stats.top.score}
+   420→                    </p>
+   421→                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">pts</p>
+   422→                  </div>
+   423→                </div>
+   424→                {onCrown && (
+   425→                  <button
+   426→                    onClick={handleCrown}
+   427→                    disabled={!!crowned}
+   428→                    className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[11px] font-bold hover:shadow-glow transition-shadow disabled:opacity-70"
+   429→                  >
+   430→                    {crowned ? <Check className="h-3 w-3" /> : <Crown className="h-3 w-3" />}
+   431→                    {crowned ? "Coroado!" : "Coroar vencedor"}
+   432→                  </button>
+   433→                )}
+   434→              </div>
+   435→            </motion.div>
+   436→          ) : (
+   437→            <div className="rounded-2xl border border-dashed border-border/60 p-3 text-center">
+   438→              <Trophy className="h-5 w-5 mx-auto mb-1 text-muted-foreground/50" />
+   439→              <p className="text-[11px] text-muted-foreground">Sem jogadores ainda. Joga uma rodada!</p>
+   440→            </div>
+   441→          )}
+   442→        </AnimatePresence>
+   443→
+   444→        {/* ------------------------------------------- Game breakdown */}
+   445→        {breakdown.length > 0 && (
+   446→          <div className="rounded-2xl border border-border/60 bg-card/40 p-3 space-y-2">
+   447→            <div className="flex items-center gap-1.5">
+   448→              <Zap className="h-3.5 w-3.5 text-primary" />
+   449→              <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+   450→                Top jogos
+   451→              </span>
+   452→            </div>
+   453→            {breakdown.map((b) => (
+   454→              <div key={b.game} className="space-y-1">
+   455→                <div className="flex items-center justify-between text-[11px]">
+   456→                  <span className="font-medium truncate pr-2">{b.game}</span>
+   457→                  <span className="font-mono font-bold text-muted-foreground tabular-nums">{b.plays}</span>
+   458→                </div>
+   459→                <div className="h-1.5 rounded-full bg-muted/60 overflow-hidden">
+   460→                  <motion.div
+   461→                    initial={{ width: 0 }}
+   462→                    animate={{ width: `${(b.plays / maxBreakdown) * 100}%` }}
+   463→                    transition={{ duration: 0.5, ease: "easeOut" }}
+   464→                    className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
+   465→                  />
+   466→                </div>
+   467→              </div>
+   468→            ))}
+   469→          </div>
+   470→        )}
+   471→
+   472→        {/* ------------------------------------------- Primary: Open overlay */}
+   473→        <a
+   474→          href={overlayUrl}
+   475→          target="_blank"
+   476→          rel="noreferrer"
+   477→          className="btn-premium relative flex items-center justify-center gap-2 w-full px-4 py-3 rounded-2xl text-primary-foreground text-sm font-bold"
+   478→        >
+   479→          <ExternalLink className="h-4 w-4" /> Abrir Overlay no OBS
+   480→        </a>
+   481→
+   482→        {/* ------------------------------------------- URL + copy */}
+   483→        <div className="rounded-xl bg-muted/40 border border-border/60 px-3 py-2">
+   484→          <div className="flex items-center justify-between mb-0.5">
+   485→            <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">URL do overlay</p>
+   486→            <button
+   487→              onClick={copyOverlay}
+   488→              className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80"
+   489→            >
+   490→              {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+   491→              {copied ? "Copiada" : "Copiar"}
+   492→            </button>
+   493→          </div>
+   494→          <p className="text-[10px] font-mono break-all text-foreground/70 leading-snug">{overlayUrl}</p>
+   495→        </div>
+   496→
+   497→        {/* ------------------------------------------- Secondary actions */}
+   498→        <div className="grid grid-cols-2 gap-2">
+   499→          <button
+   500→            onClick={exportCSV}
+   501→            disabled={!entries.length}
+   502→            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-secondary text-foreground text-[11px] font-bold hover:bg-secondary/80 transition-colors disabled:opacity-50"
+   503→          >
+   504→            <Download className="h-3.5 w-3.5" /> Exportar CSV
+   505→          </button>
+   506→          <button
+   507→            onClick={onResetConfig}
+   508→            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-secondary text-foreground text-[11px] font-bold hover:bg-secondary/80 transition-colors"
+   509→          >
+   510→            <RotateCcw className="h-3.5 w-3.5" /> Repor config
+   511→          </button>
+   512→        </div>
+   513→
+   514→        {/* ------------------------------------------- Danger zone */}
+   515→        <button
+   516→          onClick={handleClear}
+   517→          className={`inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl text-[11px] font-bold transition-colors ${
+   518→            confirmClear
+   519→              ? "bg-destructive text-destructive-foreground animate-pulse-soft"
+   520→              : "bg-destructive/10 text-destructive hover:bg-destructive/15"
+   521→          }`}
+   522→        >
+   523→          <Trash2 className="h-3.5 w-3.5" />
+   524→          {confirmClear ? "Tocar novamente para confirmar" : "Limpar leaderboard"}
+   525→        </button>
+   526→
+   527→        {/* ------------------------------------------- Public-domain warning */}
+   528→        {!onPublic && (
+   529→          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 flex gap-2.5">
+   530→            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   531→            <div className="space-y-1 min-w-0">
+   532→              <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+   533→                Domínio público obrigatório
+   534→              </p>
+   535→              <p className="text-[10px] text-muted-foreground leading-relaxed">
+   536→                O overlay só sincroniza em tempo real quando ambos estão em{" "}
+   537→                <span className="font-mono font-bold text-foreground">{baseUrl}</span>. Estás em{" "}
+   538→                <span className="font-mono">
+   539→                  {typeof window !== "undefined" ? window.location.origin : ""}
+   540→                </span>
+   541→                .
+   542→              </p>
+   543→            </div>
+   544→          </div>
+   545→        )}
+   546→
+   547→        {/* ------------------------------------------- OBS hint (collapsible) */}
+   548→        <button
+   549→          onClick={() => setShowObsHint((v) => !v)}
+   550→          className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
+   551→        >
+   552→          <span className="inline-flex items-center gap-1.5">
+   553→            <Sparkles className="h-3 w-3" /> Como adicionar ao OBS / Streamlabs
+   554→          </span>
+   555→          {showObsHint ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+   556→        </button>
+   557→        <AnimatePresence initial={false}>
+   558→          {showObsHint && (
+   559→            <motion.div
+   560→              initial={{ height: 0, opacity: 0 }}
+   561→              animate={{ height: "auto", opacity: 1 }}
+   562→              exit={{ height: 0, opacity: 0 }}
+   563→              transition={{ duration: 0.25 }}
+   564→              className="overflow-hidden"
+   565→            >
+   566→              <ol className="text-[10px] text-muted-foreground space-y-1.5 list-decimal pl-4 pb-1">
+   567→                <li>No OBS, adiciona <strong>Fonte → Browser</strong>.</li>
+   568→                <li>Cola a URL do overlay acima.</li>
+   569→                <li>Largura <strong>1280</strong>, altura <strong>720</strong>.</li>
+   570→                <li>Desativa <strong>"Shutdown when not visible"</strong> para manter o sync.</li>
+   571→                <li>Ativa o fundo transparente no CSS customizado.</li>
+   572→              </ol>
+   573→            </motion.div>
+   574→          )}
+   575→        </AnimatePresence>
+   576→
+   577→        <p className="text-[10px] text-muted-foreground text-center pt-0.5">
+   578→          Cole o URL como <strong>Browser Source</strong> no OBS / Streamlabs (1280×720, transparente).
+   579→        </p>
+   580→      </div>
+   581→    </motion.div>
+   582→  );
+   583→};
+   584→
+   585→export default LiveControlPanel;
+   586→

@@ -1,0 +1,562 @@
+     1→import { useState, useEffect } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import {
+     4→  Menu,
+     5→  X,
+     6→  Zap,
+     7→  Star,
+     8→  ChevronDown,
+     9→  Trophy,
+    10→  Ticket,
+    11→  Sparkles,
+    12→  Building2,
+    13→  Users,
+    14→  Calendar,
+    15→  MessageCircle,
+    16→  History,
+    17→  ShieldCheck,
+    18→  Radio,
+    19→  HelpCircle,
+    20→  BookOpen,
+    21→  Gift,
+    22→  Store,
+    23→  Gamepad2,
+    24→  Newspaper,
+    25→  LogOut,
+    26→  LayoutDashboard,
+    27→  User as UserIcon,
+    28→  Wallet,
+    29→  Bell,
+    30→  Crown,
+    31→  type LucideIcon,
+    32→} from "lucide-react";
+    33→import { Link, useLocation } from "react-router-dom";
+    34→import { useAuth } from "@/contexts/AuthContext";
+    35→import { useLanguage } from "@/contexts/LanguageContext";
+    36→import ThemeToggle from "@/components/ThemeToggle";
+    37→import LanguageSwitcher from "@/components/LanguageSwitcher";
+    38→import {
+    39→  NavigationMenu,
+    40→  NavigationMenuContent,
+    41→  NavigationMenuItem,
+    42→  NavigationMenuList,
+    43→  NavigationMenuTrigger,
+    44→} from "@/components/ui/navigation-menu";
+    45→import {
+    46→  DropdownMenu,
+    47→  DropdownMenuContent,
+    48→  DropdownMenuItem,
+    49→  DropdownMenuLabel,
+    50→  DropdownMenuSeparator,
+    51→  DropdownMenuTrigger,
+    52→} from "@/components/ui/dropdown-menu";
+    53→import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+    54→import RegionCountrySwitcher from "@/components/RegionCountrySwitcher";
+    55→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    56→import bateuLogo from "@/assets/bateu-logo.png";
+    57→
+    58→type SubItem = {
+    59→  label: string;
+    60→  href: string;
+    61→  icon: LucideIcon;
+    62→  desc: string;
+    63→  badge?: string;
+    64→  hot?: boolean;
+    65→};
+    66→type MenuGroup = {
+    67→  label: string;
+    68→  items: SubItem[];
+    69→  featured?: { label: string; href: string; icon: LucideIcon };
+    70→};
+    71→
+    72→const Navbar = () => {
+    73→  const [open, setOpen] = useState(false);
+    74→  const [scrolled, setScrolled] = useState(false);
+    75→  const { user, profile, role, signOut } = useAuth();
+    76→  const { t } = useLanguage();
+    77→  const { rt } = useRegionalTheme();
+    78→  const location = useLocation();
+    79→
+    80→  // Scroll-aware styling: stronger glass + shadow + compact padding after a small scroll
+    81→  useEffect(() => {
+    82→    const onScroll = () => setScrolled(window.scrollY > 8);
+    83→    onScroll();
+    84→    window.addEventListener("scroll", onScroll, { passive: true });
+    85→    return () => window.removeEventListener("scroll", onScroll);
+    86→  }, []);
+    87→
+    88→  // Close mobile drawer on route change
+    89→  useEffect(() => {
+    90→    setOpen(false);
+    91→  }, [location.pathname]);
+    92→
+    93→  const groups: MenuGroup[] = [
+    94→    {
+    95→      label: rt("nav.group.raffles", "Raffles"),
+    96→      items: [
+    97→        { label: rt("nav.marketplace", "Marketplace"), href: "/marketplace", icon: Store, desc: rt("nav.marketplace.desc", "All active raffles") },
+    98→        { label: rt("nav.contests", "Contests"), href: "/concursos", icon: Trophy, desc: rt("nav.contests.desc", "Photo, video and talent") },
+    99→        { label: rt("nav.instantwin", "Instant Win"), href: "/instant-win", icon: Sparkles, desc: rt("nav.instantwin.desc", "Scratch cards & spin wheel") },
+   100→        { label: rt("nav.mytickets", "My Tickets"), href: "/my-tickets", icon: Ticket, desc: rt("nav.mytickets.desc", "Track your entries") },
+   101→      ],
+   102→      featured: { label: rt("nav.createraffle", "Create Raffle"), href: "/dashboard/raffles/create", icon: Gift },
+   103→    },
+   104→    {
+   105→      label: rt("nav.group.business", "Business"),
+   106→      items: [
+   107→        { label: rt("nav.directory", "Directory"), href: "/empresas", icon: Building2, desc: rt("nav.directory.desc", "Verified partner brands") },
+   108→        { label: rt("nav.installments.catalog", "Installments Catalog"), href: "/prestacoes/catalogo", icon: Calendar, desc: rt("nav.installments.catalog.desc", "Vehicles, real estate & more"), badge: rt("nav.badge.new", "Novo") },
+   109→        { label: rt("nav.installments.about", "About Installments"), href: "/prestacoes", icon: Calendar, desc: rt("nav.installments.about.desc", "How financed payments work") },
+   110→        { label: rt("nav.createraffle", "Create Raffle"), href: "/dashboard/raffles/create", icon: Gift, desc: rt("nav.createraffle.desc", "Launch your own raffle") },
+   111→      ],
+   112→      featured: { label: rt("nav.directory", "Ver Empresas"), href: "/empresas", icon: Building2 },
+   113→    },
+   114→    {
+   115→      label: rt("nav.group.entertainment", "Entretenimento"),
+   116→      items: [
+   117→        { label: rt("nav.games", "Todos os Jogos"), href: "/jogos", icon: Gamepad2, desc: rt("nav.games.desc", "50+ jogos online gratis, jogue agora!"), badge: "Hot", hot: true },
+   118→        { label: rt("nav.livedraw", "Live Draw"), href: "/lives-agora", icon: Radio, desc: rt("nav.livedraw.desc", "Lives a acontecer agora") },
+   119→        { label: rt("nav.lives", "Jogos ao Vivo"), href: "/lives", icon: Radio, desc: rt("nav.lives.desc", "Engajamento ao vivo para empresas") },
+   120→        { label: rt("nav.blog", "Blog"), href: "/blog", icon: Newspaper, desc: rt("nav.blog.desc", "Dicas, novidades e conteudo viral"), badge: "Novo" },
+   121→      ],
+   122→      featured: { label: rt("nav.livedraw", "Ver Lives Agora"), href: "/lives-agora", icon: Radio },
+   123→    },
+   124→    {
+   125→      label: rt("nav.group.community", "Comunidade"),
+   126→      items: [
+   127→        { label: rt("nav.hub", "Hub"), href: "/community", icon: MessageCircle, desc: rt("nav.hub.desc", "Chat e votacoes em tempo real") },
+   128→        { label: rt("nav.winners", "Historico de Vencedores"), href: "/historico", icon: History, desc: rt("nav.winners.desc", "Sorteios concluidos") },
+   129→        { label: rt("nav.transparency", "Transparencia"), href: "/transparencia", icon: ShieldCheck, desc: rt("nav.transparency.desc", "Verificacao blockchain") },
+   130→        { label: rt("nav.how", "Como Funciona"), href: "/como-funciona", icon: BookOpen, desc: rt("nav.how.desc", "Guia rapido da plataforma") },
+   131→      ],
+   132→      featured: { label: rt("nav.hub", "Entrar no Hub"), href: "/community", icon: MessageCircle },
+   133→    },
+   134→    {
+   135→      label: rt("nav.group.more", "Mais"),
+   136→      items: [
+   137→        { label: rt("nav.referral", "Indique e Ganhe"), href: "/referral", icon: Users, desc: rt("nav.referral.desc", "Convide amigos, ganhe pontos") },
+   138→        { label: rt("nav.faq", "FAQ"), href: "/faq", icon: HelpCircle, desc: rt("nav.faq.desc", "Perguntas frequentes") },
+   139→      ],
+   140→      featured: { label: rt("nav.referral", "Indique e Ganhe"), href: "/referral", icon: Users },
+   141→    },
+   142→  ];
+   143→
+   144→  const dashboardHref = role === "admin" ? "/admin" : role === "business" ? "/dashboard" : "/profile";
+   145→  const displayName = profile?.display_name || user?.email?.split("@")[0] || "Utilizador";
+   146→  const avatarUrl = profile?.avatar_url || (user as any)?.user_metadata?.avatar_url || null;
+   147→  const initial = (displayName || "U").charAt(0).toUpperCase();
+   148→  const roleLabel =
+   149→    role === "admin" ? "Administrador" : role === "business" ? "Empresa" : rt("nav.profile", "Perfil");
+   150→
+   151→  const isAuthed = Boolean(user);
+   152→
+   153→  return (
+   154→    <motion.nav
+   155→      initial={{ y: -24, opacity: 0 }}
+   156→      animate={{ y: 0, opacity: 1 }}
+   157→      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+   158→      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+   159→        scrolled
+   160→          ? "glass-strong shadow-elegant border-b border-border/60"
+   161→          : "glass border-b border-border/30"
+   162→      }`}
+   163→    >
+   164→      {/* Animated brand accent strip on top */}
+   165→      <div className="navbar-accent-strip" aria-hidden="true" />
+   166→
+   167→      <div className={`container mx-auto flex items-center justify-between px-4 transition-all duration-300 ${scrolled ? "py-2" : "py-3"}`}>
+   168→        {/* ===== Logo / Brand ===== */}
+   169→        <Link to="/" className="group flex items-center gap-3">
+   170→          <div className="navbar-logo-ring relative">
+   171→            <img
+   172→              src={bateuLogo}
+   173→              alt="Bateu"
+   174→              className="h-8 w-8 rounded-lg bg-card/95 object-contain"
+   175→            />
+   176→            <span className="navbar-live-dot pulse-live" aria-hidden="true" />
+   177→          </div>
+   178→          <div className="flex flex-col leading-none">
+   179→            <span
+   180→              className="font-display text-xl font-bold tracking-tight text-gradient-primary"
+   181→              style={{
+   182→                backgroundImage:
+   183→                  "linear-gradient(135deg, var(--region-primary, hsl(var(--foreground))), var(--region-secondary, hsl(var(--accent))))",
+   184→              }}
+   185→            >
+   186→              Bateu
+   187→            </span>
+   188→            <span className="hidden sm:block text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/80">
+   189→              {rt("nav.tagline", "Sorteios & Jogos ao Vivo")}
+   190→            </span>
+   191→          </div>
+   192→        </Link>
+   193→
+   194→        {/* ===== Desktop Navigation ===== */}
+   195→        <div className="hidden lg:flex items-center justify-center">
+   196→          <NavigationMenu>
+   197→            <NavigationMenuList className="gap-0.5">
+   198→              {groups.map((g, gi) => (
+   199→                <NavigationMenuItem key={g.label}>
+   200→                  <NavigationMenuTrigger
+   201→                    className="navbar-trigger bg-transparent text-sm font-medium data-[state=open]:bg-transparent hover:bg-transparent"
+   202→                    style={{ animationDelay: `${gi * 60}ms` }}
+   203→                  >
+   204→                    {g.label}
+   205→                  </NavigationMenuTrigger>
+   206→                  <NavigationMenuContent>
+   207→                    <div className="navbar-dropdown w-[460px] p-3">
+   208→                      <ul className="grid gap-1.5 stagger-children">
+   209→                        {g.items.map((item) => (
+   210→                          <li key={item.label}>
+   211→                            <Link to={item.href} className="navbar-item group flex items-start gap-3 p-3">
+   212→                              <div className="navbar-item-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-primary">
+   213→                                <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
+   214→                              </div>
+   215→                              <div className="flex-1 min-w-0">
+   216→                                <div className="flex items-center gap-2">
+   217→                                  <span className="text-sm font-semibold text-foreground">{item.label}</span>
+   218→                                  {item.badge && (
+   219→                                    <span
+   220→                                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+   221→                                        item.hot
+   222→                                          ? "bg-accent/20 text-accent glow-accent"
+   223→                                          : "badge-premium text-foreground/80"
+   224→                                      }`}
+   225→                                    >
+   226→                                      {item.badge}
+   227→                                    </span>
+   228→                                  )}
+   229→                                </div>
+   230→                                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.desc}</p>
+   231→                              </div>
+   232→                              <ChevronDown className="h-4 w-4 -rotate-90 text-muted-foreground/40 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
+   233→                            </Link>
+   234→                          </li>
+   235→                        ))}
+   236→                      </ul>
+   237→
+   238→                      {g.featured && (
+   239→                        <Link
+   240→                          to={g.featured.href}
+   241→                          className="navbar-featured mt-2 flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold"
+   242→                        >
+   243→                          <span className="flex items-center gap-2.5">
+   244→                            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/15">
+   245→                              <g.featured.icon className="h-4 w-4" />
+   246→                            </span>
+   247→                            {g.featured.label}
+   248→                          </span>
+   249→                          <Zap className="h-4 w-4" />
+   250→                        </Link>
+   251→                      )}
+   252→                    </div>
+   253→                  </NavigationMenuContent>
+   254→                </NavigationMenuItem>
+   255→              ))}
+   256→            </NavigationMenuList>
+   257→          </NavigationMenu>
+   258→        </div>
+   259→
+   260→        {/* ===== Right cluster — controls + auth ===== */}
+   261→        <div className="hidden items-center gap-2 lg:flex">
+   262→          {/* Region / Lang / Theme in a subtle glass group */}
+   263→          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md">
+   264→            <RegionCountrySwitcher compact />
+   265→            <LanguageSwitcher />
+   266→            <ThemeToggle />
+   267→          </div>
+   268→
+   269→          {/* Decorative notifications bell */}
+   270→          <button
+   271→            className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-card/40 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+   272→            aria-label={t("nav.notifications", "Notificações")}
+   273→          >
+   274→            <Bell className="h-4 w-4" />
+   275→            <span className="pulse-live absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent shadow-glow" />
+   276→          </button>
+   277→
+   278→          {isAuthed ? (
+   279→            <>
+   280→              {/* Points pill */}
+   281→              <Link
+   282→                to="/my-points"
+   283→                className="navbar-points flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+   284→                title={t("nav.points", "Pontos")}
+   285→              >
+   286→                <Star className="h-3.5 w-3.5 fill-current" />
+   287→                {t("nav.points", "Pontos")}
+   288→              </Link>
+   289→
+   290→              {/* User menu */}
+   291→              <DropdownMenu>
+   292→                <DropdownMenuTrigger asChild>
+   293→                  <button
+   294→                    className="navbar-user-trigger flex items-center gap-2 outline-none"
+   295→                    aria-label="Conta"
+   296→                  >
+   297→                    <Avatar className="h-9 w-9 border-2 border-card">
+   298→                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+   299→                      <AvatarFallback className="bg-primary/15 text-sm font-bold text-primary">
+   300→                        {initial}
+   301→                      </AvatarFallback>
+   302→                    </Avatar>
+   303→                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-180" />
+   304→                  </button>
+   305→                </DropdownMenuTrigger>
+   306→                <DropdownMenuContent align="end" className="navbar-dropdown w-64 p-2">
+   307→                  <DropdownMenuLabel className="px-2 py-2">
+   308→                    <div className="flex items-center gap-3">
+   309→                      <Avatar className="h-10 w-10 border border-border">
+   310→                        {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+   311→                        <AvatarFallback className="bg-primary/15 text-sm font-bold text-primary">
+   312→                          {initial}
+   313→                        </AvatarFallback>
+   314→                      </Avatar>
+   315→                      <div className="min-w-0 flex-1">
+   316→                        <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+   317→                        <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+   318→                      </div>
+   319→                    </div>
+   320→                    <div className="mt-2 flex items-center gap-1.5">
+   321→                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+   322→                        <Crown className="h-3 w-3" />
+   323→                        {roleLabel}
+   324→                      </span>
+   325→                    </div>
+   326→                  </DropdownMenuLabel>
+   327→                  <DropdownMenuSeparator className="bg-border/60" />
+   328→                  <DropdownMenuItem asChild>
+   329→                    <Link to={dashboardHref} className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-foreground">
+   330→                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground">
+   331→                        <LayoutDashboard className="h-3.5 w-3.5" />
+   332→                      </span>
+   333→                      {role === "business" || role === "admin" ? t("nav.dashboard", "Painel") : t("nav.profile", "Perfil")}
+   334→                    </Link>
+   335→                  </DropdownMenuItem>
+   336→                  <DropdownMenuItem asChild>
+   337→                    <Link to="/profile" className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-foreground">
+   338→                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground">
+   339→                        <UserIcon className="h-3.5 w-3.5" />
+   340→                      </span>
+   341→                      {t("nav.profile", "Perfil")}
+   342→                    </Link>
+   343→                  </DropdownMenuItem>
+   344→                  <DropdownMenuItem asChild>
+   345→                    <Link to="/wallet" className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-foreground">
+   346→                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground">
+   347→                        <Wallet className="h-3.5 w-3.5" />
+   348→                      </span>
+   349→                      Carteira
+   350→                    </Link>
+   351→                  </DropdownMenuItem>
+   352→                  <DropdownMenuItem asChild>
+   353→                    <Link to="/my-tickets" className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-foreground">
+   354→                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-foreground">
+   355→                        <Ticket className="h-3.5 w-3.5" />
+   356→                      </span>
+   357→                      {t("nav.mytickets", "Bilhetes")}
+   358→                    </Link>
+   359→                  </DropdownMenuItem>
+   360→                  {role === "admin" && (
+   361→                    <DropdownMenuItem asChild>
+   362→                      <Link to="/admin" className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-destructive">
+   363→                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+   364→                          <Crown className="h-3.5 w-3.5" />
+   365→                        </span>
+   366→                        {t("nav.admin", "Admin")}
+   367→                      </Link>
+   368→                    </DropdownMenuItem>
+   369→                  )}
+   370→                  <DropdownMenuSeparator className="bg-border/60" />
+   371→                  <DropdownMenuItem
+   372→                    onClick={() => signOut()}
+   373→                    className="navbar-item flex items-center gap-2.5 px-2 py-2 text-sm text-destructive focus:bg-destructive/10 focus:text-destructive"
+   374→                  >
+   375→                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+   376→                      <LogOut className="h-3.5 w-3.5" />
+   377→                    </span>
+   378→                    {t("nav.signout", "Sair")}
+   379→                  </DropdownMenuItem>
+   380→                </DropdownMenuContent>
+   381→              </DropdownMenu>
+   382→            </>
+   383→          ) : (
+   384→            <>
+   385→              <Link
+   386→                to="/login"
+   387→                className="rounded-lg px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+   388→              >
+   389→                {t("nav.signin", "Entrar")}
+   390→              </Link>
+   391→              <Link
+   392→                to="/register"
+   393→                className="btn-premium glow-primary flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground"
+   394→              >
+   395→                <Zap className="h-4 w-4" />
+   396→                {t("nav.signup", "Participar")}
+   397→              </Link>
+   398→            </>
+   399→          )}
+   400→        </div>
+   401→
+   402→        {/* ===== Mobile right cluster ===== */}
+   403→        <div className="flex items-center gap-1.5 lg:hidden">
+   404→          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1">
+   405→            <LanguageSwitcher />
+   406→            <ThemeToggle />
+   407→          </div>
+   408→          <button
+   409→            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-card/40 text-foreground transition-colors hover:bg-secondary"
+   410→            onClick={() => setOpen(!open)}
+   411→            aria-label="Menu"
+   412→            aria-expanded={open}
+   413→          >
+   414→            <AnimatePresence mode="wait" initial={false}>
+   415→              {open ? (
+   416→                <motion.span
+   417→                  key="x"
+   418→                  initial={{ rotate: -90, opacity: 0 }}
+   419→                  animate={{ rotate: 0, opacity: 1 }}
+   420→                  exit={{ rotate: 90, opacity: 0 }}
+   421→                  transition={{ duration: 0.18 }}
+   422→                >
+   423→                  <X className="h-5 w-5" />
+   424→                </motion.span>
+   425→              ) : (
+   426→                <motion.span
+   427→                  key="menu"
+   428→                  initial={{ rotate: 90, opacity: 0 }}
+   429→                  animate={{ rotate: 0, opacity: 1 }}
+   430→                  exit={{ rotate: -90, opacity: 0 }}
+   431→                  transition={{ duration: 0.18 }}
+   432→                >
+   433→                  <Menu className="h-5 w-5" />
+   434→                </motion.span>
+   435→              )}
+   436→            </AnimatePresence>
+   437→          </button>
+   438→        </div>
+   439→      </div>
+   440→
+   441→      {/* ===== Mobile premium drawer ===== */}
+   442→      <AnimatePresence>
+   443→        {open && (
+   444→          <motion.div
+   445→            initial={{ height: 0, opacity: 0 }}
+   446→            animate={{ height: "auto", opacity: 1 }}
+   447→            exit={{ height: 0, opacity: 0 }}
+   448→            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   449→            className="overflow-hidden border-t border-border/60 lg:hidden"
+   450→          >
+   451→            <div className="relative mesh-gradient max-h-[78vh] overflow-y-auto px-5 py-5">
+   452→              {/* Profile header (if authed) */}
+   453→              {isAuthed && (
+   454→                <Link
+   455→                  to={dashboardHref}
+   456→                  onClick={() => setOpen(false)}
+   457→                  className="premium-card mb-4 flex items-center gap-3 rounded-2xl p-3"
+   458→                >
+   459→                  <div className="navbar-user-trigger">
+   460→                    <Avatar className="h-11 w-11 border-2 border-card">
+   461→                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+   462→                      <AvatarFallback className="bg-primary/15 text-sm font-bold text-primary">
+   463→                        {initial}
+   464→                      </AvatarFallback>
+   465→                    </Avatar>
+   466→                  </div>
+   467→                  <div className="min-w-0 flex-1">
+   468→                    <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+   469→                    <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+   470→                  </div>
+   471→                  <span className="navbar-points flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold">
+   472→                    <Star className="h-3 w-3 fill-current" />
+   473→                    {t("nav.points", "Pontos")}
+   474→                  </span>
+   475→                </Link>
+   476→              )}
+   477→
+   478→              {/* Region switcher (mobile-only) */}
+   479→              <div className="mb-4">
+   480→                <RegionCountrySwitcher />
+   481→              </div>
+   482→
+   483→              {/* Groups */}
+   484→              <div className="flex flex-col gap-5">
+   485→                {groups.map((g, gi) => (
+   486→                  <div key={g.label} style={{ animationDelay: `${gi * 60}ms` }}>
+   487→                    <p className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+   488→                      <span className="h-1 w-1 rounded-full bg-accent" />
+   489→                      {g.label}
+   490→                    </p>
+   491→                    <div className="flex flex-col gap-0.5">
+   492→                      {g.items.map((item, ii) => (
+   493→                        <Link
+   494→                          key={item.label}
+   495→                          to={item.href}
+   496→                          onClick={() => setOpen(false)}
+   497→                          className="navbar-mobile-item group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-secondary/70"
+   498→                          style={{ animationDelay: `${(gi * 4 + ii) * 40}ms` }}
+   499→                        >
+   500→                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-glow">
+   501→                            <item.icon className="h-4 w-4" />
+   502→                          </span>
+   503→                          <span className="flex-1 font-medium">{item.label}</span>
+   504→                          {item.badge && (
+   505→                            <span
+   506→                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+   507→                                item.hot ? "bg-accent/20 text-accent" : "badge-premium text-foreground/80"
+   508→                              }`}
+   509→                            >
+   510→                              {item.badge}
+   511→                            </span>
+   512→                          )}
+   513→                        </Link>
+   514→                      ))}
+   515→                    </div>
+   516→                  </div>
+   517→                ))}
+   518→              </div>
+   519→
+   520→              {/* Sticky CTA */}
+   521→              <div className="mt-6 safe-area-bottom">
+   522→                {isAuthed ? (
+   523→                  <button
+   524→                    onClick={() => {
+   525→                      setOpen(false);
+   526→                      signOut();
+   527→                    }}
+   528→                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
+   529→                  >
+   530→                    <LogOut className="h-4 w-4" />
+   531→                    {t("nav.signout", "Sair")}
+   532→                  </button>
+   533→                ) : (
+   534→                  <div className="flex flex-col gap-2">
+   535→                    <Link
+   536→                      to="/login"
+   537→                      onClick={() => setOpen(false)}
+   538→                      className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+   539→                    >
+   540→                      {t("nav.signin", "Entrar")}
+   541→                    </Link>
+   542→                    <Link
+   543→                      to="/register"
+   544→                      onClick={() => setOpen(false)}
+   545→                      className="btn-premium glow-primary flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-primary-foreground"
+   546→                    >
+   547→                      <Zap className="h-4 w-4" />
+   548→                      {t("nav.signup", "Participar")}
+   549→                    </Link>
+   550→                  </div>
+   551→                )}
+   552→              </div>
+   553→            </div>
+   554→          </motion.div>
+   555→        )}
+   556→      </AnimatePresence>
+   557→    </motion.nav>
+   558→  );
+   559→};
+   560→
+   561→export default Navbar;
+   562→

@@ -1,0 +1,602 @@
+  1900→              onAdjust={adjustGoal}
+  1901→            />
+  1902→
+  1903→            {/* ★ REVOLUTION: Trajectory forecast */}
+  1904→            {!compact && entries.length > 0 && (
+  1905→              <TrajectoryPanel trajectory={trajectory} goal={playsGoal} plays={stats.plays} />
+  1906→            )}
+  1907→
+  1908→            {/* Engagement sparkline */}
+  1909→            {entries.length > 0 && (
+  1910→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  1911→                <div className="flex items-center justify-between mb-2">
+  1912→                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5">
+  1913→                    <TrendingUp className="h-3 w-3 text-primary" /> Engajamento (10 min)
+  1914→                  </p>
+  1915→                  <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+  1916→                    <Flame className="h-3 w-3 text-accent" /> pico {peakPlays}/min
+  1917→                  </span>
+  1918→                </div>
+  1919→                <div className="h-16 -mx-1">
+  1920→                  <ResponsiveContainer width="100%" height="100%">
+  1921→                    <AreaChart data={timeline} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+  1922→                      <defs>
+  1923→                        <linearGradient id="engagementGradient" x1="0" y1="0" x2="0" y2="1">
+  1924→                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
+  1925→                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+  1926→                        </linearGradient>
+  1927→                      </defs>
+  1928→                      <XAxis dataKey="t" hide />
+  1929→                      <RTooltip
+  1930→                        contentStyle={{
+  1931→                          background: "hsl(var(--card))",
+  1932→                          border: "1px solid hsl(var(--border))",
+  1933→                          borderRadius: 8,
+  1934→                          fontSize: 11,
+  1935→                          padding: "4px 8px",
+  1936→                        }}
+  1937→                        labelStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 10 }}
+  1938→                        formatter={(v: number) => [`${v} jogadas`, "Engajamento"]}
+  1939→                      />
+  1940→                      <Area
+  1941→                        type="monotone"
+  1942→                        dataKey="plays"
+  1943→                        stroke="hsl(var(--primary))"
+  1944→                        strokeWidth={2}
+  1945→                        fill="url(#engagementGradient)"
+  1946→                        isAnimationActive={false}
+  1947→                      />
+  1948→                    </AreaChart>
+  1949→                  </ResponsiveContainer>
+  1950→                </div>
+  1951→              </div>
+  1952→            )}
+  1953→
+  1954→            {/* ★ REVOLUTION: Cohorts panel */}
+  1955→            {!compact && entries.length > 0 && (
+  1956→              <CohortsPanel cohorts={cohorts} />
+  1957→            )}
+  1958→
+  1959→            {/* Top 3 podium (hidden in compact) */}
+  1960→            {!compact && podium.length > 0 && (
+  1961→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  1962→                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2.5">
+  1963→                  <Medal className="h-3 w-3 text-amber-500" /> Pódio
+  1964→                </p>
+  1965→                <div className="grid grid-cols-3 gap-2 items-end">
+  1966→                  {[
+  1967→                    { p: podium[1], rank: 2, h: "h-12", icon: "🥈" },
+  1968→                    { p: podium[0], rank: 1, h: "h-16", icon: "🥇" },
+  1969→                    { p: podium[2], rank: 3, h: "h-10", icon: "🥉" },
+  1970→                  ].map(({ p, rank, h, icon }) =>
+  1971→                    p ? (
+  1972→                      <motion.div
+  1973→                        key={rank}
+  1974→                        initial={{ opacity: 0, y: 8 }}
+  1975→                        animate={{ opacity: 1, y: 0 }}
+  1976→                        transition={{ delay: rank * 0.05 }}
+  1977→                        className="flex flex-col items-center gap-1"
+  1978→                      >
+  1979→                        <span className="text-base leading-none">{icon}</span>
+  1980→                        <span className="text-[11px] font-bold truncate max-w-full" title={p.name}>
+  1981→                          {p.name}
+  1982→                        </span>
+  1983→                        <span className="text-[10px] text-muted-foreground font-mono">{p.score} pts</span>
+  1984→                        <div
+  1985→                          className={`w-full ${h} rounded-t-lg bg-gradient-to-t ${podiumTone(rank - 1)} flex items-start justify-center pt-1.5`}
+  1986→                        >
+  1987→                          <span className="font-display text-[10px] font-bold opacity-80">#{rank}</span>
+  1988→                        </div>
+  1989→                      </motion.div>
+  1990→                    ) : (
+  1991→                      <div key={rank} />
+  1992→                    ),
+  1993→                  )}
+  1994→                </div>
+  1995→              </div>
+  1996→            )}
+  1997→
+  1998→            {/* ★ REVOLUTION: Achievements grid */}
+  1999→            {!compact && achievements.length > 0 && (
+  2000→              <AchievementsGrid achievements={achievements} />
+  2001→            )}
+  2002→
+  2003→            {/* Top performer spotlight (with announce) */}
+  2004→            <AnimatePresence>
+  2005→              {stats.top && (
+  2006→                <motion.div
+  2007→                  initial={{ opacity: 0, scale: 0.95 }}
+  2008→                  animate={{ opacity: 1, scale: 1 }}
+  2009→                  exit={{ opacity: 0, scale: 0.95 }}
+  2010→                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
+  2011→                  className="relative rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 via-yellow-500/5 to-transparent p-3 overflow-hidden"
+  2012→                >
+  2013→                  <div className="absolute -top-6 -right-6 h-20 w-20 rounded-full bg-amber-400/20 blur-2xl pointer-events-none" />
+  2014→                  <div className="relative flex items-center gap-3">
+  2015→                    <div className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-white font-display font-bold text-lg shadow-lg shrink-0">
+  2016→                      {stats.top.name.charAt(0).toUpperCase()}
+  2017→                      <Crown className="absolute -top-2 -right-1 h-4 w-4 text-amber-500 drop-shadow" />
+  2018→                    </div>
+  2019→                    <div className="flex-1 min-w-0">
+  2020→                      <div className="flex items-center gap-1.5 mb-0.5">
+  2021→                        <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
+  2022→                        <p className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300 font-bold">
+  2023→                          Líder atual
+  2024→                        </p>
+  2025→                      </div>
+  2026→                      <p className="text-sm font-bold truncate">{stats.top.name}</p>
+  2027→                      <p className="text-[11px] text-muted-foreground truncate">
+  2028→                        {stats.top.score} pts · {stats.top.game}
+  2029→                      </p>
+  2030→                    </div>
+  2031→                    {onBroadcastWinner && (
+  2032→                      <button
+  2033→                        onClick={() =>
+  2034→                          onBroadcastWinner(
+  2035→                            stats.top!.name,
+  2036→                            `Líder atual · ${stats.top!.score} pts em ${stats.top!.game}`,
+  2037→                          )
+  2038→                        }
+  2039→                        className="px-2.5 py-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600 inline-flex items-center gap-1 shrink-0 transition-colors"
+  2040→                        aria-label="Anunciar líder no overlay"
+  2041→                      >
+  2042→                        <Zap className="h-3 w-3" /> Anunciar
+  2043→                      </button>
+  2044→                    )}
+  2045→                  </div>
+  2046→                </motion.div>
+  2047→              )}
+  2048→            </AnimatePresence>
+  2049→
+  2050→            {/* Highlight reel (hidden in compact) */}
+  2051→            {!compact && highlights.length > 0 && (
+  2052→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  2053→                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2">
+  2054→                  <Star className="h-3 w-3 text-amber-500" /> Momentos da sessão
+  2055→                </p>
+  2056→                <div className="grid grid-cols-2 gap-2">
+  2057→                  {highlights.map((h, i) => (
+  2058→                    <HighlightCard key={`${h.label}-${i}`} h={h} />
+  2059→                  ))}
+  2060→                </div>
+  2061→              </div>
+  2062→            )}
+  2063→
+  2064→            {/* Game distribution (hidden in compact) */}
+  2065→            {!compact && gameStats.length > 0 && (
+  2066→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3 space-y-2">
+  2067→                <div className="flex items-center justify-between">
+  2068→                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5">
+  2069→                    <TrendingUp className="h-3 w-3 text-primary" /> Distribuição de jogos
+  2070→                  </p>
+  2071→                  <span className="text-[10px] text-muted-foreground">{entries.length} jogadas</span>
+  2072→                </div>
+  2073→                <div className="space-y-1.5">
+  2074→                  {gameStats.map((g, i) => (
+  2075→                    <div key={g.game} className="flex items-center gap-2">
+  2076→                      <span className="text-[11px] text-foreground truncate w-24 shrink-0" title={g.game}>
+  2077→                        {g.game}
+  2078→                      </span>
+  2079→                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+  2080→                        <motion.div
+  2081→                          initial={{ width: 0 }}
+  2082→                          animate={{ width: `${(g.count / maxGameCount) * 100}%` }}
+  2083→                          transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}
+  2084→                          className={`h-full rounded-full ${BAR_GRADIENTS[i % BAR_GRADIENTS.length]}`}
+  2085→                        />
+  2086→                      </div>
+  2087→                      <span className="text-[10px] text-muted-foreground font-mono w-6 text-right">
+  2088→                        {g.count}
+  2089→                      </span>
+  2090→                    </div>
+  2091→                  ))}
+  2092→                </div>
+  2093→              </div>
+  2094→            )}
+  2095→
+  2096→            {/* Recent activity feed */}
+  2097→            {recent.length > 0 && (
+  2098→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  2099→                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2">
+  2100→                  <Activity className="h-3 w-3 text-primary" /> Atividade recente
+  2101→                </p>
+  2102→                <ul className="space-y-1.5">
+  2103→                  <AnimatePresence initial={false}>
+  2104→                    {recent.map((e, i) => (
+  2105→                      <motion.li
+  2106→                        key={e.id}
+  2107→                        layout
+  2108→                        initial={{ opacity: 0, x: -8 }}
+  2109→                        animate={{ opacity: 1, x: 0 }}
+  2110→                        exit={{ opacity: 0 }}
+  2111→                        transition={{ duration: 0.2, delay: i * 0.03 }}
+  2112→                        className="flex items-center gap-2 text-[11px]"
+  2113→                      >
+  2114→                        <span className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+  2115→                        <span className="font-medium text-foreground truncate flex-1">{e.name}</span>
+  2116→                        <span className="text-muted-foreground truncate max-w-[80px]" title={e.game}>
+  2117→                          {e.game}
+  2118→                        </span>
+  2119→                        <span className="font-mono font-bold text-primary">{e.score}</span>
+  2120→                        <span className="text-[9px] text-muted-foreground w-12 text-right shrink-0">
+  2121→                          {relTime(e.at)}
+  2122→                        </span>
+  2123→                      </motion.li>
+  2124→                    ))}
+  2125→                  </AnimatePresence>
+  2126→                </ul>
+  2127→              </div>
+  2128→            )}
+  2129→
+  2130→            {/* ★ REVOLUTION: Smart suggestions with action buttons (Co-Piloto IA) */}
+  2131→            {suggestions.length > 0 && (
+  2132→              <div className="relative rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card/40 to-accent/5 p-3 space-y-1.5 overflow-hidden">
+  2133→                <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+  2134→                <p className="text-[10px] uppercase tracking-wider text-primary font-bold flex items-center gap-1.5 mb-1">
+  2135→                  <Brain className="h-3 w-3" /> Co-Piloto IA
+  2136→                  <span className="ml-auto text-[9px] font-mono text-muted-foreground/70 normal-case tracking-normal">
+  2137→                    {suggestions.length} sugestões
+  2138→                  </span>
+  2139→                </p>
+  2140→                <AnimatePresence initial={false}>
+  2141→                  {suggestions.map((s, i) => {
+  2142→                    const tone = suggestionTone(s.tone);
+  2143→                    return (
+  2144→                      <motion.div
+  2145→                        key={`sug-${i}-${s.text.slice(0, 20)}`}
+  2146→                        layout
+  2147→                        initial={{ opacity: 0, x: -6 }}
+  2148→                        animate={{ opacity: 1, x: 0 }}
+  2149→                        exit={{ opacity: 0 }}
+  2150→                        transition={{ duration: 0.2, delay: i * 0.04 }}
+  2151→                        className={`flex items-start gap-2 rounded-lg ${tone.bg} ${tone.border} border px-2.5 py-2`}
+  2152→                      >
+  2153→                        <s.icon className={`h-3.5 w-3.5 ${tone.text} shrink-0 mt-0.5`} />
+  2154→                        <p className="text-[11px] text-foreground leading-relaxed flex-1">{s.text}</p>
+  2155→                        {s.action && (
+  2156→                          <button
+  2157→                            onClick={s.action.run}
+  2158→                            className={`shrink-0 px-2 py-1 rounded-md bg-background/80 ${tone.text} text-[10px] font-bold border ${tone.border} hover:bg-background transition-colors inline-flex items-center gap-0.5`}
+  2159→                          >
+  2160→                            {s.action.label}
+  2161→                            <ArrowRight className="h-2.5 w-2.5" />
+  2162→                          </button>
+  2163→                        )}
+  2164→                      </motion.div>
+  2165→                    );
+  2166→                  })}
+  2167→                </AnimatePresence>
+  2168→              </div>
+  2169→            )}
+  2170→
+  2171→            {/* ★ REVOLUTION: Quick Dock */}
+  2172→            <QuickDock
+  2173→              onCrown={crownLeader}
+  2174→              onShare={() => { setTab("share"); if (participantUrl) shareTo("whatsapp", { title: "Bateu Live", text: shareText, url: participantUrl }); }}
+  2175→              onCopyCode={copyCode}
+  2176→              onToggleSound={() => setSoundOn((v) => !v)}
+  2177→              soundOn={soundOn}
+  2178→              disabledCrown={!stats.top || !onBroadcastWinner}
+  2179→            />
+  2180→
+  2181→            {entries.length === 0 && (
+  2182→              <div className="rounded-2xl border border-dashed border-border/60 p-6 text-center">
+  2183→                <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+  2184→                <p className="text-xs text-muted-foreground">
+  2185→                  Sem jogadas ainda. Inicia a live e partilha o código para começar!
+  2186→                </p>
+  2187→                <p className="text-[10px] text-muted-foreground/70 mt-2 inline-flex items-center gap-1 justify-center">
+  2188→                  <Command className="h-3 w-3" /> Dica: prime <kbd className="font-mono px-1 py-0.5 rounded bg-muted/60 border border-border">⌘K</kbd> para abrir a paleta de comandos
+  2189→                </p>
+  2190→              </div>
+  2191→            )}
+  2192→          </TabsContent>
+  2193→
+  2194→          {/* ---------- SHARE ---------- */}
+  2195→          <TabsContent value="share" className="mt-3 space-y-2.5">
+  2196→            <a
+  2197→              href={overlayUrl}
+  2198→              target="_blank"
+  2199→              rel="noreferrer"
+  2200→              className="btn-premium group flex items-center justify-between w-full px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold"
+  2201→            >
+  2202→              <span className="inline-flex items-center gap-2">
+  2203→                <ExternalLink className="h-4 w-4" /> Abrir Overlay (OBS)
+  2204→              </span>
+  2205→              <ChevronRight className="h-3.5 w-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" />
+  2206→            </a>
+  2207→
+  2208→            {/* Overlay URL display + copy */}
+  2209→            <div className="rounded-xl bg-muted/40 border border-border px-3 py-2">
+  2210→              <div className="flex items-center justify-between gap-2">
+  2211→                <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">
+  2212→                  URL do overlay (OBS)
+  2213→                </p>
+  2214→                <button
+  2215→                  onClick={copyOverlay}
+  2216→                  className="text-[10px] font-bold inline-flex items-center gap-1 text-primary hover:opacity-80"
+  2217→                >
+  2218→                  {copiedOverlay ? (
+  2219→                    <>
+  2220→                      <Check className="h-3 w-3 text-emerald-500" /> Copiado!
+  2221→                    </>
+  2222→                  ) : (
+  2223→                    <>
+  2224→                      <Copy className="h-3 w-3" /> Copiar
+  2225→                    </>
+  2226→                  )}
+  2227→                </button>
+  2228→              </div>
+  2229→              <p className="text-[11px] font-mono break-all text-foreground/80 mt-0.5">{overlayUrl}</p>
+  2230→            </div>
+  2231→
+  2232→            {/* Participant URL */}
+  2233→            {participantUrl && (
+  2234→              <div className="rounded-xl bg-muted/40 border border-border px-3 py-2">
+  2235→                <div className="flex items-center justify-between gap-2">
+  2236→                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">
+  2237→                    Link de participação
+  2238→                  </p>
+  2239→                  <button
+  2240→                    onClick={copyInvite}
+  2241→                    className="text-[10px] font-bold inline-flex items-center gap-1 text-primary hover:opacity-80"
+  2242→                  >
+  2243→                    {copiedInvite ? (
+  2244→                      <>
+  2245→                        <Check className="h-3 w-3 text-emerald-500" /> Copiado!
+  2246→                      </>
+  2247→                    ) : (
+  2248→                      <>
+  2249→                        <Copy className="h-3 w-3" /> Copiar
+  2250→                      </>
+  2251→                    )}
+  2252→                  </button>
+  2253→                </div>
+  2254→                <p className="text-[11px] font-mono break-all text-foreground/80 mt-0.5">{participantUrl}</p>
+  2255→              </div>
+  2256→            )}
+  2257→
+  2258→            {/* QR code toggle */}
+  2259→            <button
+  2260→              onClick={() => setShowQR((v) => !v)}
+  2261→              className={`flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl text-[11px] font-medium transition-colors ${
+  2262→                showQR ? "bg-primary/15 text-primary" : "bg-secondary text-foreground hover:bg-secondary/80"
+  2263→              }`}
+  2264→              aria-expanded={showQR}
+  2265→            >
+  2266→              <QrCode className="h-3.5 w-3.5" /> {showQR ? "Ocultar QR" : "Mostrar QR participante"}
+  2267→            </button>
+  2268→
+  2269→            <AnimatePresence>
+  2270→              {showQR && (
+  2271→                <motion.div
+  2272→                  initial={{ opacity: 0, height: 0 }}
+  2273→                  animate={{ opacity: 1, height: "auto" }}
+  2274→                  exit={{ opacity: 0, height: 0 }}
+  2275→                  transition={{ duration: 0.25 }}
+  2276→                  className="overflow-hidden"
+  2277→                >
+  2278→                  <div className="rounded-2xl border border-border bg-white p-3 flex flex-col items-center gap-2">
+  2279→                    {qrUrl ? (
+  2280→                      <img src={qrUrl} alt="QR Code de participação" className="w-40 h-40" />
+  2281→                    ) : (
+  2282→                      <div className="w-40 h-40 flex items-center justify-center text-muted-foreground">
+  2283→                        <QrCode className="h-8 w-8 animate-pulse" />
+  2284→                      </div>
+  2285→                    )}
+  2286→                    <p className="text-[10px] text-muted-foreground text-center max-w-[240px]">
+  2287→                      Aponte a câmara para participar na live{" "}
+  2288→                      <span className="font-mono font-bold text-foreground">{liveCode || "—"}</span>
+  2289→                    </p>
+  2290→                  </div>
+  2291→                </motion.div>
+  2292→              )}
+  2293→            </AnimatePresence>
+  2294→
+  2295→            {/* Social share buttons */}
+  2296→            {participantUrl && (
+  2297→              <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  2298→                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2">
+  2299→                  <Share2 className="h-3 w-3 text-primary" /> Partilhar convite
+  2300→                </p>
+  2301→                <div className="grid grid-cols-4 gap-1.5">
+  2302→                  <button
+  2303→                    onClick={() => shareTo("whatsapp", { title: "Bateu Live", text: shareText, url: participantUrl })}
+  2304→                    className="flex flex-col items-center gap-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+  2305→                    aria-label="Partilhar no WhatsApp"
+  2306→                  >
+  2307→                    <MessageCircle className="h-4 w-4" />
+  2308→                    <span className="text-[9px] font-bold">WhatsApp</span>
+  2309→                  </button>
+  2310→                  <button
+  2311→                    onClick={() => shareTo("telegram", { title: "Bateu Live", text: shareText, url: participantUrl })}
+  2312→                    className="flex flex-col items-center gap-1 py-2 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-colors"
+  2313→                    aria-label="Partilhar no Telegram"
+  2314→                  >
+  2315→                    <Send className="h-4 w-4" />
+  2316→                    <span className="text-[9px] font-bold">Telegram</span>
+  2317→                  </button>
+  2318→                  <button
+  2319→                    onClick={() => shareTo("facebook", { title: "Bateu Live", text: shareText, url: participantUrl })}
+  2320→                    className="flex flex-col items-center gap-1 py-2 rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 transition-colors"
+  2321→                    aria-label="Partilhar no Facebook"
+  2322→                  >
+  2323→                    <Share2 className="h-4 w-4" />
+  2324→                    <span className="text-[9px] font-bold">Facebook</span>
+  2325→                  </button>
+  2326→                  <button
+  2327→                    onClick={() => shareTo("native", { title: "Bateu Live", text: shareText, url: participantUrl })}
+  2328→                    className="flex flex-col items-center gap-1 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+  2329→                    aria-label="Partilha nativa"
+  2330→                  >
+  2331→                    <Share2 className="h-4 w-4" />
+  2332→                    <span className="text-[9px] font-bold">Mais</span>
+  2333→                  </button>
+  2334→                </div>
+  2335→                {copiedCode && (
+  2336→                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 text-center mt-2 inline-flex items-center gap-1 w-full justify-center">
+  2337→                    <Check className="h-3 w-3" /> Código copiado!
+  2338→                  </p>
+  2339→                )}
+  2340→              </div>
+  2341→            )}
+  2342→          </TabsContent>
+  2343→
+  2344→          {/* ---------- EXPORT ---------- */}
+  2345→          <TabsContent value="export" className="mt-3 space-y-2.5">
+  2346→            <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+  2347→              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2">
+  2348→                <Download className="h-3 w-3 text-primary" /> Formatos de exportação
+  2349→              </p>
+  2350→              <div className="grid grid-cols-2 gap-2">
+  2351→                <button
+  2352→                  onClick={exportCSV}
+  2353→                  disabled={!entries.length}
+  2354→                  className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+  2355→                >
+  2356→                  <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+  2357→                  <span className="text-[10px] font-bold">CSV</span>
+  2358→                  <span className="text-[9px] text-muted-foreground">Excel/Sheets</span>
+  2359→                </button>
+  2360→                <button
+  2361→                  onClick={exportJSON}
+  2362→                  disabled={!entries.length}
+  2363→                  className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+  2364→                >
+  2365→                  <FileJson className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+  2366→                  <span className="text-[10px] font-bold">JSON</span>
+  2367→                  <span className="text-[9px] text-muted-foreground">Relatório completo</span>
+  2368→                </button>
+  2369→                <button
+  2370→                  onClick={printReport}
+  2371→                  disabled={!entries.length}
+  2372→                  className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+  2373→                >
+  2374→                  <Printer className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  2375→                  <span className="text-[10px] font-bold">Imprimir</span>
+  2376→                  <span className="text-[9px] text-muted-foreground">PDF/Papel</span>
+  2377→                </button>
+  2378→                <button
+  2379→                  onClick={copyAsMarkdown}
+  2380→                  disabled={!entries.length}
+  2381→                  className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+  2382→                >
+  2383→                  {copiedMd ? (
+  2384→                    <Check className="h-4 w-4 text-emerald-500" />
+  2385→                  ) : (
+  2386→                    <Copy className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+  2387→                  )}
+  2388→                  <span className="text-[10px] font-bold">Markdown</span>
+  2389→                  <span className="text-[9px] text-muted-foreground">Copiar tabela</span>
+  2390→                </button>
+  2391→              </div>
+  2392→              {!entries.length && (
+  2393→                <p className="text-[10px] text-muted-foreground text-center mt-2">
+  2394→                  As exportações ficam disponíveis após a primeira jogada.
+  2395→                </p>
+  2396→              )}
+  2397→            </div>
+  2398→
+  2399→            {/* ★ REVOLUTION: Session summary snapshot */}
+  2400→            {entries.length > 0 && (
+  2401→              <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card/40 to-accent/5 p-3">
+  2402→                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5 mb-2">
+  2403→                  <BarChart3 className="h-3 w-3 text-primary" /> Resumo da sessão
+  2404→                </p>
+  2405→                <div className="grid grid-cols-3 gap-2 text-center">
+  2406→                  <div>
+  2407→                    <p className="font-display text-base font-bold text-gradient-primary">{quality}</p>
+  2408→                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Qualidade</p>
+  2409→                  </div>
+  2410→                  <div>
+  2411→                    <p className="font-display text-base font-bold text-orange-600 dark:text-orange-400">{heat}%</p>
+  2412→                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Calor</p>
+  2413→                  </div>
+  2414→                  <div>
+  2415→                    <p className="font-display text-base font-bold text-rose-600 dark:text-rose-400">{hype}%</p>
+  2416→                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Hype</p>
+  2417→                  </div>
+  2418→                </div>
+  2419→                {achievements.length > 0 && (
+  2420→                  <p className="text-[9px] text-muted-foreground text-center mt-2">
+  2421→                    {achievements.length} conquistas desbloqueadas · {cohorts[0].count} lendas · {cohorts[1].count} habitues
+  2422→                  </p>
+  2423→                )}
+  2424→              </div>
+  2425→            )}
+  2426→
+  2427→            {/* Danger zone (collapsible) */}
+  2428→            <div className="rounded-2xl border border-border/60 bg-card/30 overflow-hidden">
+  2429→              <button
+  2430→                onClick={() => setDangerOpen((o) => !o)}
+  2431→                className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-muted/40 transition-colors"
+  2432→                aria-expanded={dangerOpen}
+  2433→              >
+  2434→                <span className="text-[11px] font-bold text-muted-foreground inline-flex items-center gap-1.5">
+  2435→                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Zona de gestão
+  2436→                </span>
+  2437→                <ChevronDown
+  2438→                  className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${dangerOpen ? "rotate-180" : ""}`}
+  2439→                />
+  2440→              </button>
+  2441→              <AnimatePresence>
+  2442→                {dangerOpen && (
+  2443→                  <motion.div
+  2444→                    initial={{ height: 0, opacity: 0 }}
+  2445→                    animate={{ height: "auto", opacity: 1 }}
+  2446→                    exit={{ height: 0, opacity: 0 }}
+  2447→                    transition={{ duration: 0.25 }}
+  2448→                    className="overflow-hidden border-t border-border/60"
+  2449→                  >
+  2450→                    <div className="p-3 space-y-2">
+  2451→                      <button
+  2452→                        onClick={confirmClear}
+  2453→                        disabled={!entries.length}
+  2454→                        className="w-full px-3 py-2 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+  2455→                      >
+  2456→                        <Trash2 className="h-3 w-3" /> Limpar leaderboard ({entries.length})
+  2457→                      </button>
+  2458→                      <button
+  2459→                        onClick={onResetConfig}
+  2460→                        className="w-full px-3 py-2 rounded-full bg-secondary text-foreground text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-secondary/80 transition-colors"
+  2461→                      >
+  2462→                        <RotateCcw className="h-3 w-3" /> Repor configurações
+  2463→                      </button>
+  2464→                    </div>
+  2465→                  </motion.div>
+  2466→                )}
+  2467→              </AnimatePresence>
+  2468→            </div>
+  2469→          </TabsContent>
+  2470→        </Tabs>
+  2471→
+  2472→        {/* ----- Domain warning ----- */}
+  2473→        {!onPublic && (
+  2474→          <motion.div
+  2475→            initial={{ opacity: 0 }}
+  2476→            animate={{ opacity: 1 }}
+  2477→            className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 flex gap-2"
+  2478→          >
+  2479→            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+  2480→            <div className="space-y-1 min-w-0">
+  2481→              <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+  2482→                Abra o Live Hub em {baseUrl}
+  2483→              </p>
+  2484→              <p className="text-[10px] text-muted-foreground leading-relaxed">
+  2485→                O overlay sincroniza via Supabase Realtime em qualquer domínio, mas para o cache
+  2486→                local funcionar use <span className="font-mono break-all">{baseUrl}</span>. Está em{" "}
+  2487→                <span className="font-mono break-all">{currentOrigin}</span>.
+  2488→              </p>
+  2489→            </div>
+  2490→          </motion.div>
+  2491→        )}
+  2492→
+  2493→        {/* ----- Footer tip ----- */}
+  2494→        <div className="flex items-start gap-2 px-1">
+  2495→          <Sparkles className="h-3 w-3 text-accent shrink-0 mt-0.5" />
+  2496→          <p className="text-[10px] text-muted-foreground leading-relaxed">
+  2497→            Cole o URL como <strong>Browser Source</strong> no OBS / Streamlabs (1280×720,
+  2498→            transparente). Os participantes entram via QR ou código.{" "}
+  2499→            <span className="text-primary font-medium">Prime ⌘K para a paleta de comandos.</span>
+
+[showing lines 1900-2499 of 2508; use offset=2500 with limit to continue reading]

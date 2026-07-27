@@ -1,0 +1,746 @@
+     1→import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+     2→import {
+     3→  motion,
+     4→  AnimatePresence,
+     5→  useInView,
+     6→  useMotionValue,
+     7→  useTransform,
+     8→  useSpring,
+     9→} from "framer-motion";
+    10→import {
+    11→  ArrowRight,
+    12→  Shield,
+    13→  Users,
+    14→  Clock,
+    15→  Trophy,
+    16→  Zap,
+    17→  Radio,
+    18→  Sparkles,
+    19→  Star,
+    20→  Gamepad2,
+    21→  Eye,
+    22→  TrendingUp,
+    23→  ChevronDown,
+    24→  Gift,
+    25→  Crown,
+    26→  Ticket,
+    27→  Flame,
+    28→} from "lucide-react";
+    29→import { Link } from "react-router-dom";
+    30→import { supabase } from "@/integrations/supabase/client";
+    31→import { useLanguage } from "@/contexts/LanguageContext";
+    32→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    33→import CountdownTimer from "./CountdownTimer";
+    34→import bateuLogo from "@/assets/bateu-logo.png";
+    35→import heroPrize from "@/assets/hero-prize.jpg";
+    36→
+    37→interface FeaturedRaffle {
+    38→  id: string;
+    39→  title: string;
+    40→  prize_title: string;
+    41→  end_date: string | null;
+    42→  image_url?: string | null;
+    43→  ticket_price?: number;
+    44→}
+    45→
+    46→/* ── Brand color tokens (with regional fallbacks) ──────────────────── */
+    47→const REGION_PRIMARY = "var(--region-primary, hsl(var(--primary)))";
+    48→const REGION_SECONDARY = "var(--region-secondary, hsl(var(--accent)))";
+    49→const REGION_GLOW = "var(--region-primary, hsl(var(--primary-glow)))";
+    50→
+    51→/* ── Framer Motion Variants ────────────────────────────────────────── */
+    52→const containerVariants = {
+    53→  hidden: {},
+    54→  visible: {
+    55→    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+    56→  },
+    57→};
+    58→
+    59→const fadeUp = {
+    60→  hidden: { opacity: 0, y: 32 },
+    61→  visible: {
+    62→    opacity: 1,
+    63→    y: 0,
+    64→    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    65→  },
+    66→};
+    67→
+    68→const fadeRight = {
+    69→  hidden: { opacity: 0, x: -40 },
+    70→  visible: {
+    71→    opacity: 1,
+    72→    x: 0,
+    73→    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    74→  },
+    75→};
+    76→
+    77→const fadeLeft = {
+    78→  hidden: { opacity: 0, x: 40 },
+    79→  visible: {
+    80→    opacity: 1,
+    81→    x: 0,
+    82→    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    83→  },
+    84→};
+    85→
+    86→const scaleIn = {
+    87→  hidden: { opacity: 0, scale: 0.85 },
+    88→  visible: {
+    89→    opacity: 1,
+    90→    scale: 1,
+    91→    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    92→  },
+    93→};
+    94→
+    95→const fadeIn = {
+    96→  hidden: { opacity: 0 },
+    97→  visible: { opacity: 1, transition: { duration: 1 } },
+    98→};
+    99→
+   100→/* ── Animated Counter ──────────────────────────────────────────────── */
+   101→const AnimatedCounter = ({
+   102→  value,
+   103→}: {
+   104→  value: number;
+   105→  duration?: number;
+   106→}) => {
+   107→  const [display, setDisplay] = useState(0);
+   108→  const springValue = useSpring(0, { stiffness: 40, damping: 25 });
+   109→
+   110→  useEffect(() => {
+   111→    springValue.set(value);
+   112→  }, [value, springValue]);
+   113→
+   114→  useEffect(() => {
+   115→    const unsubscribe = springValue.on("change", (v) =>
+   116→      setDisplay(Math.round(v))
+   117→    );
+   118→    return unsubscribe;
+   119→  }, [springValue]);
+   120→
+   121→  return <>{display.toLocaleString("pt-MZ")}</>;
+   122→};
+   123→
+   124→/* ── Floating Particles ────────────────────────────────────────────── */
+   125→const PARTICLES = [
+   126→  { left: "6%", top: "15%", size: 3, color: REGION_PRIMARY, opacity: 0.3, dur: 4.5, xRange: [0, 6] as const, yRange: [0, -16] as const },
+   127→  { left: "12%", top: "70%", size: 4, color: REGION_GLOW, opacity: 0.15, dur: 6, xRange: [0, -5] as const, yRange: [0, -10] as const },
+   128→  { left: "88%", top: "18%", size: 2.5, color: REGION_SECONDARY, opacity: 0.25, dur: 3.8, xRange: [0, 8] as const, yRange: [0, -18] as const },
+   129→  { left: "82%", top: "72%", size: 3.5, color: REGION_SECONDARY, opacity: 0.18, dur: 5.5, xRange: [0, -6] as const, yRange: [0, -12] as const },
+   130→  { left: "50%", top: "8%", size: 2, color: REGION_PRIMARY, opacity: 0.2, dur: 5, xRange: [0, 4] as const, yRange: [0, -20] as const },
+   131→  { left: "35%", top: "80%", size: 3, color: REGION_GLOW, opacity: 0.12, dur: 4.2, xRange: [0, -7] as const, yRange: [0, -14] as const },
+   132→  { left: "65%", top: "85%", size: 2.5, color: REGION_PRIMARY, opacity: 0.2, dur: 5.8, xRange: [0, 5] as const, yRange: [0, -16] as const },
+   133→];
+   134→
+   135→const FloatingParticles = () => (
+   136→  <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+   137→    {PARTICLES.map((p, i) => (
+   138→      <motion.div
+   139→        key={i}
+   140→        className="absolute rounded-full"
+   141→        style={{ left: p.left, top: p.top, width: p.size, height: p.size, background: p.color, opacity: p.opacity }}
+   142→        animate={{ y: p.yRange, x: p.xRange }}
+   143→        transition={{ duration: p.dur, repeat: Infinity, repeatType: "reverse", ease: "easeInOut", delay: i * 0.6 }}
+   144→      />
+   145→    ))}
+   146→  </div>
+   147→);
+   148→
+   149→/* ── Aurora Background ─────────────────────────────────────────────── */
+   150→const AuroraBackground = () => (
+   151→  <motion.div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden" style={{ opacity: 0.5 }}>
+   152→    <motion.div
+   153→      className="absolute -inset-x-1/2 -top-1/4 h-[70%] w-[200%] blur-[90px]"
+   154→      style={{
+   155→        background: `linear-gradient(115deg,
+   156→          transparent 0%,
+   157→          color-mix(in srgb, ${REGION_PRIMARY} 20%, transparent) 25%,
+   158→          transparent 40%,
+   159→          color-mix(in srgb, ${REGION_SECONDARY} 25%, transparent) 60%,
+   160→          transparent 75%,
+   161→          color-mix(in srgb, ${REGION_GLOW} 16%, transparent) 90%,
+   162→          transparent 100%)`,
+   163→        backgroundSize: "200% 100%",
+   164→      }}
+   165→      animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+   166→      transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+   167→    />
+   168→  </motion.div>
+   169→);
+   170→
+   171→/* ── Rotating ring decoration ──────────────────────────────────────── */
+   172→const GlowRing = ({ className, delay = 0 }: { className?: string; delay?: number }) => (
+   173→  <motion.div
+   174→    className={`absolute rounded-full border pointer-events-none ${className || ""}`}
+   175→    style={{ borderColor: `color-mix(in srgb, ${REGION_PRIMARY} 6%, transparent)` }}
+   176→    animate={{ rotate: 360 }}
+   177→    transition={{ duration: 40 + delay * 12, repeat: Infinity, ease: "linear" }}
+   178→  >
+   179→    <motion.div
+   180→      className="absolute -top-1 left-1/2 h-2 w-2 rounded-full"
+   181→      style={{ background: REGION_SECONDARY, opacity: 0.3 }}
+   182→      animate={{ opacity: [0.3, 0.7, 0.3] }}
+   183→      transition={{ duration: 3, repeat: Infinity }}
+   184→    />
+   185→  </motion.div>
+   186→);
+   187→
+   188→/* ── Stat pill for bottom ticker ───────────────────────────────────── */
+   189→const StatPill = ({ icon: Icon, value, label, delay = 0 }: { icon: any; value: number | null; label: string; delay?: number }) => (
+   190→  <motion.div
+   191→    initial={{ opacity: 0, y: 16, scale: 0.95 }}
+   192→    whileInView={{ opacity: 1, y: 0, scale: 1 }}
+   193→    viewport={{ once: true }}
+   194→    transition={{ delay, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+   195→    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl glass-subtle hover-lift"
+   196→  >
+   197→    <div className="flex items-center justify-center h-8 w-8 rounded-xl" style={{ background: `color-mix(in srgb, ${REGION_PRIMARY} 12%, transparent)` }}>
+   198→      <Icon className="h-4 w-4" style={{ color: REGION_PRIMARY }} />
+   199→    </div>
+   200→    <div className="flex flex-col">
+   201→      <span className="text-sm font-bold font-display tabular-nums leading-tight" style={{ color: REGION_PRIMARY }}>
+   202→        {value !== null ? <AnimatedCounter value={value} /> : "✓"}
+   203→        {value !== null && "+"}
+   204→      </span>
+   205→      <span className="text-[10px] text-muted-foreground font-medium leading-tight">{label}</span>
+   206→    </div>
+   207→  </motion.div>
+   208→);
+   209→
+   210→/* ══════════════════════════════════════════════════════════════════════ */
+   211→/*  HERO SECTION                                                        */
+   212→/* ══════════════════════════════════════════════════════════════════════ */
+   213→const HeroSection = () => {
+   214→  const ref = useRef<HTMLElement>(null);
+   215→  const inView = useInView(ref, { once: true, margin: "-80px" });
+   216→  const { t, rt } = useLanguage();
+   217→  const { colors: _rc } = useRegionalTheme();
+   218→
+   219→  const mouseX = useMotionValue(0);
+   220→  const mouseY = useMotionValue(0);
+   221→
+   222→  const [participantCount, setParticipantCount] = useState(0);
+   223→  const [liveCount, setLiveCount] = useState(0);
+   224→  const [featuredRaffle, setFeaturedRaffle] = useState<FeaturedRaffle | null>(null);
+   225→  const [countdownEnabled, setCountdownEnabled] = useState(false);
+   226→
+   227→  useEffect(() => {
+   228→    const load = async () => {
+   229→      try {
+   230→        const [
+   231→          { count },
+   232→          { data: settings },
+   233→          { count: liveGameCount },
+   234→        ] = await Promise.all([
+   235→          supabase.from("participants").select("id", { count: "exact", head: true }),
+   236→          (supabase as any).from("platform_settings_public").select("key, value").eq("key", "featured").maybeSingle(),
+   237→          supabase.from("live_sessions").select("id", { count: "exact", head: true }).eq("status", "active"),
+   238→        ]);
+   239→
+   240→        setParticipantCount(count || 0);
+   241→        setLiveCount(liveGameCount || 0);
+   242→
+   243→        if (settings?.value) {
+   244→          const featured = settings.value as any;
+   245→          const isEnabled = featured.countdownEnabled === true;
+   246→          setCountdownEnabled(isEnabled);
+   247→
+   248→          if (isEnabled && featured.raffleId) {
+   249→            const { data: raffle } = await supabase
+   250→              .from("raffles")
+   251→              .select("id, title, prize_title, end_date, image_url, ticket_price")
+   252→              .eq("id", featured.raffleId)
+   253→              .eq("status", "active")
+   254→              .maybeSingle();
+   255→            if (raffle) setFeaturedRaffle(raffle);
+   256→          }
+   257→        }
+   258→      } catch {
+   259→        /* silently fail */
+   260→      }
+   261→    };
+   262→    load();
+   263→  }, []);
+   264→
+   265→  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+   266→    if (!ref.current) return;
+   267→    const rect = ref.current.getBoundingClientRect();
+   268→    mouseX.set((e.clientX - rect.left) / rect.width - 0.5);
+   269→    mouseY.set((e.clientY - rect.top) / rect.height - 0.5);
+   270→  }, [mouseX, mouseY]);
+   271→
+   272→  // Parallax layers
+   273→  const farX = useTransform(mouseX, [-0.5, 0.5], [-10, 10]);
+   274→  const farY = useTransform(mouseY, [-0.5, 0.5], [-8, 8]);
+   275→  const midX = useTransform(mouseX, [-0.5, 0.5], [-20, 20]);
+   276→  const midY = useTransform(mouseY, [-0.5, 0.5], [-14, 14]);
+   277→  const nearX = useTransform(mouseX, [-0.5, 0.5], [14, -14]);
+   278→  const nearY = useTransform(mouseY, [-0.5, 0.5], [10, -10]);
+   279→
+   280→  // 3D tilt for showcase card
+   281→  const tiltRotateX = useTransform(mouseY, [-0.5, 0.5], [4, -4]);
+   282→  const tiltRotateY = useTransform(mouseX, [-0.5, 0.5], [-4, 4]);
+   283→  const smoothTiltX = useSpring(tiltRotateX, { stiffness: 100, damping: 15 });
+   284→  const smoothTiltY = useSpring(tiltRotateY, { stiffness: 100, damping: 15 });
+   285→
+   286→  const formattedCount = useMemo(
+   287→    () => (participantCount > 0 ? `+${participantCount.toLocaleString("pt-MZ")}` : ""),
+   288→    [participantCount]
+   289→  );
+   290→
+   291→  const accentGrad = `linear-gradient(135deg, ${REGION_PRIMARY}, ${REGION_SECONDARY})`;
+   292→  const headlineGrad = `linear-gradient(120deg,
+   293→    color-mix(in srgb, ${REGION_PRIMARY} 95%, hsl(var(--foreground))),
+   294→    color-mix(in srgb, ${REGION_SECONDARY} 88%, hsl(var(--foreground))) 55%,
+   295→    color-mix(in srgb, ${REGION_GLOW} 92%, hsl(var(--foreground))))`;
+   296→
+   297→  return (
+   298→    <section ref={ref} onMouseMove={handleMouseMove} className="relative overflow-hidden min-h-[92vh] md:min-h-[88vh] flex flex-col justify-center">
+   299→      {/* ══════════ Layered Atmospheric Background ══════════ */}
+   300→      {/* 1. Mesh gradient base */}
+   301→      <div className="absolute inset-0 mesh-gradient-animated" />
+   302→
+   303→      {/* 2. Aurora ribbon */}
+   304→      <AuroraBackground />
+   305→
+   306→      {/* 3. Far parallax orb — primary */}
+   307→      <motion.div
+   308→        className="absolute -left-40 top-[10%] h-96 w-96 md:h-[28rem] md:w-[28rem] rounded-full blur-[160px] pointer-events-none"
+   309→        style={{ background: `color-mix(in srgb, ${REGION_PRIMARY} 18%, transparent)`, x: farX, y: farY }}
+   310→        animate={{ scale: [1, 1.08, 1] }}
+   311→        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+   312→      />
+   313→
+   314→      {/* 4. Mid parallax orb — accent */}
+   315→      <motion.div
+   316→        className="absolute -right-32 top-[20%] h-72 w-72 md:h-80 md:w-80 rounded-full blur-[130px] pointer-events-none"
+   317→        style={{ background: `color-mix(in srgb, ${REGION_SECONDARY} 16%, transparent)`, x: midX, y: midY }}
+   318→        animate={{ scale: [1.06, 1, 1.06] }}
+   319→        transition={{ duration: 7.5, repeat: Infinity, ease: "easeInOut" }}
+   320→      />
+   321→
+   322→      {/* 5. Bottom glow pool */}
+   323→      <motion.div
+   324→        className="absolute left-1/2 bottom-[-12%] h-56 w-[32rem] -translate-x-1/2 rounded-full blur-[120px] pointer-events-none"
+   325→        style={{ background: `color-mix(in srgb, ${REGION_GLOW} 14%, transparent)`, x: nearX, y: nearY }}
+   326→        animate={{ y: [0, -18, 0] }}
+   327→        transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
+   328→      />
+   329→
+   330→      {/* 6. Subtle grid pattern */}
+   331→      <div
+   332→        aria-hidden
+   333→        className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"
+   334→        style={{
+   335→          backgroundImage: `linear-gradient(to right, ${REGION_PRIMARY} 1px, transparent 1px), linear-gradient(to bottom, ${REGION_PRIMARY} 1px, transparent 1px)`,
+   336→          backgroundSize: "72px 72px",
+   337→          maskImage: "radial-gradient(ellipse at center, black 25%, transparent 70%)",
+   338→          WebkitMaskImage: "radial-gradient(ellipse at center, black 25%, transparent 70%)",
+   339→        }}
+   340→      />
+   341→
+   342→      {/* 7. Decorative glow rings */}
+   343→      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+   344→        <GlowRing className="w-[600px] h-[600px] left-[60%] top-[30%] -translate-x-1/2 -translate-y-1/2" delay={0} />
+   345→        <GlowRing className="w-[850px] h-[850px] left-[60%] top-[30%] -translate-x-1/2 -translate-y-1/2" delay={3} />
+   346→      </div>
+   347→
+   348→      {/* 8. Floating particles */}
+   349→      <FloatingParticles />
+   350→
+   351→      {/* 9. Floating logo watermark */}
+   352→      <motion.img
+   353→        src={bateuLogo} alt="" aria-hidden="true"
+   354→        className="absolute right-[-3%] top-1/2 -translate-y-1/2 w-48 md:w-64 lg:w-80 opacity-[0.025] dark:opacity-[0.04] pointer-events-none select-none"
+   355→        animate={{ y: [0, -12, 0], rotate: [0, 1, 0] }}
+   356→        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+   357→      />
+   358→
+   359→      {/* ══════════ MAIN CONTENT ══════════ */}
+   360→      <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
+   361→        <motion.div
+   362→          variants={containerVariants}
+   363→          initial="hidden"
+   364→          animate={inView ? "visible" : "hidden"}
+   365→          className="max-w-7xl mx-auto"
+   366→        >
+   367→          {/* ══════════ SPLIT LAYOUT: Text Left + Showcase Right ══════════ */}
+   368→          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+   369→
+   370→            {/* ──── LEFT COLUMN: Headline, CTAs, Trust ──── */}
+   371→            <div className="lg:col-span-7 text-center lg:text-left">
+   372→
+   373→              {/* Live badge + viewer count */}
+   374→              <motion.div variants={scaleIn} className="mb-6 flex items-center justify-center lg:justify-start gap-3 flex-wrap">
+   375→                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full badge-premium text-xs font-semibold tracking-wide">
+   376→                  <span className="relative flex h-2 w-2">
+   377→                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+   378→                    <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+   379→                  </span>
+   380→                  <span style={{ color: REGION_PRIMARY }}>{rt("hero.badge.live", "Jogos ao Vivo Agora")}</span>
+   381→                  <Radio className="h-3 w-3" style={{ color: REGION_SECONDARY }} />
+   382→                </span>
+   383→
+   384→                {liveCount > 0 && (
+   385→                  <motion.span
+   386→                    initial={{ opacity: 0, scale: 0.8 }}
+   387→                    animate={{ opacity: 1, scale: 1 }}
+   388→                    transition={{ delay: 0.5, duration: 0.4 }}
+   389→                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass-subtle text-[11px] font-medium text-muted-foreground"
+   390→                  >
+   391→                    <Eye className="h-3 w-3 text-accent" />
+   392→                    <span className="pulse-live text-accent font-bold text-xs">{liveCount}</span>
+   393→                    <span>ao vivo</span>
+   394→                  </motion.span>
+   395→                )}
+   396→              </motion.div>
+   397→
+   398→              {/* Headline */}
+   399→              <motion.h1
+   400→                variants={fadeUp}
+   401→                className="mb-5 font-display text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] xl:text-[4rem] font-bold leading-[1.08] tracking-tight"
+   402→              >
+   403→                <span className="inline-block">
+   404→                  {rt("hero.title.prefix", t("hero.title.prefix"))}
+   405→                </span>{" "}
+   406→                <span
+   407→                  className="relative inline-block text-neon animate-shimmer"
+   408→                  style={{
+   409→                    backgroundImage: headlineGrad,
+   410→                    WebkitBackgroundClip: "text",
+   411→                    WebkitTextFillColor: "transparent",
+   412→                    backgroundClip: "text",
+   413→                  }}
+   414→                >
+   415→                  {rt("hero.title.highlight", t("hero.title.highlight"))}
+   416→                  <motion.span
+   417→                    className="absolute -bottom-1.5 left-0 right-0 h-[3px] rounded-full opacity-60"
+   418→                    style={{ background: accentGrad }}
+   419→                    initial={{ scaleX: 0 }}
+   420→                    animate={inView ? { scaleX: 1 } : {}}
+   421→                    transition={{ delay: 0.9, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+   422→                    aria-hidden
+   423→                  />
+   424→                </span>
+   425→              </motion.h1>
+   426→
+   427→              {/* Subtitle */}
+   428→              <motion.p
+   429→                variants={fadeUp}
+   430→                className="mx-auto lg:mx-0 mb-8 max-w-lg text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed"
+   431→              >
+   432→                {rt("hero.subtitle", t("hero.subtitle"))}
+   433→              </motion.p>
+   434→
+   435→              {/* CTA Buttons */}
+   436→              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 mb-8">
+   437→                <Link
+   438→                  to="/marketplace"
+   439→                  className="btn-premium group relative inline-flex items-center gap-2.5 rounded-2xl px-8 py-3.5 md:px-10 md:py-4 text-sm md:text-base font-bold text-primary-foreground glow-primary"
+   440→                >
+   441→                  <Zap className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
+   442→                  {rt("hero.cta", t("hero.cta"))}
+   443→                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+   444→                </Link>
+   445→
+   446→                <Link
+   447→                  to="/jogos"
+   448→                  className="group relative inline-flex items-center gap-2.5 rounded-2xl px-7 py-3.5 md:px-8 md:py-4 text-sm md:text-base font-semibold glass-subtle hover:bg-card/60 transition-all duration-300 hover-lift"
+   449→                  style={{ color: REGION_PRIMARY }}
+   450→                >
+   451→                  <Gamepad2 className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
+   452→                  {rt("hero.cta.games", "Explorar Jogos")}
+   453→                  <Sparkles className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+   454→                </Link>
+   455→              </motion.div>
+   456→
+   457→              {/* Trust badges row */}
+   458→              <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center lg:justify-start gap-2 md:gap-3">
+   459→                {[
+   460→                  { icon: Shield, label: t("hero.badge.verification") },
+   461→                  { icon: Users, label: formattedCount ? `${formattedCount} ${t("hero.badge.participants")}` : t("hero.badge.community") },
+   462→                  { icon: Star, label: rt("hero.badge.prizes", "Prémios Reais") },
+   463→                  { icon: Clock, label: t("hero.badge.weekly") },
+   464→                ].map((badge, i) => (
+   465→                  <motion.span
+   466→                    key={badge.label}
+   467→                    initial={{ opacity: 0, y: 10 }}
+   468→                    whileInView={{ opacity: 1, y: 0 }}
+   469→                    viewport={{ once: true }}
+   470→                    transition={{ delay: 1.1 + i * 0.08, duration: 0.4 }}
+   471→                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full badge-premium text-[11px] md:text-xs text-muted-foreground font-medium hover-lift"
+   472→                  >
+   473→                    <badge.icon className="h-3.5 w-3.5" style={{ color: REGION_PRIMARY }} />
+   474→                    {badge.label}
+   475→                  </motion.span>
+   476→                ))}
+   477→              </motion.div>
+   478→            </div>
+   479→
+   480→            {/* ──── RIGHT COLUMN: Premium Showcase Card ──── */}
+   481→            <div className="lg:col-span-5 flex justify-center lg:justify-end">
+   482→              <motion.div
+   483→                variants={fadeLeft}
+   484→                style={{
+   485→                  rotateX: smoothTiltX,
+   486→                  rotateY: smoothTiltY,
+   487→                  transformStyle: "preserve-3d",
+   488→                  perspective: 1600,
+   489→                }}
+   490→                className="relative w-full max-w-[420px]"
+   491→              >
+   492→                {/* Showcase card */}
+   493→                <div className="relative overflow-hidden rounded-[2rem] glass-strong shadow-elegant">
+   494→                  {/* Animated gradient border frame */}
+   495→                  <div
+   496→                    className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-70"
+   497→                    style={{
+   498→                      background: `linear-gradient(135deg, color-mix(in srgb, ${REGION_PRIMARY} 50%, transparent), transparent 30%, transparent 70%, color-mix(in srgb, ${REGION_SECONDARY} 50%, transparent))`,
+   499→                      maskImage: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+   500→                      WebkitMaskImage: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+   501→                      maskComposite: "exclude",
+   502→                      WebkitMaskComposite: "xor",
+   503→                      padding: "1.5px",
+   504→                    }}
+   505→                    aria-hidden
+   506→                  />
+   507→
+   508→                  {/* Top shimmer bar */}
+   509→                  <div className="absolute inset-x-0 top-0 h-[2px] opacity-90" aria-hidden>
+   510→                    <div className="h-full w-full border-flow rounded-t-[2rem]" />
+   511→                  </div>
+   512→
+   513→                  {/* Inner top highlight */}
+   514→                  <div
+   515→                    aria-hidden
+   516→                    className="pointer-events-none absolute inset-x-0 top-0 h-1/4 opacity-40"
+   517→                    style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${REGION_PRIMARY} 10%, transparent) 0%, transparent 100%)` }}
+   518→                  />
+   519→
+   520→                  <div className="relative p-6 md:p-8">
+   521→                    {/* Featured raffle or default showcase */}
+   522→                    <AnimatePresence mode="wait">
+   523→                      {countdownEnabled && featuredRaffle && featuredRaffle.end_date ? (
+   524→                        <motion.div
+   525→                          key="featured"
+   526→                          initial={{ opacity: 0, y: 16 }}
+   527→                          animate={{ opacity: 1, y: 0 }}
+   528→                          exit={{ opacity: 0, y: -10 }}
+   529→                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+   530→                          className="flex flex-col items-center text-center"
+   531→                        >
+   532→                          {/* Trophy glow */}
+   533→                          <div
+   534→                            className="absolute -top-10 left-1/2 -translate-x-1/2 h-24 w-24 rounded-full blur-[50px] pointer-events-none"
+   535→                            style={{ background: `color-mix(in srgb, ${REGION_SECONDARY} 30%, transparent)` }}
+   536→                            aria-hidden
+   537→                          />
+   538→
+   539→                          {/* Prize image */}
+   540→                          {featuredRaffle.image_url ? (
+   541→                            <div className="relative mb-5 w-full h-40 rounded-2xl overflow-hidden premium-card">
+   542→                              <img src={featuredRaffle.image_url} alt={featuredRaffle.prize_title} className="w-full h-full object-cover" />
+   543→                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+   544→                            </div>
+   545→                          ) : (
+   546→                            <div className="relative mb-5 w-full h-32 rounded-2xl overflow-hidden animate-gradient-shift" style={{ background: accentGrad }}>
+   547→                              <div className="absolute inset-0 flex items-center justify-center">
+   548→                                <Trophy className="h-16 w-16 text-white/80" />
+   549→                              </div>
+   550→                            </div>
+   551→                          )}
+   552→
+   553→                          <div className="flex items-center gap-2 mb-2">
+   554→                            <Crown className="h-4 w-4" style={{ color: REGION_SECONDARY }} />
+   555→                            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: REGION_PRIMARY }}>
+   556→                              Sorteio Destaque
+   557→                            </span>
+   558→                          </div>
+   559→
+   560→                          <h3 className="text-lg font-bold font-display text-foreground mb-1">
+   561→                            {featuredRaffle.title}
+   562→                          </h3>
+   563→
+   564→                          <p className="text-base font-extrabold mb-4" style={{ color: REGION_SECONDARY }}>
+   565→                            {featuredRaffle.prize_title}
+   566→                          </p>
+   567→
+   568→                          <CountdownTimer targetDate={new Date(featuredRaffle.end_date)} />
+   569→
+   570→                          <Link
+   571→                            to={`/rifas/${featuredRaffle.id}`}
+   572→                            className="mt-4 btn-premium group inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-primary-foreground glow-primary"
+   573→                          >
+   574→                            Participar agora
+   575→                            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+   576→                          </Link>
+   577→                        </motion.div>
+   578→                      ) : (
+   579→                        <motion.div
+   580→                          key="default"
+   581→                          initial={{ opacity: 0, y: 16 }}
+   582→                          animate={{ opacity: 1, y: 0 }}
+   583→                          exit={{ opacity: 0, y: -10 }}
+   584→                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+   585→                          className="flex flex-col items-center text-center"
+   586→                        >
+   587→                          {/* Prize showcase image */}
+   588→                          <div className="relative mb-5 w-full h-44 rounded-2xl overflow-hidden card-3d">
+   589→                            <img src={heroPrize} alt="Prémios Bateu" className="w-full h-full object-cover" />
+   590→                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+   591→                            {/* Floating badge on image */}
+   592→                            <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass-strong text-[10px] font-bold uppercase tracking-wider">
+   593→                              <Flame className="h-3 w-3 text-accent" />
+   594→                              <span style={{ color: REGION_SECONDARY }}>Em destaque</span>
+   595→                            </div>
+   596→                            {/* Prize label on image */}
+   597→                            <div className="absolute bottom-3 left-3 right-3">
+   598→                              <p className="text-white font-bold font-display text-sm">Sorteios Épicos</p>
+   599→                              <p className="text-white/70 text-xs">Telefones, viagens e mais</p>
+   600→                            </div>
+   601→                          </div>
+   602→
+   603→                          {/* Quick action grid */}
+   604→                          <div className="grid grid-cols-3 gap-2.5 w-full mb-5">
+   605→                            {[
+   606→                              { icon: Trophy, label: "Sorteios", to: "/marketplace", grad: REGION_PRIMARY },
+   607→                              { icon: Gamepad2, label: "50+ Jogos", to: "/jogos", grad: REGION_SECONDARY },
+   608→                              { icon: Radio, label: "Ao Vivo", to: "/lives", grad: REGION_GLOW },
+   609→                            ].map((item) => (
+   610→                              <Link
+   611→                                key={item.label}
+   612→                                to={item.to}
+   613→                                className="group flex flex-col items-center gap-2 py-3.5 rounded-2xl glass-subtle hover-lift transition-all duration-300"
+   614→                              >
+   615→                                <div
+   616→                                  className="flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-300 group-hover:scale-110"
+   617→                                  style={{ background: `color-mix(in srgb, ${item.grad} 15%, transparent)` }}
+   618→                                >
+   619→                                  <item.icon className="h-4 w-4" style={{ color: item.grad }} />
+   620→                                </div>
+   621→                                <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
+   622→                              </Link>
+   623→                            ))}
+   624→                          </div>
+   625→
+   626→                          {/* Recent activity mini feed */}
+   627→                          <div className="w-full py-3 px-4 rounded-2xl glass-subtle">
+   628→                            <div className="flex items-center gap-2 mb-2.5">
+   629→                              <div className="relative flex h-2 w-2">
+   630→                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+   631→                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+   632→                              </div>
+   633→                              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Atividade ao vivo</span>
+   634→                            </div>
+   635→                            <div className="space-y-2">
+   636→                              {[
+   637→                                { icon: Ticket, text: "Bilhetes comprados", time: "agora" },
+   638→                                { icon: Gift, text: "Novo prémio adicionado", time: "2m" },
+   639→                                { icon: Crown, text: "Vencedor anunciado", time: "5m" },
+   640→                              ].map((act, i) => (
+   641→                                <motion.div
+   642→                                  key={act.text}
+   643→                                  initial={{ opacity: 0, x: 12 }}
+   644→                                  whileInView={{ opacity: 1, x: 0 }}
+   645→                                  viewport={{ once: true }}
+   646→                                  transition={{ delay: 1.4 + i * 0.12, duration: 0.4 }}
+   647→                                  className="flex items-center gap-2.5"
+   648→                                >
+   649→                                  <act.icon className="h-3.5 w-3.5 shrink-0" style={{ color: REGION_PRIMARY, opacity: 0.6 }} />
+   650→                                  <span className="text-xs text-foreground/80 font-medium flex-1">{act.text}</span>
+   651→                                  <span className="text-[10px] text-muted-foreground/60">{act.time}</span>
+   652→                                </motion.div>
+   653→                              ))}
+   654→                            </div>
+   655→                          </div>
+   656→                        </motion.div>
+   657→                      )}
+   658→                    </AnimatePresence>
+   659→                  </div>
+   660→                </div>
+   661→
+   662→                {/* Floating accent elements around card */}
+   663→                <motion.div
+   664→                  className="absolute -top-4 -right-4 h-12 w-12 rounded-2xl glass-subtle flex items-center justify-center shadow-elegant"
+   665→                  animate={{ y: [0, -8, 0], rotate: [0, 5, 0] }}
+   666→                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+   667→                >
+   668→                  <Sparkles className="h-5 w-5" style={{ color: REGION_SECONDARY }} />
+   669→                </motion.div>
+   670→
+   671→                <motion.div
+   672→                  className="absolute -bottom-3 -left-3 h-10 w-10 rounded-xl glass-subtle flex items-center justify-center shadow-elegant"
+   673→                  animate={{ y: [0, 6, 0], rotate: [0, -3, 0] }}
+   674→                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+   675→                >
+   676→                  <Gift className="h-4 w-4" style={{ color: REGION_PRIMARY }} />
+   677→                </motion.div>
+   678→
+   679→                {/* Background glow behind card */}
+   680→                <div
+   681→                  className="absolute -inset-8 -z-10 rounded-[3rem] blur-[60px] pointer-events-none opacity-30"
+   682→                  style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${REGION_PRIMARY} 40%, transparent), color-mix(in srgb, ${REGION_SECONDARY} 30%, transparent))` }}
+   683→                  aria-hidden
+   684→                />
+   685→              </motion.div>
+   686→            </div>
+   687→          </div>
+   688→
+   689→          {/* ══════════ BOTTOM STATS BAR ══════════ */}
+   690→          <motion.div
+   691→            variants={fadeUp}
+   692→            className="mt-12 lg:mt-16 flex flex-wrap items-center justify-center gap-3 md:gap-4 max-w-2xl mx-auto"
+   693→          >
+   694→            <StatPill icon={Users} value={participantCount} label={t("hero.badge.participants")} delay={0.9} />
+   695→            <StatPill icon={Radio} value={liveCount} label="Lives activas" delay={1.0} />
+   696→            <StatPill icon={TrendingUp} value={null} label={rt("hero.badge.weekly", t("hero.badge.weekly"))} delay={1.1} />
+   697→          </motion.div>
+   698→
+   699→          {/* ══════════ BRAND SIGNATURE ══════════ */}
+   700→          <motion.div
+   701→            variants={fadeUp}
+   702→            className="mt-8 flex items-center justify-center gap-2.5"
+   703→          >
+   704→            <img src={bateuLogo} alt="Bateu" className="h-5 w-5 rounded-md opacity-60 animate-glow-pulse" />
+   705→            <span
+   706→              className="font-display text-xs font-bold tracking-tight opacity-40"
+   707→              style={{ color: "var(--region-primary, hsl(var(--foreground)))" }}
+   708→            >
+   709→              Bateu
+   710→            </span>
+   711→            <span className="text-[10px] text-muted-foreground opacity-30">·</span>
+   712→            <span className="text-[10px] text-muted-foreground opacity-40 font-medium">
+   713→              {rt("hero.badge.live", "Jogos ao Vivo Agora")}
+   714→            </span>
+   715→          </motion.div>
+   716→
+   717→          {/* ══════════ SCROLL CUE ══════════ */}
+   718→          <motion.div
+   719→            initial={{ opacity: 0 }}
+   720→            animate={inView ? { opacity: 1 } : {}}
+   721→            transition={{ delay: 1.6, duration: 0.6 }}
+   722→            className="mt-8 flex flex-col items-center gap-1.5"
+   723→          >
+   724→            <motion.div
+   725→              animate={{ y: [0, 6, 0] }}
+   726→              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+   727→              className="flex items-center justify-center h-7 w-7 rounded-full glass-subtle"
+   728→              aria-hidden
+   729→            >
+   730→              <ChevronDown className="h-3.5 w-3.5" style={{ color: REGION_PRIMARY }} />
+   731→            </motion.div>
+   732→            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-medium">
+   733→              Descobrir
+   734→            </span>
+   735→          </motion.div>
+   736→        </motion.div>
+   737→      </div>
+   738→
+   739→      {/* ══════════ BOTTOM FADE EDGE ══════════ */}
+   740→      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+   741→    </section>
+   742→  );
+   743→};
+   744→
+   745→export default HeroSection;
+   746→

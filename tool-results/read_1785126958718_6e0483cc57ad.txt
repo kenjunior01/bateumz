@@ -1,0 +1,469 @@
+   200→      <div className="container relative z-10 mx-auto px-4 py-14 md:py-20">
+   201→        {/* ── Heading ── */}
+   202→        <motion.div
+   203→          initial={{ opacity: 0, y: 16 }}
+   204→          whileInView={{ opacity: 1, y: 0 }}
+   205→          viewport={{ once: true, margin: "-80px" }}
+   206→          transition={{ duration: 0.5 }}
+   207→          className="mb-10 text-center"
+   208→        >
+   209→          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-[11px] font-semibold backdrop-blur">
+   210→            <span className="relative flex h-2 w-2">
+   211→              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+   212→              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+   213→            </span>
+   214→            <Radio className="h-3.5 w-3.5 text-accent" />
+   215→            <span className="uppercase tracking-wider text-muted-foreground">{t("stats.badge")}</span>
+   216→          </div>
+   217→          <h2 className="font-display text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">
+   218→            {t("stats.title")}
+   219→          </h2>
+   220→          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+   221→            {t("stats.subtitle")}
+   222→          </p>
+   223→        </motion.div>
+   224→
+   225→        {/* ── Stats Grid ── */}
+   226→        <div className="stagger-children grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
+   227→          {items.map((s, i) => {
+   228→            const Icon = s.icon;
+   229→            const isZero = s.value === 0 && !s.isStatic;
+   230→            return (
+   231→              <motion.div
+   232→                key={s.id}
+   233→                initial={{ opacity: 0, y: 20 }}
+   234→                whileInView={{ opacity: 1, y: 0 }}
+   235→                viewport={{ once: true, margin: "-40px" }}
+   236→                transition={{ delay: i * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+   237→                className="group relative overflow-hidden rounded-2xl border border-border bg-card/70 p-5 text-center backdrop-blur transition-all hover-lift gradient-border hover:border-primary/40"
+   238→              >
+   239→                <div
+   240→                  className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+   241→                  style={{
+   242→                    background: `radial-gradient(120px circle at 50% 0%, color-mix(in srgb, ${regionPrimary} 18%, transparent), transparent 70%)`,
+   243→                  }}
+   244→                />
+   245→                <div
+   246→                  className="relative mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/60 transition-transform duration-300 group-hover:scale-110"
+   247→                  style={{ boxShadow: `0 0 24px -8px color-mix(in srgb, ${regionPrimary} 40%, transparent)` }}
+   248→                >
+   249→                  <Icon className="h-5 w-5" style={{ color: regionPrimary }} />
+   250→                </div>
+   251→                <div className="relative font-display text-2xl font-bold leading-tight text-gradient-primary md:text-3xl">
+   252→                  {isZero ? (
+   253→                    <span className="text-base font-semibold text-muted-foreground md:text-lg">{t("stats.comingSoon")}</span>
+   254→                  ) : s.isStatic ? (
+   255→                    <>
+   256→                      {s.display}
+   257→                      <span className="text-xl md:text-2xl" style={{ color: regionSecondary }}>{s.suffix}</span>
+   258→                    </>
+   259→                  ) : (
+   260→                    <>
+   261→                      {s.isCurrency ? s.display : <CountUp to={s.value} format={(n) => formatNum(n)} />}
+   262→                      <span className="text-xl md:text-2xl" style={{ color: regionSecondary }}>{s.suffix}</span>
+   263→                    </>
+   264→                  )}
+   265→                </div>
+   266→                <div className="relative mt-1.5 text-xs font-medium text-muted-foreground md:text-sm">
+   267→                  {t(s.labelKey)}
+   268→                </div>
+   269→              </motion.div>
+   270→            );
+   271→          })}
+   272→        </div>
+   273→
+   274→        {/* ════════════════════════════════════════════════════════════════════
+   275→           ── UPGRADED CTA FOOTER BAND ──
+   276→           ════════════════════════════════════════════════════════════════════ */}
+   277→        <motion.div
+   278→          initial={{ opacity: 0, y: 24 }}
+   279→          whileInView={{ opacity: 1, y: 0 }}
+   280→          viewport={{ once: true, margin: "-60px" }}
+   281→          transition={{ duration: 0.55, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+   282→          className="premium-card gradient-border relative mt-12 overflow-hidden rounded-3xl md:mt-16"
+   283→        >
+   284→          {/* Top flow accent bar */}
+   285→          <div className="absolute inset-x-0 top-0 z-20 h-[3px] overflow-hidden">
+   286→            <div className="h-full w-full opacity-90 border-flow" aria-hidden />
+   287→          </div>
+   288→
+   289→          {/* Layer 1 — animated mesh wash */}
+   290→          <div className="absolute inset-0 mesh-gradient-animated opacity-50" />
+   291→          {/* Layer 2 — directional gradient sheen */}
+   292→          <div
+   293→            className="absolute inset-0 animate-gradient-shift opacity-70"
+   294→            style={{
+   295→              background: `linear-gradient(120deg, color-mix(in srgb, ${regionPrimary} 12%, transparent), transparent 45%, color-mix(in srgb, ${regionSecondary} 14%, transparent))`,
+   296→              backgroundSize: "200% 200%",
+   297→            }}
+   298→          />
+   299→          {/* Layer 3 — floating accent orbs */}
+   300→          <div
+   301→            className="absolute -right-20 -top-20 h-72 w-72 rounded-full blur-[110px] animate-float-soft"
+   302→            style={{ background: `color-mix(in srgb, ${regionSecondary} 22%, transparent)` }}
+   303→          />
+   304→          <div
+   305→            className="absolute -left-16 bottom-0 h-56 w-56 rounded-full blur-[100px] animate-float-soft"
+   306→            style={{ background: `color-mix(in srgb, ${regionPrimary} 18%, transparent)`, animationDelay: "1.8s" }}
+   307→          />
+   308→          {/* Layer 4 — dot grid */}
+   309→          <div
+   310→            className="absolute inset-0 opacity-[0.18]"
+   311→            style={{
+   312→              backgroundImage: `radial-gradient(circle, color-mix(in srgb, ${regionPrimary} 35%, transparent) 1px, transparent 1px)`,
+   313→              backgroundSize: "22px 22px",
+   314→              maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+   315→              WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+   316→            }}
+   317→          />
+   318→
+   319→          {/* Floating sparkles */}
+   320→          <Sparkles className="pointer-events-none absolute right-8 top-8 h-5 w-5 animate-float-soft" style={{ color: regionSecondary, opacity: 0.6 }} />
+   321→          <Sparkles className="pointer-events-none absolute left-10 top-20 h-3.5 w-3.5 animate-float-soft" style={{ color: regionPrimary, opacity: 0.5, animationDelay: "0.9s" }} />
+   322→          <Sparkles className="pointer-events-none absolute bottom-10 right-1/3 h-3 w-3 animate-float-soft" style={{ color: regionSecondary, opacity: 0.45, animationDelay: "2.1s" }} />
+   323→
+   324→          <div className="relative z-10 p-6 md:p-10">
+   325→            {/* ── Top Row: Brand + Live Indicator + Avatar Dots ── */}
+   326→            <motion.div
+   327→              initial={{ opacity: 0, y: 12 }}
+   328→              whileInView={{ opacity: 1, y: 0 }}
+   329→              viewport={{ once: true, margin: "-40px" }}
+   330→              transition={{ duration: 0.45, delay: 0.2 }}
+   331→              className="mb-6 flex flex-wrap items-center justify-between gap-3"
+   332→            >
+   333→              <div className="inline-flex items-center gap-2">
+   334→                <img src={bateuLogo} alt="Bateu" className="h-9 w-9 animate-glow-pulse rounded-lg" />
+   335→                <span className="font-display text-lg font-bold tracking-tight" style={{ color: regionPrimary }}>Bateu</span>
+   336→                <span className="ml-1 hidden text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:inline">
+   337→                  · {ctaT("stats.cta.featuredPrize")}
+   338→                </span>
+   339→              </div>
+   340→
+   341→              <div className="flex items-center gap-3">
+   342→                {/* Avatar dots — social proof */}
+   343→                <div className="flex -space-x-2">
+   344→                  {avatarDots.map((seed, idx) => (
+   345→                    <motion.div
+   346→                      key={seed}
+   347→                      initial={{ opacity: 0, scale: 0 }}
+   348→                      animate={{ opacity: 1, scale: 1 }}
+   349→                      transition={{ delay: 0.4 + idx * 0.08, duration: 0.35 }}
+   350→                      className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-background/80"
+   351→                    >
+   352→                      <div className="h-full w-full rounded-full" style={{ background: avatarColor(seed) }} />
+   353→                      <CircleDot className="absolute h-2 w-2 text-white" style={{ filter: "drop-shadow(0 0 4px rgba(0,0,0,0.6))" }} />
+   354→                    </motion.div>
+   355→                  ))}
+   356→                </div>
+   357→                {/* Live badge */}
+   358→                <div
+   359→                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider backdrop-blur"
+   360→                  style={{
+   361→                    borderColor: `color-mix(in srgb, ${regionSecondary} 35%, transparent)`,
+   362→                    background: `color-mix(in srgb, ${regionSecondary} 12%, transparent)`,
+   363→                    color: regionSecondary,
+   364→                  }}
+   365→                >
+   366→                  <span className="relative flex h-2 w-2">
+   367→                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 pulse-live" style={{ background: regionSecondary }} />
+   368→                    <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: regionSecondary }} />
+   369→                  </span>
+   370→                  {ctaT("stats.cta.liveNow")}
+   371→                </div>
+   372→              </div>
+   373→            </motion.div>
+   374→
+   375→            {/* ── Jackpot + Countdown + Progress Strip ── */}
+   376→            <motion.div
+   377→              initial={{ opacity: 0, y: 12 }}
+   378→              whileInView={{ opacity: 1, y: 0 }}
+   379→              viewport={{ once: true, margin: "-40px" }}
+   380→              transition={{ duration: 0.45, delay: 0.28 }}
+   381→              className="mb-7 grid gap-3 sm:grid-cols-2"
+   382→            >
+   383→              {/* ── Jackpot Card — with pulsing glow ring + ticket progress ── */}
+   384→              <div className="group relative overflow-hidden rounded-2xl border border-border bg-background/60 p-5 backdrop-blur transition-all hover-lift hover:border-primary/40">
+   385→                {/* Pulsing glow behind icon */}
+   386→                <div
+   387→                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-16 w-16 rounded-full blur-xl"
+   388→                  style={{ background: `color-mix(in srgb, ${regionSecondary} 35%, transparent)`, animation: "pulse 2s ease-in-out infinite" }}
+   389→                  aria-hidden
+   390→                />
+   391→                <div
+   392→                  className="absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-50 blur-2xl transition-opacity group-hover:opacity-80"
+   393→                  style={{ background: `color-mix(in srgb, ${regionSecondary} 50%, transparent)` }}
+   394→                  aria-hidden
+   395→                />
+   396→                <div className="relative flex items-center gap-3">
+   397→                  <div
+   398→                    className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background/60"
+   399→                    style={{ boxShadow: `0 0 28px -6px color-mix(in srgb, ${regionSecondary} 50%, transparent)` }}
+   400→                  >
+   401→                    <Flame className="h-6 w-6" style={{ color: regionSecondary }} />
+   402→                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] font-bold text-accent-foreground">
+   403→                      <TrendingUp className="h-2.5 w-2.5" />
+   404→                    </span>
+   405→                  </div>
+   406→                  <div className="min-w-0 flex-1">
+   407→                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+   408→                      {ctaT("stats.cta.jackpot")}
+   409→                    </div>
+   410→                    <div className="font-display text-3xl font-extrabold leading-tight text-gradient-primary md:text-4xl">
+   411→                      {featuredJackpot > 0 ? formatCurrency(featuredJackpot) : t("stats.comingSoon")}
+   412→                    </div>
+   413→                    {featuredTitle && (
+   414→                      <div className="mt-0.5 max-w-[220px] truncate text-xs text-muted-foreground">{featuredTitle}</div>
+   415→                    )}
+   416→                  </div>
+   417→                </div>
+   418→
+   419→                {/* Ticket progress bar */}
+   420→                <div className="relative mt-3.5">
+   421→                  <div className="mb-1 flex items-center justify-between text-[11px]">
+   422→                    <span className="font-semibold text-muted-foreground">
+   423→                      {ctaT("stats.cta.ticketsSold", { sold: formatNum(soldTickets), total: formatNum(totalTickets) })}
+   424→                    </span>
+   425→                    <AnimatePresence>
+   426→                      {isAlmostSoldOut && totalTickets > 0 && (
+   427→                        <motion.span
+   428→                          initial={{ opacity: 0, x: 8 }}
+   429→                          animate={{ opacity: 1, x: 0 }}
+   430→                          exit={{ opacity: 0, x: 8 }}
+   431→                          className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+   432→                          style={{ color: regionSecondary }}
+   433→                        >
+   434→                          <Flame className="h-3 w-3" />
+   435→                          {ctaT("stats.cta.hotLabel")}
+   436→                        </motion.span>
+   437→                      )}
+   438→                    </AnimatePresence>
+   439→                  </div>
+   440→                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+   441→                    <motion.div
+   442→                      initial={{ width: 0 }}
+   443→                      whileInView={{ width: `${ticketProgress}%` }}
+   444→                      viewport={{ once: true, margin: "-20px" }}
+   445→                      transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+   446→                      className="relative h-full rounded-full"
+   447→                      style={{ background: `linear-gradient(90deg, ${regionPrimary}, ${regionSecondary})` }}
+   448→                    >
+   449→                      <div className="absolute inset-0 animate-shimmer rounded-full" style={{ background: "linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.3) 50%, transparent 75%)" }} />
+   450→                    </motion.div>
+   451→                  </div>
+   452→                  {ticketsLeft > 0 && totalTickets > 0 && (
+   453→                    <div className="mt-1.5 text-center text-[11px] font-semibold text-muted-foreground">
+   454→                      <span style={{ color: regionSecondary }}>{formatNum(ticketsLeft)}</span>{" "}{ctaT("stats.cta.ticketsLeft")}
+   455→                    </div>
+   456→                  )}
+   457→                </div>
+   458→              </div>
+   459→
+   460→              {/* ── Countdown Card — with digit boxes ── */}
+   461→              <div className="group relative overflow-hidden rounded-2xl border border-border bg-background/60 p-5 backdrop-blur transition-all hover-lift hover:border-primary/40">
+   462→                <div
+   463→                  className="absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-50 blur-2xl transition-opacity group-hover:opacity-80"
+   464→                  style={{ background: `color-mix(in srgb, ${regionPrimary} 50%, transparent)` }}
+   465→                  aria-hidden
+   466→                />
+   467→                <div className="relative flex items-center gap-3">
+   468→                  <div
+   469→                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background/60"
+   470→                    style={{ boxShadow: `0 0 28px -6px color-mix(in srgb, ${regionPrimary} 50%, transparent)` }}
+   471→                  >
+   472→                    <Clock className="h-6 w-6" style={{ color: regionPrimary }} />
+   473→                  </div>
+   474→                  <div className="min-w-0 flex-1">
+   475→                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+   476→                      {ctaT("stats.cta.nextDraw")}
+   477→                    </div>
+   478→                    {countdown && !countdown.expired ? (
+   479→                      <div className="mt-1 flex items-end gap-1 font-display text-3xl font-extrabold leading-none md:text-4xl">
+   480→                        {countdown.days > 0 && (
+   481→                          <>
+   482→                            <span className="text-xl font-bold text-foreground md:text-2xl">{countdown.days}</span>
+   483→                            <span className="mb-1 mr-1 text-xs font-semibold text-muted-foreground">d</span>
+   484→                          </>
+   485→                        )}
+   486→                        <DigitBox value={countdown.hours} color={regionPrimary} />
+   487→                        <span className="mb-1 text-lg font-bold text-muted-foreground/50">:</span>
+   488→                        <DigitBox value={countdown.minutes} color={regionPrimary} />
+   489→                        <span className="mb-1 text-lg font-bold text-muted-foreground/50">:</span>
+   490→                        <DigitBox value={countdown.seconds} color={regionSecondary} />
+   491→                      </div>
+   492→                    ) : (
+   493→                      <div className="mt-1 text-base font-semibold text-muted-foreground md:text-lg">
+   494→                        {t("stats.comingSoon")}
+   495→                      </div>
+   496→                    )}
+   497→                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+   498→                      <UsersRound className="h-3.5 w-3.5" style={{ color: regionPrimary, opacity: 0.7 }} />
+   499→                      {ctaT("stats.cta.playersOnline", { count: formatNum(Math.max(participantCount, 1)) })}
+   500→                    </div>
+   501→                  </div>
+   502→                </div>
+   503→              </div>
+   504→            </motion.div>
+   505→
+   506→            {/* ── Main Content Grid ── */}
+   507→            <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+   508→              {/* Left — copy + social proof + trust */}
+   509→              <div className="text-center lg:text-left">
+   510→                <div
+   511→                  className="mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+   512→                  style={{ background: `color-mix(in srgb, ${regionSecondary} 14%, transparent)`, color: regionSecondary }}
+   513→                >
+   514→                  <Sparkles className="h-3.5 w-3.5" />
+   515→                  {ctaT("stats.cta.eyebrow")}
+   516→                </div>
+   517→                <h3 className="font-display text-2xl font-bold leading-tight text-foreground sm:text-3xl md:text-4xl">
+   518→                  {ctaT("stats.cta.title")}
+   519→                </h3>
+   520→                <p className="mx-auto mt-2.5 max-w-xl text-sm text-muted-foreground md:text-base lg:mx-0">
+   521→                  {ctaT("stats.cta.subtitle")}
+   522→                </p>
+   523→
+   524→                {/* Star rating */}
+   525→                <motion.div
+   526→                  initial={{ opacity: 0, y: 8 }}
+   527→                  whileInView={{ opacity: 1, y: 0 }}
+   528→                  viewport={{ once: true, margin: "-30px" }}
+   529→                  transition={{ duration: 0.4, delay: 0.32 }}
+   530→                  className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start"
+   531→                >
+   532→                  <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-3 py-1 backdrop-blur">
+   533→                    <div className="flex">
+   534→                      {[1, 2, 3, 4, 5].map((i) => (
+   535→                        <Star key={i} className="h-3 w-3" fill="currentColor" style={{ color: regionSecondary }} />
+   536→                      ))}
+   537→                    </div>
+   538→                    <span className="text-xs font-bold text-foreground">4.9</span>
+   539→                  </div>
+   540→                  <span className="text-xs text-muted-foreground">{ctaT("stats.cta.reviews", { count: reviewCount })}</span>
+   541→                </motion.div>
+   542→
+   543→                {/* Urgency line */}
+   544→                <motion.p
+   545→                  initial={{ opacity: 0 }}
+   546→                  whileInView={{ opacity: 1 }}
+   547→                  viewport={{ once: true, margin: "-20px" }}
+   548→                  transition={{ duration: 0.4, delay: 0.38 }}
+   549→                  className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold lg:justify-start"
+   550→                  style={{ color: regionSecondary }}
+   551→                >
+   552→                  <Zap className="h-3.5 w-3.5" />
+   553→                  {ctaT("stats.cta.dontMiss")}
+   554→                </motion.p>
+   555→
+   556→                {/* Trust chips */}
+   557→                <div className="mt-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+   558→                  {[
+   559→                    { icon: ShieldCheck, key: "stats.cta.trust.verified" },
+   560→                    { icon: Lock, key: "stats.cta.trust.secure" },
+   561→                    { icon: Eye, key: "stats.cta.trust.transparent" },
+   562→                    { icon: Headset, key: "stats.cta.trust.support" },
+   563→                  ].map((chip, idx) => {
+   564→                    const ChipIcon = chip.icon;
+   565→                    return (
+   566→                      <motion.span
+   567→                        key={chip.key}
+   568→                        initial={{ opacity: 0, y: 8 }}
+   569→                        whileInView={{ opacity: 1, y: 0 }}
+   570→                        viewport={{ once: true, margin: "-30px" }}
+   571→                        transition={{ duration: 0.35, delay: 0.4 + idx * 0.07 }}
+   572→                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur transition-colors hover:border-primary/40 hover:text-foreground"
+   573→                      >
+   574→                        <ChipIcon className="h-3.5 w-3.5" style={{ color: regionPrimary }} />
+   575→                        {ctaT(chip.key)}
+   576→                      </motion.span>
+   577→                    );
+   578→                  })}
+   579→                </div>
+   580→              </div>
+   581→
+   582→              {/* Right — CTA buttons + mascot */}
+   583→              <div className="relative flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center lg:flex-col xl:flex-row">
+   584→                {/* Mascot peeking — desktop only */}
+   585→                <div className="pointer-events-none absolute -bottom-8 -right-6 hidden xl:block">
+   586→                  <div className="relative">
+   587→                    <div
+   588→                      className="absolute -left-28 bottom-8 whitespace-nowrap rounded-2xl rounded-br-sm border bg-background/95 px-3 py-1.5 text-xs font-bold shadow-elegant backdrop-blur"
+   589→                      style={{ borderColor: `color-mix(in srgb, ${regionPrimary} 30%, transparent)`, color: regionPrimary }}
+   590→                    >
+   591→                      {ctaT("stats.cta.mascotQuote")}
+   592→                      <span
+   593→                        className="absolute -right-1 bottom-0 h-2.5 w-2.5 rotate-[-45deg] border-b border-r"
+   594→                        style={{ background: "hsl(var(--background))", borderColor: `color-mix(in srgb, ${regionPrimary} 30%, transparent)` }}
+   595→                      />
+   596→                    </div>
+   597→                    <img
+   598→                      src={mascotExcited} alt="" aria-hidden="true"
+   599→                      className="h-28 w-28 select-none object-contain opacity-95 animate-float-soft"
+   600→                      style={{ filter: `drop-shadow(0 8px 24px color-mix(in srgb, ${regionPrimary} 35%, transparent))` }}
+   601→                    />
+   602→                  </div>
+   603→                </div>
+   604→
+   605→                {/* Primary CTA */}
+   606→                <Link
+   607→                  to="/marketplace"
+   608→                  className="btn-premium group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl px-7 py-4 text-sm font-semibold text-primary-foreground shadow-elegant transition-all glow-primary hover:opacity-95 md:text-base"
+   609→                >
+   610→                  <Ticket className="relative z-10 h-4.5 w-4.5" />
+   611→                  <span className="relative z-10">{ctaT("stats.cta.primary")}</span>
+   612→                  <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
+   613→                </Link>
+   614→
+   615→                {/* Tertiary CTA */}
+   616→                <Link
+   617→                  to="/lives-agora"
+   618→                  className="group inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background/70 px-6 py-4 text-sm font-semibold text-foreground backdrop-blur transition-all hover:border-primary/40 hover:bg-secondary md:text-base"
+   619→                >
+   620→                  <PlayCircle className="h-4 w-4" style={{ color: regionSecondary }} />
+   621→                  {ctaT("stats.cta.tertiary")}
+   622→                </Link>
+   623→
+   624→                {/* Secondary CTA */}
+   625→                <Link
+   626→                  to="/como-funciona"
+   627→                  className="group inline-flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-semibold text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline md:text-base"
+   628→                >
+   629→                  {ctaT("stats.cta.secondary")}
+   630→                  <ArrowRight className="h-3.5 w-3.5 opacity-70 transition-transform group-hover:translate-x-1" />
+   631→                </Link>
+   632→              </div>
+   633→            </div>
+   634→
+   635→            {/* ── Bottom Microcopy ── */}
+   636→            <motion.div
+   637→              initial={{ opacity: 0 }}
+   638→              whileInView={{ opacity: 1 }}
+   639→              viewport={{ once: true, margin: "-30px" }}
+   640→              transition={{ duration: 0.5, delay: 0.6 }}
+   641→              className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border/50 pt-5 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:text-xs"
+   642→            >
+   643→              <span className="inline-flex items-center gap-1.5">
+   644→                <CheckCircle2 className="h-3.5 w-3.5" style={{ color: regionPrimary }} />
+   645→                <span>{ctaT("stats.cta.guarantee")}</span>
+   646→              </span>
+   647→              <span className="hidden h-3 w-px bg-border sm:inline-block" aria-hidden />
+   648→              <span className="inline-flex items-center gap-1.5">
+   649→                <Lock className="h-3.5 w-3.5" style={{ color: regionPrimary }} />
+   650→                {t("footer.ssl")}
+   651→              </span>
+   652→              <span className="inline-flex items-center gap-1.5">
+   653→                <ShieldCheck className="h-3.5 w-3.5" style={{ color: regionPrimary }} />
+   654→                {t("footer.blockchain")}
+   655→              </span>
+   656→              <span className="inline-flex items-center gap-1.5">
+   657→                <Sparkles className="h-3.5 w-3.5" style={{ color: regionPrimary }} />
+   658→                {t("footer.rng")}
+   659→              </span>
+   660→            </motion.div>
+   661→          </div>
+   662→        </motion.div>
+   663→      </div>
+   664→    </section>
+   665→  );
+   666→};
+   667→export default StatsBar;
+   668→
