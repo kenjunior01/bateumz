@@ -1,0 +1,962 @@
+  2000→            columns: ["region_id"]
+  2001→            isOneToOne: false
+  2002→            referencedRelation: "regions"
+  2003→            referencedColumns: ["id"]
+  2004→          },
+  2005→        ]
+  2006→      }
+  2007→      spin_wheel_segments: {
+  2008→        Row: {
+  2009→          background_color: string
+  2010→          created_at: string | null
+  2011→          current_wins_today: number | null
+  2012→          current_wins_total: number | null
+  2013→          description: string | null
+  2014→          effect_type: string | null
+  2015→          id: string
+  2016→          label: string
+  2017→          max_wins_per_day: number | null
+  2018→          max_wins_total: number | null
+  2019→          reward_image_url: string | null
+  2020→          reward_type: string | null
+  2021→          reward_value: string
+  2022→          segment_number: number
+  2023→          text_color: string | null
+  2024→          weight: number | null
+  2025→          wheel_id: string | null
+  2026→        }
+  2027→        Insert: {
+  2028→          background_color: string
+  2029→          created_at?: string | null
+  2030→          current_wins_today?: number | null
+  2031→          current_wins_total?: number | null
+  2032→          description?: string | null
+  2033→          effect_type?: string | null
+  2034→          id?: string
+  2035→          label: string
+  2036→          max_wins_per_day?: number | null
+  2037→          max_wins_total?: number | null
+  2038→          reward_image_url?: string | null
+  2039→          reward_type?: string | null
+  2040→          reward_value: string
+  2041→          segment_number: number
+  2042→          text_color?: string | null
+  2043→          weight?: number | null
+  2044→          wheel_id?: string | null
+  2045→        }
+  2046→        Update: {
+  2047→          background_color?: string
+  2048→          created_at?: string | null
+  2049→          current_wins_today?: number | null
+  2050→          current_wins_total?: number | null
+  2051→          description?: string | null
+  2052→          effect_type?: string | null
+  2053→          id?: string
+  2054→          label?: string
+  2055→          max_wins_per_day?: number | null
+  2056→          max_wins_total?: number | null
+  2057→          reward_image_url?: string | null
+  2058→          reward_type?: string | null
+  2059→          reward_value?: string
+  2060→          segment_number?: number
+  2061→          text_color?: string | null
+  2062→          weight?: number | null
+  2063→          wheel_id?: string | null
+  2064→        }
+  2065→        Relationships: [
+  2066→          {
+  2067→            foreignKeyName: "spin_wheel_segments_wheel_id_fkey"
+  2068→            columns: ["wheel_id"]
+  2069→            isOneToOne: false
+  2070→            referencedRelation: "spin_wheel_games"
+  2071→            referencedColumns: ["id"]
+  2072→          },
+  2073→        ]
+  2074→      }
+  2075→      spin_wheel_sessions: {
+  2076→        Row: {
+  2077→          created_at: string | null
+  2078→          id: string
+  2079→          region_id: string | null
+  2080→          reward_type: string | null
+  2081→          reward_value: string | null
+  2082→          segment_id: string | null
+  2083→          status: string | null
+  2084→          user_id: string | null
+  2085→          wheel_id: string | null
+  2086→        }
+  2087→        Insert: {
+  2088→          created_at?: string | null
+  2089→          id?: string
+  2090→          region_id?: string | null
+  2091→          reward_type?: string | null
+  2092→          reward_value?: string | null
+  2093→          segment_id?: string | null
+  2094→          status?: string | null
+  2095→          user_id?: string | null
+  2096→          wheel_id?: string | null
+  2097→        }
+  2098→        Update: {
+  2099→          created_at?: string | null
+  2100→          id?: string
+  2101→          region_id?: string | null
+  2102→          reward_type?: string | null
+  2103→          reward_value?: string | null
+  2104→          segment_id?: string | null
+  2105→          status?: string | null
+  2106→          user_id?: string | null
+  2107→          wheel_id?: string | null
+  2108→        }
+  2109→        Relationships: [
+  2110→          {
+  2111→            foreignKeyName: "spin_wheel_sessions_region_id_fkey"
+  2112→            columns: ["region_id"]
+  2113→            isOneToOne: false
+  2114→            referencedRelation: "regions"
+  2115→            referencedColumns: ["id"]
+  2116→          },
+  2117→          {
+  2118→            foreignKeyName: "spin_wheel_sessions_segment_id_fkey"
+  2119→            columns: ["segment_id"]
+  2120→            isOneToOne: false
+  2121→            referencedRelation: "spin_wheel_segments"
+  2122→            referencedColumns: ["id"]
+  2123→          },
+  2124→          {
+  2125→            foreignKeyName: "spin_wheel_sessions_wheel_id_fkey"
+  2126→            columns: ["wheel_id"]
+  2127→            isOneToOne: false
+  2128→            referencedRelation: "spin_wheel_games"
+  2129→            referencedColumns: ["id"]
+  2130→          },
+  2131→        ]
+  2132→      }
+  2133→      suppressed_emails: {
+  2134→        Row: {
+  2135→          created_at: string
+  2136→          email: string
+  2137→          id: string
+  2138→          metadata: Json | null
+  2139→          reason: string
+  2140→        }
+  2141→        Insert: {
+  2142→          created_at?: string
+  2143→          email: string
+  2144→          id?: string
+  2145→          metadata?: Json | null
+  2146→          reason: string
+  2147→        }
+  2148→        Update: {
+  2149→          created_at?: string
+  2150→          email?: string
+  2151→          id?: string
+  2152→          metadata?: Json | null
+  2153→          reason?: string
+  2154→        }
+  2155→        Relationships: []
+  2156→      }
+  2157→      translations: {
+  2158→        Row: {
+  2159→          created_at: string
+  2160→          id: string
+  2161→          key: string
+  2162→          language_code: string
+  2163→          region_id: string | null
+  2164→          updated_at: string
+  2165→          value: string
+  2166→        }
+  2167→        Insert: {
+  2168→          created_at?: string
+  2169→          id?: string
+  2170→          key: string
+  2171→          language_code: string
+  2172→          region_id?: string | null
+  2173→          updated_at?: string
+  2174→          value: string
+  2175→        }
+  2176→        Update: {
+  2177→          created_at?: string
+  2178→          id?: string
+  2179→          key?: string
+  2180→          language_code?: string
+  2181→          region_id?: string | null
+  2182→          updated_at?: string
+  2183→          value?: string
+  2184→        }
+  2185→        Relationships: [
+  2186→          {
+  2187→            foreignKeyName: "translations_region_id_fkey"
+  2188→            columns: ["region_id"]
+  2189→            isOneToOne: false
+  2190→            referencedRelation: "regions"
+  2191→            referencedColumns: ["id"]
+  2192→          },
+  2193→        ]
+  2194→      }
+  2195→      user_roles: {
+  2196→        Row: {
+  2197→          id: string
+  2198→          role: Database["public"]["Enums"]["app_role"]
+  2199→          user_id: string
+  2200→        }
+  2201→        Insert: {
+  2202→          id?: string
+  2203→          role: Database["public"]["Enums"]["app_role"]
+  2204→          user_id: string
+  2205→        }
+  2206→        Update: {
+  2207→          id?: string
+  2208→          role?: Database["public"]["Enums"]["app_role"]
+  2209→          user_id?: string
+  2210→        }
+  2211→        Relationships: []
+  2212→      }
+  2213→      user_stories: {
+  2214→        Row: {
+  2215→          background: string
+  2216→          content: string | null
+  2217→          created_at: string
+  2218→          expires_at: string
+  2219→          id: string
+  2220→          image_url: string | null
+  2221→          user_id: string
+  2222→        }
+  2223→        Insert: {
+  2224→          background?: string
+  2225→          content?: string | null
+  2226→          created_at?: string
+  2227→          expires_at?: string
+  2228→          id?: string
+  2229→          image_url?: string | null
+  2230→          user_id: string
+  2231→        }
+  2232→        Update: {
+  2233→          background?: string
+  2234→          content?: string | null
+  2235→          created_at?: string
+  2236→          expires_at?: string
+  2237→          id?: string
+  2238→          image_url?: string | null
+  2239→          user_id?: string
+  2240→        }
+  2241→        Relationships: []
+  2242→      }
+  2243→      white_label_configs: {
+  2244→        Row: {
+  2245→          brand_name: string
+  2246→          business_user_id: string
+  2247→          created_at: string
+  2248→          custom_domain: string | null
+  2249→          description: string | null
+  2250→          emola_number: string | null
+  2251→          id: string
+  2252→          is_active: boolean
+  2253→          logo_url: string | null
+  2254→          mpesa_number: string | null
+  2255→          primary_color: string
+  2256→          secondary_color: string
+  2257→          updated_at: string
+  2258→        }
+  2259→        Insert: {
+  2260→          brand_name: string
+  2261→          business_user_id: string
+  2262→          created_at?: string
+  2263→          custom_domain?: string | null
+  2264→          description?: string | null
+  2265→          emola_number?: string | null
+  2266→          id?: string
+  2267→          is_active?: boolean
+  2268→          logo_url?: string | null
+  2269→          mpesa_number?: string | null
+  2270→          primary_color?: string
+  2271→          secondary_color?: string
+  2272→          updated_at?: string
+  2273→        }
+  2274→        Update: {
+  2275→          brand_name?: string
+  2276→          business_user_id?: string
+  2277→          created_at?: string
+  2278→          custom_domain?: string | null
+  2279→          description?: string | null
+  2280→          emola_number?: string | null
+  2281→          id?: string
+  2282→          is_active?: boolean
+  2283→          logo_url?: string | null
+  2284→          mpesa_number?: string | null
+  2285→          primary_color?: string
+  2286→          secondary_color?: string
+  2287→          updated_at?: string
+  2288→        }
+  2289→        Relationships: []
+  2290→      }
+  2291→      stripe_payments: {
+  2292→        Row: {
+  2293→          id: string
+  2294→          raffle_id: string
+  2295→          user_id: string
+  2296→          amount: number
+  2297→          currency: string
+  2298→          stripe_session_id: string
+  2299→          status: string
+  2300→          created_at: string
+  2301→          updated_at: string
+  2302→        }
+  2303→        Insert: {
+  2304→          id?: string
+  2305→          raffle_id: string
+  2306→          user_id: string
+  2307→          amount: number
+  2308→          currency: string
+  2309→          stripe_session_id?: string
+  2310→          status?: string
+  2311→          created_at?: string
+  2312→          updated_at?: string
+  2313→        }
+  2314→        Update: {
+  2315→          id?: string
+  2316→          raffle_id?: string
+  2317→          user_id?: string
+  2318→          amount?: number
+  2319→          currency?: string
+  2320→          stripe_session_id?: string
+  2321→          status?: string
+  2322→          created_at?: string
+  2323→          updated_at?: string
+  2324→        }
+  2325→        Relationships: []
+  2326→      }
+  2327→      vouchers: {
+  2328→        Row: {
+  2329→          id: string
+  2330→          code: string
+  2331→          type: string
+  2332→          value: number
+  2333→          min_purchase: number | null
+  2334→          max_uses: number | null
+  2335→          current_uses: number
+  2336→          valid_from: string
+  2337→          valid_until: string
+  2338→          is_active: boolean
+  2339→          created_by: string
+  2340→          raffle_id: string | null
+  2341→          region: string | null
+  2342→          created_at: string
+  2343→        }
+  2344→        Insert: {
+  2345→          id?: string
+  2346→          code: string
+  2347→          type: string
+  2348→          value: number
+  2349→          min_purchase?: number | null
+  2350→          max_uses?: number | null
+  2351→          current_uses?: number
+  2352→          valid_from: string
+  2353→          valid_until: string
+  2354→          is_active?: boolean
+  2355→          created_by: string
+  2356→          raffle_id?: string | null
+  2357→          region?: string | null
+  2358→          created_at?: string
+  2359→        }
+  2360→        Update: {
+  2361→          code?: string
+  2362→          type?: string
+  2363→          value?: number
+  2364→          min_purchase?: number | null
+  2365→          max_uses?: number | null
+  2366→          current_uses?: number
+  2367→          valid_from?: string
+  2368→          valid_until?: string
+  2369→          is_active?: boolean
+  2370→          raffle_id?: string | null
+  2371→          region?: string | null
+  2372→        }
+  2373→        Relationships: []
+  2374→      }
+  2375→      voucher_redemptions: {
+  2376→        Row: {
+  2377→          id: string
+  2378→          voucher_id: string
+  2379→          user_id: string
+  2380→          raffle_id: string
+  2381→          discount_applied: number
+  2382→          created_at: string
+  2383→        }
+  2384→        Insert: {
+  2385→          id?: string
+  2386→          voucher_id: string
+  2387→          user_id: string
+  2388→          raffle_id: string
+  2389→          discount_applied: number
+  2390→          created_at?: string
+  2391→        }
+  2392→        Update: {
+  2393→          voucher_id?: string
+  2394→          user_id?: string
+  2395→          raffle_id?: string
+  2396→          discount_applied?: number
+  2397→        }
+  2398→        Relationships: []
+  2399→      }
+  2400→      wallets: {
+  2401→        Row: {
+  2402→          id: string
+  2403→          user_id: string
+  2404→          balance: number
+  2405→          currency: string
+  2406→          created_at: string
+  2407→          updated_at: string
+  2408→        }
+  2409→        Insert: {
+  2410→          id?: string
+  2411→          user_id: string
+  2412→          balance?: number
+  2413→          currency: string
+  2414→          created_at?: string
+  2415→          updated_at?: string
+  2416→        }
+  2417→        Update: {
+  2418→          balance?: number
+  2419→          currency?: string
+  2420→          updated_at?: string
+  2421→        }
+  2422→        Relationships: []
+  2423→      }
+  2424→      wallet_transactions: {
+  2425→        Row: {
+  2426→          id: string
+  2427→          wallet_id: string
+  2428→          type: string
+  2429→          amount: number
+  2430→          description?: string
+  2431→          reference_type?: string
+  2432→          reference_id?: string
+  2433→          status: string
+  2434→          created_at: string
+  2435→        }
+  2436→        Insert: {
+  2437→          id?: string
+  2438→          wallet_id: string
+  2439→          type: string
+  2440→          amount: number
+  2441→          description?: string
+  2442→          reference_type?: string
+  2443→          reference_id?: string
+  2444→          status?: string
+  2445→          created_at?: string
+  2446→        }
+  2447→        Update: {
+  2448→          type?: string
+  2449→          amount?: number
+  2450→          description?: string
+  2451→          reference_type?: string
+  2452→          reference_id?: string
+  2453→          status?: string
+  2454→        }
+  2455→        Relationships: []
+  2456→      }
+  2457→    }
+  2458→    Views: {
+  2459→      platform_settings_public: {
+  2460→        Row: {
+  2461→          key: string | null
+  2462→          updated_at: string | null
+  2463→          value: Json | null
+  2464→        }
+  2465→        Insert: {
+  2466→          key?: string | null
+  2467→          updated_at?: string | null
+  2468→          value?: Json | null
+  2469→        }
+  2470→        Update: {
+  2471→          key?: string | null
+  2472→          updated_at?: string | null
+  2473→          value?: Json | null
+  2474→        }
+  2475→        Relationships: []
+  2476→      }
+  2477→      prestacao_products_public: {
+  2478→        Row: {
+  2479→          annual_rate: number | null
+  2480→          brand: string | null
+  2481→          business_user_id: string | null
+  2482→          category: string | null
+  2483→          city: string | null
+  2484→          created_at: string | null
+  2485→          currency: string | null
+  2486→          description: string | null
+  2487→          featured: boolean | null
+  2488→          id: string | null
+  2489→          images: Json | null
+  2490→          max_months: number | null
+  2491→          min_down_payment: number | null
+  2492→          model: string | null
+  2493→          province: string | null
+  2494→          status: string | null
+  2495→          stock: number | null
+  2496→          title: string | null
+  2497→          total_price: number | null
+  2498→          updated_at: string | null
+  2499→          views_count: number | null
+  2500→          year: number | null
+  2501→        }
+  2502→        Insert: {
+  2503→          annual_rate?: number | null
+  2504→          brand?: string | null
+  2505→          business_user_id?: string | null
+  2506→          category?: string | null
+  2507→          city?: string | null
+  2508→          created_at?: string | null
+  2509→          currency?: string | null
+  2510→          description?: string | null
+  2511→          featured?: boolean | null
+  2512→          id?: string | null
+  2513→          images?: Json | null
+  2514→          max_months?: number | null
+  2515→          min_down_payment?: number | null
+  2516→          model?: string | null
+  2517→          province?: string | null
+  2518→          status?: string | null
+  2519→          stock?: number | null
+  2520→          title?: string | null
+  2521→          total_price?: number | null
+  2522→          updated_at?: string | null
+  2523→          views_count?: number | null
+  2524→          year?: number | null
+  2525→        }
+  2526→        Update: {
+  2527→          annual_rate?: number | null
+  2528→          brand?: string | null
+  2529→          business_user_id?: string | null
+  2530→          category?: string | null
+  2531→          city?: string | null
+  2532→          created_at?: string | null
+  2533→          currency?: string | null
+  2534→          description?: string | null
+  2535→          featured?: boolean | null
+  2536→          id?: string | null
+  2537→          images?: Json | null
+  2538→          max_months?: number | null
+  2539→          min_down_payment?: number | null
+  2540→          model?: string | null
+  2541→          province?: string | null
+  2542→          status?: string | null
+  2543→          stock?: number | null
+  2544→          title?: string | null
+  2545→          total_price?: number | null
+  2546→          updated_at?: string | null
+  2547→          views_count?: number | null
+  2548→          year?: number | null
+  2549→        }
+  2550→        Relationships: []
+  2551→      }
+  2552→      profiles_public: {
+  2553→        Row: {
+  2554→          avatar_url: string | null
+  2555→          company_name: string | null
+  2556→          created_at: string | null
+  2557→          display_name: string | null
+  2558→          is_verified: boolean | null
+  2559→          referral_code: string | null
+  2560→          user_id: string | null
+  2561→        }
+  2562→        Insert: {
+  2563→          avatar_url?: string | null
+  2564→          company_name?: string | null
+  2565→          created_at?: string | null
+  2566→          display_name?: string | null
+  2567→          is_verified?: boolean | null
+  2568→          referral_code?: string | null
+  2569→          user_id?: string | null
+  2570→        }
+  2571→        Update: {
+  2572→          avatar_url?: string | null
+  2573→          company_name?: string | null
+  2574→          created_at?: string | null
+  2575→          display_name?: string | null
+  2576→          is_verified?: boolean | null
+  2577→          referral_code?: string | null
+  2578→          user_id?: string | null
+  2579→        }
+  2580→        Relationships: []
+  2581→      }
+  2582→      white_label_configs_public: {
+  2583→        Row: {
+  2584→          brand_name: string | null
+  2585→          business_user_id: string | null
+  2586→          created_at: string | null
+  2587→          custom_domain: string | null
+  2588→          description: string | null
+  2589→          id: string | null
+  2590→          is_active: boolean | null
+  2591→          logo_url: string | null
+  2592→          primary_color: string | null
+  2593→          secondary_color: string | null
+  2594→          updated_at: string | null
+  2595→        }
+  2596→        Insert: {
+  2597→          brand_name?: string | null
+  2598→          business_user_id?: string | null
+  2599→          created_at?: string | null
+  2600→          custom_domain?: string | null
+  2601→          description?: string | null
+  2602→          id?: string | null
+  2603→          is_active?: boolean | null
+  2604→          logo_url?: string | null
+  2605→          primary_color?: string | null
+  2606→          secondary_color?: string | null
+  2607→          updated_at?: string | null
+  2608→        }
+  2609→        Update: {
+  2610→          brand_name?: string | null
+  2611→          business_user_id?: string | null
+  2612→          created_at?: string | null
+  2613→          custom_domain?: string | null
+  2614→          description?: string | null
+  2615→          id?: string | null
+  2616→          is_active?: boolean | null
+  2617→          logo_url?: string | null
+  2618→          primary_color?: string | null
+  2619→          secondary_color?: string | null
+  2620→          updated_at?: string | null
+  2621→        }
+  2622→        Relationships: []
+  2623→      }
+  2624→      push_subscriptions: {
+  2625→        Row: { id: string; user_id: string; endpoint: string; p256dh_key: string; auth_key: string; created_at: string; device_info?: string }
+  2626→        Insert: { id?: string; user_id: string; endpoint: string; p256dh_key: string; auth_key: string; created_at?: string; device_info?: string }
+  2627→        Update: { id?: string; user_id?: string; endpoint?: string; p256dh_key?: string; auth_key?: string; device_info?: string }
+  2628→        Relationships: []
+  2629→      }
+  2630→    }
+  2631→    Functions: {
+  2632→      admin_country: { Args: { _user_id: string }; Returns: string }
+  2633→      award_ambassador_prize:
+  2634→        | { Args: { p_prize_id: string }; Returns: Json }
+  2635→        | { Args: { p_mode?: string; p_prize_id: string }; Returns: Json }
+  2636→      can_admin_country: {
+  2637→        Args: { _country: string; _user_id: string }
+  2638→        Returns: boolean
+  2639→      }
+  2640→      cast_live_poll_vote: {
+  2641→        Args: {
+  2642→          p_option_index: number
+  2643→          p_poll_id: string
+  2644→          p_voter_hash: string
+  2645→        }
+  2646→        Returns: Json
+  2647→      }
+  2648→      confirm_live_attendance: { Args: { p_visit_id: string }; Returns: Json }
+  2649→      delete_email: {
+  2650→        Args: { message_id: number; queue_name: string }
+  2651→        Returns: boolean
+  2652→      }
+  2653→      email_queue_dispatch: { Args: never; Returns: undefined }
+  2654→      enqueue_email: {
+  2655→        Args: { payload: Json; queue_name: string }
+  2656→        Returns: number
+  2657→      }
+  2658→      get_live_ambassador_ranking: {
+  2659→        Args: {
+  2660→          p_business_user_id?: string
+  2661→          p_limit?: number
+  2662→          p_live_code: string
+  2663→          p_offset?: number
+  2664→        }
+  2665→        Returns: {
+  2666→          ambassador_id: string
+  2667→          business_user_id: string
+  2668→          display_name: string
+  2669→          ref_code: string
+  2670→          user_id: string
+  2671→          visits: number
+  2672→        }[]
+  2673→      }
+  2674→      get_live_studio_summary: {
+  2675→        Args: { p_scheduled_live_id: string }
+  2676→        Returns: Json
+  2677→      }
+  2678→      get_prestacao_whatsapp: {
+  2679→        Args: { p_product_id: string }
+  2680→        Returns: string
+  2681→      }
+  2682→      get_scheduled_live_ranking: {
+  2683→        Args: {
+  2684→          p_limit?: number
+  2685→          p_offset?: number
+  2686→          p_scheduled_live_id: string
+  2687→        }
+  2688→        Returns: {
+  2689→          ambassador_id: string
+  2690→          display_name: string
+  2691→          ref_code: string
+  2692→          user_id: string
+  2693→          visits: number
+  2694→        }[]
+  2695→      }
+  2696→      has_role: {
+  2697→        Args: {
+  2698→          _role: Database["public"]["Enums"]["app_role"]
+  2699→          _user_id: string
+  2700→        }
+  2701→        Returns: boolean
+  2702→      }
+  2703→      increment_prestacao_product_views: {
+  2704→        Args: { _product_id: string }
+  2705→        Returns: undefined
+  2706→      }
+  2707→      is_superadmin: { Args: { _user_id: string }; Returns: boolean }
+  2708→      move_to_dlq: {
+  2709→        Args: {
+  2710→          dlq_name: string
+  2711→          message_id: number
+  2712→          payload: Json
+  2713→          source_queue: string
+  2714→        }
+  2715→        Returns: number
+  2716→      }
+  2717→      read_email_batch: {
+  2718→        Args: { batch_size: number; queue_name: string; vt: number }
+  2719→        Returns: {
+  2720→          message: Json
+  2721→          msg_id: number
+  2722→          read_ct: number
+  2723→        }[]
+  2724→      }
+  2725→      tournament_matches: {
+  2726→        Row: {
+  2727→          game_type: string
+  2728→          id: string
+  2729→          live_code: string
+  2730→          played_at: string
+  2731→          tournament_id: string
+  2732→        }
+  2733→        Insert: {
+  2734→          game_type: string
+  2735→          id?: string
+  2736→          live_code: string
+  2737→          played_at?: string
+  2738→          tournament_id: string
+  2739→        }
+  2740→        Update: {
+  2741→          game_type?: string
+  2742→          live_code?: string
+  2743→        }
+  2744→        Relationships: []
+  2745→      }
+  2746→      tournament_standings: {
+  2747→        Row: {
+  2748→          avatar_url: string | null
+  2749→          display_name: string | null
+  2750→          games_played: number
+  2751→          id: string
+  2752→          rank: number | null
+  2753→          tournament_id: string
+  2754→          total_points: number
+  2755→          updated_at: string
+  2756→          user_id: string
+  2757→          wins: number
+  2758→        }
+  2759→        Insert: {
+  2760→          avatar_url?: string | null
+  2761→          display_name?: string | null
+  2762→          games_played?: number
+  2763→          id?: string
+  2764→          rank?: number | null
+  2765→          tournament_id: string
+  2766→          total_points?: number
+  2767→          updated_at?: string
+  2768→          user_id: string
+  2769→          wins?: number
+  2770→        }
+  2771→        Update: {
+  2772→          avatar_url?: string | null
+  2773→          display_name?: string | null
+  2774→          games_played?: number
+  2775→          rank?: number | null
+  2776→          total_points?: number
+  2777→          updated_at?: string
+  2778→          wins?: number
+  2779→        }
+  2780→        Relationships: []
+  2781→      }
+  2782→      tournaments: {
+  2783→        Row: {
+  2784→          business_id: string
+  2785→          created_at: string
+  2786→          currency: string | null
+  2787→          description: string | null
+  2788→          end_date: string
+  2789→          id: string
+  2790→          max_participants: number | null
+  2791→          name: string
+  2792→          prize_description: string | null
+  2793→          prize_value: number | null
+  2794→          rules: string | null
+  2795→          start_date: string
+  2796→          status: string
+  2797→        }
+  2798→        Insert: {
+  2799→          business_id: string
+  2800→          created_at?: string
+  2801→          currency?: string | null
+  2802→          description?: string | null
+  2803→          end_date: string
+  2804→          id?: string
+  2805→          max_participants?: number | null
+  2806→          name: string
+  2807→          prize_description?: string | null
+  2808→          prize_value?: number | null
+  2809→          rules?: string | null
+  2810→          start_date: string
+  2811→          status?: string
+  2812→        }
+  2813→        Update: {
+  2814→          currency?: string | null
+  2815→          description?: string | null
+  2816→          end_date?: string
+  2817→          max_participants?: number | null
+  2818→          name?: string
+  2819→          prize_description?: string | null
+  2820→          prize_value?: number | null
+  2821→          rules?: string | null
+  2822→          start_date?: string
+  2823→          status?: string
+  2824→        }
+  2825→        Relationships: []
+  2826→      }
+  2827→    }
+  2828→    Enums: {
+  2829→      app_role: "admin" | "business" | "user" | "superadmin"
+  2830→    }
+  2831→    CompositeTypes: {
+  2832→      [_ in never]: never
+  2833→    }
+  2834→  }
+  2835→}
+  2836→
+  2837→type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+  2838→
+  2839→type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+  2840→
+  2841→export type Tables<
+  2842→  DefaultSchemaTableNameOrOptions extends
+  2843→    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  2844→    | { schema: keyof DatabaseWithoutInternals },
+  2845→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  2846→    schema: keyof DatabaseWithoutInternals
+  2847→  }
+  2848→    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+  2849→        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  2850→    : never = never,
+  2851→> = DefaultSchemaTableNameOrOptions extends {
+  2852→  schema: keyof DatabaseWithoutInternals
+  2853→}
+  2854→  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+  2855→      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  2856→      Row: infer R
+  2857→    }
+  2858→    ? R
+  2859→    : never
+  2860→  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+  2861→        DefaultSchema["Views"])
+  2862→    ? (DefaultSchema["Tables"] &
+  2863→        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  2864→        Row: infer R
+  2865→      }
+  2866→      ? R
+  2867→      : never
+  2868→    : never
+  2869→
+  2870→export type TablesInsert<
+  2871→  DefaultSchemaTableNameOrOptions extends
+  2872→    | keyof DefaultSchema["Tables"]
+  2873→    | { schema: keyof DatabaseWithoutInternals },
+  2874→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  2875→    schema: keyof DatabaseWithoutInternals
+  2876→  }
+  2877→    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  2878→    : never = never,
+  2879→> = DefaultSchemaTableNameOrOptions extends {
+  2880→  schema: keyof DatabaseWithoutInternals
+  2881→}
+  2882→  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  2883→      Insert: infer I
+  2884→    }
+  2885→    ? I
+  2886→    : never
+  2887→  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  2888→    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  2889→        Insert: infer I
+  2890→      }
+  2891→      ? I
+  2892→      : never
+  2893→    : never
+  2894→
+  2895→export type TablesUpdate<
+  2896→  DefaultSchemaTableNameOrOptions extends
+  2897→    | keyof DefaultSchema["Tables"]
+  2898→    | { schema: keyof DatabaseWithoutInternals },
+  2899→  TableName extends DefaultSchemaTableNameOrOptions extends {
+  2900→    schema: keyof DatabaseWithoutInternals
+  2901→  }
+  2902→    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  2903→    : never = never,
+  2904→> = DefaultSchemaTableNameOrOptions extends {
+  2905→  schema: keyof DatabaseWithoutInternals
+  2906→}
+  2907→  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  2908→      Update: infer U
+  2909→    }
+  2910→    ? U
+  2911→    : never
+  2912→  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  2913→    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  2914→        Update: infer U
+  2915→      }
+  2916→      ? U
+  2917→      : never
+  2918→    : never
+  2919→
+  2920→export type Enums<
+  2921→  DefaultSchemaEnumNameOrOptions extends
+  2922→    | keyof DefaultSchema["Enums"]
+  2923→    | { schema: keyof DatabaseWithoutInternals },
+  2924→  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  2925→    schema: keyof DatabaseWithoutInternals
+  2926→  }
+  2927→    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  2928→    : never = never,
+  2929→> = DefaultSchemaEnumNameOrOptions extends {
+  2930→  schema: keyof DatabaseWithoutInternals
+  2931→}
+  2932→  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  2933→  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+  2934→    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  2935→    : never
+  2936→
+  2937→export type CompositeTypes<
+  2938→  PublicCompositeTypeNameOrOptions extends
+  2939→    | keyof DefaultSchema["CompositeTypes"]
+  2940→    | { schema: keyof DatabaseWithoutInternals },
+  2941→  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  2942→    schema: keyof DatabaseWithoutInternals
+  2943→  }
+  2944→    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  2945→    : never = never,
+  2946→> = PublicCompositeTypeNameOrOptions extends {
+  2947→  schema: keyof DatabaseWithoutInternals
+  2948→}
+  2949→  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  2950→  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+  2951→    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  2952→    : never
+  2953→
+  2954→export const Constants = {
+  2955→  public: {
+  2956→    Enums: {
+  2957→      app_role: ["admin", "business", "user", "superadmin"],
+  2958→    },
+  2959→  },
+  2960→} as const
+  2961→
