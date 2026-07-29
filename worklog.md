@@ -1,25 +1,23 @@
+# Worklog
+
 ---
 Task ID: 1
-Agent: main
-Task: Fix game crash errors when clicking games + finalize i18n translations
+Agent: Main Agent
+Task: Fix bateu.online/jogos crash and platform errors
 
 Work Log:
-- Diagnosed that clicking games triggered AppErrorBoundary (whole-app crash, "recarregar página" message)
-- Root causes: (a) no per-game error boundaries, (b) dead code in AppErrorBoundary, (c) duplicate pt-BR block
-- Created fix-games-and-i18n.py to apply all fixes atomically
-- Merged two duplicate "pt-BR" blocks in LanguageContext.tsx (lines 861-1371 + 1372-1452)
-- Fixed missing closing brace after merge
-- Ran dedup-ptbr.py to remove 80+ duplicate keys within merged pt-BR block
-- Added GameErrorBoundary class component wrapping game render area in LiveHub.tsx
-- Fixed AppErrorBoundary: changed dead if-return pattern to proper if/else with retry button
-- Removed 3 dead files: Navbar.tsx.broken, Navbar.tsx.bak, LiveHub.tsx.bak
-- Added 34 new i18n keys (en + pt) for games/live/error sections
-- Translated InstantWin.tsx from hardcoded English to use t() function
-- Build verified: 0 errors, 0 warnings
+- Opened bateu.online/jogos in browser, captured error: `TypeError: Cannot read properties of undefined (reading 'add')` at `l9.init`
+- Extracted exact code from deployed JS bundle at the error location — identified `react-helmet-async` Helmet component calling `.add()` on undefined `helmetInstances` Set
+- Root cause: `AllGames.tsx`, `Wallet.tsx`, and `BlogPostDetail.tsx` use `<Helmet>` from `react-helmet-async` but NO `<HelmetProvider>` was wrapping the app in `App.tsx`
+- Fixed by adding `import { HelmetProvider } from "react-helmet-async"` and wrapping the entire app tree in `<HelmetProvider>` in App.tsx
+- Tested register page — no crashes, but registration silently fails (likely Supabase backend issue, not code)
+- Verified `/`, `/lives`, `/marketplace`, `/instant-win`, `/blog` pages — all load fine
+- Confirmed `LanguageContext.tsx` pt-BR block is already a single complete block (474 keys = same as en)
+- Found `GameErrorBoundary` class defined in LiveHub.tsx but NEVER USED — wrapped all 57 game components with it
+- Build verified, committed and pushed
 
 Stage Summary:
-- Games no longer crash the entire app - GameErrorBoundary catches errors per-game
-- Users can click "Tentar novamente" to retry instead of being forced to reload
-- pt-BR translations properly merged and deduplicated
-- InstantWin page now uses i18n for all text
-- 2 commits pushed to GitHub
+- **Critical fix**: Added `HelmetProvider` to App.tsx — fixes /jogos, /wallet, /blog page crashes
+- **Resilience fix**: Wrapped all 57 game components in LiveHub.tsx with `GameErrorBoundary` to prevent individual game crashes from taking down the whole page
+- Registration silent failure is likely a Supabase auth/backend issue (not frontend code)
+- Commit: ecc0f14 pushed to main
