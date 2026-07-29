@@ -1,0 +1,732 @@
+     1→import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+     2→import { motion } from "framer-motion";
+     3→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     4→import { Button } from "@/components/ui/button";
+     5→import {
+     6→  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+     7→  AreaChart, Area, PieChart, Pie, Cell,
+     8→} from "recharts";
+     9→import { supabase } from "@/integrations/supabase/client";
+    10→import { useAuth } from "@/contexts/AuthContext";
+    11→import { formatMZN } from "@/lib/currency";
+    12→import { toast } from "sonner";
+    13→
+    14→const CHART_COLORS = ["#fbbf24", "#3b82f6", "#8b5cf6", "#10b981", "#f43f5e", "#06b6d4", "#f97316", "#84cc16"];
+    15→
+    16→const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
+    17→
+    18→const fadeUp = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 } };
+    19→
+    20→interface GameSession {
+    21→  id: string;
+    22→  business_user_id: string;
+    23→  live_code: string;
+    24→  game_type: string;
+    25→  game_name: string;
+    26→  player_name: string;
+    27→  player_count: number;
+    28→  score: number;
+    29→  prize: string;
+    30→  prize_value: number;
+    31→  is_winner: boolean;
+    32→  duration_seconds: number;
+    33→  created_at: string;
+    34→}
+    35→
+    36→interface AnalyticsSnapshot {
+    37→  date: string;
+    38→  total_sessions: number;
+    39→  total_players: number;
+    40→  total_winners: number;
+    41→  total_prize_value: number;
+    42→  avg_session_duration: number;
+    43→  unique_players: number;
+    44→}
+    45→
+    46→interface Raffle {
+    47→  id: string;
+    48→  title: string;
+    49→  ticket_price: number;
+    50→  sold_tickets: number;
+    51→  total_tickets: number;
+    52→  created_at: string;
+    53→}
+    54→
+    55→interface Participant {
+    56→  id: string;
+    57→  raffle_id: string;
+    58→  created_at: string;
+    59→  payment_status: string;
+    60→}
+    61→
+    62→type DateRange = "7d" | "30d" | "90d" | "all";
+    63→
+    64→function useAnimatedCounter(target: number, duration: number = 1200, enabled: boolean = true) {
+    65→  const [count, setCount] = useState(0);
+    66→  const rafRef = useRef<number>(0);
+    67→
+    68→  useEffect(() => {
+    69→    if (!enabled || target === 0) {
+    70→      setCount(target);
+    71→      return;
+    72→    }
+    73→    const start = performance.now();
+    74→    const step = (now: number) => {
+    75→      const elapsed = now - start;
+    76→      const progress = Math.min(elapsed / duration, 1);
+    77→      const eased = 1 - Math.pow(1 - progress, 3);
+    78→      setCount(Math.round(eased * target));
+    79→      if (progress < 1) {
+    80→        rafRef.current = requestAnimationFrame(step);
+    81→      }
+    82→    };
+    83→    rafRef.current = requestAnimationFrame(step);
+    84→    return () => cancelAnimationFrame(rafRef.current);
+    85→  }, [target, duration, enabled]);
+    86→
+    87→  return count;
+    88→}
+    89→
+    90→function formatDuration(seconds: number): string {
+    91→  if (seconds < 60) return `${seconds}s`;
+    92→  const m = Math.floor(seconds / 60);
+    93→  const s = seconds % 60;
+    94→  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    95→}
+    96→
+    97→function getStartDate(range: DateRange): Date | null {
+    98→  if (range === "all") return null;
+    99→  const now = new Date();
+   100→  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+   101→  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+   102→}
+   103→
+   104→function filterByDate<T extends { created_at: string }>(items: T[], range: DateRange): T[] {
+   105→  const start = getStartDate(range);
+   106→  if (!start) return items;
+   107→  return items.filter((item) => new Date(item.created_at) >= start);
+   108→}
+   109→
+   110→const tooltipStyle = {
+   111→  backgroundColor: "hsl(240, 5%, 8%)",
+   112→  border: "1px solid hsl(240, 4%, 20%)",
+   113→  borderRadius: 12,
+   114→  color: "hsl(0, 0%, 95%)",
+   115→  fontSize: 13,
+   116→};
+   117→
+   118→const axisTick = { fill: "hsl(240, 4%, 55%)", fontSize: 12 };
+   119→const axisLine = false;
+   120→const tickLine = false;
+   121→
+   122→export default function DashboardAnalytics() {
+   123→  const { user } = useAuth();
+   124→  const [dateRange, setDateRange] = useState<DateRange>("30d");
+   125→  const [sessions, setSessions] = useState<GameSession[]>([]);
+   126→  const [snapshots, setSnapshots] = useState<AnalyticsSnapshot[]>([]);
+   127→  const [raffles, setRaffles] = useState<Raffle[]>([]);
+   128→  const [participants, setParticipants] = useState<Participant[]>([]);
+   129→  const [loading, setLoading] = useState(true);
+   130→
+   131→  useEffect(() => {
+   132→    if (!user) return;
+   133→    let cancelled = false;
+   134→    (async () => {
+   135→      try {
+   136→        const promises = [
+   137→          supabase
+   138→            .from("game_sessions")
+   139→            .select("*")
+   140→            .eq("business_user_id", user.id)
+   141→            .order("created_at", { ascending: false }),
+   142→          supabase
+   143→            .from("analytics_snapshots")
+   144→            .select("*")
+   145→            .eq("business_user_id", user.id)
+   146→            .order("date", { ascending: true }),
+   147→          supabase
+   148→            .from("raffles")
+   149→            .select("id, title, ticket_price, sold_tickets, total_tickets, created_at")
+   150→            .eq("business_user_id", user.id)
+   151→            .order("created_at", { ascending: false }),
+   152→        ];
+   153→
+   154→        const [sessionsRes, snapshotsRes, rafflesRes] = await Promise.all(promises);
+   155→
+   156→        if (sessionsRes.error) throw sessionsRes.error;
+   157→        if (snapshotsRes.error) throw snapshotsRes.error;
+   158→        if (rafflesRes.error) throw rafflesRes.error;
+   159→
+   160→        if (cancelled) return;
+   161→
+   162→        const raffleData = (rafflesRes.data as Raffle[]) || [];
+   163→        setSessions((sessionsRes.data as GameSession[]) || []);
+   164→        setSnapshots((snapshotsRes.data as AnalyticsSnapshot[]) || []);
+   165→        setRaffles(raffleData);
+   166→
+   167→        const ids = raffleData.map((r) => r.id);
+   168→        if (ids.length > 0) {
+   169→          const { data: partData, error: partErr } = await supabase
+   170→            .from("participants")
+   171→            .select("id, raffle_id, created_at, payment_status")
+   172→            .in("raffle_id", ids);
+   173→          if (partErr) throw partErr;
+   174→          if (!cancelled) setParticipants((partData as Participant[]) || []);
+   175→        }
+   176→      } catch (e) {
+   177→        console.error(e);
+   178→        toast.error("Erro ao carregar analíticas");
+   179→      } finally {
+   180→        if (!cancelled) setLoading(false);
+   181→      }
+   182→    })();
+   183→    return () => { cancelled = true; };
+   184→  }, [user]);
+   185→
+   186→  const filteredSessions = useMemo(
+   187→    () => filterByDate(sessions, dateRange),
+   188→    [sessions, dateRange]
+   189→  );
+   190→
+   191→  const filteredParticipants = useMemo(
+   192→    () => filterByDate(participants, dateRange),
+   193→    [participants, dateRange]
+   194→  );
+   195→
+   196→  // KPI calculations
+   197→  const kpi = useMemo(() => {
+   198→    const totalSessions = filteredSessions.length;
+   199→    const uniquePlayers = new Set(filteredSessions.map((s) => s.player_name)).size;
+   200→    const totalWinners = filteredSessions.filter((s) => s.is_winner).length;
+   201→    const totalPrizeValue = filteredSessions.reduce((sum, s) => sum + (Number(s.prize_value) || 0), 0);
+   202→    const avgDuration = totalSessions > 0
+   203→      ? Math.round(filteredSessions.reduce((sum, s) => sum + (Number(s.duration_seconds) || 0), 0) / totalSessions)
+   204→      : 0;
+   205→    const winRate = totalSessions > 0 ? Math.round((totalWinners / totalSessions) * 100) : 0;
+   206→    return { totalSessions, uniquePlayers, totalWinners, totalPrizeValue, avgDuration, winRate };
+   207→  }, [filteredSessions]);
+   208→
+   209→  const animTotalSessions = useAnimatedCounter(kpi.totalSessions, 1400, !loading);
+   210→  const animUniquePlayers = useAnimatedCounter(kpi.uniquePlayers, 1400, !loading);
+   211→  const animTotalWinners = useAnimatedCounter(kpi.totalWinners, 1400, !loading);
+   212→  const animPrizeValue = useAnimatedCounter(kpi.totalPrizeValue, 1600, !loading);
+   213→  const animAvgDuration = useAnimatedCounter(kpi.avgDuration, 1200, !loading);
+   214→  const animWinRate = useAnimatedCounter(kpi.winRate, 1000, !loading);
+   215→
+   216→  // Sessions by game type (BarChart)
+   217→  const sessionsByType = useMemo(() => {
+   218→    const map = new Map<string, number>();
+   219→    filteredSessions.forEach((s) => {
+   220→      const type = s.game_type || s.game_name || "Outro";
+   221→      map.set(type, (map.get(type) || 0) + 1);
+   222→    });
+   223→    return Array.from(map.entries())
+   224→      .map(([name, count]) => ({ name, sessions: count }))
+   225→      .sort((a, b) => b.sessions - a.sessions)
+   226→      .slice(0, 8);
+   227→  }, [filteredSessions]);
+   228→
+   229→  // Players over time (AreaChart)
+   230→  const playersOverTime = useMemo(() => {
+   231→    const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : dateRange === "90d" ? 90 : 90;
+   232→    const now = new Date();
+   233→    const buckets: Record<string, { date: string; players: Set<string>; sessions: number }> = {};
+   234→
+   235→    for (let i = days - 1; i >= 0; i--) {
+   236→      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+   237→      const key = d.toISOString().slice(0, 10);
+   238→      buckets[key] = { date: key, players: new Set(), sessions: 0 };
+   239→    }
+   240→
+   241→    filteredSessions.forEach((s) => {
+   242→      const key = s.created_at?.slice(0, 10);
+   243→      if (key && buckets[key]) {
+   244→        buckets[key].players.add(s.player_name);
+   245→        buckets[key].sessions += 1;
+   246→      }
+   247→    });
+   248→
+   249→    return Object.values(buckets).map((b) => ({
+   250→      date: b.date.slice(5),
+   251→      jogadores: b.players.size,
+   252→      sessoes: b.sessions,
+   253→    }));
+   254→  }, [filteredSessions, dateRange]);
+   255→
+   256→  // Win/Loss PieChart
+   257→  const winLossData = useMemo(() => {
+   258→    const wins = filteredSessions.filter((s) => s.is_winner).length;
+   259→    const losses = filteredSessions.length - wins;
+   260→    return [
+   261→      { name: "Vitórias", value: wins, color: "#10b981" },
+   262→      { name: "Sem prémio", value: losses, color: "#f43f5e" },
+   263→    ];
+   264→  }, [filteredSessions]);
+   265→
+   266→  // Top games horizontal bar
+   267→  const topGames = useMemo(() => {
+   268→    const map = new Map<string, { sessions: number; prize: number; winners: number }>();
+   269→    filteredSessions.forEach((s) => {
+   270→      const name = s.game_name || s.game_type || "Outro";
+   271→      const existing = map.get(name) || { sessions: 0, prize: 0, winners: 0 };
+   272→      existing.sessions += 1;
+   273→      existing.prize += Number(s.prize_value) || 0;
+   274→      if (s.is_winner) existing.winners += 1;
+   275→      map.set(name, existing);
+   276→    });
+   277→    return Array.from(map.entries())
+   278→      .map(([name, data]) => ({ name, ...data }))
+   279→      .sort((a, b) => b.sessions - a.sessions)
+   280→      .slice(0, 6);
+   281→  }, [filteredSessions]);
+   282→
+   283→  // Recent game history
+   284→  const recentSessions = useMemo(() => filteredSessions.slice(0, 20), [filteredSessions]);
+   285→
+   286→  // Raffle analytics (kept from original)
+   287→  const topRaffles = useMemo(
+   288→    () =>
+   289→      raffles
+   290→        .map((r) => ({
+   291→          name: r.title,
+   292→          revenue: r.sold_tickets * Number(r.ticket_price),
+   293→          pct: r.total_tickets > 0 ? Math.round((r.sold_tickets / r.total_tickets) * 100) : 0,
+   294→        }))
+   295→        .sort((a, b) => b.revenue - a.revenue)
+   296→        .slice(0, 5),
+   297→    [raffles]
+   298→  );
+   299→
+   300→  const raffleRevenueData = useMemo(() => {
+   301→    const year = new Date().getFullYear();
+   302→    const byMonth = Array(12).fill(0);
+   303→    filteredParticipants.forEach((p) => {
+   304→      const raffle = raffles.find((r) => r.id === p.raffle_id);
+   305→      if (!raffle || p.payment_status !== "paid") return;
+   306→      const d = new Date(p.created_at);
+   307→      if (d.getFullYear() === year) {
+   308→        byMonth[d.getMonth()] += Number(raffle.ticket_price) || 0;
+   309→      }
+   310→    });
+   311→    const labels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+   312→    return labels.map((month, i) => ({ month, value: byMonth[i] }));
+   313→  }, [filteredParticipants, raffles]);
+   314→
+   315→  // Export CSV
+   316→  const exportCSV = useCallback(() => {
+   317→    const headers = ["Jogo", "Jogador", "Pontuação", "Prémio", "Valor (MZN)", "Vencedor", "Duração", "Data"];
+   318→    const rows = recentSessions.map((s) => [
+   319→      s.game_name || s.game_type || "",
+   320→      s.player_name || "",
+   321→      s.score ?? "",
+   322→      s.prize || "",
+   323→      s.prize_value ?? "",
+   324→      s.is_winner ? "Sim" : "Não",
+   325→      formatDuration(s.duration_seconds || 0),
+   326→      s.created_at ? new Date(s.created_at).toLocaleString("pt-MZ") : "",
+   327→    ]);
+   328→    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+   329→    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+   330→    const url = URL.createObjectURL(blob);
+   331→    const a = document.createElement("a");
+   332→    a.href = url;
+   333→    a.download = `analytics_${dateRange}_${new Date().toISOString().slice(0, 10)}.csv`;
+   334→    a.click();
+   335→    URL.revokeObjectURL(url);
+   336→    toast.success("CSV exportado com sucesso");
+   337→  }, [recentSessions, dateRange]);
+   338→
+   339→  const dateRangeButtons: { label: string; value: DateRange }[] = [
+   340→    { label: "7 dias", value: "7d" },
+   341→    { label: "30 dias", value: "30d" },
+   342→    { label: "90 dias", value: "90d" },
+   343→    { label: "Tudo", value: "all" },
+   344→  ];
+   345→
+   346→  const kpiCards = [
+   347→    { label: "Total de Sessões", value: animTotalSessions, suffix: "", icon: "🎯", gradient: "from-amber-500/20 to-orange-500/10", border: "border-amber-500/20" },
+   348→    { label: "Jogadores Únicos", value: animUniquePlayers, suffix: "", icon: "👥", gradient: "from-blue-500/20 to-cyan-500/10", border: "border-blue-500/20" },
+   349→    { label: "Total de Vencedores", value: animTotalWinners, suffix: "", icon: "🏆", gradient: "from-emerald-500/20 to-green-500/10", border: "border-emerald-500/20" },
+   350→    { label: "Valor Total de Prémios", value: animPrizeValue, suffix: " MZN", icon: "💰", gradient: "from-violet-500/20 to-purple-500/10", border: "border-violet-500/20", format: true },
+   351→    { label: "Duração Média", value: animAvgDuration, suffix: "s", icon: "⏱️", gradient: "from-rose-500/20 to-pink-500/10", border: "border-rose-500/20" },
+   352→    { label: "Taxa de Vitória", value: animWinRate, suffix: "%", icon: "📈", gradient: "from-cyan-500/20 to-teal-500/10", border: "border-cyan-500/20" },
+   353→  ];
+   354→
+   355→  if (loading) {
+   356→    return (
+   357→      <div className="flex h-96 items-center justify-center">
+   358→        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+   359→      </div>
+   360→    );
+   361→  }
+   362→
+   363→  return (
+   364→    <div className="space-y-8">
+   365→      // Header with title, date filter, and export
+   366→      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   367→        <div>
+   368→          <h1 className="font-display text-2xl font-bold text-foreground">Analíticas & Relatórios</h1>
+   369→          <p className="text-sm text-muted-foreground">Métricas completas de performance dos seus jogos e sorteios</p>
+   370→        </div>
+   371→        <div className="flex items-center gap-2">
+   372→          <div className="flex rounded-lg border border-glass-border bg-glass p-0.5">
+   373→            {dateRangeButtons.map((btn) => (
+   374→              <button
+   375→                key={btn.value}
+   376→                onClick={() => setDateRange(btn.value)}
+   377→                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+   378→                  dateRange === btn.value
+   379→                    ? "bg-primary text-primary-foreground shadow-sm"
+   380→                    : "text-muted-foreground hover:text-foreground"
+   381→                }`}
+   382→              >
+   383→                {btn.label}
+   384→              </button>
+   385→            ))}
+   386→          </div>
+   387→          <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5">
+   388→            <DownloadIcon />
+   389→            Exportar CSV
+   390→          </Button>
+   391→        </div>
+   392→      </div>
+   393→
+   394→      // KPI Cards
+   395→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+   396→        {kpiCards.map((card, i) => (
+   397→          <motion.div
+   398→            key={card.label}
+   399→            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+   400→            animate={{ opacity: 1, y: 0, scale: 1 }}
+   401→            transition={{ ...spring, delay: i * 0.06 }}
+   402→          >
+   403→            <Card className={`glass relative overflow-hidden ${card.border}`}>
+   404→              <CardContent className="p-4">
+   405→                <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-60`} />
+   406→                <div className="relative z-10">
+   407→                  <div className="flex items-center justify-between">
+   408→                    <span className="text-lg">{card.icon}</span>
+   409→                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{card.label}</span>
+   410→                  </div>
+   411→                  <div className="mt-3">
+   412→                    <span className="text-2xl font-bold tabular-nums text-foreground">
+   413→                      {card.format ? formatMZN(card.value) : card.value.toLocaleString("pt-MZ")}
+   414→                      {card.suffix && !card.format ? card.suffix : ""}
+   415→                    </span>
+   416→                  </div>
+   417→                </div>
+   418→              </CardContent>
+   419→            </Card>
+   420→          </motion.div>
+   421→        ))}
+   422→      </div>
+   423→
+   424→      // Charts Row 1: Sessions by Type + Players Over Time
+   425→      <div className="grid gap-6 lg:grid-cols-2">
+   426→        <motion.div {...fadeUp} transition={{ ...spring, delay: 0.15 }}>
+   427→          <Card className="glass border-glass-border">
+   428→            <CardHeader className="pb-2">
+   429→              <CardTitle className="text-base font-semibold">Sessões por Tipo de Jogo</CardTitle>
+   430→            </CardHeader>
+   431→            <CardContent>
+   432→              <div className="h-72">
+   433→                {sessionsByType.length > 0 ? (
+   434→                  <ResponsiveContainer width="100%" height="100%">
+   435→                    <BarChart data={sessionsByType} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+   436→                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+   437→                      <XAxis dataKey="name" tick={axisTick} axisLine={axisLine} tickLine={tickLine} />
+   438→                      <YAxis tick={axisTick} axisLine={axisLine} tickLine={tickLine} allowDecimals={false} />
+   439→                      <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(240, 4%, 12%)" }} />
+   440→                      <Bar dataKey="sessions" name="Sessões" radius={[6, 6, 0, 0]}>
+   441→                        {sessionsByType.map((_, i) => (
+   442→                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+   443→                        ))}
+   444→                      </Bar>
+   445→                    </BarChart>
+   446→                  </ResponsiveContainer>
+   447→                ) : (
+   448→                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+   449→                    Sem dados de sessões no período selecionado
+   450→                  </div>
+   451→                )}
+   452→              </div>
+   453→            </CardContent>
+   454→          </Card>
+   455→        </motion.div>
+   456→
+   457→        <motion.div {...fadeUp} transition={{ ...spring, delay: 0.2 }}>
+   458→          <Card className="glass border-glass-border">
+   459→            <CardHeader className="pb-2">
+   460→              <CardTitle className="text-base font-semibold">Jogadores ao Longo do Tempo</CardTitle>
+   461→            </CardHeader>
+   462→            <CardContent>
+   463→              <div className="h-72">
+   464→                {playersOverTime.length > 0 ? (
+   465→                  <ResponsiveContainer width="100%" height="100%">
+   466→                    <AreaChart data={playersOverTime} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+   467→                      <defs>
+   468→                        <linearGradient id="playersGrad" x1="0" y1="0" x2="0" y2="1">
+   469→                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+   470→                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+   471→                        </linearGradient>
+   472→                        <linearGradient id="sessionsGrad" x1="0" y1="0" x2="0" y2="1">
+   473→                          <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.2} />
+   474→                          <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+   475→                        </linearGradient>
+   476→                      </defs>
+   477→                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+   478→                      <XAxis dataKey="date" tick={axisTick} axisLine={axisLine} tickLine={tickLine} />
+   479→                      <YAxis tick={axisTick} axisLine={axisLine} tickLine={tickLine} allowDecimals={false} />
+   480→                      <Tooltip contentStyle={tooltipStyle} />
+   481→                      <Area type="monotone" dataKey="jogadores" name="Jogadores" stroke="#3b82f6" strokeWidth={2} fill="url(#playersGrad)" />
+   482→                      <Area type="monotone" dataKey="sessoes" name="Sessões" stroke="#fbbf24" strokeWidth={2} fill="url(#sessionsGrad)" />
+   483→                    </AreaChart>
+   484→                  </ResponsiveContainer>
+   485→                ) : (
+   486→                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+   487→                    Sem dados no período selecionado
+   488→                  </div>
+   489→                )}
+   490→              </div>
+   491→            </CardContent>
+   492→          </Card>
+   493→        </motion.div>
+   494→      </div>
+   495→
+   496→      // Charts Row 2: Win/Loss Pie + Top Games Horizontal Bar
+   497→      <div className="grid gap-6 lg:grid-cols-2">
+   498→        <motion.div {...fadeUp} transition={{ ...spring, delay: 0.25 }}>
+   499→          <Card className="glass border-glass-border">
+   500→            <CardHeader className="pb-2">
+   501→              <CardTitle className="text-base font-semibold">Distribuição Vitória / Sem Prémio</CardTitle>
+   502→            </CardHeader>
+   503→            <CardContent>
+   504→              <div className="h-64">
+   505→                {filteredSessions.length > 0 ? (
+   506→                  <ResponsiveContainer width="100%" height="100%">
+   507→                    <PieChart>
+   508→                      <Pie
+   509→                        data={winLossData}
+   510→                        dataKey="value"
+   511→                        nameKey="name"
+   512→                        cx="50%"
+   513→                        cy="50%"
+   514→                        innerRadius={55}
+   515→                        outerRadius={90}
+   516→                        paddingAngle={3}
+   517→                        strokeWidth={0}
+   518→                      >
+   519→                        {winLossData.map((entry, i) => (
+   520→                          <Cell key={i} fill={entry.color} />
+   521→                        ))}
+   522→                      </Pie>
+   523→                      <Tooltip contentStyle={tooltipStyle} />
+   524→                    </PieChart>
+   525→                  </ResponsiveContainer>
+   526→                ) : (
+   527→                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+   528→                    Sem dados no período selecionado
+   529→                  </div>
+   530→                )}
+   531→              </div>
+   532→              {filteredSessions.length > 0 && (
+   533→                <div className="mt-2 flex justify-center gap-6 text-sm">
+   534→                  <div className="flex items-center gap-2">
+   535→                    <span className="h-3 w-3 rounded-full bg-emerald-500" />
+   536→                    <span className="text-muted-foreground">Vitórias ({kpi.totalWinners})</span>
+   537→                  </div>
+   538→                  <div className="flex items-center gap-2">
+   539→                    <span className="h-3 w-3 rounded-full bg-rose-500" />
+   540→                    <span className="text-muted-foreground">Sem prémio ({filteredSessions.length - kpi.totalWinners})</span>
+   541→                  </div>
+   542→                </div>
+   543→              )}
+   544→            </CardContent>
+   545→          </Card>
+   546→        </motion.div>
+   547→
+   548→        <motion.div {...fadeUp} transition={{ ...spring, delay: 0.3 }}>
+   549→          <Card className="glass border-glass-border">
+   550→            <CardHeader className="pb-2">
+   551→              <CardTitle className="text-base font-semibold">Top Jogos por Sessões</CardTitle>
+   552→            </CardHeader>
+   553→            <CardContent>
+   554→              <div className="h-72">
+   555→                {topGames.length > 0 ? (
+   556→                  <ResponsiveContainer width="100%" height="100%">
+   557→                    <BarChart data={topGames} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+   558→                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" horizontal={false} />
+   559→                      <XAxis type="number" tick={axisTick} axisLine={axisLine} tickLine={tickLine} allowDecimals={false} />
+   560→                      <YAxis type="category" dataKey="name" tick={axisTick} axisLine={axisLine} tickLine={tickLine} width={120} />
+   561→                      <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(240, 4%, 12%)" }} />
+   562→                      <Bar dataKey="sessions" name="Sessões" radius={[0, 6, 6, 0]}>
+   563→                        {topGames.map((_, i) => (
+   564→                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+   565→                        ))}
+   566→                      </Bar>
+   567→                    </BarChart>
+   568→                  </ResponsiveContainer>
+   569→                ) : (
+   570→                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+   571→                    Sem dados no período selecionado
+   572→                  </div>
+   573→                )}
+   574→              </div>
+   575→            </CardContent>
+   576→          </Card>
+   577→        </motion.div>
+   578→      </div>
+   579→
+   580→      // Recent Game History Table
+   581→      <motion.div {...fadeUp} transition={{ ...spring, delay: 0.35 }}>
+   582→        <Card className="glass border-glass-border">
+   583→          <CardHeader className="pb-3">
+   584→            <div className="flex items-center justify-between">
+   585→              <CardTitle className="text-base font-semibold">Histórico Recente de Jogos</CardTitle>
+   586→              <span className="text-xs text-muted-foreground">Últimas 20 sessões</span>
+   587→            </div>
+   588→          </CardHeader>
+   589→          <CardContent className="p-0">
+   590→            <div className="overflow-x-auto">
+   591→              <table className="w-full text-sm">
+   592→                <thead>
+   593→                  <tr className="border-b border-glass-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+   594→                    <th className="px-4 py-3">Jogo</th>
+   595→                    <th className="px-4 py-3">Jogador</th>
+   596→                    <th className="px-4 py-3 text-center">Pontuação</th>
+   597→                    <th className="px-4 py-3">Prémio</th>
+   598→                    <th className="px-4 py-3 text-right">Valor</th>
+   599→                    <th className="px-4 py-3 text-center">Status</th>
+   600→                    <th className="px-4 py-3 text-right">Data</th>
+   601→                  </tr>
+   602→                </thead>
+   603→                <tbody className="divide-y divide-glass-border">
+   604→                  {recentSessions.length === 0 ? (
+   605→                    <tr>
+   606→                      <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+   607→                        Nenhuma sessão registada no período selecionado
+   608→                      </td>
+   609→                    </tr>
+   610→                  ) : (
+   611→                    recentSessions.map((s, i) => (
+   612→                      <tr
+   613→                        key={s.id}
+   614→                        className="transition-colors hover:bg-white/[0.02]"
+   615→                        style={{ animationDelay: `${i * 30}ms` }}
+   616→                      >
+   617→                        <td className="px-4 py-3 font-medium">
+   618→                          <div className="flex items-center gap-2">
+   619→                            <span
+   620→                              className="inline-block h-2 w-2 rounded-full"
+   621→                              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+   622→                            />
+   623→                            {s.game_name || s.game_type || "—"}
+   624→                          </div>
+   625→                        </td>
+   626→                        <td className="px-4 py-3 text-muted-foreground">{s.player_name || "—"}</td>
+   627→                        <td className="px-4 py-3 text-center tabular-nums font-mono">{s.score ?? "—"}</td>
+   628→                        <td className="px-4 py-3 text-muted-foreground">{s.prize || "—"}</td>
+   629→                        <td className="px-4 py-3 text-right tabular-nums font-mono">
+   630→                          {s.prize_value ? formatMZN(Number(s.prize_value)) : "—"}
+   631→                        </td>
+   632→                        <td className="px-4 py-3 text-center">
+   633→                          {s.is_winner ? (
+   634→                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+   635→                              ✓ Vencedor
+   636→                            </span>
+   637→                          ) : (
+   638→                            <span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-0.5 text-xs text-muted-foreground">
+   639→                              —
+   640→                            </span>
+   641→                          )}
+   642→                        </td>
+   643→                        <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+   644→                          {s.created_at ? new Date(s.created_at).toLocaleDateString("pt-MZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+   645→                        </td>
+   646→                      </tr>
+   647→                    ))
+   648→                  )}
+   649→                </tbody>
+   650→              </table>
+   651→            </div>
+   652→          </CardContent>
+   653→        </Card>
+   654→      </motion.div>
+   655→
+   656→      // Raffle Analytics Section (preserved from original)
+   657→      <div className="space-y-6">
+   658→        <h2 className="font-display text-xl font-bold text-foreground">Analíticas de Sorteios</h2>
+   659→
+   660→        <div className="grid gap-6 lg:grid-cols-2">
+   661→          <motion.div {...fadeUp} transition={{ ...spring, delay: 0.4 }}>
+   662→            <Card className="glass border-glass-border">
+   663→              <CardHeader className="pb-2">
+   664→                <CardTitle className="text-base font-semibold">Receita Mensal de Sorteios (MZN)</CardTitle>
+   665→              </CardHeader>
+   666→              <CardContent>
+   667→                <div className="h-64">
+   668→                  <ResponsiveContainer width="100%" height="100%">
+   669→                    <AreaChart data={raffleRevenueData}>
+   670→                      <defs>
+   671→                        <linearGradient id="raffleRevGrad" x1="0" y1="0" x2="0" y2="1">
+   672→                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+   673→                          <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+   674→                        </linearGradient>
+   675→                      </defs>
+   676→                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 4%, 16%)" />
+   677→                      <XAxis dataKey="month" tick={axisTick} axisLine={axisLine} tickLine={tickLine} />
+   678→                      <YAxis tick={axisTick} axisLine={axisLine} tickLine={tickLine} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+   679→                      <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [formatMZN(value), "Receita"]} />
+   680→                      <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#raffleRevGrad)" />
+   681→                    </AreaChart>
+   682→                  </ResponsiveContainer>
+   683→                </div>
+   684→              </CardContent>
+   685→            </Card>
+   686→          </motion.div>
+   687→
+   688→          <motion.div {...fadeUp} transition={{ ...spring, delay: 0.45 }}>
+   689→            <Card className="glass border-glass-border">
+   690→              <CardHeader className="pb-2">
+   691→                <CardTitle className="text-base font-semibold">Top Sorteios por Receita</CardTitle>
+   692→              </CardHeader>
+   693→              <CardContent className="space-y-3">
+   694→                {topRaffles.length === 0 ? (
+   695→                  <p className="text-sm text-muted-foreground">Ainda sem vendas registadas.</p>
+   696→                ) : (
+   697→                  topRaffles.map((r, i) => (
+   698→                    <div key={r.name} className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-2.5">
+   699→                      <div className="flex items-center gap-3">
+   700→                        <span
+   701→                          className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold"
+   702→                          style={{ backgroundColor: `${CHART_COLORS[i % CHART_COLORS.length]}22`, color: CHART_COLORS[i % CHART_COLORS.length] }}
+   703→                        >
+   704→                          {i + 1}
+   705→                        </span>
+   706→                        <span className="text-sm font-medium truncate max-w-[180px]">{r.name}</span>
+   707→                      </div>
+   708→                      <div className="text-right">
+   709→                        <span className="text-sm font-semibold text-primary">{formatMZN(r.revenue)}</span>
+   710→                        <span className="ml-2 text-xs text-muted-foreground">{r.pct}%</span>
+   711→                      </div>
+   712→                    </div>
+   713→                  ))
+   714→                )}
+   715→              </CardContent>
+   716→            </Card>
+   717→          </motion.div>
+   718→        </div>
+   719→      </div>
+   720→    </div>
+   721→  );
+   722→}
+   723→
+   724→function DownloadIcon() {
+   725→  return (
+   726→    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+   727→      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+   728→      <polyline points="7 10 12 15 17 10" />
+   729→      <line x1="12" y1="15" x2="12" y2="3" />
+   730→    </svg>
+   731→  );
+   732→}
