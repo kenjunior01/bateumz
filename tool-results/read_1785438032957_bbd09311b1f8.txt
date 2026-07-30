@@ -1,0 +1,1065 @@
+     1→   101→    --sidebar-primary-foreground: 0 0% 100%;
+     2→   102→    --sidebar-accent: 220 25% 16%;
+     3→   103→    --sidebar-accent-foreground: 0 0% 96%;
+     4→   104→    --sidebar-border: 220 20% 18%;
+     5→   105→    --sidebar-ring: 352 80% 58%;
+     6→   106→  }
+     7→   107→}
+     8→   108→
+     9→   109→@layer base {
+    10→   110→  * {
+    11→   111→    @apply border-border;
+    12→   112→  }
+    13→   113→  body {
+    14→   114→    @apply bg-background text-foreground;
+    15→   115→    font-family: var(--font-body);
+    16→   116→  }
+    17→   117→  h1, h2, h3, h4, h5, h6 {
+    18→   118→    font-family: var(--font-display);
+    19→   119→  }
+    20→   120→}
+    21→   121→
+    22→   122→@layer utilities {
+    23→   123→  .glass {
+    24→   124→    @apply bg-card/60 backdrop-blur-xl border border-glass-border;
+    25→   125→  }
+    26→   126→  .glass-strong {
+    27→   127→    @apply bg-card/80 backdrop-blur-2xl border border-glass-border;
+    28→   128→  }
+    29→   129→  .glow-primary {
+    30→   130→    box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.3), 0 0 60px -10px hsl(var(--primary) / 0.15);
+    31→   131→  }
+    32→   132→  .glow-accent {
+    33→   133→    box-shadow: 0 0 30px -5px hsl(var(--accent) / 0.3), 0 0 60px -10px hsl(var(--accent) / 0.15);
+    34→   134→  }
+    35→   135→  .text-gradient-primary {
+    36→   136→    @apply bg-clip-text text-transparent;
+    37→   137→    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    38→   138→  }
+    39→   139→  .text-gradient-glow {
+    40→   140→    @apply bg-clip-text text-transparent;
+    41→   141→    background-image: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--primary)));
+    42→   142→  }
+    43→   143→  .border-glow {
+    44→   144→    border-image: linear-gradient(135deg, hsl(var(--primary) / 0.5), hsl(var(--accent) / 0.3)) 1;
+    45→   145→  }
+    46→   146→  .bg-gradient-premium {
+    47→   147→    background-image: var(--gradient-premium, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))));
+    48→   148→  }
+    49→   149→  .bg-gradient-hero {
+    50→   150→    background-image: var(--gradient-hero, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))));
+    51→   151→  }
+    52→   152→  .bg-gradient-gold {
+    53→   153→    background-image: var(--gradient-gold, linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent))));
+    54→   154→  }
+    55→   155→  .shadow-elegant {
+    56→   156→    box-shadow: var(--shadow-elegant, 0 10px 40px -10px hsl(var(--primary) / 0.25));
+    57→   157→  }
+    58→   158→  .shadow-glow {
+    59→   159→    box-shadow: var(--shadow-glow, 0 0 60px hsl(var(--primary) / 0.35));
+    60→   160→  }
+    61→   161→  .hover-lift {
+    62→   162→    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-elegant;
+    63→   163→  }
+    64→   164→  .hover-glow {
+    65→   165→    @apply transition-all duration-300 hover:shadow-glow;
+    66→   166→  }
+    67→   167→  .shimmer {
+    68→   168→    position: relative;
+    69→   169→    overflow: hidden;
+    70→   170→  }
+    71→   171→  .shimmer::after {
+    72→   172→    content: "";
+    73→   173→    position: absolute;
+    74→   174→    inset: 0;
+    75→   175→    background: linear-gradient(110deg, transparent 30%, hsl(var(--primary) / 0.15) 50%, transparent 70%);
+    76→   176→    animation: shimmer 2.5s infinite;
+    77→   177→  }
+    78→   178→  @keyframes shimmer {
+    79→   179→    0% { transform: translateX(-100%); }
+    80→   180→    100% { transform: translateX(100%); }
+    81→   181→  }
+    82→   182→  .animate-pulse-soft {
+    83→   183→    animation: pulseSoft 2.4s ease-in-out infinite;
+    84→   184→  }
+    85→   185→  @keyframes pulseSoft {
+    86→   186→    0%, 100% { opacity: 1; transform: scale(1); }
+    87→   187→    50% { opacity: 0.85; transform: scale(1.03); }
+    88→   188→  }
+    89→   189→  .animate-float-soft {
+    90→   190→    animation: floatSoft 4s ease-in-out infinite;
+    91→   191→  }
+    92→   192→  @keyframes floatSoft {
+    93→   193→    0%, 100% { transform: translateY(0); }
+    94→   194→    50% { transform: translateY(-8px); }
+    95→   195→  }
+    96→   196→}
+    97→   197→
+    98→   198→/* Scrollbar */
+    99→   199→::-webkit-scrollbar {
+   100→   200→  width: 6px;
+   101→   201→}
+   102→   202→::-webkit-scrollbar-track {
+   103→   203→  background: hsl(var(--background));
+   104→   204→}
+   105→   205→::-webkit-scrollbar-thumb {
+   106→   206→  background: hsl(var(--muted));
+   107→   207→  border-radius: 3px;
+   108→   208→}
+   109→   209→
+   110→   210→/* Utilities */
+   111→   211→.no-scrollbar::-webkit-scrollbar { display: none; }
+   112→   212→.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+   113→   213→.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+   114→   214→
+   115→   215→/* === Regional theme helpers ===
+   116→   216→   When a country sets --region-primary / --region-secondary via
+   117→   217→   RegionalThemeContext, these utilities pick them up automatically while
+   118→   218→   keeping the original primary/accent as a fallback. */
+   119→   219→.region-link {
+   120→   220→  color: hsl(var(--muted-foreground));
+   121→   221→  transition: color 180ms ease;
+   122→   222→}
+   123→   223→.region-link:hover {
+   124→   224→  color: var(--region-primary, hsl(var(--foreground)));
+   125→   225→}
+   126→   226→.region-cta {
+   127→   227→  background: linear-gradient(135deg,
+   128→   228→    var(--region-primary, hsl(var(--primary))),
+   129→   229→    var(--region-secondary, hsl(var(--primary-glow))));
+   130→   230→  color: hsl(var(--primary-foreground));
+   131→   231→}
+   132→   232→.region-border:hover {
+   133→   233→  border-color: color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 35%, transparent);
+   134→   234→}
+   135→   235→.region-ring:focus-visible,
+   136→   236→input.region-ring:focus,
+   137→   237→textarea.region-ring:focus {
+   138→   238→  outline: none;
+   139→   239→  box-shadow: 0 0 0 2px color-mix(in srgb, var(--region-primary, hsl(var(--ring))) 60%, transparent);
+   140→   240→  border-color: var(--region-primary, hsl(var(--ring)));
+   141→   241→}
+   142→   242→
+   143→   243→/* Apply a soft regional tint to default cards and inputs on the public site
+   144→   244→   without breaking existing variant overrides. */
+   145→   245→input:focus-visible,
+   146→   246→textarea:focus-visible,
+   147→   247→select:focus-visible {
+   148→   248→  outline-color: var(--region-primary, hsl(var(--ring)));
+   149→   249→}
+   150→   250→
+   151→   251→/* Respect user OS preference: kill heavy infinite animations & parallax for stability */
+   152→   252→@media (prefers-reduced-motion: reduce) {
+   153→   253→  *, *::before, *::after {
+   154→   254→    animation-duration: 0.01ms !important;
+   155→   255→    animation-iteration-count: 1 !important;
+   156→   256→    transition-duration: 0.01ms !important;
+   157→   257→    scroll-behavior: auto !important;
+   158→   258→  }
+   159→   259→}
+   160→   260→
+   161→   261→/* Mobile stability: tone down infinite shimmer/pulse on small screens to reduce visual fatigue */
+   162→   262→@media (max-width: 640px) {
+   163→   263→  .shimmer::after { animation-duration: 4s; }
+   164→   264→  .animate-pulse-soft { animation-duration: 3.6s; }
+   165→   265→  .animate-float-soft { animation-duration: 6s; }
+   166→   266→}
+   167→   267→
+   168→   268→/* ============================================ Enhanced Animation Effects ============================================ */
+   169→   269→@keyframes shimmer {
+   170→   270→  0% { background-position: -200% center; }
+   171→   271→  100% { background-position: 200% center; }
+   172→   272→}
+   173→   273→.animate-shimmer { background-size: 200% auto; animation: shimmer 3s linear infinite; }
+   174→   274→
+   175→   275→@keyframes gradient-shift {
+   176→   276→  0%, 100% { background-position: 0% 50%; }
+   177→   277→  50% { background-position: 100% 50%; }
+   178→   278→}
+   179→   279→.animate-gradient-shift { background-size: 200% 200%; animation: gradient-shift 6s ease infinite; }
+   180→   280→
+   181→   281→@keyframes glow-pulse {
+   182→   282→  0%, 100% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.3), 0 0 10px rgba(139, 92, 246, 0.1); }
+   183→   283→  50% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.5), 0 0 30px rgba(139, 92, 246, 0.2), 0 0 45px rgba(139, 92, 246, 0.1); }
+   184→   284→}
+   185→   285→.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+   186→   286→
+   187→   287→@keyframes float {
+   188→   288→  0%, 100% { transform: translateY(0px); }
+   189→   289→  50% { transform: translateY(-10px); }
+   190→   290→}
+   191→   291→.animate-float { animation: float 3s ease-in-out infinite; }
+   192→   292→
+   193→   293→@keyframes slide-up-fade {
+   194→   294→  0% { opacity: 0; transform: translateY(20px); }
+   195→   295→  100% { opacity: 1; transform: translateY(0); }
+   196→   296→}
+   197→   297→.animate-slide-up-fade { animation: slide-up-fade 0.5s ease-out; }
+   198→   298→
+   199→   299→@keyframes scale-bounce-in {
+   200→   300→  0% { opacity: 0; transform: scale(0.8); }
+   201→   301→  60% { transform: scale(1.05); }
+   202→   302→  100% { opacity: 1; transform: scale(1); }
+   203→   303→}
+   204→   304→.animate-scale-bounce { animation: scale-bounce-in 0.4s ease-out; }
+   205→   305→
+   206→   306→@keyframes spin-slow {
+   207→   307→  0% { transform: rotate(0deg); }
+   208→   308→  100% { transform: rotate(360deg); }
+   209→   309→}
+   210→   310→.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+   211→   311→
+   212→   312→.glass-strong { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.08); }
+   213→   313→.glass-subtle { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); border: 1px solid rgba(255, 255, 255, 0.05); }
+   214→   314→
+   215→   315→.glow-primary { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4), 0 0 30px rgba(139, 92, 246, 0.15); transition: box-shadow 0.3s ease; }
+   216→   316→.glow-primary:hover { box-shadow: 0 0 20px rgba(139, 92, 246, 0.6), 0 0 40px rgba(139, 92, 246, 0.25), 0 0 60px rgba(139, 92, 246, 0.1); }
+   217→   317→
+   218→   318→.gradient-border { position: relative; background-clip: padding-box; }
+   219→   319→.gradient-border::before { content: ''; position: absolute; inset: -2px; border-radius: inherit; background: linear-gradient(135deg, var(--primary), var(--accent), var(--primary)); z-index: -1; opacity: 0.7; transition: opacity 0.3s; }
+   220→   320→.gradient-border:hover::before { opacity: 1; }
+   221→   321→
+   222→   322→.text-neon { text-shadow: 0 0 7px rgba(139, 92, 246, 0.6), 0 0 15px rgba(139, 92, 246, 0.3), 0 0 25px rgba(139, 92, 246, 0.15); }
+   223→   323→
+   224→   324→.card-lift { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+   225→   325→.card-lift:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); }
+   226→   326→
+   227→   327→.stagger-children > * { opacity: 0; animation: slide-up-fade 0.4s ease-out forwards; }
+   228→   328→.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+   229→   329→.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+   230→   330→.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+   231→   331→.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+   232→   332→.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+   233→   333→.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+   234→   334→.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+   235→   335→.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+   236→   336→.stagger-children > *:nth-child(n+9) { animation-delay: 400ms; }
+   237→   337→
+   238→   338→.particles-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+   239→   339→.particles-overlay canvas { width: 100% !important; height: 100% !important; }
+   240→   340→
+   241→   341→/* ============================================ Premium Design System v2 ============================================ */
+   242→   342→
+   243→   343→/* Animated gradient mesh background - HoYoverse/Genshin style */
+   244→   344→@keyframes mesh-move {
+   245→   345→  0%, 100% { background-position: 0% 50%; }
+   246→   346→  25% { background-position: 100% 0%; }
+   247→   347→  50% { background-position: 100% 100%; }
+   248→   348→  75% { background-position: 0% 100%; }
+   249→   349→}
+   250→   350→.animate-mesh-bg {
+   251→   351→  background-size: 400% 400%;
+   252→   352→  animation: mesh-move 20s ease infinite;
+   253→   353→}
+   254→   354→
+   255→   355→/* Aurora / northern lights effect */
+   256→   356→@keyframes aurora {
+   257→   357→  0%, 100% { opacity: 0.3; transform: translateX(-25%) scaleY(1); }
+   258→   358→  33% { opacity: 0.5; transform: translateX(10%) scaleY(1.2); }
+   259→   359→  66% { opacity: 0.4; transform: translateX(-15%) scaleY(0.9); }
+   260→   360→}
+   261→   361→.animate-aurora {
+   262→   362→  animation: aurora 8s ease-in-out infinite;
+   263→   363→}
+   264→   364→
+   265→   365→/* Magnetic hover effect for interactive cards */
+   266→   366→@keyframes magnetic-pull {
+   267→   367→  0% { transform: scale(1); }
+   268→   368→  50% { transform: scale(1.03); }
+   269→   369→  100% { transform: scale(1); }
+   270→   370→}
+   271→   371→
+   272→   372→/* Glassmorphism premium card */
+   273→   373→.glass-card-premium {
+   274→   374→  background: rgba(255, 255, 255, 0.05);
+   275→   375→  backdrop-filter: blur(24px) saturate(200%);
+   276→   376→  -webkit-backdrop-filter: blur(24px) saturate(200%);
+   277→   377→  border: 1px solid rgba(255, 255, 255, 0.08);
+   278→   378→  box-shadow:
+   279→   379→    0 8px 32px rgba(0, 0, 0, 0.12),
+   280→   380→    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+   281→   381→}
+   282→   382→
+   283→   383→/* Gradient border animation - Jackbox Games style */
+   284→   384→@keyframes border-rotate {
+   285→   385→  0% { --angle: 0deg; }
+   286→   386→  100% { --angle: 360deg; }
+   287→   387→}
+   288→   388→@property --angle {
+   289→   389→  syntax: '<angle>';
+   290→   390→  initial-value: 0deg;
+   291→   391→  inherits: false;
+   292→   392→}
+   293→   393→.gradient-border-animated {
+   294→   394→  position: relative;
+   295→   395→  background: hsl(var(--card));
+   296→   396→  border-radius: 1rem;
+   297→   397→}
+   298→   398→.gradient-border-animated::before {
+   299→   399→  content: '';
+   300→   400→  position: absolute;
+   301→   401→  inset: -2px;
+   302→   402→  border-radius: inherit;
+   303→   403→  background: conic-gradient(
+   304→   404→    from var(--angle),
+   305→   405→    #009140, #FFD700, #D7263D, #6366f1, #009140
+   306→   406→  );
+   307→   407→  z-index: -1;
+   308→   408→  opacity: 0;
+   309→   409→  transition: opacity 0.4s ease;
+   310→   410→  animation: border-rotate 4s linear infinite;
+   311→   411→}
+   312→   412→.gradient-border-animated:hover::before {
+   313→   413→  opacity: 1;
+   314→   414→}
+   315→   415→
+   316→   416→/* Ripple click effect */
+   317→   417→.ripple-effect {
+   318→   418→  position: relative;
+   319→   419→  overflow: hidden;
+   320→   420→}
+   321→   421→.ripple-effect::after {
+   322→   422→  content: '';
+   323→   423→  position: absolute;
+   324→   424→  inset: 0;
+   325→   425→  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%),
+   326→   426→    rgba(0, 145, 64, 0.25) 0%, transparent 60%);
+   327→   427→  opacity: 0;
+   328→   428→  transition: opacity 0.5s ease;
+   329→   429→}
+   330→   430→.ripple-effect:active::after {
+   331→   431→  opacity: 1;
+   332→   432→  transition: opacity 0s;
+   333→   433→}
+   334→   434→
+   335→   435→/* Typing / counter animation */
+   336→   436→@keyframes count-up {
+   337→   437→  0% { opacity: 0; transform: translateY(8px) scale(0.95); }
+   338→   438→  100% { opacity: 1; transform: translateY(0) scale(1); }
+   339→   439→}
+   340→   440→.animate-count-up {
+   341→   441→  animation: count-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+   342→   442→}
+   343→   443→
+   344→   444→/* Spotlight / cursor-follow glow effect */
+   345→   445→.spotlight-card {
+   346→   446→  position: relative;
+   347→   447→  overflow: hidden;
+   348→   448→}
+   349→   449→.spotlight-card::before {
+   350→   450→  content: '';
+   351→   451→  position: absolute;
+   352→   452→  width: 200px;
+   353→   453→  height: 200px;
+   354→   454→  background: radial-gradient(circle, rgba(0, 145, 64, 0.12) 0%, transparent 70%);
+   355→   455→  border-radius: 50%;
+   356→   456→  pointer-events: none;
+   357→   457→  opacity: 0;
+   358→   458→  transition: opacity 0.3s ease;
+   359→   459→  transform: translate(var(--mouse-x, -200px), var(--mouse-y, -200px));
+   360→   460→  z-index: 1;
+   361→   461→}
+   362→   462→.spotlight-card:hover::before {
+   363→   463→  opacity: 1;
+   364→   464→}
+   365→   465→
+   366→   466→/* Breathing glow for active elements - Kahoot style */
+   367→   467→@keyframes breathe-glow {
+   368→   468→  0%, 100% {
+   369→   469→    box-shadow: 0 0 8px rgba(0, 145, 64, 0.2), 0 0 16px rgba(0, 145, 64, 0.08);
+   370→   470→  }
+   371→   471→  50% {
+   372→   472→    box-shadow: 0 0 16px rgba(0, 145, 64, 0.4), 0 0 32px rgba(0, 145, 64, 0.15), 0 0 48px rgba(0, 145, 64, 0.06);
+   373→   473→  }
+   374→   474→}
+   375→   475→.animate-breathe-glow {
+   376→   476→  animation: breathe-glow 3s ease-in-out infinite;
+   377→   477→}
+   378→   478→
+   379→   479→/* Slide-in from different directions */
+   380→   480→@keyframes slide-in-left {
+   381→   481→  0% { opacity: 0; transform: translateX(-24px); }
+   382→   482→  100% { opacity: 1; transform: translateX(0); }
+   383→   483→}
+   384→   484→@keyframes slide-in-right {
+   385→   485→  0% { opacity: 0; transform: translateX(24px); }
+   386→   486→  100% { opacity: 1; transform: translateX(0); }
+   387→   487→}
+   388→   488→@keyframes slide-in-scale {
+   389→   489→  0% { opacity: 0; transform: scale(0.92); }
+   390→   490→  100% { opacity: 1; transform: scale(1); }
+   391→   491→}
+   392→   492→.animate-slide-in-left { animation: slide-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+   393→   493→.animate-slide-in-right { animation: slide-in-right 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+   394→   494→.animate-slide-in-scale { animation: slide-in-scale 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+   395→   495→
+   396→   496→/* Smooth category pill indicator */
+   397→   497→@keyframes pill-indicator {
+   398→   498→  0% { transform: scaleX(0); opacity: 0; }
+   399→   499→  100% { transform: scaleX(1); opacity: 1; }
+   400→   500→}
+   401→   501→
+   402→   502→/* Game card shine sweep - premium product card effect */
+   403→   503→@keyframes card-shine {
+   404→   504→  0% { left: -100%; }
+   405→   505→  100% { left: 200%; }
+   406→   506→}
+   407→   507→.game-card-shine {
+   408→   508→  position: relative;
+   409→   509→  overflow: hidden;
+   410→   510→}
+   411→   511→.game-card-shine::after {
+   412→   512→  content: '';
+   413→   513→  position: absolute;
+   414→   514→  top: 0;
+   415→   515→  left: -100%;
+   416→   516→  width: 50%;
+   417→   517→  height: 100%;
+   418→   518→  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+   419→   519→  transition: none;
+   420→   520→  pointer-events: none;
+   421→   521→  z-index: 2;
+   422→   522→}
+   423→   523→.game-card-shine:hover::after {
+   424→   524→  animation: card-shine 0.6s ease-out;
+   425→   525→}
+   426→   526→
+   427→   527→/* Horizontal scroll snap for Moçambicanos section */
+   428→   528→.scroll-snap-x {
+   429→   529→  scroll-snap-type: x mandatory;
+   430→   530→  -webkit-overflow-scrolling: touch;
+   431→   531→}
+   432→   532→.scroll-snap-x > * {
+   433→   533→  scroll-snap-align: start;
+   434→   534→}
+   435→   535→
+   436→   536→/* Active game pulse ring */
+   437→   537→@keyframes pulse-ring {
+   438→   538→  0% { transform: scale(0.9); opacity: 0.8; }
+   439→   539→  50% { transform: scale(1.05); opacity: 0.3; }
+   440→   540→  100% { transform: scale(0.9); opacity: 0.8; }
+   441→   541→}
+   442→   542→.pulse-ring::after {
+   443→   543→  content: '';
+   444→   544→  position: absolute;
+   445→   545→  inset: -3px;
+   446→   546→  border-radius: inherit;
+   447→   547→  border: 2px solid rgba(0, 145, 64, 0.4);
+   448→   548→  animation: pulse-ring 2s ease-in-out infinite;
+   449→   549→  pointer-events: none;
+   450→   550→}
+   451→   551→
+   452→   552→/* Smooth page transitions */
+   453→   553→@keyframes page-enter {
+   454→   554→  0% { opacity: 0; transform: translateY(16px) scale(0.99); filter: blur(4px); }
+   455→   555→  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+   456→   556→}
+   457→   557→.animate-page-enter {
+   458→   558→  animation: page-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+   459→   559→}
+   460→   560→
+   461→   561→/* Number ticker for stats */
+   462→   562→@keyframes ticker {
+   463→   563→  0% { transform: translateY(100%); }
+   464→   564→  100% { transform: translateY(0); }
+   465→   565→}
+   466→   566→.animate-ticker {
+   467→   567→  animation: ticker 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+   468→   568→}
+   469→   569→
+   470→   570→/* Confetti burst placeholder */
+   471→   571→@keyframes confetti-burst {
+   472→   572→  0% { transform: scale(0); opacity: 1; }
+   473→   573→  50% { transform: scale(1.2); opacity: 0.8; }
+   474→   574→  100% { transform: scale(1); opacity: 1; }
+   475→   575→}
+   476→   576→
+   477→   577→/* Smooth border-radius morphing */
+   478→   578→.border-morph {
+   479→   579→  transition: border-radius 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+   480→   580→}
+   481→   581→.border-morph:hover {
+   482→   582→  border-radius: 1.25rem;
+   483→   583→}
+   484→   584→
+   485→   585→/* Moçambicanos section gradient line */
+   486→   586→.moz-gradient-line {
+   487→   587→  height: 3px;
+   488→   588→  background: linear-gradient(90deg, #009140, #FFD700, #D7263D, #009140);
+   489→   589→  background-size: 200% 100%;
+   490→   590→  animation: mesh-move 4s linear infinite;
+   491→   591→  border-radius: 2px;
+   492→   592→}
+   493→   593→
+   494→   594→/* Responsive animation reduction */
+   495→   595→@media (max-width: 768px) {
+   496→   596→  .gradient-border-animated::before { display: none; }
+   497→   597→  .spotlight-card::before { display: none; }
+   498→   598→  .game-card-shine::after { display: none; }
+   499→   599→}
+   500→   600→
+   501→   601→/* ============================================ PREMIUM BACKGROUND SYSTEM v3 ============================================ */
+   502→   602→
+   503→   603→/* Global animated background - cosmic mesh with multiple layers */
+   504→   604→@keyframes cosmic-drift {
+   505→   605→  0%, 100% { background-position: 0% 50%; }
+   506→   606→  25% { background-position: 100% 0%; }
+   507→   607→  50% { background-position: 100% 100%; }
+   508→   608→  75% { background-position: 0% 100%; }
+   509→   609→}
+   510→   610→@keyframes cosmic-pulse {
+   511→   611→  0%, 100% { opacity: 0.3; transform: scale(1); }
+   512→   612→  50% { opacity: 0.5; transform: scale(1.05); }
+   513→   613→}
+   514→   614→@keyframes cosmic-orbit {
+   515→   615→  0% { transform: translate(0, 0) rotate(0deg); }
+   516→   616→  25% { transform: translate(30px, -20px) rotate(90deg); }
+   517→   617→  50% { transform: translate(-10px, 30px) rotate(180deg); }
+   518→   618→  75% { transform: translate(-30px, -10px) rotate(270deg); }
+   519→   619→  100% { transform: translate(0, 0) rotate(360deg); }
+   520→   620→}
+   521→   621→@keyframes nebula-float {
+   522→   622→  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
+   523→   623→  33% { transform: translate(40px, -30px) scale(1.1); opacity: 0.12; }
+   524→   624→  66% { transform: translate(-20px, 20px) scale(0.95); opacity: 0.06; }
+   525→   625→}
+   526→   626→@keyframes star-twinkle {
+   527→   627→  0%, 100% { opacity: 0; transform: scale(0); }
+   528→   628→  50% { opacity: 1; transform: scale(1); }
+   529→   629→}
+   530→   630→@keyframes gradient-pan {
+   531→   631→  0% { background-position: 0% 50%; }
+   532→   632→  50% { background-position: 100% 50%; }
+   533→   633→  100% { background-position: 0% 50%; }
+   534→   634→}
+   535→   635→@keyframes energy-wave {
+   536→   636→  0% { transform: translateX(-100%) skewX(-15deg); opacity: 0; }
+   537→   637→  30% { opacity: 0.6; }
+   538→   638→  70% { opacity: 0.6; }
+   539→   639→  100% { transform: translateX(200%) skewX(-15deg); opacity: 0; }
+   540→   640→}
+   541→   641→@keyframes dna-helix {
+   542→   642→  0% { transform: rotate(0deg) translateX(20px) rotate(0deg); }
+   543→   643→  100% { transform: rotate(360deg) translateX(20px) rotate(-360deg); }
+   544→   644→}
+   545→   645→
+   546→   646→/* === BG-COSMIC: Full-page cosmic background for LiveHub/game pages === */
+   547→   647→.bg-cosmic {
+   548→   648→  position: relative;
+   549→   649→  overflow: hidden;
+   550→   650→}
+   551→   651→.bg-cosmic::before {
+   552→   652→  content: '';
+   553→   653→  position: fixed;
+   554→   654→  inset: 0;
+   555→   655→  z-index: -5;
+   556→   656→  background:
+   557→   657→    radial-gradient(ellipse 120% 80% at 20% 30%, rgba(0, 145, 64, 0.06), transparent 50%),
+   558→   658→    radial-gradient(ellipse 100% 60% at 80% 20%, rgba(255, 215, 0, 0.04), transparent 50%),
+   559→   659→    radial-gradient(ellipse 80% 100% at 60% 80%, rgba(215, 38, 61, 0.04), transparent 50%),
+   560→   660→    radial-gradient(ellipse 60% 60% at 10% 70%, rgba(99, 102, 241, 0.03), transparent 50%);
+   561→   661→  animation: cosmic-drift 30s ease infinite;
+   562→   662→  background-size: 400% 400%;
+   563→   663→  pointer-events: none;
+   564→   664→}
+   565→   665→.bg-cosmic::after {
+   566→   666→  content: '';
+   567→   667→  position: fixed;
+   568→   668→  inset: 0;
+   569→   669→  z-index: -4;
+   570→   670→  background-image:
+   571→   671→    radial-gradient(circle 1px at 15% 25%, rgba(0, 145, 64, 0.3), transparent),
+   572→   672→    radial-gradient(circle 1px at 45% 15%, rgba(255, 215, 0, 0.25), transparent),
+   573→   673→    radial-gradient(circle 0.8px at 75% 35%, rgba(215, 38, 61, 0.2), transparent),
+   574→   674→    radial-gradient(circle 1.2px at 85% 65%, rgba(99, 102, 241, 0.2), transparent),
+   575→   675→    radial-gradient(circle 0.6px at 25% 75%, rgba(0, 145, 64, 0.2), transparent),
+   576→   676→    radial-gradient(circle 1px at 55% 85%, rgba(255, 215, 0, 0.15), transparent),
+   577→   677→    radial-gradient(circle 0.8px at 95% 10%, rgba(215, 38, 61, 0.25), transparent),
+   578→   678→    radial-gradient(circle 0.7px at 35% 55%, rgba(99, 102, 241, 0.15), transparent);
+   579→   679→  animation: cosmic-pulse 12s ease-in-out infinite;
+   580→   680→  pointer-events: none;
+   581→   681→}
+   582→   682→
+   583→   683→/* === BG-MESH-SOFT: Soft mesh gradient for Index/landing === */
+   584→   684→.bg-mesh-soft {
+   585→   685→  position: relative;
+   586→   686→  overflow: hidden;
+   587→   687→}
+   588→   688→.bg-mesh-soft::before {
+   589→   689→  content: '';
+   590→   690→  position: fixed;
+   591→   691→  inset: 0;
+   592→   692→  z-index: -5;
+   593→   693→  background:
+   594→   694→    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0, 145, 64, 0.04), transparent 50%),
+   595→   695→    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 215, 0, 0.03), transparent 50%),
+   596→   696→    radial-gradient(ellipse 90% 70% at 50% 90%, rgba(99, 102, 241, 0.03), transparent 50%);
+   597→   697→  animation: cosmic-drift 40s ease infinite;
+   598→   698→  background-size: 300% 300%;
+   599→   699→  pointer-events: none;
+   600→   700→}
+   601→   701→.bg-mesh-soft::after {
+   602→   702→  content: '';
+   603→   703→  position: fixed;
+   604→   704→  inset: 0;
+   605→   705→  z-index: -4;
+   606→   706→  background-image:
+   607→   707→    linear-gradient(rgba(0, 145, 64, 0.015) 1px, transparent 1px),
+   608→   708→    linear-gradient(90deg, rgba(0, 145, 64, 0.015) 1px, transparent 1px);
+   609→   709→  background-size: 80px 80px;
+   610→   710→  mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 70%);
+   611→   711→  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 70%);
+   612→   712→  pointer-events: none;
+   613→   713→}
+   614→   714→
+   615→   715→/* === BG-NOISE: Subtle noise texture overlay === */
+   616→   716→.bg-noise::before {
+   617→   717→  content: '';
+   618→   718→  position: fixed;
+   619→   719→  inset: 0;
+   620→   720→  z-index: -3;
+   621→   721→  opacity: 0.018;
+   622→   722→  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+   623→   723→  background-size: 128px 128px;
+   624→   724→  pointer-events: none;
+   625→   725→}
+   626→   726→
+   627→   727→/* === BG-GRID: Subtle dot grid pattern === */
+   628→   728→.bg-dots::after {
+   629→   729→  content: '';
+   630→   730→  position: fixed;
+   631→   731→  inset: 0;
+   632→   732→  z-index: -4;
+   633→   733→  opacity: 0.25;
+   634→   734→  background-image:
+   635→   735→    radial-gradient(circle 0.5px, hsl(var(--muted-foreground) / 0.15), transparent 0.5px);
+   636→   736→  background-size: 24px 24px;
+   637→   737→  pointer-events: none;
+   638→   738→}
+   639→   739→
+   640→   740→/* === NEBULA BLOBS: Floating color nebulae for sections === */
+   641→   741→.nebula-blob {
+   642→   742→  position: absolute;
+   643→   743→  border-radius: 50%;
+   644→   744→  filter: blur(80px);
+   645→   745→  pointer-events: none;
+   646→   746→  animation: nebula-float 20s ease-in-out infinite;
+   647→   747→}
+   648→   748→.nebula-blob-1 { width: 500px; height: 500px; top: -10%; left: -5%; background: rgba(0, 145, 64, 0.06); animation-delay: 0s; }
+   649→   749→.nebula-blob-2 { width: 400px; height: 400px; top: 20%; right: -10%; background: rgba(255, 215, 0, 0.04); animation-delay: -7s; animation-duration: 25s; }
+   650→   750→.nebula-blob-3 { width: 350px; height: 350px; bottom: 10%; left: 20%; background: rgba(215, 38, 61, 0.04); animation-delay: -14s; animation-duration: 22s; }
+   651→   751→.nebula-blob-4 { width: 300px; height: 300px; bottom: -5%; right: 15%; background: rgba(99, 102, 241, 0.03); animation-delay: -3s; animation-duration: 28s; }
+   652→   752→
+   653→   753→/* === ENERGY WAVE: Sweeping light wave across sections === */
+   654→   754→.energy-wave {
+   655→   755→  position: relative;
+   656→   756→  overflow: hidden;
+   657→   757→}
+   658→   758→.energy-wave::before {
+   659→   759→  content: '';
+   660→   760→  position: absolute;
+   661→   761→  top: 0;
+   662→   762→  left: 0;
+   663→   763→  width: 40%;
+   664→   764→  height: 100%;
+   665→   765→  background: linear-gradient(90deg, transparent, rgba(0, 145, 64, 0.03), rgba(255, 215, 0, 0.02), transparent);
+   666→   766→  animation: energy-wave 8s ease-in-out infinite;
+   667→   767→  pointer-events: none;
+   668→   768→  z-index: 1;
+   669→   769→}
+   670→   770→
+   671→   771→/* === PREMIUM NAVBAR GLASS === */
+   672→   772→.navbar-glass-premium {
+   673→   773→  background: rgba(255, 255, 255, 0.03);
+   674→   774→  backdrop-filter: blur(24px) saturate(200%);
+   675→   775→  -webkit-backdrop-filter: blur(24px) saturate(200%);
+   676→   776→  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+   677→   777→}
+   678→   778→.navbar-glass-premium::after {
+   679→   779→  content: '';
+   680→   780→  position: absolute;
+   681→   781→  bottom: -1px;
+   682→   782→  left: 10%;
+   683→   783→  right: 10%;
+   684→   784→  height: 1px;
+   685→   785→  background: linear-gradient(90deg, transparent, rgba(0, 145, 64, 0.15), rgba(255, 215, 0, 0.1), transparent);
+   686→   786→}
+   687→   787→
+   688→   788→/* === SECTION DIVIDER GLOW === */
+   689→   789→.section-glow-divider {
+   690→   790→  position: relative;
+   691→   791→}
+   692→   792→.section-glow-divider::before {
+   693→   793→  content: '';
+   694→   794→  position: absolute;
+   695→   795→  top: 0;
+   696→   796→  left: 5%;
+   697→   797→  right: 5%;
+   698→   798→  height: 1px;
+   699→   799→  background: linear-gradient(90deg, transparent, rgba(0, 145, 64, 0.08), rgba(255, 215, 0, 0.06), rgba(215, 38, 61, 0.04), transparent);
+   700→   800→}
+   701→   801→
+   702→   802→/* === FLOATING STARS: Pure CSS twinkling stars === */
+   703→   803→.floating-stars {
+   704→   804→  position: fixed;
+   705→   805→  inset: 0;
+   706→   806→  pointer-events: none;
+   707→   807→  z-index: -4;
+   708→   808→  overflow: hidden;
+   709→   809→}
+   710→   810→.floating-stars span {
+   711→   811→  position: absolute;
+   712→   812→  width: 2px;
+   713→   813→  height: 2px;
+   714→   814→  border-radius: 50%;
+   715→   815→  background: rgba(255, 255, 255, 0.4);
+   716→   816→  animation: star-twinkle 4s ease-in-out infinite;
+   717→   817→}
+   718→   818→.floating-stars span:nth-child(1) { top: 8%; left: 12%; animation-delay: 0s; animation-duration: 3.5s; }
+   719→   819→.floating-stars span:nth-child(2) { top: 15%; left: 78%; animation-delay: 1.2s; animation-duration: 4.2s; }
+   720→   820→.floating-stars span:nth-child(3) { top: 32%; left: 45%; animation-delay: 0.6s; animation-duration: 3.8s; }
+   721→   821→.floating-stars span:nth-child(4) { top: 55%; left: 88%; animation-delay: 2.1s; animation-duration: 4.5s; }
+   722→   822→.floating-stars span:nth-child(5) { top: 70%; left: 22%; animation-delay: 0.9s; animation-duration: 3.2s; }
+   723→   823→.floating-stars span:nth-child(6) { top: 85%; left: 65%; animation-delay: 1.8s; animation-duration: 4s; }
+   724→   824→.floating-stars span:nth-child(7) { top: 42%; left: 5%; animation-delay: 2.5s; animation-duration: 3.6s; }
+   725→   825→.floating-stars span:nth-child(8) { top: 25%; left: 92%; animation-delay: 0.3s; animation-duration: 4.8s; }
+   726→   826→
+   727→   827→/* === HOLOGRAPHIC SHIMMER: For premium sections === */
+   728→   828→.holographic-bg {
+   729→   829→  position: relative;
+   730→   830→  overflow: hidden;
+   731→   831→}
+   732→   832→.holographic-bg::before {
+   733→   833→  content: '';
+   734→   834→  position: absolute;
+   735→   835→  inset: 0;
+   736→   836→  background: linear-gradient(
+   737→   837→    135deg,
+   738→   838→    rgba(0, 145, 64, 0.03) 0%,
+   739→   839→    rgba(255, 215, 0, 0.02) 25%,
+   740→   840→    rgba(99, 102, 241, 0.03) 50%,
+   741→   841→    rgba(215, 38, 61, 0.02) 75%,
+   742→   842→    rgba(0, 145, 64, 0.03) 100%
+   743→   843→  );
+   744→   844→  background-size: 300% 300%;
+   745→   845→  animation: gradient-pan 15s ease infinite;
+   746→   846→  pointer-events: none;
+   747→   847→  z-index: 0;
+   748→   848→}
+   749→   849→
+   750→   850→/* === VIGNETTE: Cinematic vignette for immersive pages === */
+   751→   851→.vignette-overlay::after {
+   752→   852→  content: '';
+   753→   853→  position: fixed;
+   754→   854→  inset: 0;
+   755→   855→  pointer-events: none;
+   756→   856→  z-index: -2;
+   757→   857→  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.08) 100%);
+   758→   858→}
+   759→   859→
+   760→   860→/* === GLASSMORPHISM SECTIONS === */
+   761→   861→.glass-section {
+   762→   862→  background: rgba(255, 255, 255, 0.02);
+   763→   863→  backdrop-filter: blur(12px) saturate(150%);
+   764→   864→  -webkit-backdrop-filter: blur(12px) saturate(150%);
+   765→   865→  border: 1px solid rgba(255, 255, 255, 0.04);
+   766→   866→}
+   767→   867→
+   768→   868→/* === AMBIENT GLOW RING: Subtle glow at page edges === */
+   769→   869→.ambient-glow {
+   770→   870→  position: fixed;
+   771→   871→  inset: 0;
+   772→   872→  pointer-events: none;
+   773→   873→  z-index: -4;
+   774→   874→  box-shadow:
+   775→   875→    inset 0 0 150px rgba(0, 145, 64, 0.02),
+   776→   876→    inset 0 0 300px rgba(0, 145, 64, 0.01);
+   777→   877→}
+   778→   878→
+   779→   879→/* Responsive bg reduction for mobile */
+   780→   880→@media (max-width: 768px) {
+   781→   881→  .bg-cosmic::before { animation-duration: 50s; }
+   782→   882→  .bg-cosmic::after { display: none; }
+   783→   883→  .bg-mesh-soft::before { animation-duration: 60s; }
+   784→   884→  .bg-mesh-soft::after { display: none; }
+   785→   885→  .nebula-blob { filter: blur(100px); opacity: 0.5; }
+   786→   886→  .energy-wave::before { animation-duration: 14s; }
+   787→   887→  .floating-stars { display: none; }
+   788→   888→  .vignette-overlay::after { display: none; }
+   789→   889→}
+   790→   890→
+   791→   891→/* Dark mode enhancements for backgrounds */
+   792→   892→.dark .bg-cosmic::before {
+   793→   893→  background:
+   794→   894→    radial-gradient(ellipse 120% 80% at 20% 30%, rgba(0, 145, 64, 0.08), transparent 50%),
+   795→   895→    radial-gradient(ellipse 100% 60% at 80% 20%, rgba(255, 215, 0, 0.05), transparent 50%),
+   796→   896→    radial-gradient(ellipse 80% 100% at 60% 80%, rgba(215, 38, 61, 0.05), transparent 50%),
+   797→   897→    radial-gradient(ellipse 60% 60% at 10% 70%, rgba(99, 102, 241, 0.04), transparent 50%);
+   798→   898→}
+   799→   899→.dark .bg-mesh-soft::before {
+   800→   900→  background:
+   801→   901→    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0, 145, 64, 0.06), transparent 50%),
+   802→   902→    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 215, 0, 0.04), transparent 50%),
+   803→   903→    radial-gradient(ellipse 90% 70% at 50% 90%, rgba(99, 102, 241, 0.04), transparent 50%);
+   804→   904→}
+   805→   905→.dark .bg-noise::before { opacity: 0.025; }
+   806→   906→.dark .nebula-blob-1 { background: rgba(0, 145, 64, 0.1); }
+   807→   907→.dark .nebula-blob-2 { background: rgba(255, 215, 0, 0.07); }
+   808→   908→.dark .nebula-blob-3 { background: rgba(215, 38, 61, 0.06); }
+   809→   909→.dark .nebula-blob-4 { background: rgba(99, 102, 241, 0.05); }
+   810→   910→.dark .ambient-glow {
+   811→   911→  box-shadow:
+   812→   912→    inset 0 0 200px rgba(0, 145, 64, 0.04),
+   813→   913→    inset 0 0 400px rgba(0, 145, 64, 0.02);
+   814→   914→}
+   815→   915→.dark .navbar-glass-premium {
+   816→   916→  background: rgba(0, 0, 0, 0.2);
+   817→   917→  border-bottom-color: rgba(255, 255, 255, 0.04);
+   818→   918→}
+   819→   919→.dark .vignette-overlay::after {
+   820→   920→  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.15) 100%);
+   821→   921→}
+   822→   922→
+   823→   923→/* ===== PREMIUM GAME EFFECTS ===== */
+   824→   924→
+   825→   925→/* Screen shake */
+   826→   926→@keyframes screen-shake {
+   827→   927→  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+   828→   928→  10% { transform: translate(-6px, -4px) rotate(-1deg); }
+   829→   929→  20% { transform: translate(5px, 3px) rotate(1deg); }
+   830→   930→  30% { transform: translate(-4px, 6px) rotate(0.5deg); }
+   831→   931→  40% { transform: translate(6px, -2px) rotate(-0.5deg); }
+   832→   932→  50% { transform: translate(-3px, 4px) rotate(1deg); }
+   833→   933→  60% { transform: translate(4px, -5px) rotate(-1deg); }
+   834→   934→  70% { transform: translate(-5px, 2px) rotate(0.5deg); }
+   835→   935→  80% { transform: translate(3px, -3px) rotate(-0.5deg); }
+   836→   936→  90% { transform: translate(-2px, 5px) rotate(1deg); }
+   837→   937→}
+   838→   938→.game-screen-shake {
+   839→   939→  animation: screen-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+   840→   940→}
+   841→   941→
+   842→   942→/* Intense shake for big wins */
+   843→   943→@keyframes screen-shake-intense {
+   844→   944→  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+   845→   945→  10% { transform: translate(-10px, -8px) rotate(-2deg) scale(1.01); }
+   846→   946→  20% { transform: translate(8px, 6px) rotate(2deg) scale(0.99); }
+   847→   947→  30% { transform: translate(-6px, 10px) rotate(1deg); }
+   848→   948→  40% { transform: translate(10px, -4px) rotate(-1deg); }
+   849→   949→  50% { transform: translate(-5px, 8px) rotate(2deg) scale(1.01); }
+   850→   950→  60% { transform: translate(7px, -8px) rotate(-2deg); }
+   851→   951→  70% { transform: translate(-8px, 4px) rotate(1deg); }
+   852→   952→  80% { transform: translate(5px, -6px) rotate(-1deg) scale(0.99); }
+   853→   953→  90% { transform: translate(-3px, 8px) rotate(1deg); }
+   854→   954→}
+   855→   955→.game-screen-shake-intense {
+   856→   956→  animation: screen-shake-intense 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+   857→   957→}
+   858→   958→
+   859→   959→/* Flash effect overlay */
+   860→   960→@keyframes flash-white {
+   861→   961→  0% { opacity: 0.9; }
+   862→   962→  100% { opacity: 0; }
+   863→   963→}
+   864→   964→@keyframes flash-green {
+   865→   965→  0% { opacity: 0.7; background: #22c55e; }
+   866→   966→  100% { opacity: 0; background: #22c55e; }
+   867→   967→}
+   868→   968→@keyframes flash-red {
+   869→   969→  0% { opacity: 0.7; background: #ef4444; }
+   870→   970→  100% { opacity: 0; background: #ef4444; }
+   871→   971→}
+   872→   972→@keyframes flash-gold {
+   873→   973→  0% { opacity: 0.8; background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706); }
+   874→   974→  100% { opacity: 0; background: #fbbf24; }
+   875→   975→}
+   876→   976→.game-flash-white { animation: flash-white 0.4s ease-out forwards; }
+   877→   977→.game-flash-green { animation: flash-green 0.5s ease-out forwards; }
+   878→   978→.game-flash-red { animation: flash-red 0.5s ease-out forwards; }
+   879→   979→.game-flash-gold { animation: flash-gold 0.6s ease-out forwards; }
+   880→   980→
+   881→   981→/* Pulsing glow ring for wheel */
+   882→   982→@keyframes glow-ring-pulse {
+   883→   983→  0%, 100% { box-shadow: 0 0 20px 5px rgba(251, 191, 36, 0.3), 0 0 60px 10px rgba(251, 191, 36, 0.1); }
+   884→   984→  50% { box-shadow: 0 0 40px 15px rgba(251, 191, 36, 0.5), 0 0 100px 20px rgba(251, 191, 36, 0.2); }
+   885→   985→}
+   886→   986→@keyframes glow-ring-spin {
+   887→   987→  0% { box-shadow: 0 0 30px 8px rgba(251, 191, 36, 0.4), 0 0 80px 15px rgba(251, 191, 36, 0.15); }
+   888→   988→  50% { box-shadow: 0 0 50px 20px rgba(251, 191, 36, 0.6), 0 0 120px 30px rgba(251, 191, 36, 0.25); }
+   889→   989→  100% { box-shadow: 0 0 30px 8px rgba(251, 191, 36, 0.4), 0 0 80px 15px rgba(251, 191, 36, 0.15); }
+   890→   990→}
+   891→   991→.wheel-glow-idle { animation: glow-ring-pulse 3s ease-in-out infinite; }
+   892→   992→.wheel-glow-spinning { animation: glow-ring-spin 0.5s ease-in-out infinite; border-radius: 50%; }
+   893→   993→
+   894→   994→/* Spinning pointer bounce */
+   895→   995→@keyframes pointer-bounce {
+   896→   996→  0%, 100% { transform: translateX(-50%) translateY(0); }
+   897→   997→  50% { transform: translateX(-50%) translateY(4px); }
+   898→   998→}
+   899→   999→.wheel-pointer-bounce {
+   900→  1000→  animation: pointer-bounce 0.15s ease-in-out infinite;
+   901→  1001→}
+   902→  1002→
+   903→  1003→/* Neon border animation */
+   904→  1004→@keyframes neon-border-rotate {
+   905→  1005→  0% { border-color: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 15px rgba(251, 191, 36, 0.05); }
+   906→  1006→  33% { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 0 20px rgba(245, 158, 11, 0.08); }
+   907→  1007→  66% { border-color: #d97706; box-shadow: 0 0 15px rgba(217, 119, 6, 0.3), inset 0 0 15px rgba(217, 119, 6, 0.05); }
+   908→  1008→  100% { border-color: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 15px rgba(251, 191, 36, 0.05); }
+   909→  1009→}
+   910→  1010→.neon-border-gold { animation: neon-border-rotate 3s ease-in-out infinite; }
+   911→  1011→
+   912→  1012→/* Floating particles for game backgrounds */
+   913→  1013→@keyframes particle-float-1 { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; } 25% { transform: translate(30px, -50px) scale(1.2); opacity: 0.8; } 50% { transform: translate(-20px, -100px) scale(0.8); opacity: 0.5; } 75% { transform: translate(40px, -60px) scale(1.1); opacity: 0.7; } }
+   914→  1014→@keyframes particle-float-2 { 0%, 100% { transform: translate(0, 0) scale(0.8); opacity: 0.2; } 33% { transform: translate(-40px, -70px) scale(1.3); opacity: 0.6; } 66% { transform: translate(20px, -120px) scale(0.9); opacity: 0.4; } }
+   915→  1015→@keyframes particle-float-3 { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; } 50% { transform: translate(50px, -80px) scale(0.7); opacity: 0.9; } }
+   916→  1016→
+   917→  1017→.game-particle {
+   918→  1018→  position: absolute;
+   919→  1019→  border-radius: 50%;
+   920→  1020→  pointer-events: none;
+   921→  1021→}
+   922→  1022→.game-particle-1 { width: 4px; height: 4px; background: #fbbf24; animation: particle-float-1 8s ease-in-out infinite; }
+   923→  1023→.game-particle-2 { width: 3px; height: 3px; background: #f59e0b; animation: particle-float-2 12s ease-in-out infinite; }
+   924→  1024→.game-particle-3 { width: 5px; height: 5px; background: #fcd34d; animation: particle-float-3 10s ease-in-out infinite; }
+   925→  1025→.game-particle-4 { width: 2px; height: 2px; background: #fde68a; animation: particle-float-2 15s ease-in-out infinite reverse; }
+   926→  1026→.game-particle-5 { width: 6px; height: 6px; background: #fbbf24; animation: particle-float-1 18s ease-in-out infinite reverse; opacity: 0.15; }
+   927→  1027→.game-particle-6 { width: 3px; height: 3px; background: #ffffff; animation: particle-float-3 9s ease-in-out infinite; opacity: 0.2; }
+   928→  1028→
+   929→  1029→/* Tap burst particle */
+   930→  1030→@keyframes tap-burst {
+   931→  1031→  0% { transform: scale(0) translate(0, 0); opacity: 1; }
+   932→  1032→  100% { transform: scale(1) translate(var(--burst-x, 0px), var(--burst-y, -60px)); opacity: 0; }
+   933→  1033→}
+   934→  1034→.tap-particle {
+   935→  1035→  position: absolute;
+   936→  1036→  border-radius: 50%;
+   937→  1037→  pointer-events: none;
+   938→  1038→  animation: tap-burst 0.6s ease-out forwards;
+   939→  1039→}
+   940→  1040→
+   941→  1041→/* Millionaire lightning effect */
+   942→  1042→@keyframes lightning-flash {
+   943→  1043→  0%, 100% { opacity: 0; }
+   944→  1044→  5% { opacity: 0.8; }
+   945→  1045→  10% { opacity: 0; }
+   946→  1046→  15% { opacity: 0.5; }
+   947→  1047→  20% { opacity: 0; }
+   948→  1048→}
+   949→  1049→.lightning-effect {
+   950→  1050→  position: absolute;
+   951→  1051→  inset: 0;
+   952→  1052→  pointer-events: none;
+   953→  1053→  background: linear-gradient(135deg, transparent 40%, rgba(251, 191, 36, 0.1) 50%, transparent 60%);
+   954→  1054→  animation: lightning-flash 4s ease-in-out infinite;
+   955→  1055→}
+   956→  1056→
+   957→  1057→/* Dramatic timer pulse */
+   958→  1058→@keyframes timer-urgent {
+   959→  1059→  0%, 100% { transform: scale(1); }
+   960→  1060→  50% { transform: scale(1.08); }
+   961→  1061→}
+   962→  1062→.timer-urgent { animation: timer-urgent 0.5s ease-in-out infinite; }
+   963→  1063→
+   964→  1064→/* Timer bar */
+   965→  1065→@keyframes timer-bar-shrink {
+   966→  1066→  from { transform: scaleX(1); }
+   967→  1067→  to { transform: scaleX(0); }
+   968→  1068→}
+   969→  1069→.timer-bar {
+   970→  1070→  transform-origin: left;
+   971→  1071→  animation: timer-bar-shrink var(--timer-duration, 30s) linear forwards;
+   972→  1072→}
+   973→  1073→
+   974→  1074→/* Prize level glow */
+   975→  1075→@keyframes prize-glow {
+   976→  1076→  0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.3); }
+   977→  1077→  50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 0 40px rgba(251, 191, 36, 0.2); }
+   978→  1078→}
+   979→  1079→.prize-glow { animation: prize-glow 2s ease-in-out infinite; }
+   980→  1080→
+   981→  1081→/* Option correct/wrong reveal */
+   982→  1082→@keyframes option-reveal-correct {
+   983→  1083→  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+   984→  1084→  50% { box-shadow: 0 0 30px 10px rgba(34, 197, 94, 0.3); }
+   985→  1085→  100% { box-shadow: 0 0 15px 3px rgba(34, 197, 94, 0.2); }
+   986→  1086→}
+   987→  1087→@keyframes option-reveal-wrong {
+   988→  1088→ 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+   989→  1089→  30% { transform: translateX(-8px); }
+   990→  1090→  60% { transform: translateX(8px); }
+   991→  1091→  100% { box-shadow: 0 0 15px 3px rgba(239, 68, 68, 0.2); transform: translateX(0); }
+   992→  1092→}
+   993→  1093→.option-reveal-correct { animation: option-reveal-correct 1s ease-out forwards; }
+   994→  1094→.option-reveal-wrong { animation: option-reveal-wrong 0.5s ease-out forwards; }
+   995→  1095→
+   996→  1096→/* Win overlay explosion */
+   997→  1097→@keyframes win-scale-in {
+   998→  1098→  0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+   999→  1099→  60% { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  1000→  1100→  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  1001→  1101→}
+  1002→  1102→.win-overlay-enter { animation: win-scale-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  1003→  1103→
+  1004→  1104→/* 3D card tilt */
+  1005→  1105→.game-card-3d {
+  1006→  1106→  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  1007→  1107→  transform-style: preserve-3d;
+  1008→  1108→  perspective: 1000px;
+  1009→  1109→}
+  1010→  1110→.game-card-3d:hover {
+  1011→  1111→  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.3), 0 0 30px rgba(251, 191, 36, 0.1);
+  1012→  1112→}
+  1013→  1113→
+  1014→  1114→/* Shimmer effect for loading states */
+  1015→  1115→@keyframes shimmer-sweep {
+  1016→  1116→  0% { transform: translateX(-100%); }
+  1017→  1117→  100% { transform: translateX(100%); }
+  1018→  1118→}
+  1019→  1119→.game-shimmer {
+  1020→  1120→  position: relative;
+  1021→  1121→  overflow: hidden;
+  1022→  1122→}
+  1023→  1123→.game-shimmer::after {
+  1024→  1124→  content: '';
+  1025→  1125→  position: absolute;
+  1026→  1126→  inset: 0;
+  1027→  1127→  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  1028→  1128→  animation: shimmer-sweep 2s ease-in-out infinite;
+  1029→  1129→}
+  1030→  1130→
+  1031→  1131→/* Spin button glow pulse */
+  1032→  1132→@keyframes spin-btn-glow {
+  1033→  1133→  0%, 100% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(251, 191, 36, 0.2); }
+  1034→  1134→  50% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.5), 0 0 60px rgba(251, 191, 36, 0.4); }
+  1035→  1135→}
+  1036→  1136→.spin-btn-glow { animation: spin-btn-glow 2s ease-in-out infinite; }
+  1037→  1137→
+  1038→  1138→/* Bingo number highlight */
+  1039→  1139→@keyframes bingo-number-pop {
+  1040→  1140→  0% { transform: scale(0); opacity: 0; }
+  1041→  1141→  50% { transform: scale(1.3); }
+  1042→  1142→  100% { transform: scale(1); opacity: 1; }
+  1043→  1143→}
+  1044→  1144→.bingo-number-pop { animation: bingo-number-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  1045→  1145→
+  1046→  1146→/* Celebration rays */
+  1047→  1147→@keyframes celebration-rays {
+  1048→  1148→  0% { transform: rotate(0deg); }
+  1049→  1149→  100% { transform: rotate(360deg); }
+  1050→  1150→}
+  1051→  1151→.celebration-rays {
+  1052→  1152→  position: absolute;
+  1053→  1153→  inset: -50%;
+  1054→  1154→  background: conic-gradient(from 0deg, transparent, rgba(251, 191, 36, 0.1), transparent, rgba(251, 191, 36, 0.05), transparent);
+  1055→  1155→  animation: celebration-rays 10s linear infinite;
+  1056→  1156→  pointer-events: none;
+  1057→  1157→}
+  1058→  1158→
+  1059→  1159→/* Energy bar glow */
+  1060→  1160→@keyframes energy-pulse {
+  1061→  1161→  0%, 100% { box-shadow: 0 0 8px rgba(249, 115, 22, 0.3); }
+  1062→  1162→  50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
+  1063→  1163→}
+  1064→  1164→.energy-bar-glow { animation: energy-pulse 1s ease-in-out infinite; }
+  1065→  1165→
