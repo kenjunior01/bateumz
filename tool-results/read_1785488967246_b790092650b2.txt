@@ -1,0 +1,698 @@
+     1→import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+     2→import { useNavigate, Link } from "react-router-dom";
+     3→import { supabase } from "@/integrations/supabase/client";
+     4→import { useAuth } from "@/contexts/AuthContext";
+     5→import Navbar from "@/components/Navbar";
+     6→import Footer from "@/components/Footer";
+     7→import { Input } from "@/components/ui/input";
+     8→import {
+     9→  Building2, Search, CheckCircle, Ticket, Trophy, TrendingUp, Star,
+    10→  ArrowRight, Users, Sparkles, Zap, Gamepad2, Radio, ChevronRight,
+    11→  Crown, Shield, LayoutGrid, List
+    12→} from "lucide-react";
+    13→import { motion, AnimatePresence } from "framer-motion";
+    14→import MobileDiscoveryHeader from "@/components/meituan/MobileDiscoveryHeader";
+    15→import MeituanSkeleton from "@/components/meituan/MeituanSkeleton";
+    16→
+    17→interface BusinessItem {
+    18→  user_id: string;
+    19→  display_name: string | null;
+    20→  company_name: string | null;
+    21→  avatar_url: string | null;
+    22→  is_verified: boolean | null;
+    23→  raffle_count: number;
+    24→  contest_count: number;
+    25→}
+    26→
+    27→const SPRING = { type: "spring" as const, stiffness: 300, damping: 25 };
+    28→const SPRING_BOUNCE = { type: "spring" as const, stiffness: 400, damping: 15 };
+    29→
+    30→const THEME_PRIMARY = "hsl(220 70% 18%)";
+    31→const THEME_ACCENT = "hsl(352 73% 50%)";
+    32→const THEME_GOLD = "#fbbf24";
+    33→
+    34→function CountingStat({ target, duration = 2 }: { target: number; duration?: number }) {
+    35→  const [display, setDisplay] = useState(0);
+    36→  useEffect(() => {
+    37→    if (target === 0) { setDisplay(0); return; }
+    38→    const startTime = performance.now();
+    39→    const step = (now: number) => {
+    40→      const elapsed = (now - startTime) / 1000;
+    41→      const progress = Math.min(elapsed / duration, 1);
+    42→      const eased = 1 - Math.pow(1 - progress, 4);
+    43→      setDisplay(Math.round(eased * target));
+    44→      if (progress < 1) requestAnimationFrame(step);
+    45→    };
+    46→    requestAnimationFrame(step);
+    47→  }, [target, duration]);
+    48→  return <>{display.toLocaleString("pt-PT")}</>;
+    49→}
+    50→
+    51→export default function BusinessDirectory() {
+    52→  const navigate = useNavigate();
+    53→  const { user } = useAuth();
+    54→  const [businesses, setBusinesses] = useState<BusinessItem[]>([]);
+    55→  const [search, setSearch] = useState("");
+    56→  const [loading, setLoading] = useState(true);
+    57→  const [filter, setFilter] = useState<"all" | "verified" | "active">("all");
+    58→  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    59→  const [statsReady, setStatsReady] = useState(false);
+    60→  const heroRef = useRef<HTMLDivElement>(null);
+    61→  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    62→
+    63→  useEffect(() => {
+    64→    const load = async () => {
+    65→      try {
+    66→        const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "business");
+    67→        if (!roles || roles.length === 0) { setLoading(false); return; }
+    68→
+    69→        const businessIds = roles.map(r => r.user_id);
+    70→
+    71→        const [profilesRes, rafflesRes, contestsRes] = await Promise.all([
+    72→          supabase.from("profiles_public").select("*").in("user_id", businessIds),
+    73→          supabase.from("raffles").select("business_user_id").eq("status", "active"),
+    74→          supabase.from("contests").select("created_by").in("status", ["active", "voting", "completed"]),
+    75→        ]);
+    76→
+    77→        const profiles = profilesRes.data || [];
+    78→        const rafflesByUser: Record<string, number> = {};
+    79→        (rafflesRes.data || []).forEach((r: any) => {
+    80→          rafflesByUser[r.business_user_id] = (rafflesByUser[r.business_user_id] || 0) + 1;
+    81→        });
+    82→        const contestsByUser: Record<string, number> = {};
+    83→        (contestsRes.data || []).forEach((c: any) => {
+    84→          contestsByUser[c.created_by] = (contestsByUser[c.created_by] || 0) + 1;
+    85→        });
+    86→
+    87→        const items: BusinessItem[] = profiles.map((p: any) => ({
+    88→          user_id: p.user_id,
+    89→          display_name: p.display_name,
+    90→          company_name: p.company_name,
+    91→          avatar_url: p.avatar_url,
+    92→          is_verified: p.is_verified,
+    93→          raffle_count: rafflesByUser[p.user_id] || 0,
+    94→          contest_count: contestsByUser[p.user_id] || 0,
+    95→        }));
+    96→
+    97→        items.sort((a, b) => {
+    98→          if (a.is_verified !== b.is_verified) return a.is_verified ? -1 : 1;
+    99→          return (b.raffle_count + b.contest_count) - (a.raffle_count + a.contest_count);
+   100→        });
+   101→
+   102→        setBusinesses(items);
+   103→      } catch (e) {
+   104→        console.error("Failed to load businesses:", e);
+   105→      }
+   106→      setLoading(false);
+   107→    };
+   108→    load();
+   109→  }, []);
+   110→
+   111→  useEffect(() => {
+   112→    const timer = setTimeout(() => setStatsReady(true), 300);
+   113→    return () => clearTimeout(timer);
+   114→  }, []);
+   115→
+   116→  const filtered = useMemo(() => {
+   117→    let list = businesses;
+   118→    if (filter === "verified") list = list.filter((b) => b.is_verified);
+   119→    if (filter === "active") list = list.filter((b) => b.raffle_count + b.contest_count > 0);
+   120→    if (search.trim()) {
+   121→      const q = search.toLowerCase();
+   122→      list = list.filter(
+   123→        (b) =>
+   124→          (b.company_name || "").toLowerCase().includes(q) ||
+   125→          (b.display_name || "").toLowerCase().includes(q)
+   126→      );
+   127→    }
+   128→    return list;
+   129→  }, [businesses, search, filter]);
+   130→
+   131→  const totalRaffles = useMemo(() => businesses.reduce((s, b) => s + b.raffle_count, 0), [businesses]);
+   132→  const totalContests = useMemo(() => businesses.reduce((s, b) => s + b.contest_count, 0), [businesses]);
+   133→  const verifiedCount = useMemo(() => businesses.filter(b => b.is_verified).length, [businesses]);
+   134→  const activeCount = useMemo(() => businesses.filter(b => b.raffle_count + b.contest_count > 0).length, [businesses]);
+   135→
+   136→  const chipCategories = [
+   137→    { id: "all", label: "Todas", icon: "\ud83c\udfe2", count: businesses.length },
+   138→    { id: "verified", label: "Verificadas", icon: "\u2705", count: verifiedCount },
+   139→    { id: "active", label: "Ativas", icon: "\u26a1", count: activeCount },
+   140→  ];
+   141→
+   142→  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+   143→    if (!heroRef.current) return;
+   144→    const rect = heroRef.current.getBoundingClientRect();
+   145→    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+   146→  };
+   147→
+   148→  const desktopStats = [
+   149→    { icon: Users, label: "Empresas", value: businesses.length, color: THEME_PRIMARY },
+   150→    { icon: CheckCircle, label: "Verificadas", value: verifiedCount, color: THEME_GOLD },
+   151→    { icon: Ticket, label: "Sorteios Ativos", value: totalRaffles, color: THEME_ACCENT },
+   152→    { icon: Trophy, label: "Concursos", value: totalContests, color: THEME_PRIMARY },
+   153→  ];
+   154→
+   155→  const desktopFilters = [
+   156→    { id: "all" as const, label: "Todas", Icon: LayoutGrid },
+   157→    { id: "verified" as const, label: "Verificadas", Icon: Shield },
+   158→    { id: "active" as const, label: "Ativas", Icon: Zap },
+   159→  ];
+   160→
+   161→  return (
+   162→    <div className="min-h-screen bg-mesh-soft bg-noise pb-20 md:pb-0">
+   163→      <Navbar />
+   164→      <div className="floating-stars"><span /><span /><span /><span /><span /><span /><span /><span /></div>
+   165→      <div className="ambient-glow" />
+   166→
+   167→      <MobileDiscoveryHeader
+   168→        title="Diretorio de Empresas"
+   169→        searchValue={search}
+   170→        onSearchChange={setSearch}
+   171→        searchPlaceholder="Pesquisar empresa..."
+   172→        categories={chipCategories}
+   173→        activeCategory={filter}
+   174→        onCategoryChange={(id) => setFilter(id as any)}
+   175→      />
+   176→
+   177→      {/* ===== DESKTOP HERO ===== */}
+   178→      <div
+   179→        ref={heroRef}
+   180→        onMouseMove={handleMouseMove}
+   181→        className="dir-hero-bg relative overflow-hidden hidden md:block"
+   182→        style={{ minHeight: "360px" }}
+   183→      >
+   184→        <div className="aurora-hero">
+   185→          <div className="aurora-blob aurora-blob-1" style={{ background: "hsl(220 70% 18% / 0.25)" }} />
+   186→          <div className="aurora-blob aurora-blob-2" style={{ background: "hsl(352 73% 50% / 0.15)" }} />
+   187→          <div className="aurora-blob aurora-blob-3" style={{ background: "hsl(220 60% 30% / 0.15)" }} />
+   188→        </div>
+   189→        <div
+   190→          className="hero-mouse-light"
+   191→          style={{ background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, hsl(220 70% 18% / 0.06), transparent 40%)` }}
+   192→        />
+   193→        <div className="hero-grid-overlay" style={{ "--grid-color": "rgba(255,255,255,0.5)" } as any} />
+   194→        <div className="hero-bottom-fade" />
+   195→
+   196→        <div className="relative z-10 container mx-auto px-4 max-w-6xl">
+   197→          <motion.div
+   198→            className="text-center pt-20 pb-4"
+   199→            initial={{ opacity: 0, y: 30 }}
+   200→            animate={{ opacity: 1, y: 0 }}
+   201→            transition={{ ...SPRING, delay: 0.1 }}
+   202→          >
+   203→            <motion.div
+   204→              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6"
+   205→              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+   206→              initial={{ opacity: 0, scale: 0.8 }}
+   207→              animate={{ opacity: 1, scale: 1 }}
+   208→              transition={{ ...SPRING, delay: 0.15 }}
+   209→            >
+   210→              <Crown className="h-4 w-4" style={{ color: THEME_GOLD }} />
+   211→              <span className="text-xs font-semibold text-muted-foreground">Plataforma de jogos e concursos</span>
+   212→            </motion.div>
+   213→
+   214→            <h1 className="text-4xl md:text-6xl font-black font-display tracking-tight mb-4">
+   215→              <span className="text-shimmer" style={{
+   216→                "--shimmer-c1": "hsl(var(--foreground))" as any,
+   217→                "--shimmer-c2": "hsl(220 70% 18% / 0.6)" as any,
+   218→              }}>Diretorio de Empresas</span>
+   219→            </h1>
+   220→            <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+   221→              Descubra empresas que criam experiencias incriveis — sorteios, concursos, jogos ao vivo e muito mais para a sua comunidade
+   222→            </p>
+   223→
+   224→            <AnimatePresence>
+   225→              {!user && (
+   226→                <motion.div
+   227→                  initial={{ opacity: 0, y: 10 }}
+   228→                  animate={{ opacity: 1, y: 0 }}
+   229→                  exit={{ opacity: 0, y: -10 }}
+   230→                  transition={{ delay: 0.3 }}
+   231→                >
+   232→                  <Link to="/register">
+   233→                    <motion.button
+   234→                      className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full text-sm font-bold text-white"
+   235→                      style={{
+   236→                        background: "linear-gradient(135deg, " + THEME_PRIMARY + ", " + THEME_ACCENT + ")",
+   237→                        boxShadow: "0 6px 30px hsl(220 70% 18% / 0.3), 0 0 60px hsl(352 73% 50% / 0.15)",
+   238→                      }}
+   239→                      whileHover={{ scale: 1.05, boxShadow: "0 8px 40px hsl(220 70% 18% / 0.4), 0 0 80px hsl(352 73% 50% / 0.2)" }}
+   240→                      whileTap={{ scale: 0.97 }}
+   241→                    >
+   242→                      <Sparkles className="h-4 w-4" /> Crie o seu primeiro concurso gratis
+   243→                    </motion.button>
+   244→                  </Link>
+   245→                </motion.div>
+   246→              )}
+   247→            </AnimatePresence>
+   248→          </motion.div>
+   249→        </div>
+   250→      </div>
+   251→
+   252→      {/* ===== DESKTOP STATS ===== */}
+   253→      <div className="container mx-auto px-4 max-w-6xl -mt-6 relative z-20 hidden md:block">
+   254→        <motion.div
+   255→          className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+   256→          initial={{ opacity: 0, y: 20 }}
+   257→          animate={{ opacity: 1, y: 0 }}
+   258→          transition={{ delay: 0.4 }}
+   259→        >
+   260→          {desktopStats.map((stat, i) => (
+   261→            <motion.div
+   262→              key={stat.label}
+   263→              className="dir-stat-card p-5"
+   264→              style={{ "--dsc-c1": (stat.color + "25") as any }}
+   265→              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+   266→              animate={{ opacity: 1, y: 0, scale: 1 }}
+   267→              transition={{ ...SPRING, delay: 0.5 + i * 0.08 }}
+   268→            >
+   269→              <div className="flex items-center gap-3">
+   270→                <div
+   271→                  className="dir-stat-icon p-2.5 rounded-xl"
+   272→                  style={{ background: `linear-gradient(135deg, ${stat.color}15, ${stat.color}05)` }}
+   273→                >
+   274→                  <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
+   275→                </div>
+   276→                <div>
+   277→                  <p className="text-2xl font-black font-display" style={{ color: stat.color }}>
+   278→                    {statsReady ? <CountingStat target={stat.value} /> : "0"}
+   279→                  </p>
+   280→                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">{stat.label}</p>
+   281→                </div>
+   282→              </div>
+   283→            </motion.div>
+   284→          ))}
+   285→        </motion.div>
+   286→      </div>
+   287→
+   288→      {/* ===== DESKTOP CTA BANNER ===== */}
+   289→      <div className="container mx-auto px-4 max-w-6xl mt-6 relative z-20 hidden md:block">
+   290→        <motion.div
+   291→          className="dir-cta-banner"
+   292→          initial={{ opacity: 0, y: 15 }}
+   293→          animate={{ opacity: 1, y: 0 }}
+   294→          transition={{ delay: 0.6 }}
+   295→        >
+   296→          <div
+   297→            className="p-7 md:p-8 flex flex-col md:flex-row items-center gap-5 rounded-[1.25rem]"
+   298→            style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.06), hsl(352 73% 50% / 0.03), hsl(220 60% 30% / 0.04))" }}
+   299→          >
+   300→            <div className="flex-1 text-center md:text-left">
+   301→              <h2 className="text-lg md:text-xl font-black font-display flex items-center justify-center md:justify-start gap-2 mb-1">
+   302→                <motion.span
+   303→                  animate={{ rotate: [0, 10, -10, 0] }}
+   304→                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   305→                >\ud83d\ude80</motion.span>
+   306→                A sua empresa ainda nao esta aqui?
+   307→              </h2>
+   308→              <p className="text-sm text-muted-foreground">
+   309→                Registe-se como empresa e crie concursos que atraiam milhares de participantes. O primeiro concurso e gratis!
+   310→              </p>
+   311→            </div>
+   312→            <Link to="/register">
+   313→              <motion.button
+   314→                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white shrink-0"
+   315→                style={{
+   316→                  background: "linear-gradient(135deg, " + THEME_PRIMARY + ", " + THEME_ACCENT + ")",
+   317→                  boxShadow: "0 4px 20px hsl(220 70% 18% / 0.25)",
+   318→                }}
+   319→                whileHover={{ scale: 1.05 }}
+   320→                whileTap={{ scale: 0.95 }}
+   321→              >
+   322→                Comecar Agora <ArrowRight className="h-4 w-4" />
+   323→              </motion.button>
+   324→            </Link>
+   325→          </div>
+   326→        </motion.div>
+   327→      </div>
+   328→
+   329→      {/* ===== DESKTOP SEARCH + FILTERS ===== */}
+   330→      <div className="container mx-auto px-4 max-w-6xl mt-8 relative z-20 hidden md:block">
+   331→        <motion.div
+   332→          className="flex items-center gap-4 mb-6"
+   333→          initial={{ opacity: 0, y: 10 }}
+   334→          animate={{ opacity: 1, y: 0 }}
+   335→          transition={{ delay: 0.65 }}
+   336→        >
+   337→          <div className="flex-1 dir-search-wrap">
+   338→            <div className="relative">
+   339→              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   340→              <Input
+   341→                placeholder="Pesquisar empresas..."
+   342→                value={search}
+   343→                onChange={(e) => setSearch(e.target.value)}
+   344→                className="pl-11 h-11 rounded-full bg-white/[0.03] border-white/[0.06] text-sm focus:border-hsl(220 70% 18% / 0.4)"
+   345→              />
+   346→            </div>
+   347→          </div>
+   348→          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+   349→            {desktopFilters.map((f) => {
+   350→              const isActive = filter === f.id;
+   351→              return (
+   352→                <motion.button
+   353→                  key={f.id}
+   354→                  onClick={() => setFilter(f.id)}
+   355→                  className={"dir-filter-pill flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold " + (isActive ? "active" : "")}
+   356→                  style={{
+   357→                    color: isActive ? THEME_PRIMARY : "hsl(var(--muted-foreground))",
+   358→                    backgroundColor: isActive ? "hsl(220 70% 18% / 0.12)" : "transparent",
+   359→                  }}
+   360→                  whileHover={{ scale: 1.03 }}
+   361→                  whileTap={{ scale: 0.97 }}
+   362→                >
+   363→                  <f.Icon className="h-3.5 w-3.5" />
+   364→                  {f.label}
+   365→                  <span className="text-[10px] opacity-60 ml-0.5">
+   366→                    {f.id === "all" ? businesses.length : f.id === "verified" ? verifiedCount : activeCount}
+   367→                  </span>
+   368→                </motion.button>
+   369→              );
+   370→            })}
+   371→          </div>
+   372→          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+   373→            <motion.button
+   374→              onClick={() => setViewMode("grid")}
+   375→              className="p-2 rounded-lg transition-colors"
+   376→              style={{ color: viewMode === "grid" ? THEME_PRIMARY : "hsl(var(--muted-foreground))", backgroundColor: viewMode === "grid" ? "hsl(220 70% 18% / 0.1)" : "transparent" }}
+   377→              whileHover={{ scale: 1.05 }}
+   378→              whileTap={{ scale: 0.95 }}
+   379→            >
+   380→              <LayoutGrid className="h-4 w-4" />
+   381→            </motion.button>
+   382→            <motion.button
+   383→              onClick={() => setViewMode("list")}
+   384→              className="p-2 rounded-lg transition-colors"
+   385→              style={{ color: viewMode === "list" ? THEME_PRIMARY : "hsl(var(--muted-foreground))", backgroundColor: viewMode === "list" ? "hsl(220 70% 18% / 0.1)" : "transparent" }}
+   386→              whileHover={{ scale: 1.05 }}
+   387→              whileTap={{ scale: 0.95 }}
+   388→            >
+   389→              <List className="h-4 w-4" />
+   390→            </motion.button>
+   391→          </div>
+   392→        </motion.div>
+   393→      </div>
+   394→
+   395→      {/* ===== CONTENT ===== */}
+   396→      <div className="container mx-auto px-3 sm:px-4 max-w-6xl pb-10 relative z-20">
+   397→        {loading ? (
+   398→          <div className="mt-3 md:mt-0">
+   399→            <div className="md:hidden"><MeituanSkeleton count={6} /></div>
+   400→            <div className="hidden md:flex items-center justify-center py-16">
+   401→              <div className="relative">
+   402→                <motion.div
+   403→                  className="w-12 h-12 rounded-2xl flex items-center justify-center"
+   404→                  style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.15), hsl(352 73% 50% / 0.1))" }}
+   405→                  animate={{ rotate: 360 }}
+   406→                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+   407→                >
+   408→                  <Building2 className="h-6 w-6" style={{ color: THEME_PRIMARY }} />
+   409→                </motion.div>
+   410→                <motion.div
+   411→                  className="absolute inset-0 rounded-2xl"
+   412→                  animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+   413→                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   414→                  style={{ border: "2px solid " + THEME_PRIMARY + "30" }}
+   415→                />
+   416→              </div>
+   417→            </div>
+   418→          </div>
+   419→        ) : filtered.length === 0 ? (
+   420→          <div className="text-center py-20">
+   421→            <div className="relative inline-block">
+   422→              <div className="dir-empty-orb absolute inset-0 rounded-full" style={{ background: THEME_PRIMARY, filter: "blur(40px)", width: 120, height: 120, top: "-10px", left: "-10px" }} />
+   423→              <motion.div className="empty-float inline-block relative">
+   424→                <div
+   425→                  className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6"
+   426→                  style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.1), hsl(352 73% 50% / 0.05))", border: "1px dashed hsl(220 70% 18% / 0.2)" }}
+   427→                >
+   428→                  <Building2 className="h-11 w-11 text-muted-foreground/20" />
+   429→                </div>
+   430→              </motion.div>
+   431→            </div>
+   432→            <p className="text-lg font-bold text-muted-foreground">Nenhuma empresa encontrada</p>
+   433→            <p className="text-sm text-muted-foreground/50 mt-1">Tente uma pesquisa diferente</p>
+   434→          </div>
+   435→        ) : (
+   436→          <>
+   437→            {/* MOBILE GRID */}
+   438→            <div className="md:hidden">
+   439→              <div className="grid grid-cols-2 gap-3 mt-3">
+   440→                {filtered.map((b, i) => (
+   441→                  <motion.div
+   442→                    key={b.user_id}
+   443→                    initial={{ opacity: 0, y: 12 }}
+   444→                    animate={{ opacity: 1, y: 0 }}
+   445→                    transition={{ delay: Math.min(i, 8) * 0.04 }}
+   446→                    onClick={() => navigate(`/empresa/${b.user_id}`)}
+   447→                    whileTap={{ scale: 0.97 }}
+   448→                  >
+   449→                    <div className="dir-card p-3 cursor-pointer">
+   450→                      <div className="flex items-center gap-2.5 mb-3">
+   451→                        <div
+   452→                          className="dir-card-visual h-11 w-11 rounded-xl overflow-hidden flex items-center justify-center text-base font-bold shrink-0"
+   453→                          style={{
+   454→                            background: b.avatar_url ? "transparent" : "linear-gradient(135deg, " + THEME_PRIMARY + "20, " + THEME_ACCENT + "10)",
+   455→                            color: THEME_PRIMARY,
+   456→                          }}
+   457→                        >
+   458→                          {b.avatar_url ? (
+   459→                            <img src={b.avatar_url} alt="" className="h-11 w-11 rounded-xl object-cover" />
+   460→                          ) : (
+   461→                            (b.company_name || b.display_name || "E").charAt(0).toUpperCase()
+   462→                          )}
+   463→                        </div>
+   464→                        <div className="min-w-0 flex-1">
+   465→                          <div className="flex items-center gap-1">
+   466→                            <p className="font-semibold text-sm truncate">{b.company_name || b.display_name}</p>
+   467→                            {b.is_verified && <CheckCircle className="h-3.5 w-3.5 shrink-0" style={{ color: THEME_GOLD }} />}
+   468→                          </div>
+   469→                          {b.company_name && b.display_name && b.company_name !== b.display_name && (
+   470→                            <p className="text-[11px] text-muted-foreground truncate">{b.display_name}</p>
+   471→                          )}
+   472→                        </div>
+   473→                      </div>
+   474→                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+   475→                        <span className="flex items-center gap-1">
+   476→                          <Ticket className="h-3 w-3" style={{ color: THEME_ACCENT }} /> {b.raffle_count}
+   477→                        </span>
+   478→                        <span className="flex items-center gap-1">
+   479→                          <Trophy className="h-3 w-3" style={{ color: THEME_PRIMARY }} /> {b.contest_count}
+   480→                        </span>
+   481→                      </div>
+   482→                    </div>
+   483→                  </motion.div>
+   484→                ))}
+   485→              </div>
+   486→            </div>
+   487→
+   488→            {/* DESKTOP GRID VIEW */}
+   489→            <AnimatePresence mode="wait">
+   490→              {viewMode === "grid" ? (
+   491→                <motion.div
+   492→                  key="grid"
+   493→                  className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4 mt-0"
+   494→                  initial={{ opacity: 0 }}
+   495→                  animate={{ opacity: 1 }}
+   496→                  exit={{ opacity: 0 }}
+   497→                >
+   498→                  {filtered.map((b, i) => {
+   499→                    const total = b.raffle_count + b.contest_count;
+   500→                    return (
+   501→                      <motion.div
+   502→                        key={b.user_id}
+   503→                        className="dir-card cursor-pointer"
+   504→                        style={{
+   505→                          "--dir-card-glow": (THEME_PRIMARY + "15") as any,
+   506→                          "--dir-card-border-hover": (THEME_PRIMARY + "20") as any,
+   507→                        }}
+   508→                        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+   509→                        animate={{ opacity: 1, y: 0, scale: 1 }}
+   510→                        transition={{ ...SPRING, delay: Math.min(i, 12) * 0.05 }}
+   511→                        onClick={() => navigate(`/empresa/${b.user_id}`)}
+   512→                        whileHover={{ scale: 1.02 }}
+   513→                      >
+   514→                        <div className="p-5">
+   515→                          <div className="flex items-start gap-4 mb-4">
+   516→                            <div
+   517→                              className="dir-card-visual h-16 w-16 rounded-2xl overflow-hidden flex items-center justify-center text-2xl font-black shrink-0"
+   518→                              style={{
+   519→                                background: b.avatar_url ? "transparent" : "linear-gradient(135deg, " + THEME_PRIMARY + "20, " + THEME_ACCENT + "10)",
+   520→                                color: THEME_PRIMARY,
+   521→                                boxShadow: b.avatar_url ? "none" : "0 4px 15px " + THEME_PRIMARY + "15",
+   522→                              }}
+   523→                            >
+   524→                              {b.avatar_url ? (
+   525→                                <img src={b.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover" />
+   526→                              ) : (
+   527→                                (b.company_name || b.display_name || "E").charAt(0).toUpperCase()
+   528→                              )}
+   529→                            </div>
+   530→                            <div className="flex-1 min-w-0">
+   531→                              <div className="flex items-center gap-2">
+   532→                                <h3 className="font-bold text-base truncate">{b.company_name || b.display_name}</h3>
+   533→                                {b.is_verified && (
+   534→                                  <motion.div
+   535→                                    initial={{ scale: 0 }}
+   536→                                    animate={{ scale: 1 }}
+   537→                                    transition={{ ...SPRING_BOUNCE, delay: 0.3 + i * 0.05 }}
+   538→                                  >
+   539→                                    <CheckCircle className="h-4 w-4 shrink-0" style={{ color: THEME_GOLD }} />
+   540→                                  </motion.div>
+   541→                                )}
+   542→                              </div>
+   543→                              {b.company_name && b.display_name && b.company_name !== b.display_name && (
+   544→                                <p className="text-xs text-muted-foreground truncate mt-0.5">{b.display_name}</p>
+   545→                              )}
+   546→                              <div className="flex items-center gap-1 mt-1.5">
+   547→                                <span
+   548→                                  className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+   549→                                  style={{
+   550→                                    backgroundColor: total > 0 ? "hsl(220 70% 18% / 0.1)" : "rgba(255,255,255,0.03)",
+   551→                                    color: total > 0 ? THEME_PRIMARY : "hsl(var(--muted-foreground))",
+   552→                                  }}
+   553→                                >
+   554→                                  {total > 0 ? total + " atividades" : "Sem atividades"}
+   555→                                </span>
+   556→                              </div>
+   557→                            </div>
+   558→                          </div>
+   559→
+   560→                          <div className="grid grid-cols-2 gap-3">
+   561→                            <div
+   562→                              className="p-3 rounded-xl"
+   563→                              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}
+   564→                            >
+   565→                              <div className="flex items-center gap-2">
+   566→                                <Ticket className="h-4 w-4" style={{ color: THEME_ACCENT }} />
+   567→                                <div>
+   568→                                  <p className="text-lg font-black font-display">{b.raffle_count}</p>
+   569→                                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Sorteios</p>
+   570→                                </div>
+   571→                              </div>
+   572→                            </div>
+   573→                            <div
+   574→                              className="p-3 rounded-xl"
+   575→                              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}
+   576→                            >
+   577→                              <div className="flex items-center gap-2">
+   578→                                <Trophy className="h-4 w-4" style={{ color: THEME_PRIMARY }} />
+   579→                                <div>
+   580→                                  <p className="text-lg font-black font-display">{b.contest_count}</p>
+   581→                                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Concursos</p>
+   582→                                </div>
+   583→                              </div>
+   584→                            </div>
+   585→                          </div>
+   586→
+   587→                          <div
+   588→                            className="mt-4 pt-3 flex items-center justify-between text-xs text-muted-foreground/60"
+   589→                            style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+   590→                          >
+   591→                            <span className="flex items-center gap-1.5">
+   592→                              {b.is_verified ? (
+   593→                                <span className="flex items-center gap-1" style={{ color: THEME_GOLD }}>
+   594→                                  <Star className="h-3 w-3" /> Verificado
+   595→                                </span>
+   596→                              ) : (
+   597→                                <span className="flex items-center gap-1.5">
+   598→                                  <Building2 className="h-3 w-3" /> <span>Empresa</span>
+   599→                                </span>
+   600→                              )}
+   601→                            </span>
+   602→                            <motion.span
+   603→                              className="flex items-center gap-1 font-semibold"
+   604→                              style={{ color: THEME_PRIMARY }}
+   605→                              whileHover={{ x: 3 }}
+   606→                            >
+   607→                              Ver perfil <ChevronRight className="h-3.5 w-3.5" />
+   608→                            </motion.span>
+   609→                          </div>
+   610→                        </div>
+   611→                      </motion.div>
+   612→                    );
+   613→                  })}
+   614→                </motion.div>
+   615→              ) : (
+   616→                /* DESKTOP LIST VIEW */
+   617→                <motion.div
+   618→                  key="list"
+   619→                  className="hidden md:flex flex-col gap-3 mt-0"
+   620→                  initial={{ opacity: 0 }}
+   621→                  animate={{ opacity: 1 }}
+   622→                  exit={{ opacity: 0 }}
+   623→                >
+   624→                  {filtered.map((b, i) => {
+   625→                    const total = b.raffle_count + b.contest_count;
+   626→                    return (
+   627→                      <motion.div
+   628→                        key={b.user_id}
+   629→                        className="dir-card cursor-pointer"
+   630→                        style={{
+   631→                          "--dir-card-glow": (THEME_PRIMARY + "10") as any,
+   632→                          "--dir-card-border-hover": (THEME_PRIMARY + "15") as any,
+   633→                        }}
+   634→                        initial={{ opacity: 0, x: -15 }}
+   635→                        animate={{ opacity: 1, x: 0 }}
+   636→                        transition={{ ...SPRING, delay: Math.min(i, 12) * 0.04 }}
+   637→                        onClick={() => navigate(`/empresa/${b.user_id}`)}
+   638→                        whileHover={{ x: 6 }}
+   639→                      >
+   640→                        <div className="p-4 flex items-center gap-4">
+   641→                          <div
+   642→                            className="dir-card-visual h-14 w-14 rounded-xl overflow-hidden flex items-center justify-center text-xl font-black shrink-0"
+   643→                            style={{
+   644→                              background: b.avatar_url ? "transparent" : "linear-gradient(135deg, " + THEME_PRIMARY + "20, " + THEME_ACCENT + "10)",
+   645→                              color: THEME_PRIMARY,
+   646→                            }}
+   647→                          >
+   648→                            {b.avatar_url ? (
+   649→                              <img src={b.avatar_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
+   650→                            ) : (
+   651→                              (b.company_name || b.display_name || "E").charAt(0).toUpperCase()
+   652→                            )}
+   653→                          </div>
+   654→                          <div className="flex-1 min-w-0">
+   655→                            <div className="flex items-center gap-2">
+   656→                              <p className="font-bold text-base truncate">{b.company_name || b.display_name}</p>
+   657→                              {b.is_verified && <CheckCircle className="h-4 w-4 shrink-0" style={{ color: THEME_GOLD }} />}
+   658→                              {total > 0 && (
+   659→                                <span
+   660→                                  className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+   661→                                  style={{ backgroundColor: "hsl(220 70% 18% / 0.1)", color: THEME_PRIMARY }}
+   662→                                >
+   663→                                  {total} atividades
+   664→                                </span>
+   665→                              )}
+   666→                            </div>
+   667→                            {b.company_name && b.display_name && b.company_name !== b.display_name && (
+   668→                              <p className="text-xs text-muted-foreground truncate mt-0.5">{b.display_name}</p>
+   669→                            )}
+   670→                          </div>
+   671→                          <div className="flex items-center gap-6 text-sm text-muted-foreground shrink-0">
+   672→                            <span className="flex items-center gap-1.5">
+   673→                              <Ticket className="h-4 w-4" style={{ color: THEME_ACCENT }} />
+   674→                              <span className="font-semibold">{b.raffle_count}</span>
+   675→                              <span className="text-xs">sorteios</span>
+   676→                            </span>
+   677→                            <span className="flex items-center gap-1.5">
+   678→                              <Trophy className="h-4 w-4" style={{ color: THEME_PRIMARY }} />
+   679→                              <span className="font-semibold">{b.contest_count}</span>
+   680→                              <span className="text-xs">concursos</span>
+   681→                            </span>
+   682→                          </div>
+   683→                          <ChevronRight className="h-5 w-5 text-muted-foreground/30 shrink-0" />
+   684→                        </div>
+   685→                      </motion.div>
+   686→                    );
+   687→                  })}
+   688→                </motion.div>
+   689→              )}
+   690→            </AnimatePresence>
+   691→          </>
+   692→        )}
+   693→      </div>
+   694→      <Footer />
+   695→    </div>
+   696→  );
+   697→}
+   698→
