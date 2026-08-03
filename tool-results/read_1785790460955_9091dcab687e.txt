@@ -1,0 +1,641 @@
+    40→  roundCount: number;
+    41→  breakBetweenRounds: number;
+    42→  showLeaderboardBetween: boolean;
+    43→  scoringSystem: 'cumulative' | 'per_round' | 'best_of_3';
+    44→  pointMultiplier: number;
+    45→  boardGameTimer: number;
+    46→  allowUndo: boolean;
+    47→}
+    48→
+    49→interface BrandingConfig {
+    50→  primaryColor: string;
+    51→  secondaryColor: string;
+    52→  accentColor: string;
+    53→  backgroundColor: string;
+    54→  companyName: string;
+    55→  companySlogan: string;
+    56→  companyLogoUrl: string;
+    57→  backgroundImageUrl: string;
+    58→  enableParticles: boolean;
+    59→  enableConfetti: boolean;
+    60→  enableGlowEffects: boolean;
+    61→  animationSpeed: 'slow' | 'normal' | 'fast';
+    62→}
+    63→
+    64→const DEFAULT_RULES: LiveRules = {
+    65→  startDelay: 10,
+    66→  endDelay: 30,
+    67→  maxPlayers: 0,
+    68→  allowRejoin: true,
+    69→  autoStart: false,
+    70→  roundCount: 5,
+    71→  breakBetweenRounds: 15,
+    72→  showLeaderboardBetween: true,
+    73→  scoringSystem: 'cumulative',
+    74→  pointMultiplier: 1,
+    75→  boardGameTimer: 30,
+    76→  allowUndo: false,
+    77→};
+    78→
+    79→const DEFAULT_BRANDING: BrandingConfig = {
+    80→  primaryColor: '#fbbf24',
+    81→  secondaryColor: '#3b82f6',
+    82→  accentColor: '#8b5cf6',
+    83→  backgroundColor: '#0a0e17',
+    84→  companyName: '',
+    85→  companySlogan: '',
+    86→  companyLogoUrl: '',
+    87→  backgroundImageUrl: '',
+    88→  enableParticles: true,
+    89→  enableConfetti: true,
+    90→  enableGlowEffects: true,
+    91→  animationSpeed: 'normal',
+    92→};
+    93→
+    94→const AVAILABLE_GAMES = [
+    95→  { id: 'wheel', label: 'Roda de Premios', emoji: '🎰' },
+    96→  { id: 'tap', label: 'Tap Battle', emoji: '⚡' },
+    97→  { id: 'quiz', label: 'Quiz Battle', emoji: '🧠' },
+    98→  { id: 'mystery', label: 'Caixa Misteriosa', emoji: '🎁' },
+    99→  { id: 'keyword', label: 'Caca a Palavra', emoji: '🔎' },
+   100→  { id: 'emoji', label: 'Batalha de Emojis', emoji: '💥' },
+   101→  { id: 'millionaire', label: 'Quem Quer Ser Milionario', emoji: '💰' },
+   102→  { id: 'kahoot', label: 'Quiz ao Vivo', emoji: '🎯' },
+   103→  { id: 'bingo', label: 'Bingo ao Vivo', emoji: '🎱' },
+   104→  { id: 'challenge', label: 'Roleta de Desafios', emoji: '🎭' },
+   105→  { id: 'vsduel', label: 'Arena de Duelo VS', emoji: '⚔️' },
+   106→  { id: 'speed', label: 'Duelo de Velocidade', emoji: '⚡' },
+   107→  { id: 'truthordare', label: 'Verdade ou Desafio', emoji: '🔥' },
+   108→  { id: 'memory', label: 'Jogo da Memoria VS', emoji: '🧠' },
+   109→  { id: 'punishment', label: 'Roleta de Castigos', emoji: '💀' },
+   110→  { id: 'boknowledge', label: 'Batalha de Conhecimentos', emoji: '📚' },
+   111→  { id: 'guessEmoji', label: 'Adivinhe o Emoji', emoji: '😎' },
+   112→  { id: 'quickdraw', label: 'Desenho Rapido', emoji: '🎨' },
+   113→  { id: 'hotpotato', label: 'Batata Quente', emoji: '💣' },
+   114→  { id: 'numguess', label: 'Adivinha o Numero VS', emoji: '🔢' },
+   115→  { id: 'chaos', label: 'Desafio Caotico', emoji: '🌪️' },
+   116→  { id: 'checkers', label: 'Damas', emoji: '♟️' },
+   117→  { id: 'ludo', label: 'Ludo', emoji: '🎲' },
+   118→  { id: 'connect4', label: 'Ligar 4', emoji: '🔴' },
+   119→  { id: 'battleship', label: 'Batalha Naval', emoji: '🚢' },
+   120→  { id: 'tictactoe', label: 'Galo VS', emoji: '✕' },
+   121→  { id: 'uno', label: 'UNO Cartas', emoji: '🃏' },
+   122→];
+   123→
+   124→const CompanyLiveManager = () => {
+   125→  const { toast } = useToast();
+   126→  const { user } = useAuth();
+   127→  const navigate = useNavigate();
+   128→  const [templates, setTemplates] = useState<LiveTemplate[]>([]);
+   129→  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
+   130→  const [creating, setCreating] = useState(false);
+   131→  const [newName, setNewName] = useState('');
+   132→  const [saving, setSaving] = useState(false);
+   133→  const [loading, setLoading] = useState(false);
+   134→  const [copied, setCopied] = useState(false);
+   135→  const [tab, setTab] = useState('templates');
+   136→
+   137→  const current = templates.find((t) => t.id === activeTemplate);
+   138→
+   139→  useEffect(() => {
+   140→    if (user) loadTemplates();
+   141→  }, [user]);
+   142→
+   143→  const loadTemplates = async () => {
+   144→    if (!user) return;
+   145→    setLoading(true);
+   146→    try {
+   147→      const { data, error } = await (supabase as any)
+   148→        .from('live_templates')
+   149→        .select('*')
+   150→        .eq('user_id', user.id)
+   151→        .order('created_at', { ascending: false });
+   152→      if (error) throw error;
+   153→      setTemplates(
+   154→        (data || []).map((d: any) => ({
+   155→          id: d.id,
+   156→          name: d.name,
+   157→          description: d.description || '',
+   158→          game_ids: d.game_ids || [],
+   159→          challenges: d.challenges || [],
+   160→          rules: d.rules ? { ...DEFAULT_RULES, ...d.rules } : DEFAULT_RULES,
+   161→          branding: d.branding ? { ...DEFAULT_BRANDING, ...d.branding } : DEFAULT_BRANDING,
+   162→          is_active: d.is_active ?? true,
+   163→          created_at: d.created_at,
+   164→        }))
+   165→      );
+   166→    } catch (e) {
+   167→      console.error(e);
+   168→    } finally {
+   169→      setLoading(false);
+   170→    }
+   171→  };
+   172→
+   173→  const createTemplate = async () => {
+   174→    if (!user || !newName.trim()) return;
+   175→    setSaving(true);
+   176→    try {
+   177→      const { data, error } = await (supabase as any)
+   178→        .from('live_templates')
+   179→        .insert({
+   180→          user_id: user.id,
+   181→          name: newName.trim(),
+   182→          description: '',
+   183→          game_ids: [],
+   184→          challenges: [],
+   185→          rules: DEFAULT_RULES,
+   186→          branding: DEFAULT_BRANDING,
+   187→          is_active: true,
+   188→        })
+   189→        .select()
+   190→        .single();
+   191→      if (error) throw error;
+   192→      const tpl: LiveTemplate = {
+   193→        id: data.id,
+   194→        name: data.name,
+   195→        description: '',
+   196→        game_ids: [],
+   197→        challenges: [],
+   198→        rules: DEFAULT_RULES,
+   199→        branding: DEFAULT_BRANDING,
+   200→        is_active: true,
+   201→        created_at: data.created_at,
+   202→      };
+   203→      setTemplates((p) => [tpl, ...p]);
+   204→      setActiveTemplate(tpl.id);
+   205→      setNewName('');
+   206→      setCreating(false);
+   207→      toast({ title: 'Template criado!' });
+   208→    } catch (e) {
+   209→      console.error(e);
+   210→      toast({ title: 'Erro ao criar', variant: 'destructive' });
+   211→    } finally {
+   212→      setSaving(false);
+   213→    }
+   214→  };
+   215→
+   216→  const saveTemplate = async () => {
+   217→    if (!user || !current) return;
+   218→    setSaving(true);
+   219→    try {
+   220→      const { error } = await (supabase as any)
+   221→        .from('live_templates')
+   222→        .update({
+   223→          name: current.name,
+   224→          description: current.description,
+   225→          game_ids: current.game_ids,
+   226→          challenges: current.challenges,
+   227→          rules: current.rules,
+   228→          branding: current.branding,
+   229→          is_active: current.is_active,
+   230→        })
+   231→        .eq('id', current.id);
+   232→      if (error) throw error;
+   233→      toast({ title: 'Template guardado!' });
+   234→    } catch (e) {
+   235→      console.error(e);
+   236→      toast({ title: 'Erro ao guardar', variant: 'destructive' });
+   237→    } finally {
+   238→      setSaving(false);
+   239→    }
+   240→  };
+   241→
+   242→  const deleteTemplate = async (id: string) => {
+   243→    if (!user) return;
+   244→    try {
+   245→      const { error } = await (supabase as any).from('live_templates').delete().eq('id', id);
+   246→      if (error) throw error;
+   247→      setTemplates((p) => p.filter((t) => t.id !== id));
+   248→      if (activeTemplate === id) setActiveTemplate(null);
+   249→      toast({ title: 'Template eliminado' });
+   250→    } catch (e) {
+   251→      console.error(e);
+   252→      toast({ title: 'Erro ao eliminar', variant: 'destructive' });
+   253→    }
+   254→  };
+   255→
+   256→  const duplicateTemplate = async (id: string) => {
+   257→    const orig = templates.find((t) => t.id === id);
+   258→    if (!orig || !user) return;
+   259→    setSaving(true);
+   260→    try {
+   261→      const { data, error } = await (supabase as any)
+   262→        .from('live_templates')
+   263→        .insert({
+   264→          user_id: user.id,
+   265→          name: `${orig.name} (copia)`,
+   266→          description: orig.description,
+   267→          game_ids: orig.game_ids,
+   268→          challenges: orig.challenges,
+   269→          rules: orig.rules,
+   270→          branding: orig.branding,
+   271→          is_active: true,
+   272→        })
+   273→        .select()
+   274→        .single();
+   275→      if (error) throw error;
+   276→      setTemplates((p) => [{
+   277→        id: data.id, name: data.name, description: data.description || '',
+   278→        game_ids: data.game_ids || [], challenges: data.challenges || [],
+   279→        rules: data.rules || DEFAULT_RULES, branding: data.branding || DEFAULT_BRANDING,
+   280→        is_active: true, created_at: data.created_at,
+   281→      }, ...p]);
+   282→      toast({ title: 'Template duplicado!' });
+   283→    } catch (e) {
+   284→      console.error(e);
+   285→      toast({ title: 'Erro', variant: 'destructive' });
+   286→    } finally {
+   287→      setSaving(false);
+   288→    }
+   289→  };
+   290→
+   291→  const toggleGame = (gameId: string) => {
+   292→    if (!current) return;
+   293→    setTemplates((prev) =>
+   294→      prev.map((t) =>
+   295→        t.id === current.id
+   296→          ? {
+   297→              ...t,
+   298→              game_ids: t.game_ids.includes(gameId)
+   299→                ? t.game_ids.filter((g) => g !== gameId)
+   300→                : [...t.game_ids, gameId],
+   301→            }
+   302→          : t
+   303→      )
+   304→    );
+   305→  };
+   306→
+   307→  const updateRules = (patch: Partial<LiveRules>) => {
+   308→    if (!current) return;
+   309→    setTemplates((prev) => prev.map((t) => (t.id === current.id ? { ...t, rules: { ...t.rules, ...patch } } : t)));
+   310→  };
+   311→
+   312→  const updateBranding = (patch: Partial<BrandingConfig>) => {
+   313→    if (!current) return;
+   314→    setTemplates((prev) => prev.map((t) => (t.id === current.id ? { ...t, branding: { ...t.branding, ...patch } } : t)));
+   315→  };
+   316→
+   317→  const updateTemplateField = (field: string, value: string) => {
+   318→    if (!current) return;
+   319→    setTemplates((prev) => prev.map((t) => (t.id === current.id ? { ...t, [field]: value } : t)));
+   320→  };
+   321→
+   322→  const updateTemplateFieldDirect = (field: string, value: any) => {
+   323→    if (!current) return;
+   324→    setTemplates((prev) => prev.map((t) => (t.id === current.id ? { ...t, [field]: value } : t)));
+   325→  };
+   326→
+   327→  const exportTemplate = () => {
+   328→    if (!current) return;
+   329→    navigator.clipboard.writeText(JSON.stringify(current, null, 2));
+   330→    setCopied(true);
+   331→    setTimeout(() => setCopied(false), 1500);
+   332→  };
+   333→
+   334→  return (
+   335→    <div className="space-y-6 p-4 md:p-6">
+   336→      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+   337→        <div className="flex items-center gap-3 mb-2">
+   338→          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white">
+   339→            <Radio className="h-6 w-6" />
+   340→          </div>
+   341→          <div>
+   342→            <h1 className="font-display text-2xl font-bold">Gestao de Lives</h1>
+   343→            <p className="text-sm text-muted-foreground">
+   344→              Crie templates de live com jogos, desafios e regras personalizados para a sua empresa.
+   345→            </p>
+   346→          </div>
+   347→        </div>
+   348→      </motion.div>
+   349→
+   350→      <Tabs value={tab} onValueChange={setTab}>
+   351→        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid lg:grid-cols-4">
+   352→          <TabsTrigger value="templates" className="gap-1"><ListOrdered className="h-3.5 w-3.5" /> Templates</TabsTrigger>
+   353→          <TabsTrigger value="games" className="gap-1"><Gamepad2 className="h-3.5 w-3.5" /> Jogos</TabsTrigger>
+   354→          <TabsTrigger value="rules" className="gap-1"><Sliders className="h-3.5 w-3.5" /> Regras</TabsTrigger>
+   355→          <TabsTrigger value="design" className="gap-1"><Palette className="h-3.5 w-3.5" /> Design</TabsTrigger>
+   356→        </TabsList>
+   357→
+   358→        <TabsContent value="templates" className="mt-6">
+   359→          <div className="flex items-center justify-between mb-4">
+   360→            <h2 className="font-display text-lg font-bold">Templates de Live</h2>
+   361→            <div className="flex gap-2">
+   362→              {!creating ? (
+   363→                <Button size="sm" onClick={() => setCreating(true)} className="gap-1">
+   364→                  <Plus className="h-3.5 w-3.5" /> Novo Template
+   365→                </Button>
+   366→              ) : (
+   367→                <div className="flex gap-2 items-center">
+   368→                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome do template..." className="w-48" onKeyDown={(e) => e.key === 'Enter' && createTemplate()} />
+   369→                  <Button size="sm" onClick={createTemplate} disabled={saving || !newName.trim()}>Criar</Button>
+   370→                  <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setNewName(''); }}>Cancelar</Button>
+   371→                </div>
+   372→              )}
+   373→            </div>
+   374→          </div>
+   375→
+   376→          {loading ? (
+   377→            <div className="text-center py-12 text-muted-foreground">A carregar...</div>
+   378→          ) : templates.length === 0 ? (
+   379→            <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+   380→              <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+   381→              <p className="text-sm text-muted-foreground mb-4">Crie o seu primeiro template de live personalizado.</p>
+   382→              <Button onClick={() => setCreating(true)} className="gap-1">
+   383→                <Plus className="h-4 w-4" /> Criar Template
+   384→              </Button>
+   385→            </div>
+   386→          ) : (
+   387→            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   388→              {templates.map((tpl) => (
+   389→                <motion.div
+   390→                  key={tpl.id}
+   391→                  layout
+   392→                  onClick={() => { setActiveTemplate(tpl.id); setTab('games'); }}
+   393→                  className={`rounded-2xl border-2 p-5 cursor-pointer transition-all hover:shadow-lg ${activeTemplate === tpl.id ? 'border-primary bg-primary/5 shadow-primary/10 shadow-lg' : 'border-border bg-card hover:border-primary/40'}`}
+   394→                >
+   395→                  <div className="flex items-start justify-between mb-3">
+   396→                    <div>
+   397→                      <h3 className="font-bold text-sm">{tpl.name}</h3>
+   398→                      <p className="text-[11px] text-muted-foreground mt-0.5">{tpl.game_ids.length} jogos selecionados</p>
+   399→                    </div>
+   400→                    <Badge variant={tpl.is_active ? 'default' : 'secondary'} className="text-[9px]">
+   401→                      {tpl.is_active ? 'Ativo' : 'Inativo'}
+   402→                    </Badge>
+   403→                  </div>
+   404→                  <div className="flex flex-wrap gap-1 mb-3">
+   405→                    {tpl.game_ids.slice(0, 5).map((gid) => {
+   406→                      const g = AVAILABLE_GAMES.find((a) => a.id === gid);
+   407→                      return g ? <Badge key={gid} variant="outline" className="text-[9px]">{g.emoji} {g.label}</Badge> : null;
+   408→                    })}
+   409→                    {tpl.game_ids.length > 5 && <Badge variant="outline" className="text-[9px]">+{tpl.game_ids.length - 5}</Badge>}
+   410→                  </div>
+   411→                  <div className="flex gap-1">
+   412→                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); duplicateTemplate(tpl.id); }}><Copy className="h-3 w-3" /></Button>
+   413→                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/live-hub?template=${tpl.id}`); }} className="text-emerald-500"><Play className="h-3 w-3" /></Button>
+   414→                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteTemplate(tpl.id); }} className="text-destructive"><Trash2 className="h-3 w-3" /></Button>
+   415→                    <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+   416→                  </div>
+   417→                </motion.div>
+   418→              ))}
+   419→            </div>
+   420→          )}
+   421→        </TabsContent>
+   422→
+   423→        <TabsContent value="games" className="mt-6">
+   424→          {!current ? (
+   425→            <div className="text-center py-12 text-muted-foreground rounded-2xl border border-dashed border-border">
+   426→              <Gamepad2 className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+   427→              <p>Selecione um template para configurar os jogos.</p>
+   428→              <Button variant="link" onClick={() => setTab('templates')}>Ver templates</Button>
+   429→            </div>
+   430→          ) : (
+   431→            <div className="space-y-6">
+   432→              <div className="flex items-center justify-between">
+   433→                <div>
+   434→                  <h2 className="font-display text-lg font-bold">Jogos do Template: {current.name}</h2>
+   435→                  <p className="text-xs text-muted-foreground">Selecione os jogos que farao parte desta live.</p>
+   436→                </div>
+   437→                <div className="flex gap-2">
+   438→                  <Button variant="outline" size="sm" onClick={exportTemplate} className="gap-1">
+   439→                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+   440→                    {copied ? 'Copiado!' : 'Exportar'}
+   441→                  </Button>
+   442→                  <Button size="sm" onClick={saveTemplate} disabled={saving} className="gap-1">
+   443→                    <Save className="h-3 w-3" /> Guardar
+   444→                  </Button>
+   445→                </div>
+   446→              </div>
+   447→
+   448→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   449→                {AVAILABLE_GAMES.map((g) => {
+   450→                  const isSelected = current.game_ids.includes(g.id);
+   451→                  return (
+   452→                    <motion.button
+   453→                      key={g.id}
+   454→                      whileHover={{ scale: 1.02 }}
+   455→                      whileTap={{ scale: 0.98 }}
+   456→                      onClick={() => toggleGame(g.id)}
+   457→                      className={`text-left rounded-2xl border-2 p-4 transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' : 'border-border bg-card hover:border-primary/30'}`}
+   458→                    >
+   459→                      <div className="flex items-center gap-3">
+   460→                        <span className="text-2xl">{g.emoji}</span>
+   461→                        <div>
+   462→                          <p className="font-bold text-sm">{g.label}</p>
+   463→                          <p className="text-[10px] text-muted-foreground">{isSelected ? 'Selecionado' : 'Clique para ativar'}</p>
+   464→                        </div>
+   465→                        {isSelected && <Check className="h-4 w-4 text-primary ml-auto" />}
+   466→                      </div>
+   467→                    </motion.button>
+   468→                  );
+   469→                })}
+   470→              </div>
+   471→
+   472→              <Separator />
+   473→
+   474→              <div>
+   475→                <h3 className="font-display text-lg font-bold mb-3 flex items-center gap-2">
+   476→                  <Puzzle className="h-5 w-5 text-primary" /> Desafios Personalizados
+   477→                </h3>
+   478→                <ChallengeCreator
+   479→                liveCode={undefined}
+   480→                externalChallenges={current?.challenges || []}
+   481→                onChallengesChange={(chs) => { if (current) updateTemplateFieldDirect('challenges', chs); }}
+   482→              />
+   483→              </div>
+   484→            </div>
+   485→          )}
+   486→        </TabsContent>
+   487→
+   488→        <TabsContent value="rules" className="mt-6">
+   489→          {!current ? (
+   490→            <div className="text-center py-12 text-muted-foreground rounded-2xl border border-dashed border-border">
+   491→              <Sliders className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+   492→              <p>Selecione um template para configurar as regras.</p>
+   493→              <Button variant="link" onClick={() => setTab('templates')}>Ver templates</Button>
+   494→            </div>
+   495→          ) : (
+   496→            <div className="space-y-6">
+   497→              <div className="flex items-center justify-between">
+   498→                <h2 className="font-display text-lg font-bold">Regras da Live: {current.name}</h2>
+   499→                <Button size="sm" onClick={saveTemplate} disabled={saving} className="gap-1">
+   500→                  <Save className="h-3 w-3" /> Guardar
+   501→                </Button>
+   502→              </div>
+   503→
+   504→              <Card>
+   505→                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> Temporizacao</CardTitle></CardHeader>
+   506→                <CardContent className="space-y-4">
+   507→                  <div>
+   508→                    <Label className="text-xs">Atraso de inicio: {current.rules.startDelay}s</Label>
+   509→                    <Slider min={0} max={60} step={5} value={[current.rules.startDelay]} onValueChange={([v]) => updateRules({ startDelay: v })} className="mt-2" />
+   510→                  </div>
+   511→                  <div>
+   512→                    <Label className="text-xs">Atraso de fim: {current.rules.endDelay}s</Label>
+   513→                    <Slider min={0} max={120} step={5} value={[current.rules.endDelay]} onValueChange={([v]) => updateRules({ endDelay: v })} className="mt-2" />
+   514→                  </div>
+   515→                  <div>
+   516→                    <Label className="text-xs">Numero de rondas: {current.rules.roundCount}</Label>
+   517→                    <Slider min={1} max={20} step={1} value={[current.rules.roundCount]} onValueChange={([v]) => updateRules({ roundCount: v })} className="mt-2" />
+   518→                  </div>
+   519→                  <div>
+   520→                    <Label className="text-xs">Pausa entre rondas: {current.rules.breakBetweenRounds}s</Label>
+   521→                    <Slider min={0} max={60} step={5} value={[current.rules.breakBetweenRounds]} onValueChange={([v]) => updateRules({ breakBetweenRounds: v })} className="mt-2" />
+   522→                  </div>
+   523→                </CardContent>
+   524→              </Card>
+   525→
+   526→              <Card>
+   527→                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4" /> Jogadores</CardTitle></CardHeader>
+   528→                <CardContent className="space-y-4">
+   529→                  <div>
+   530→                    <Label className="text-xs">Maximo de jogadores (0 = sem limite): {current.rules.maxPlayers || 'Ilimitado'}</Label>
+   531→                    <Slider min={0} max={500} step={10} value={[current.rules.maxPlayers]} onValueChange={([v]) => updateRules({ maxPlayers: v })} className="mt-2" />
+   532→                  </div>
+   533→                  <div className="flex items-center justify-between">
+   534→                    <div><Label className="text-xs font-medium">Permitir reentrada</Label><p className="text-[10px] text-muted-foreground">Jogadores podem voltar apos sair</p></div>
+   535→                    <Switch checked={current.rules.allowRejoin} onCheckedChange={(v) => updateRules({ allowRejoin: v })} />
+   536→                  </div>
+   537→                  <div className="flex items-center justify-between">
+   538→                    <div><Label className="text-xs font-medium">Inicio automatico</Label><p className="text-[10px] text-muted-foreground">Live comeca automaticamente com contagem</p></div>
+   539→                    <Switch checked={current.rules.autoStart} onCheckedChange={(v) => updateRules({ autoStart: v })} />
+   540→                  </div>
+   541→                </CardContent>
+   542→              </Card>
+   543→
+   544→              <Card>
+   545→                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Trophy className="h-4 w-4" /> Pontuacao</CardTitle></CardHeader>
+   546→                <CardContent className="space-y-4">
+   547→                  <div>
+   548→                    <Label className="text-xs">Sistema de Pontuacao</Label>
+   549→                    <Select value={current.rules.scoringSystem} onValueChange={(v: any) => updateRules({ scoringSystem: v })}>
+   550→                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   551→                      <SelectContent>
+   552→                        <SelectItem value="cumulative">Acumulativa</SelectItem>
+   553→                        <SelectItem value="per_round">Por Ronda</SelectItem>
+   554→                        <SelectItem value="best_of_3">Melhor de 3</SelectItem>
+   555→                      </SelectContent>
+   556→                    </Select>
+   557→                  </div>
+   558→                  <div>
+   559→                    <Label className="text-xs">Multiplicador de pontos: {current.rules.pointMultiplier}x</Label>
+   560→                    <Slider min={0.5} max={3} step={0.1} value={[current.rules.pointMultiplier]} onValueChange={([v]) => updateRules({ pointMultiplier: v })} className="mt-2" />
+   561→                  </div>
+   562→                  <div className="flex items-center justify-between">
+   563→                    <div><Label className="text-xs font-medium">Leaderboard entre rondas</Label><p className="text-[10px] text-muted-foreground">Mostra ranking durante pausas</p></div>
+   564→                    <Switch checked={current.rules.showLeaderboardBetween} onCheckedChange={(v) => updateRules({ showLeaderboardBetween: v })} />
+   565→                  </div>
+   566→                </CardContent>
+   567→              </Card>
+   568→
+   569→              <Card>
+   570→                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Gamepad2 className="h-4 w-4" /> Jogos de Tabuleiro</CardTitle></CardHeader>
+   571→                <CardContent className="space-y-4">
+   572→                  <div>
+   573→                    <Label className="text-xs">Tempo por jogada: {current.rules.boardGameTimer}s</Label>
+   574→                    <Slider min={10} max={120} step={5} value={[current.rules.boardGameTimer]} onValueChange={([v]) => updateRules({ boardGameTimer: v })} className="mt-2" />
+   575→                  </div>
+   576→                  <div className="flex items-center justify-between">
+   577→                    <div><Label className="text-xs font-medium">Permitir desfazer</Label><p className="text-[10px] text-muted-foreground">Jogadores podem desfazer ultima jogada</p></div>
+   578→                    <Switch checked={current.rules.allowUndo} onCheckedChange={(v) => updateRules({ allowUndo: v })} />
+   579→                  </div>
+   580→                </CardContent>
+   581→              </Card>
+   582→            </div>
+   583→          )}
+   584→        </TabsContent>
+   585→
+   586→        <TabsContent value="design" className="mt-6">
+   587→          {!current ? (
+   588→            <div className="text-center py-12 text-muted-foreground rounded-2xl border border-dashed border-border">
+   589→              <Palette className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+   590→              <p>Selecione um template para configurar o design.</p>
+   591→              <Button variant="link" onClick={() => setTab('templates')}>Ver templates</Button>
+   592→            </div>
+   593→          ) : (
+   594→            <div className="space-y-6">
+   595→              <div className="flex items-center justify-between">
+   596→                <h2 className="font-display text-lg font-bold">Design da Live: {current.name}</h2>
+   597→                <Button size="sm" onClick={saveTemplate} disabled={saving} className="gap-1">
+   598→                  <Save className="h-3 w-3" /> Guardar
+   599→                </Button>
+   600→              </div>
+   601→
+   602→              <Card>
+   603→                <CardHeader className="pb-3"><CardTitle className="text-sm">Dados da Empresa</CardTitle></CardHeader>
+   604→                <CardContent className="space-y-3">
+   605→                  <div><Label className="text-xs">Nome da Empresa</Label><Input value={current.branding.companyName} onChange={(e) => updateBranding({ companyName: e.target.value })} className="mt-1" /></div>
+   606→                  <div><Label className="text-xs">Slogan</Label><Input value={current.branding.companySlogan} onChange={(e) => updateBranding({ companySlogan: e.target.value })} className="mt-1" /></div>
+   607→                  <div><Label className="text-xs">URL do Logo</Label><Input value={current.branding.companyLogoUrl} onChange={(e) => updateBranding({ companyLogoUrl: e.target.value })} className="mt-1" /></div>
+   608→                  <div><Label className="text-xs">Imagem de Fundo</Label><Input value={current.branding.backgroundImageUrl} onChange={(e) => updateBranding({ backgroundImageUrl: e.target.value })} className="mt-1" /></div>
+   609→                </CardContent>
+   610→              </Card>
+   611→
+   612→              <Card>
+   613→                <CardHeader className="pb-3"><CardTitle className="text-sm">Cores do Tema</CardTitle></CardHeader>
+   614→                <CardContent>
+   615→                  <div className="grid grid-cols-2 gap-4">
+   616→                    {(['primaryColor', 'secondaryColor', 'accentColor', 'backgroundColor']).map((key) => (
+   617→                      <div key={key} className="space-y-1">
+   618→                        <Label className="text-xs capitalize">{key.replace('Color', '').replace('background', 'Fundo')}</Label>
+   619→                        <div className="flex gap-2">
+   620→                          <input type="color" value={current.branding[key]} onChange={(e) => updateBranding({ [key]: e.target.value })} className="w-10 h-9 rounded border border-border cursor-pointer" />
+   621→                          <Input value={current.branding[key]} onChange={(e) => updateBranding({ [key]: e.target.value })} className="flex-1" />
+   622→                        </div>
+   623→                      </div>
+   624→                    ))}
+   625→                  </div>
+   626→                </CardContent>
+   627→              </Card>
+   628→
+   629→              <Card>
+   630→                <CardHeader className="pb-3"><CardTitle className="text-sm">Preview do Overlay</CardTitle></CardHeader>
+   631→                <CardContent className="space-y-3">
+   632→                  <p className="text-[11px] text-muted-foreground">Veja como o overlay fica com as suas cores. Abra numa janela do OBS.</p>
+   633→                  <div className="flex gap-2">
+   634→                    {["leaderboard", "scoreboard", "minimal"].map((v: string) => (
+   635→                      <Button key={v} size="sm" variant="outline" onClick={() => window.open(`/overlay/pro?code=LIVE&layout=${v}`, "_blank", "width=1280,height=720")}>
+   636→                        {v}
+   637→                      </Button>
+   638→                    ))}
+   639→                  </div>
+   640→                </CardContent>
+   641→              </Card>
+   642→
+   643→              <Card>
+   644→                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Sparkles className="h-4 w-4" /> Efeitos Visuais</CardTitle></CardHeader>
+   645→                <CardContent className="space-y-4">
+   646→                  <div className="flex items-center justify-between">
+   647→                    <div><Label className="text-xs font-medium">Particulas animadas</Label><p className="text-[10px] text-muted-foreground">Efeitos de particulas no fundo</p></div>
+   648→                    <Switch checked={current.branding.enableParticles} onCheckedChange={(v) => updateBranding({ enableParticles: v })} />
+   649→                  </div>
+   650→                  <div className="flex items-center justify-between">
+   651→                    <div><Label className="text-xs font-medium">Confetti</Label><p className="text-[10px] text-muted-foreground">Celebracoes com confetti</p></div>
+   652→                    <Switch checked={current.branding.enableConfetti} onCheckedChange={(v) => updateBranding({ enableConfetti: v })} />
+   653→                  </div>
+   654→                  <div className="flex items-center justify-between">
+   655→                    <div><Label className="text-xs font-medium">Efeitos de brilho</Label><p className="text-[10px] text-muted-foreground">Bordas e brilho animados</p></div>
+   656→                    <Switch checked={current.branding.enableGlowEffects} onCheckedChange={(v) => updateBranding({ enableGlowEffects: v })} />
+   657→                  </div>
+   658→                  <div>
+   659→                    <Label className="text-xs font-medium">Velocidade da animacao</Label>
+   660→                    <Select value={current.branding.animationSpeed} onValueChange={(v: any) => updateBranding({ animationSpeed: v })}>
+   661→                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   662→                      <SelectContent>
+   663→                        <SelectItem value="slow">Lento</SelectItem>
+   664→                        <SelectItem value="normal">Normal</SelectItem>
+   665→                        <SelectItem value="fast">Rapido</SelectItem>
+   666→                      </SelectContent>
+   667→                    </Select>
+   668→                  </div>
+   669→                </CardContent>
+   670→              </Card>
+   671→            </div>
+   672→          )}
+   673→        </TabsContent>
+   674→      </Tabs>
+   675→    </div>
+   676→  );
+   677→};
+   678→
+   679→export default CompanyLiveManager;
+   680→
