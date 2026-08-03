@@ -1,0 +1,924 @@
+     1→import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+     2→import { useNavigate, Link } from "react-router-dom";
+     3→import { supabase } from "@/integrations/supabase/client";
+     4→import { useAuth } from "@/contexts/AuthContext";
+     5→import Navbar from "@/components/Navbar";
+     6→import Footer from "@/components/Footer";
+     7→import { Input } from "@/components/ui/input";
+     8→import {
+     9→  Building2, Search, CheckCircle, Ticket, Trophy, TrendingUp, Star,
+    10→  ArrowRight, Users, Sparkles, Zap, Gamepad2, Radio, ChevronRight,
+    11→  Crown, Shield, LayoutGrid, List, Eye, Flame, MapPin, Globe, Rocket
+    12→} from "lucide-react";
+    13→import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
+    14→import MobileDiscoveryHeader from "@/components/meituan/MobileDiscoveryHeader";
+    15→import MeituanSkeleton from "@/components/meituan/MeituanSkeleton";
+    16→
+    17→interface BusinessItem {
+    18→  user_id: string;
+    19→  display_name: string | null;
+    20→  company_name: string | null;
+    21→  avatar_url: string | null;
+    22→  is_verified: boolean | null;
+    23→  raffle_count: number;
+    24→  contest_count: number;
+    25→}
+    26→
+    27→const SPRING = { type: "spring" as const, stiffness: 300, damping: 25 };
+    28→const SPRING_BOUNCE = { type: "spring" as const, stiffness: 400, damping: 15 };
+    29→const SPRING_GENTLE = { type: "spring" as const, stiffness: 200, damping: 30 };
+    30→
+    31→const C_PRIMARY = "hsl(220 70% 18%)";
+    32→const C_ACCENT = "hsl(352 73% 50%)";
+    33→const C_GOLD = "#fbbf24";
+    34→const C_VIOLET = "hsl(270 60% 55%)";
+    35→const C_CYAN = "hsl(190 80% 50%)";
+    36→
+    37→const TITLE_WORDS = ["Directorio", "de", "Empresas"];
+    38→
+    39→function CountingStat({ target, duration = 2 }: { target: number; duration?: number }) {
+    40→  const [display, setDisplay] = useState(0);
+    41→  useEffect(() => {
+    42→    if (target === 0) { setDisplay(0); return; }
+    43→    const startTime = performance.now();
+    44→    const step = (now: number) => {
+    45→      const elapsed = (now - startTime) / 1000;
+    46→      const progress = Math.min(elapsed / duration, 1);
+    47→      const eased = 1 - Math.pow(1 - progress, 4);
+    48→      setDisplay(Math.round(eased * target));
+    49→      if (progress < 1) requestAnimationFrame(step);
+    50→    };
+    51→    requestAnimationFrame(step);
+    52→  }, [target, duration]);
+    53→  return <>{display.toLocaleString("pt-PT")}</>;
+    54→}
+    55→
+    56→function DirectoryParticles() {
+    57→  const canvasRef = useRef<HTMLCanvasElement>(null);
+    58→  useEffect(() => {
+    59→    const canvas = canvasRef.current;
+    60→    if (!canvas) return;
+    61→    const ctx = canvas.getContext("2d");
+    62→    if (!ctx) return;
+    63→    let animId = 0;
+    64→    let w = 0;
+    65→    let h = 0;
+    66→    const dots: { x: number; y: number; vx: number; vy: number; r: number; o: number }[] = [];
+    67→    const resize = () => {
+    68→      w = canvas.width = canvas.offsetWidth * 2;
+    69→      h = canvas.height = canvas.offsetHeight * 2;
+    70→    };
+    71→    resize();
+    72→    window.addEventListener("resize", resize);
+    73→    for (let i = 0; i < 30; i++) {
+    74→      dots.push({
+    75→        x: Math.random() * w,
+    76→        y: Math.random() * h,
+    77→        vx: (Math.random() - 0.5) * 0.4,
+    78→        vy: (Math.random() - 0.5) * 0.4,
+    79→        r: Math.random() * 2 + 1,
+    80→        o: Math.random() * 0.3 + 0.1,
+    81→      });
+    82→    }
+    83→    const draw = () => {
+    84→      ctx.clearRect(0, 0, w, h);
+    85→      for (const d of dots) {
+    86→        d.x += d.vx;
+    87→        d.y += d.vy;
+    88→        if (d.x < 0 || d.x > w) d.vx *= -1;
+    89→        if (d.y < 0 || d.y > h) d.vy *= -1;
+    90→        ctx.beginPath();
+    91→        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+    92→        ctx.fillStyle = "rgba(255,255,255," + d.o + ")";
+    93→        ctx.fill();
+    94→      }
+    95→      for (let i = 0; i < dots.length; i++) {
+    96→        for (let j = i + 1; j < dots.length; j++) {
+    97→          const dx = dots[i].x - dots[j].x;
+    98→          const dy = dots[i].y - dots[j].y;
+    99→          const dist = Math.sqrt(dx * dx + dy * dy);
+   100→          if (dist < 180) {
+   101→            ctx.beginPath();
+   102→            ctx.moveTo(dots[i].x, dots[i].y);
+   103→            ctx.lineTo(dots[j].x, dots[j].y);
+   104→            ctx.strokeStyle = "rgba(255,255,255," + (0.04 * (1 - dist / 180)) + ")";
+   105→            ctx.lineWidth = 1;
+   106→            ctx.stroke();
+   107→          }
+   108→        }
+   109→      }
+   110→      animId = requestAnimationFrame(draw);
+   111→    };
+   112→    draw();
+   113→    return () => {
+   114→      cancelAnimationFrame(animId);
+   115→      window.removeEventListener("resize", resize);
+   116→    };
+   117→  }, []);
+   118→  return (
+   119→    <canvas
+   120→      ref={canvasRef}
+   121→      className="absolute inset-0 w-full h-full pointer-events-none"
+   122→      style={{ opacity: 0.6 }}
+   123→    />
+   124→  );
+   125→}
+   126→
+   127→function FeaturedMarquee({ businesses }: { businesses: BusinessItem[] }) {
+   128→  const featured = businesses.filter(b => b.is_verified || (b.raffle_count + b.contest_count) >= 3).slice(0, 12);
+   129→  if (featured.length === 0) return null;
+   130→  const doubled = [...featured, ...featured];
+   131→  return (
+   132→    <div className="dirv2-marquee-wrap">
+   133→      <div className="dirv2-marquee-track">
+   134→        {doubled.map((b, i) => (
+   135→          <Link
+   136→            key={b.user_id + "-" + i}
+   137→            to={"/empresa/" + b.user_id + "/publico"}
+   138→            className="dirv2-marquee-item"
+   139→          >
+   140→            <div className="dirv2-marquee-avatar">
+   141→              {b.avatar_url ? (
+   142→                <img src={b.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+   143→              ) : (
+   144→                <span className="text-sm font-black" style={{ color: C_PRIMARY }}>
+   145→                  {(b.company_name || b.display_name || "E").charAt(0).toUpperCase()}
+   146→                </span>
+   147→              )}
+   148→              {b.is_verified && (
+   149→                <div className="dirv2-marquee-badge">
+   150→                  <CheckCircle className="h-2.5 w-2.5" style={{ color: C_GOLD }} />
+   151→                </div>
+   152→              )}
+   153→            </div>
+   154→            <span className="dirv2-marquee-name truncate">{b.company_name || b.display_name}</span>
+   155→          </Link>
+   156→        ))}
+   157→      </div>
+   158→    </div>
+   159→  );
+   160→}
+   161→
+   162→function TiltCard({ children, className = "", ...props }: { children: React.ReactNode; className?: string } & Record<string, unknown>) {
+   163→  const ref = useRef<HTMLDivElement>(null);
+   164→  const x = useMotionValue(0);
+   165→  const y = useMotionValue(0);
+   166→  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [6, -6]), SPRING);
+   167→  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-6, 6]), SPRING);
+   168→  const handleMouse = useCallback((e: React.MouseEvent) => {
+   169→    if (!ref.current) return;
+   170→    const r = ref.current.getBoundingClientRect();
+   171→    x.set((e.clientX - r.left) / r.width - 0.5);
+   172→    y.set((e.clientY - r.top) / r.height - 0.5);
+   173→  }, [x, y]);
+   174→  const handleLeave = useCallback(() => {
+   175→    x.set(0);
+   176→    y.set(0);
+   177→  }, [x, y]);
+   178→  return (
+   179→    <motion.div
+   180→      ref={ref}
+   181→      onMouseMove={handleMouse}
+   182→      onMouseLeave={handleLeave}
+   183→      style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: 800 }}
+   184→      className={className}
+   185→      {...props}
+   186→    >
+   187→      {children}
+   188→    </motion.div>
+   189→  );
+   190→}
+   191→
+   192→function ActivityRing({ value, max, color, size = 40 }: { value: number; max: number; color: string; size?: number }) {
+   193→  const [pct, setPct] = useState(0);
+   194→  const safeMax = Math.max(max, 1);
+   195→  useEffect(() => {
+   196→    const timer = setTimeout(() => setPct(Math.min(value / safeMax, 1)), 400);
+   197→    return () => clearTimeout(timer);
+   198→  }, [value, safeMax]);
+   199→  const r = (size - 6) / 2;
+   200→  const circ = 2 * Math.PI * r;
+   201→  const offset = circ * (1 - pct);
+   202→  return (
+   203→    <svg width={size} height={size} className="dirv2-activity-ring">
+   204→      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={3} />
+   205→      <circle
+   206→        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={3}
+   207→        strokeDasharray={circ} strokeDashoffset={offset}
+   208→        strokeLinecap="round"
+   209→        style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.22,1,0.36,1)" }}
+   210→      />
+   211→      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
+   212→        fill={color} fontSize={size < 36 ? 9 : 11} fontWeight={800} fontFamily="inherit">
+   213→        {value}
+   214→      </text>
+   215→    </svg>
+   216→  );
+   217→}
+   218→
+   219→function StatBadge({ icon: Icon, value, label, color }: { icon: React.ElementType; value: React.ReactNode; label: string; color: string }) {
+   220→  return (
+   221→    <motion.div
+   222→      className="dirv2-hero-stat"
+   223→      initial={{ opacity: 0, y: 20, scale: 0.9 }}
+   224→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   225→      transition={{ ...SPRING, delay: 0.6 }}
+   226→    >
+   227→      <div className="dirv2-hero-stat-icon" style={{ background: color + "15" }}>
+   228→        <Icon className="h-4 w-4" style={{ color }} />
+   229→      </div>
+   230→      <div>
+   231→        <p className="dirv2-hero-stat-value" style={{ color }}>{value}</p>
+   232→        <p className="dirv2-hero-stat-label">{label}</p>
+   233→      </div>
+   234→    </motion.div>
+   235→  );
+   236→}
+   237→
+   238→export default function BusinessDirectory() {
+   239→  const navigate = useNavigate();
+   240→  const { user } = useAuth();
+   241→  const [businesses, setBusinesses] = useState<BusinessItem[]>([]);
+   242→  const [search, setSearch] = useState("");
+   243→  const [loading, setLoading] = useState(true);
+   244→  const [filter, setFilter] = useState<"all" | "verified" | "active">("all");
+   245→  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+   246→  const [statsReady, setStatsReady] = useState(false);
+   247→  const [searchFocused, setSearchFocused] = useState(false);
+   248→  const heroRef = useRef<HTMLDivElement>(null);
+   249→  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+   250→  const [scrollY, setScrollY] = useState(0);
+   251→  const contentRef = useRef<HTMLDivElement>(null);
+   252→  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+   253→
+   254→  useEffect(() => {
+   255→    const onScroll = () => setScrollY(window.scrollY);
+   256→    window.addEventListener("scroll", onScroll, { passive: true });
+   257→    return () => window.removeEventListener("scroll", onScroll);
+   258→  }, []);
+   259→
+   260→  useEffect(() => {
+   261→    const load = async () => {
+   262→      try {
+   263→        const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "business");
+   264→        if (!roles || roles.length === 0) { setLoading(false); return; }
+   265→        const businessIds = roles.map(r => r.user_id);
+   266→        const [profilesRes, rafflesRes, contestsRes] = await Promise.all([
+   267→          supabase.from("profiles_public").select("*").in("user_id", businessIds),
+   268→          supabase.from("raffles").select("business_user_id").eq("status", "active"),
+   269→          supabase.from("contests").select("created_by").in("status", ["active", "voting", "completed"]),
+   270→        ]);
+   271→        const profiles = profilesRes.data || [];
+   272→        const rafflesByUser: Record<string, number> = {};
+   273→        (rafflesRes.data || []).forEach((r: { business_user_id: string }) => {
+   274→          rafflesByUser[r.business_user_id] = (rafflesByUser[r.business_user_id] || 0) + 1;
+   275→        });
+   276→        const contestsByUser: Record<string, number> = {};
+   277→        (contestsRes.data || []).forEach((c: { created_by: string }) => {
+   278→          contestsByUser[c.created_by] = (contestsByUser[c.created_by] || 0) + 1;
+   279→        });
+   280→        const items: BusinessItem[] = profiles.map((p: Record<string, unknown>) => ({
+   281→          user_id: p.user_id as string,
+   282→          display_name: p.display_name as string | null,
+   283→          company_name: p.company_name as string | null,
+   284→          avatar_url: p.avatar_url as string | null,
+   285→          is_verified: p.is_verified as boolean | null,
+   286→          raffle_count: rafflesByUser[p.user_id as string] || 0,
+   287→          contest_count: contestsByUser[p.user_id as string] || 0,
+   288→        }));
+   289→        items.sort((a, b) => {
+   290→          if (a.is_verified !== b.is_verified) return a.is_verified ? -1 : 1;
+   291→          return (b.raffle_count + b.contest_count) - (a.raffle_count + a.contest_count);
+   292→        });
+   293→        setBusinesses(items);
+   294→      } catch (e) {
+   295→        console.error("Failed to load businesses:", e);
+   296→      }
+   297→      setLoading(false);
+   298→    };
+   299→    load();
+   300→  }, []);
+   301→
+   302→  useEffect(() => {
+   303→    const timer = setTimeout(() => setStatsReady(true), 400);
+   304→    return () => clearTimeout(timer);
+   305→  }, []);
+   306→
+   307→  useEffect(() => {
+   308→    if (!contentRef.current) return;
+   309→    const observer = new IntersectionObserver(
+   310→      (entries) => {
+   311→        entries.forEach(entry => {
+   312→          const id = entry.target.getAttribute("data-bid");
+   313→          if (id && entry.isIntersecting) {
+   314→            setVisibleCards(prev => new Set(prev).add(id));
+   315→          }
+   316→        });
+   317→      },
+   318→      { rootMargin: "0px 0px -60px 0px", threshold: 0.1 }
+   319→    );
+   320→    contentRef.current.querySelectorAll("[data-bid]").forEach(el => observer.observe(el));
+   321→    return () => observer.disconnect();
+   322→  }, [loading, filter, search, viewMode]);
+   323→
+   324→  const filtered = useMemo(() => {
+   325→    let list = businesses;
+   326→    if (filter === "verified") list = list.filter(b => b.is_verified);
+   327→    if (filter === "active") list = list.filter(b => b.raffle_count + b.contest_count > 0);
+   328→    if (search.trim()) {
+   329→      const q = search.toLowerCase();
+   330→      list = list.filter(
+   331→        b =>
+   332→          (b.company_name || "").toLowerCase().includes(q) ||
+   333→          (b.display_name || "").toLowerCase().includes(q)
+   334→      );
+   335→    }
+   336→    return list;
+   337→  }, [businesses, search, filter]);
+   338→
+   339→  const totalRaffles = useMemo(() => businesses.reduce((s, b) => s + b.raffle_count, 0), [businesses]);
+   340→  const totalContests = useMemo(() => businesses.reduce((s, b) => s + b.contest_count, 0), [businesses]);
+   341→  const verifiedCount = useMemo(() => businesses.filter(b => b.is_verified).length, [businesses]);
+   342→  const activeCount = useMemo(() => businesses.filter(b => b.raffle_count + b.contest_count > 0).length, [businesses]);
+   343→
+   344→  const chipCategories = [
+   345→    { id: "all", label: "Todas", icon: "\ud83c\udfe2", count: businesses.length },
+   346→    { id: "verified", label: "Verificadas", icon: "\u2705", count: verifiedCount },
+   347→    { id: "active", label: "Ativas", icon: "\u26a1", count: activeCount },
+   348→  ];
+   349→
+   350→  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+   351→    if (!heroRef.current) return;
+   352→    const rect = heroRef.current.getBoundingClientRect();
+   353→    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+   354→  };
+   355→
+   356→  const heroOpacity = Math.max(0, 1 - scrollY / 500);
+   357→  const maxActivities = useMemo(
+   358→    () => Math.max(...businesses.map(b => b.raffle_count + b.contest_count), 1),
+   359→    [businesses]
+   360→  );
+   361→
+   362→  const desktopFilters = [
+   363→    { id: "all" as const, label: "Todas", Icon: Globe, color: C_PRIMARY },
+   364→    { id: "verified" as const, label: "Verificadas", Icon: Shield, color: C_GOLD },
+   365→    { id: "active" as const, label: "Ativas", Icon: Flame, color: C_ACCENT },
+   366→  ];
+   367→
+   368→  const heroStats = [
+   369→    { icon: Building2, label: "Empresas", value: businesses.length, color: C_PRIMARY },
+   370→    { icon: CheckCircle, label: "Verificadas", value: verifiedCount, color: C_GOLD },
+   371→    { icon: Ticket, label: "Sorteios", value: totalRaffles, color: C_ACCENT },
+   372→    { icon: Trophy, label: "Concursos", value: totalContests, color: C_VIOLET },
+   373→  ];
+   374→
+   375→  return (
+   376→    <div className="min-h-screen bg-mesh-soft bg-noise pb-20 md:pb-0">
+   377→      <Navbar />
+   378→
+   379→      <MobileDiscoveryHeader
+   380→        title="Directorio de Empresas"
+   381→        searchValue={search}
+   382→        onSearchChange={setSearch}
+   383→        searchPlaceholder="Pesquisar empresa..."
+   384→        categories={chipCategories}
+   385→        activeCategory={filter}
+   386→        onCategoryChange={(id) => setFilter(id as "all" | "verified" | "active")}
+   387→      />
+   388→
+   389→      <div
+   390→        ref={heroRef}
+   391→        onMouseMove={handleMouseMove}
+   392→        className="relative overflow-hidden hidden md:block"
+   393→        style={{ minHeight: "520px", opacity: heroOpacity }}
+   394→      >
+   395→        <div className="aurora-hero">
+   396→          <div className="aurora-blob aurora-blob-1" style={{ background: "hsl(220 70% 18% / 0.3)", width: "600px", height: "600px" }} />
+   397→          <div className="aurora-blob aurora-blob-2" style={{ background: "hsl(352 73% 50% / 0.18)", width: "500px", height: "500px" }} />
+   398→          <div className="aurora-blob aurora-blob-3" style={{ background: "hsl(270 60% 40% / 0.12)", width: "450px", height: "450px" }} />
+   399→        </div>
+   400→        <DirectoryParticles />
+   401→        <div
+   402→          className="hero-mouse-light"
+   403→          style={{
+   404→            background: "radial-gradient(700px circle at " + mousePos.x + "px " + mousePos.y + "px, hsl(220 70% 18% / 0.08), transparent 40%)",
+   405→          }}
+   406→        />
+   407→        <div className="hero-grid-overlay" style={{ "--grid-color": "rgba(255,255,255,0.3)" } as React.CSSProperties} />
+   408→        <div className="hero-bottom-fade" />
+   409→
+   410→        <div className="relative z-10 container mx-auto px-4 max-w-6xl">
+   411→          <div className="text-center pt-24 pb-6">
+   412→            <motion.div
+   413→              className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-8"
+   414→              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(12px)" }}
+   415→              initial={{ opacity: 0, y: -20, scale: 0.85 }}
+   416→              animate={{ opacity: 1, y: 0, scale: 1 }}
+   417→              transition={{ ...SPRING, delay: 0.1 }}
+   418→            >
+   419→              <motion.span
+   420→                animate={{ rotate: [0, 15, -15, 0] }}
+   421→                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+   422→              >
+   423→                <Crown className="h-4 w-4" style={{ color: C_GOLD }} />
+   424→              </motion.span>
+   425→              <span className="text-xs font-bold text-muted-foreground tracking-wide uppercase">Plataforma de jogos e concursos</span>
+   426→            </motion.div>
+   427→
+   428→            <h1 className="text-5xl md:text-7xl font-black font-display tracking-tight mb-5 leading-[1.05]">
+   429→              {TITLE_WORDS.map((word, wi) => (
+   430→                <motion.span
+   431→                  key={wi}
+   432→                  className="text-shimmer inline-block mr-[0.3em]"
+   433→                  style={{
+   434→                    "--shimmer-c1": "hsl(var(--foreground))",
+   435→                    "--shimmer-c2": "hsl(220 70% 18% / 0.5)",
+   436→                  } as React.CSSProperties}
+   437→                  initial={{ opacity: 0, y: 40, rotateX: -30 }}
+   438→                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
+   439→                  transition={{ ...SPRING_BOUNCE, delay: 0.15 + wi * 0.08 }}
+   440→                >
+   441→                  {word}
+   442→                </motion.span>
+   443→              ))}
+   444→            </h1>
+   445→
+   446→            <motion.p
+   447→              className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed"
+   448→              initial={{ opacity: 0, y: 20 }}
+   449→              animate={{ opacity: 1, y: 0 }}
+   450→              transition={{ ...SPRING, delay: 0.5 }}
+   451→            >
+   452→              Descubra empresas que criam experiencias incriveis com sorteios, concursos, jogos ao vivo e muito mais
+   453→            </motion.p>
+   454→
+   455→            <motion.div
+   456→              className="max-w-2xl mx-auto mb-10"
+   457→              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+   458→              animate={{ opacity: 1, y: 0, scale: 1 }}
+   459→              transition={{ ...SPRING, delay: 0.6 }}
+   460→            >
+   461→              <div
+   462→                className="dirv2-search-box"
+   463→                style={{ "--search-glow": searchFocused ? "1" : "0" } as React.CSSProperties}
+   464→              >
+   465→                <div className="relative">
+   466→                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground transition-colors" style={{ color: searchFocused ? C_PRIMARY : undefined }} />
+   467→                  <Input
+   468→                    placeholder="Pesquisar empresas por nome..."
+   469→                    value={search}
+   470→                    onChange={(e) => setSearch(e.target.value)}
+   471→                    onFocus={() => setSearchFocused(true)}
+   472→                    onBlur={() => setSearchFocused(false)}
+   473→                    className="pl-14 h-14 rounded-2xl bg-transparent border-0 text-base focus-visible:ring-0 placeholder:text-muted-foreground/40"
+   474→                  />
+   475→                  <motion.div
+   476→                    className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2 rounded-xl text-xs font-bold text-white"
+   477→                    style={{ background: "linear-gradient(135deg, " + C_PRIMARY + ", " + C_ACCENT + ")" }}
+   478→                    whileHover={{ scale: 1.05 }}
+   479→                    whileTap={{ scale: 0.95 }}
+   480→                  >
+   481→                    Pesquisar
+   482→                  </motion.div>
+   483→                </div>
+   484→              </div>
+   485→            </motion.div>
+   486→
+   487→            <div className="flex items-center justify-center gap-4 flex-wrap">
+   488→              {heroStats.map((s, i) => (
+   489→                <StatBadge
+   490→                  key={s.label}
+   491→                  icon={s.icon}
+   492→                  value={statsReady ? <CountingStat target={s.value} duration={2.5} /> : <span>0</span>}
+   493→                  label={s.label}
+   494→                  color={s.color}
+   495→                />
+   496→              ))}
+   497→            </div>
+   498→
+   499→            {!user && (
+   500→              <motion.div
+   501→                className="mt-8"
+   502→                initial={{ opacity: 0, y: 15 }}
+   503→                animate={{ opacity: 1, y: 0 }}
+   504→                transition={{ delay: 0.9 }}
+   505→              >
+   506→                <Link to="/register">
+   507→                  <motion.button
+   508→                    className="dirv2-cta-btn"
+   509→                    style={{ background: "linear-gradient(135deg, " + C_PRIMARY + ", " + C_ACCENT + ")" }}
+   510→                    whileHover={{ scale: 1.06, boxShadow: "0 10px 50px hsl(220 70% 18% / 0.4), 0 0 100px hsl(352 73% 50% / 0.2)" }}
+   511→                    whileTap={{ scale: 0.96 }}
+   512→                  >
+   513→                    <Sparkles className="h-5 w-5" />
+   514→                    <span>Crie o seu primeiro concurso gratis</span>
+   515→                    <ArrowRight className="h-4 w-4" />
+   516→                  </motion.button>
+   517→                </Link>
+   518→              </motion.div>
+   519→            )}
+   520→          </div>
+   521→        </div>
+   522→      </div>
+   523→
+   524→      <div className="hidden md:block">
+   525→        <FeaturedMarquee businesses={businesses} />
+   526→      </div>
+   527→
+   528→      <div className="container mx-auto px-4 max-w-6xl mt-8 relative z-20 hidden md:block">
+   529→        <motion.div
+   530→          className="flex items-center gap-3 mb-6"
+   531→          initial={{ opacity: 0, y: 10 }}
+   532→          animate={{ opacity: 1, y: 0 }}
+   533→          transition={{ delay: 0.7 }}
+   534→        >
+   535→          <div className="flex gap-1.5 p-1.5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+   536→            {desktopFilters.map(f => {
+   537→              const isActive = filter === f.id;
+   538→              return (
+   539→                <motion.button
+   540→                  key={f.id}
+   541→                  onClick={() => setFilter(f.id)}
+   542→                  className="dirv2-filter-chip"
+   543→                  style={{
+   544→                    color: isActive ? f.color : "hsl(var(--muted-foreground))",
+   545→                    "--chip-active-bg": f.color + "12",
+   546→                    "--chip-active-border": f.color + "25",
+   547→                  } as React.CSSProperties}
+   548→                  data-active={isActive ? "1" : undefined}
+   549→                  whileHover={{ scale: 1.04 }}
+   550→                  whileTap={{ scale: 0.96 }}
+   551→                >
+   552→                  <f.Icon className="h-3.5 w-3.5" />
+   553→                  <span>{f.label}</span>
+   554→                  <span className="dirv2-filter-count">
+   555→                    {f.id === "all" ? businesses.length : f.id === "verified" ? verifiedCount : activeCount}
+   556→                  </span>
+   557→                </motion.button>
+   558→              );
+   559→            })}
+   560→          </div>
+   561→
+   562→          <div className="flex-1" />
+   563→
+   564→          <span className="text-xs text-muted-foreground/50 font-medium">
+   565→            {filtered.length} {filtered.length === 1 ? "empresa" : "empresas"}
+   566→          </span>
+   567→
+   568→          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+   569→            <motion.button
+   570→              onClick={() => setViewMode("grid")}
+   571→              className="p-2.5 rounded-lg transition-colors"
+   572→              style={{ color: viewMode === "grid" ? C_PRIMARY : "hsl(var(--muted-foreground))", backgroundColor: viewMode === "grid" ? C_PRIMARY + "12" : "transparent" }}
+   573→              whileHover={{ scale: 1.08 }}
+   574→              whileTap={{ scale: 0.92 }}
+   575→            >
+   576→              <LayoutGrid className="h-4 w-4" />
+   577→            </motion.button>
+   578→            <motion.button
+   579→              onClick={() => setViewMode("list")}
+   580→              className="p-2.5 rounded-lg transition-colors"
+   581→              style={{ color: viewMode === "list" ? C_PRIMARY : "hsl(var(--muted-foreground))", backgroundColor: viewMode === "list" ? C_PRIMARY + "12" : "transparent" }}
+   582→              whileHover={{ scale: 1.08 }}
+   583→              whileTap={{ scale: 0.92 }}
+   584→            >
+   585→              <List className="h-4 w-4" />
+   586→            </motion.button>
+   587→          </div>
+   588→        </motion.div>
+   589→      </div>
+   590→
+   591→      <div ref={contentRef} className="container mx-auto px-3 sm:px-4 max-w-6xl pb-10 relative z-20">
+   592→        {loading ? (
+   593→          <div className="mt-3 md:mt-0">
+   594→            <div className="md:hidden"><MeituanSkeleton count={6} /></div>
+   595→            <div className="hidden md:flex items-center justify-center py-20">
+   596→              <div className="relative">
+   597→                <motion.div
+   598→                  className="w-14 h-14 rounded-2xl flex items-center justify-center"
+   599→                  style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.15), hsl(352 73% 50% / 0.1))" }}
+   600→                  animate={{ rotate: 360 }}
+   601→                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+   602→                >
+   603→                  <Building2 className="h-7 w-7" style={{ color: C_PRIMARY }} />
+   604→                </motion.div>
+   605→                <motion.div
+   606→                  className="absolute inset-0 rounded-2xl"
+   607→                  animate={{ scale: [1, 1.6, 1], opacity: [0.3, 0, 0.3] }}
+   608→                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   609→                  style={{ border: "2px solid " + C_PRIMARY + "25" }}
+   610→                />
+   611→              </div>
+   612→            </div>
+   613→          </div>
+   614→        ) : filtered.length === 0 ? (
+   615→          <div className="text-center py-24">
+   616→            <div className="relative inline-block">
+   617→              <div className="absolute inset-0 rounded-full" style={{ background: C_PRIMARY, filter: "blur(50px)", width: 140, height: 140, top: "-10px", left: "-10px", animation: "empty-orb-pulse 4s ease-in-out infinite" }} />
+   618→              <motion.div className="relative">
+   619→                <motion.div
+   620→                  className="w-28 h-28 rounded-3xl flex items-center justify-center mx-auto mb-6"
+   621→                  style={{
+   622→                    background: "linear-gradient(135deg, hsl(220 70% 18% / 0.08), hsl(352 73% 50% / 0.04))",
+   623→                    border: "1.5px dashed hsl(220 70% 18% / 0.15)",
+   624→                  }}
+   625→                  animate={{ rotate: [0, 5, -5, 0] }}
+   626→                  transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+   627→                >
+   628→                  <Building2 className="h-12 w-12 text-muted-foreground/15" />
+   629→                </motion.div>
+   630→              </motion.div>
+   631→            </div>
+   632→            <motion.p
+   633→              className="text-xl font-bold text-muted-foreground mb-2"
+   634→              initial={{ opacity: 0, y: 10 }}
+   635→              animate={{ opacity: 1, y: 0 }}
+   636→            >
+   637→              Nenhuma empresa encontrada
+   638→            </motion.p>
+   639→            <motion.p
+   640→              className="text-sm text-muted-foreground/50"
+   641→              initial={{ opacity: 0 }}
+   642→              animate={{ opacity: 1 }}
+   643→              transition={{ delay: 0.2 }}
+   644→            >
+   645→              Tente uma pesquisa diferente ou altere o filtro
+   646→            </motion.p>
+   647→          </div>
+   648→        ) : (
+   649→          <>
+   650→            <div className="md:hidden">
+   651→              <div className="grid grid-cols-2 gap-3 mt-3">
+   652→                {filtered.map((b, i) => (
+   653→                  <motion.div
+   654→                    key={b.user_id}
+   655→                    data-bid={b.user_id}
+   656→                    initial={{ opacity: 0, y: 15 }}
+   657→                    animate={{ opacity: 1, y: 0 }}
+   658→                    transition={{ delay: Math.min(i, 10) * 0.04, ...SPRING_GENTLE }}
+   659→                    onClick={() => navigate("/empresa/" + b.user_id + "/publico")}
+   660→                    whileTap={{ scale: 0.96 }}
+   661→                  >
+   662→                    <div className="dirv2-mobile-card">
+   663→                      <div className="flex items-center gap-2.5 mb-3">
+   664→                        <div className="dirv2-mobile-avatar">
+   665→                          {b.avatar_url ? (
+   666→                            <img src={b.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
+   667→                          ) : (
+   668→                            <span className="text-sm font-black" style={{ color: C_PRIMARY }}>
+   669→                              {(b.company_name || b.display_name || "E").charAt(0).toUpperCase()}
+   670→                            </span>
+   671→                          )}
+   672→                        </div>
+   673→                        <div className="min-w-0 flex-1">
+   674→                          <div className="flex items-center gap-1">
+   675→                            <p className="font-bold text-sm truncate">{b.company_name || b.display_name}</p>
+   676→                            {b.is_verified && <CheckCircle className="h-3.5 w-3.5 shrink-0" style={{ color: C_GOLD }} />}
+   677→                          </div>
+   678→                          <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+   679→                            <span className="flex items-center gap-0.5" style={{ color: C_ACCENT }}>
+   680→                              <Ticket className="h-2.5 w-2.5" /> {b.raffle_count}
+   681→                            </span>
+   682→                            <span className="flex items-center gap-0.5" style={{ color: C_PRIMARY }}>
+   683→                              <Trophy className="h-2.5 w-2.5" /> {b.contest_count}
+   684→                            </span>
+   685→                          </div>
+   686→                        </div>
+   687→                      </div>
+   688→                    </div>
+   689→                  </motion.div>
+   690→                ))}
+   691→              </div>
+   692→            </div>
+   693→
+   694→            <AnimatePresence mode="wait">
+   695→              {viewMode === "grid" ? (
+   696→                <motion.div
+   697→                  key="grid"
+   698→                  className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-5 mt-0"
+   699→                  initial={{ opacity: 0 }}
+   700→                  animate={{ opacity: 1 }}
+   701→                  exit={{ opacity: 0 }}
+   702→                >
+   703→                  {filtered.map((b, i) => {
+   704→                    const total = b.raffle_count + b.contest_count;
+   705→                    const isVisible = visibleCards.has(b.user_id);
+   706→                    return (
+   707→                      <TiltCard
+   708→                        key={b.user_id}
+   709→                        data-bid={b.user_id}
+   710→                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+   711→                        animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 30, scale: isVisible ? 1 : 0.95 }}
+   712→                        transition={{ ...SPRING, delay: Math.min(i, 15) * 0.04 }}
+   713→                        onClick={() => navigate("/empresa/" + b.user_id + "/publico")}
+   714→                        className="cursor-pointer"
+   715→                      >
+   716→                        <div className="dirv2-card">
+   717→                          <div className="dirv2-card-shine" />
+   718→                          <div className="relative z-10 p-5">
+   719→                            <div className="flex items-start gap-4 mb-4">
+   720→                              <div className="dirv2-card-avatar">
+   721→                                {b.avatar_url ? (
+   722→                                  <img src={b.avatar_url} alt="" className="w-full h-full rounded-2xl object-cover" />
+   723→                                ) : (
+   724→                                  <span className="text-2xl font-black" style={{ color: C_PRIMARY }}>
+   725→                                    {(b.company_name || b.display_name || "E").charAt(0).toUpperCase()}
+   726→                                  </span>
+   727→                                )}
+   728→                                {b.is_verified && (
+   729→                                  <div className="dirv2-verified-pulse">
+   730→                                    <CheckCircle className="h-4 w-4" style={{ color: "#fff" }} />
+   731→                                  </div>
+   732→                                )}
+   733→                              </div>
+   734→                              <div className="flex-1 min-w-0 pt-1">
+   735→                                <div className="flex items-center gap-2">
+   736→                                  <h3 className="font-bold text-[15px] truncate">{b.company_name || b.display_name}</h3>
+   737→                                </div>
+   738→                                {b.company_name && b.display_name && b.company_name !== b.display_name && (
+   739→                                  <p className="text-xs text-muted-foreground/60 truncate mt-0.5">{b.display_name}</p>
+   740→                                )}
+   741→                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+   742→                                  {b.is_verified ? (
+   743→                                    <span className="dirv2-badge" style={{ "--badge-bg": C_GOLD + "15", "--badge-color": C_GOLD, "--badge-border": C_GOLD + "25" } as React.CSSProperties}>
+   744→                                      <Shield className="h-3 w-3" /> Verificado
+   745→                                    </span>
+   746→                                  ) : (
+   747→                                    <span className="dirv2-badge" style={{ "--badge-bg": "rgba(255,255,255,0.04)", "--badge-color": "hsl(var(--muted-foreground))", "--badge-border": "rgba(255,255,255,0.06)" } as React.CSSProperties}>
+   748→                                      <Building2 className="h-3 w-3" /> Empresa
+   749→                                    </span>
+   750→                                  )}
+   751→                                  {total > 0 && (
+   752→                                    <span className="dirv2-badge" style={{ "--badge-bg": C_PRIMARY + "10", "--badge-color": C_PRIMARY, "--badge-border": C_PRIMARY + "20" } as React.CSSProperties}>
+   753→                                      <Flame className="h-3 w-3" /> {total} {total === 1 ? "atividade" : "atividades"}
+   754→                                    </span>
+   755→                                  )}
+   756→                                </div>
+   757→                              </div>
+   758→                            </div>
+   759→
+   760→                            <div className="grid grid-cols-2 gap-3 mb-4">
+   761→                              <div className="dirv2-card-stat">
+   762→                                <div className="flex items-center gap-2.5">
+   763→                                  <ActivityRing value={b.raffle_count} max={maxActivities} color={C_ACCENT} size={38} />
+   764→                                  <div>
+   765→                                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Sorteios</p>
+   766→                                    <p className="text-base font-black font-display" style={{ color: C_ACCENT }}>{b.raffle_count}</p>
+   767→                                  </div>
+   768→                                </div>
+   769→                              </div>
+   770→                              <div className="dirv2-card-stat">
+   771→                                <div className="flex items-center gap-2.5">
+   772→                                  <ActivityRing value={b.contest_count} max={maxActivities} color={C_PRIMARY} size={38} />
+   773→                                  <div>
+   774→                                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Concursos</p>
+   775→                                    <p className="text-base font-black font-display" style={{ color: C_PRIMARY }}>{b.contest_count}</p>
+   776→                                  </div>
+   777→                                </div>
+   778→                              </div>
+   779→                            </div>
+   780→
+   781→                            <div className="dirv2-card-footer">
+   782→                              <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color: C_PRIMARY }}>
+   783→                                Ver perfil <ChevronRight className="h-3 w-3" />
+   784→                              </span>
+   785→                              <span className="text-[10px] text-muted-foreground/30 font-medium">
+   786→                                <Eye className="h-3 w-3 inline mr-1" />Verificado: {b.is_verified ? "Sim" : "Nao"}
+   787→                              </span>
+   788→                            </div>
+   789→                          </div>
+   790→                        </div>
+   791→                      </TiltCard>
+   792→                    );
+   793→                  })}
+   794→                </motion.div>
+   795→              ) : (
+   796→                <motion.div
+   797→                  key="list"
+   798→                  className="hidden md:flex flex-col gap-3 mt-0"
+   799→                  initial={{ opacity: 0 }}
+   800→                  animate={{ opacity: 1 }}
+   801→                  exit={{ opacity: 0 }}
+   802→                >
+   803→                  {filtered.map((b, i) => {
+   804→                    const total = b.raffle_count + b.contest_count;
+   805→                    const isVisible = visibleCards.has(b.user_id);
+   806→                    return (
+   807→                      <motion.div
+   808→                        key={b.user_id}
+   809→                        data-bid={b.user_id}
+   810→                        className="dirv2-list-card"
+   811→                        initial={{ opacity: 0, x: -20 }}
+   812→                        animate={{ opacity: isVisible ? 1 : 0, x: isVisible ? 0 : -20 }}
+   813→                        transition={{ ...SPRING, delay: Math.min(i, 15) * 0.035 }}
+   814→                        onClick={() => navigate("/empresa/" + b.user_id + "/publico")}
+   815→                        whileHover={{ x: 8 }}
+   816→                      >
+   817→                        <div className="dirv2-list-shine" />
+   818→                        <div className="relative z-10 p-4 flex items-center gap-5">
+   819→                          <div className="dirv2-list-avatar">
+   820→                            {b.avatar_url ? (
+   821→                              <img src={b.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
+   822→                            ) : (
+   823→                              <span className="text-xl font-black" style={{ color: C_PRIMARY }}>
+   824→                                {(b.company_name || b.display_name || "E").charAt(0).toUpperCase()}
+   825→                              </span>
+   826→                            )}
+   827→                            {b.is_verified && (
+   828→                              <div className="dirv2-verified-dot">
+   829→                                <CheckCircle className="h-3 w-3" style={{ color: "#fff" }} />
+   830→                              </div>
+   831→                            )}
+   832→                          </div>
+   833→                          <div className="flex-1 min-w-0">
+   834→                            <div className="flex items-center gap-2.5">
+   835→                              <p className="font-bold text-[15px] truncate">{b.company_name || b.display_name}</p>
+   836→                              {b.is_verified && <CheckCircle className="h-4 w-4 shrink-0" style={{ color: C_GOLD }} />}
+   837→                              {total > 0 && (
+   838→                                <span className="dirv2-badge" style={{ "--badge-bg": C_PRIMARY + "10", "--badge-color": C_PRIMARY, "--badge-border": C_PRIMARY + "20" } as React.CSSProperties}>
+   839→                                  <Flame className="h-3 w-3" /> {total} {total === 1 ? "atividade" : "atividades"}
+   840→                                </span>
+   841→                              )}
+   842→                            </div>
+   843→                            {b.company_name && b.display_name && b.company_name !== b.display_name && (
+   844→                              <p className="text-xs text-muted-foreground/50 truncate mt-0.5">{b.display_name}</p>
+   845→                            )}
+   846→                          </div>
+   847→                          <div className="flex items-center gap-8 shrink-0">
+   848→                            <div className="flex items-center gap-2">
+   849→                              <ActivityRing value={b.raffle_count} max={maxActivities} color={C_ACCENT} size={36} />
+   850→                              <div>
+   851→                                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Sorteios</p>
+   852→                                <p className="text-sm font-black" style={{ color: C_ACCENT }}>{b.raffle_count}</p>
+   853→                              </div>
+   854→                            </div>
+   855→                            <div className="flex items-center gap-2">
+   856→                              <ActivityRing value={b.contest_count} max={maxActivities} color={C_PRIMARY} size={36} />
+   857→                              <div>
+   858→                                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Concursos</p>
+   859→                                <p className="text-sm font-black" style={{ color: C_PRIMARY }}>{b.contest_count}</p>
+   860→                              </div>
+   861→                            </div>
+   862→                          </div>
+   863→                          <motion.div
+   864→                            className="shrink-0"
+   865→                            style={{ color: C_PRIMARY }}
+   866→                            whileHover={{ x: 4 }}
+   867→                          >
+   868→                            <ChevronRight className="h-5 w-5" />
+   869→                          </motion.div>
+   870→                        </div>
+   871→                      </motion.div>
+   872→                    );
+   873→                  })}
+   874→                </motion.div>
+   875→              )}
+   876→            </AnimatePresence>
+   877→
+   878→            {!loading && filtered.length > 0 && (
+   879→              <motion.div
+   880→                className="mt-12 hidden md:block"
+   881→                initial={{ opacity: 0, y: 20 }}
+   882→                animate={{ opacity: 1, y: 0 }}
+   883→                transition={{ delay: 0.3 }}
+   884→              >
+   885→                <div className="dirv2-bottom-cta">
+   886→                  <div className="relative z-10 p-8 flex flex-col md:flex-row items-center gap-6">
+   887→                    <div className="flex-1 text-center md:text-left">
+   888→                      <h2 className="text-xl font-black font-display flex items-center justify-center md:justify-start gap-2 mb-2">
+   889→                        <motion.span
+   890→                          animate={{ rotate: [0, 12, -12, 0] }}
+   891→                          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+   892→                        >
+   893→                          <Sparkles className="h-5 w-5" style={{ color: C_GOLD }} />
+   894→                        </motion.span>
+   895→                        A sua empresa ainda nao esta aqui?
+   896→                      </h2>
+   897→                      <p className="text-sm text-muted-foreground/70 max-w-md">
+   898→                        Junte-se a centenas de empresas que ja usam a plataforma para criar concursos e atrair milhares de participantes. O primeiro concurso e completamente gratis.
+   899→                      </p>
+   900→                    </div>
+   901→                    <Link to="/register">
+   902→                      <motion.button
+   903→                        className="dirv2-cta-btn"
+   904→                        style={{ background: "linear-gradient(135deg, " + C_PRIMARY + ", " + C_ACCENT + ")" }}
+   905→                        whileHover={{ scale: 1.06, boxShadow: "0 10px 50px hsl(220 70% 18% / 0.4)" }}
+   906→                        whileTap={{ scale: 0.96 }}
+   907→                      >
+   908→                        <Rocket className="h-4 w-4" />
+   909→                        <span>Comecar Agora</span>
+   910→                        <ArrowRight className="h-4 w-4" />
+   911→                      </motion.button>
+   912→                    </Link>
+   913→                  </div>
+   914→                </div>
+   915→              </motion.div>
+   916→            )}
+   917→          </>
+   918→        )}
+   919→      </div>
+   920→      <Footer />
+   921→    </div>
+   922→  );
+   923→}
+   924→
