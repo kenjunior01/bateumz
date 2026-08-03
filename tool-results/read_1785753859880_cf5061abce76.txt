@@ -1,0 +1,734 @@
+     1→     1→import { useState, useEffect, useRef, useCallback } from "react";
+     2→     2→import { motion, AnimatePresence, useInView } from "framer-motion";
+     3→     3→import {
+     4→     4→  ArrowRight,
+     5→     5→  Shield,
+     6→     6→  Users,
+     7→     7→  Clock,
+     8→     8→  Trophy,
+     9→     9→  Sparkles,
+    10→    10→  Zap,
+    11→    11→  Globe,
+    12→    12→  Gift,
+    13→    13→  Gamepad2,
+    14→    14→  Tv,
+    15→    15→  ChevronRight,
+    16→    16→  Dice1,
+    17→    17→  Dice2,
+    18→    18→  Dice3,
+    19→    19→  Target,
+    20→    20→  Star,
+    21→    21→  Flame,
+    22→    22→  Crown,
+    23→    23→  Diamond,
+    24→    24→} from "lucide-react";
+    25→    25→import { Link } from "react-router-dom";
+    26→    26→import { supabase } from "@/integrations/supabase/client";
+    27→    27→import { useLanguage } from "@/contexts/LanguageContext";
+    28→    28→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    29→    29→import CountdownTimer from "./CountdownTimer";
+    30→    30→
+    31→    31→const SPRING_BOUNCE = { type: "spring" as const, stiffness: 300, damping: 20 };
+    32→    32→const SPRING_GENTLE = { type: "spring" as const, stiffness: 200, damping: 25 };
+    33→    33→const SPRING_SNAP = { type: "spring" as const, stiffness: 400, damping: 15 };
+    34→    34→
+    35→    35→const ROTATING_WORDS = ["Jogos Ao Vivo", "Sorteios Épicos", "Prémios Reais", "Lives Inesquecíveis"];
+    36→    36→
+    37→    37→const STATS_CONFIG = [
+    38→    38→  { key: "participants", icon: Users, suffix: "+", label: "Participantes" },
+    39→    39→  { key: "prizes", icon: Gift, suffix: "+", label: "Prémios Entregues" },
+    40→    40→  { key: "games", icon: Gamepad2, suffix: "+", label: "Jogos ao Vivo" },
+    41→    41→  { key: "countries", icon: Globe, suffix: "", label: "Países" },
+    42→    42→];
+    43→    43→
+    44→    44→const TRUST_ITEMS = [
+    45→    45→  { icon: Shield, key: "hero.badge.verification", fallback: "Verificação Pública" },
+    46→    46→  { icon: Clock, key: "hero.badge.weekly", fallback: "Novo toda semana" },
+    47→    47→  { icon: Tv, key: "hero.badge.live", fallback: "Ao Vivo" },
+    48→    48→];
+    49→    49→
+    50→    50→const ORB_CONFIG = [
+    51→    51→  { size: 380, x: "5%", y: "10%", color: "var(--region-primary, hsl(220 70% 18%))", opacity: 0.18, duration: 20 },
+    52→    52→  { size: 300, x: "70%", y: "5%", color: "var(--region-secondary, hsl(352 73% 50%))", opacity: 0.14, duration: 25 },
+    53→    53→  { size: 240, x: "45%", y: "55%", color: "var(--region-primary, hsl(220 70% 18%))", opacity: 0.10, duration: 18 },
+    54→    54→  { size: 180, x: "85%", y: "50%", color: "var(--region-secondary, hsl(352 73% 50%))", opacity: 0.08, duration: 22 },
+    55→    55→  { size: 140, x: "15%", y: "65%", color: "var(--region-primary, hsl(220 60% 30%))", opacity: 0.09, duration: 28 },
+    56→    56→  { size: 100, x: "60%", y: "80%", color: "var(--region-secondary, hsl(352 60% 40%))", opacity: 0.06, duration: 16 },
+    57→    57→];
+    58→    58→
+    59→    59→const FLOATING_ICONS = [
+    60→    60→  { icon: Dice1, x: "8%", y: "20%", size: 28, duration: 14, delay: 0 },
+    61→    61→  { icon: Dice2, x: "88%", y: "15%", size: 24, duration: 18, delay: 2 },
+    62→    62→  { icon: Dice3, x: "75%", y: "70%", size: 22, duration: 16, delay: 4 },
+    63→    63→  { icon: Trophy, x: "12%", y: "75%", size: 30, duration: 20, delay: 1 },
+    64→    64→  { icon: Target, x: "92%", y: "45%", size: 20, duration: 15, delay: 3 },
+    65→    65→  { icon: Star, x: "30%", y: "8%", size: 18, duration: 12, delay: 5 },
+    66→    66→  { icon: Flame, x: "55%", y: "85%", size: 26, duration: 22, delay: 2.5 },
+    67→    67→  { icon: Crown, x: "82%", y: "82%", size: 22, duration: 19, delay: 1.5 },
+    68→    68→  { icon: Diamond, x: "42%", y: "12%", size: 16, duration: 17, delay: 4.5 },
+    69→    69→  { icon: Gamepad2, x: "18%", y: "42%", size: 24, duration: 21, delay: 3.5 },
+    70→    70→];
+    71→    71→
+    72→    72→const PARTICLE_COUNT = 40;
+    73→    73→const PARTICLES = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+    74→    74→  id: i,
+    75→    75→  x: Math.random() * 100,
+    76→    76→  y: Math.random() * 100,
+    77→    77→  size: Math.random() * 3 + 1,
+    78→    78→  duration: Math.random() * 8 + 10,
+    79→    79→  delay: Math.random() * 6,
+    80→    80→  drift: (Math.random() - 0.5) * 40,
+    81→    81→  rise: (Math.random() - 0.5) * 30,
+    82→    82→}));
+    83→    83→
+    84→    84→function useCountUp(end: number, duration: number = 2000, enabled: boolean = true) {
+    85→    85→  const [count, setCount] = useState(0);
+    86→    86→  const rafRef = useRef<number | null>(null);
+    87→    87→  const startTimeRef = useRef<number | null>(null);
+    88→    88→
+    89→    89→  const animate = useCallback(
+    90→    90→    (timestamp: number) => {
+    91→    91→      if (!startTimeRef.current) startTimeRef.current = timestamp;
+    92→    92→      const elapsed = timestamp - startTimeRef.current;
+    93→    93→      const progress = Math.min(elapsed / duration, 1);
+    94→    94→      const eased = 1 - Math.pow(1 - progress, 3);
+    95→    95→      setCount(Math.floor(eased * end));
+    96→    96→      if (progress < 1) {
+    97→    97→        rafRef.current = requestAnimationFrame(animate);
+    98→    98→      }
+    99→    99→    },
+   100→   100→    [end, duration]
+   101→   101→  );
+   102→   102→
+   103→   103→  useEffect(() => {
+   104→   104→    if (!enabled) {
+   105→   105→      setCount(end);
+   106→   106→      return;
+   107→   107→    }
+   108→   108→    startTimeRef.current = null;
+   109→   109→    rafRef.current = requestAnimationFrame(animate);
+   110→   110→    return () => {
+   111→   111→      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+   112→   112→    };
+   113→   113→  }, [animate, enabled]);
+   114→   114→
+   115→   115→  return count;
+   116→   116→}
+   117→   117→
+   118→   118→function useRotatingText(words: string[], intervalMs: number = 2500) {
+   119→   119→  const [index, setIndex] = useState(0);
+   120→   120→  useEffect(() => {
+   121→   121→    const id = setInterval(() => {
+   122→   122→      setIndex((prev) => (prev + 1) % words.length);
+   123→   123→    }, intervalMs);
+   124→   124→    return () => clearInterval(id);
+   125→   125→  }, [words.length, intervalMs]);
+   126→   126→  return words[index];
+   127→   127→}
+   128→   128→
+   129→   129→interface FeaturedRaffle {
+   130→   130→  id: string;
+   131→   131→  title: string;
+   132→   132→  prize_title: string;
+   133→   133→  end_date: string | null;
+   134→   134→}
+   135→   135→
+   136→   136→function Particle({ p }: { p: typeof PARTICLES[number] }) {
+   137→   137→  return (
+   138→   138→    <motion.div
+   139→   139→      className="pointer-events-none absolute rounded-full"
+   140→   140→      style={{
+   141→   141→        width: p.size,
+   142→   142→        height: p.size,
+   143→   143→        left: `${p.x}%`,
+   144→   144→        top: `${p.y}%`,
+   145→   145→        background: "radial-gradient(circle, rgba(255,255,255,0.6), rgba(255,255,255,0.1))",
+   146→   146→        boxShadow: "0 0 6px rgba(255,255,255,0.2)",
+   147→   147→      }}
+   148→   148→      animate={{
+   149→   149→        y: [0, p.rise, -p.rise * 0.5, 0],
+   150→   150→        x: [0, p.drift * 0.5, -p.drift * 0.3, 0],
+   151→   151→        opacity: [0, 0.6, 0.3, 0],
+   152→   152→        scale: [0, 1, 0.8, 0],
+   153→   153→      }}
+   154→   154→      transition={{
+   155→   155→        duration: p.duration,
+   156→   156→        repeat: Infinity,
+   157→   157→        ease: "easeInOut",
+   158→   158→        delay: p.delay,
+   159→   159→      }}
+   160→   160→    />
+   161→   161→  );
+   162→   162→}
+   163→   163→
+   164→   164→function FloatingGameIcon({ icon: Icon, x, y, size, duration, delay }: { icon: typeof Dice1; x: string; y: string; size: number; duration: number; delay: number }) {
+   165→   165→  return (
+   166→   166→    <motion.div
+   167→   167→      className="pointer-events-none absolute"
+   168→   168→      style={{ left: x, top: y, opacity: 0.08 }}
+   169→   169→      animate={{
+   170→   170→        y: [0, -20, 15, -10, 0],
+   171→   171→        x: [0, 12, -8, 5, 0],
+   172→   172→        rotate: [0, 15, -10, 20, 0],
+   173→   173→        opacity: [0.06, 0.12, 0.08, 0.14, 0.06],
+   174→   174→      }}
+   175→   175→      transition={{
+   176→   176→        duration,
+   177→   177→        repeat: Infinity,
+   178→   178→        ease: "easeInOut",
+   179→   179→        delay,
+   180→   180→      }}
+   181→   181→    >
+   182→   182→      <Icon className="text-white" style={{ width: size, height: size }} />
+   183→   183→    </motion.div>
+   184→   184→  );
+   185→   185→}
+   186→   186→
+   187→   187→function StatCard({
+   188→   188→  icon: Icon,
+   189→   189→  value,
+   190→   190→  suffix,
+   191→   191→  label,
+   192→   192→  index,
+   193→   193→}: {
+   194→   194→  icon: typeof Users;
+   195→   195→  value: number;
+   196→   196→  suffix: string;
+   197→   197→  label: string;
+   198→   198→  index: number;
+   199→   199→}) {
+   200→   200→  const ref = useRef<HTMLDivElement>(null);
+   201→   201→  const isInView = useInView(ref, { once: true, margin: "-50px" });
+   202→   202→
+   203→   203→  return (
+   204→   204→    <motion.div
+   205→   205→      ref={ref}
+   206→   206→      initial={{ opacity: 0, y: 40, scale: 0.85 }}
+   207→   207→      animate={isInView ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 40, scale: 0.85 }}
+   208→   208→      transition={{ ...SPRING_BOUNCE, delay: 0.9 + index * 0.15 }}
+   209→   209→      className="group relative flex flex-col items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.18] hover:bg-white/[0.08]"
+   210→   210→    >
+   211→   211→      <motion.div
+   212→   212→        className="flex h-11 w-11 items-center justify-center rounded-xl"
+   213→   213→        style={{
+   214→   214→          background: "linear-gradient(135deg, var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)))",
+   215→   215→        }}
+   216→   216→        whileHover={{ scale: 1.15, rotate: 10 }}
+   217→   217→        transition={SPRING_SNAP}
+   218→   218→      >
+   219→   219→        <Icon className="h-5 w-5 text-white" />
+   220→   220→      </motion.div>
+   221→   221→      <div className="text-center">
+   222→   222→        <motion.span
+   223→   223→          className="block font-display text-2xl font-bold tracking-tight text-white"
+   224→   224→          initial={{ scale: 0.5 }}
+   225→   225→          animate={isInView ? { scale: 1 } : { scale: 0.5 }}
+   226→   226→          transition={{ ...SPRING_SNAP, delay: 1.2 + index * 0.15 }}
+   227→   227→        >
+   228→   228→          {value.toLocaleString()}
+   229→   229→          {suffix}
+   230→   230→        </motion.span>
+   231→   231→        <span className="block text-[11px] font-medium uppercase tracking-wider text-white/50">
+   232→   232→          {label}
+   233→   233→        </span>
+   234→   234→      </div>
+   235→   235→      <motion.div
+   236→   236→        className="pointer-events-none absolute inset-0 rounded-2xl"
+   237→   237→        style={{
+   238→   238→          background: "radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, transparent 70%)",
+   239→   239→        }}
+   240→   240→        initial={{ opacity: 0 }}
+   241→   241→        whileHover={{ opacity: 1 }}
+   242→   242→        transition={{ duration: 0.3 }}
+   243→   243→      />
+   244→   244→    </motion.div>
+   245→   245→  );
+   246→   246→}
+   247→   247→
+   248→   248→function FloatingOrb({
+   249→   249→  size,
+   250→   250→  x,
+   251→   251→  y,
+   252→   252→  color,
+   253→   253→  opacity,
+   254→   254→  duration,
+   255→   255→  index,
+   256→   256→}: {
+   257→   257→  size: number;
+   258→   258→  x: string;
+   259→   259→  y: string;
+   260→   260→  color: string;
+   261→   261→  opacity: number;
+   262→   262→  duration: number;
+   263→   263→  index: number;
+   264→   264→}) {
+   265→   265→  return (
+   266→   266→    <motion.div
+   267→   267→      initial={{ opacity: 0, scale: 0 }}
+   268→   268→      animate={{
+   269→   269→        opacity: [opacity * 0.4, opacity, opacity * 0.6, opacity * 0.9, opacity * 0.5, opacity],
+   270→   270→        scale: [0.5, 1.1, 0.9, 1.05, 0.85, 1],
+   271→   271→        x: [0, 20, -15, 25, -10, 0],
+   272→   272→        y: [0, -25, 15, -10, 20, 0],
+   273→   273→      }}
+   274→   274→      transition={{
+   275→   275→        duration,
+   276→   276→        repeat: Infinity,
+   277→   277→        ease: "easeInOut",
+   278→   278→        delay: index * 0.6,
+   279→   279→      }}
+   280→   280→      className="pointer-events-none absolute rounded-full"
+   281→   281→      style={{
+   282→   282→        width: size,
+   283→   283→        height: size,
+   284→   284→        left: x,
+   285→   285→        top: y,
+   286→   286→        background: `radial-gradient(circle at 30% 30%, ${color}, transparent 70%)`,
+   287→   287→        filter: "blur(70px)",
+   288→   288→      }}
+   289→   289→    />
+   290→   290→  );
+   291→   291→}
+   292→   292→
+   293→   293→function GlowingButton({ to, children, primary, delay }: { to: string; children: React.ReactNode; primary: boolean; delay: number }) {
+   294→   294→  const [hovered, setHovered] = useState(false);
+   295→   295→
+   296→   296→  if (primary) {
+   297→   297→    return (
+   298→   298→      <motion.div
+   299→   299→        initial={{ opacity: 0, y: 30, scale: 0.9 }}
+   300→   300→        animate={{ opacity: 1, y: 0, scale: 1 }}
+   301→   301→        transition={{ ...SPRING_BOUNCE, delay }}
+   302→   302→        onMouseEnter={() => setHovered(true)}
+   303→   303→        onMouseLeave={() => setHovered(false)}
+   304→   304→        className="relative"
+   305→   305→      >
+   306→   306→        <motion.div
+   307→   307→          className="absolute -inset-1 rounded-2xl opacity-60 blur-xl"
+   308→   308→          style={{
+   309→   309→            background: "linear-gradient(135deg, var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)))",
+   310→   310→          }}
+   311→   311→          animate={{
+   312→   312→            opacity: hovered ? [0.4, 0.7, 0.4] : 0.3,
+   313→   313→            scale: hovered ? [1, 1.05, 1] : 1,
+   314→   314→          }}
+   315→   315→          transition={{ duration: 2, repeat: hovered ? Infinity : 0, ease: "easeInOut" }}
+   316→   316→        />
+   317→   317→        <Link
+   318→   318→          to={to}
+   319→   319→          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl px-8 py-4 text-sm font-bold text-white shadow-2xl transition-all duration-300 hover:scale-[1.04] sm:text-base"
+   320→   320→          style={{
+   321→   321→            background: "linear-gradient(135deg, var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)))",
+   322→   322→            boxShadow: "0 8px 40px -8px rgba(220,70%,18%,0.6), inset 0 1px 0 rgba(255,255,255,0.2)",
+   323→   323→          }}
+   324→   324→        >
+   325→   325→          <span className="relative z-10 flex items-center gap-2">{children}</span>
+   326→   326→          <motion.div
+   327→   327→            className="absolute inset-0"
+   328→   328→            style={{
+   329→   329→              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)",
+   330→   330→              backgroundSize: "200% 100%",
+   331→   331→            }}
+   332→   332→            animate={{ backgroundPosition: hovered ? ["-200% 0", "200% 0"] : "0% 0" }}
+   333→   333→            transition={{ duration: 0.8, ease: "easeInOut" }}
+   334→   334→          />
+   335→   335→        </Link>
+   336→   336→      </motion.div>
+   337→   337→    );
+   338→   338→  }
+   339→   339→
+   340→   340→  return (
+   341→   341→    <motion.div
+   342→   342→      initial={{ opacity: 0, y: 30, scale: 0.9 }}
+   343→   343→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   344→   344→      transition={{ ...SPRING_BOUNCE, delay: delay + 0.1 }}
+   345→   345→      onMouseEnter={() => setHovered(true)}
+   346→   346→      onMouseLeave={() => setHovered(false)}
+   347→   347→      className="relative"
+   348→   348→    >
+   349→   349→      <motion.div
+   350→   350→        className="absolute -inset-px rounded-2xl opacity-0 blur-sm"
+   351→   351→        style={{
+   352→   352→          background: "linear-gradient(135deg, var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)))",
+   353→   353→        }}
+   354→   354→        animate={{ opacity: hovered ? 0.5 : 0 }}
+   355→   355→        transition={{ duration: 0.3 }}
+   356→   356→      />
+   357→   357→      <Link
+   358→   358→        to={to}
+   359→   359→        className="group relative inline-flex items-center gap-2 rounded-2xl border border-white/[0.14] bg-white/[0.06] px-8 py-4 text-sm font-bold text-white/90 backdrop-blur-sm transition-all duration-300 hover:border-white/[0.3] hover:bg-white/[0.12] hover:scale-[1.04] sm:text-base"
+   360→   360→      >
+   361→   361→        {children}
+   362→   362→      </Link>
+   363→   363→    </motion.div>
+   364→   364→  );
+   365→   365→}
+   366→   366→
+   367→   367→const HeroSection = () => {
+   368→   368→  const { t } = useLanguage();
+   369→   369→  const { rt } = useRegionalTheme();
+   370→   370→  const [participantCount, setParticipantCount] = useState(0);
+   371→   371→  const [featuredRaffle, setFeaturedRaffle] = useState<FeaturedRaffle | null>(null);
+   372→   372→  const [countdownEnabled, setCountdownEnabled] = useState(false);
+   373→   373→  const [mounted, setMounted] = useState(false);
+   374→   374→  const rotatingWord = useRotatingText(ROTATING_WORDS, 2500);
+   375→   375→  const sectionRef = useRef<HTMLElement>(null);
+   376→   376→  const statsRef = useRef<HTMLDivElement>(null);
+   377→   377→  const statsInView = useInView(statsRef, { once: true, margin: "-80px" });
+   378→   378→
+   379→   379→  const animatedParticipants = useCountUp(participantCount, 2200, mounted);
+   380→   380→  const animatedPrizes = useCountUp(4850, 2400, mounted);
+   381→   381→  const animatedGames = useCountUp(1200, 2000, mounted);
+   382→   382→  const animatedCountries = useCountUp(12, 1800, mounted);
+   383→   383→
+   384→   384→  useEffect(() => {
+   385→   385→    setMounted(true);
+   386→   386→    const load = async () => {
+   387→   387→      const [{ count }, { data: settings }] = await Promise.all([
+   388→   388→        supabase.from("participants").select("id", { count: "exact", head: true }),
+   389→   389→        (supabase as any).from("platform_settings_public").select("key, value").eq("key", "featured").maybeSingle(),
+   390→   390→      ]);
+   391→   391→      setParticipantCount(count || 0);
+   392→   392→      if (settings?.value) {
+   393→   393→        const featured = settings.value as any;
+   394→   394→        const isEnabled = featured.countdownEnabled === true;
+   395→   395→        setCountdownEnabled(isEnabled);
+   396→   396→        if (isEnabled && featured.raffleId) {
+   397→   397→          const { data: raffle } = await supabase
+   398→   398→            .from("raffles")
+   399→   399→            .select("id, title, prize_title, end_date")
+   400→   400→            .eq("id", featured.raffleId)
+   401→   401→            .eq("status", "active")
+   402→   402→            .maybeSingle();
+   403→   403→          if (raffle) setFeaturedRaffle(raffle);
+   404→   404→        }
+   405→   405→      }
+   406→   406→    };
+   407→   407→    load();
+   408→   408→  }, []);
+   409→   409→
+   410→   410→  const statValues: Record<string, number> = {
+   411→   411→    participants: animatedParticipants,
+   412→   412→    prizes: animatedPrizes,
+   413→   413→    games: animatedGames,
+   414→   414→    countries: animatedCountries,
+   415→   415→  };
+   416→   416→
+   417→   417→  return (
+   418→   418→    <section ref={sectionRef} className="relative min-h-[90vh] overflow-hidden bg-cosmic">
+   419→   419→      <div className="nebula-blob nebula-blob-1" />
+   420→   420→      <div className="nebula-blob nebula-blob-2" />
+   421→   421→      <div className="nebula-blob nebula-blob-3" />
+   422→   422→      <div className="nebula-blob nebula-blob-4" />
+   423→   423→      <div className="floating-stars"><span /><span /><span /><span /><span /><span /><span /><span /></div>
+   424→   424→      <div className="ambient-glow" />
+   425→   425→
+   426→   426→      <div className="absolute inset-0">
+   427→   427→        <div
+   428→   428→          className="absolute inset-0"
+   429→   429→          style={{
+   430→   430→            background: "linear-gradient(160deg, hsl(220 70% 8%) 0%, hsl(220 40% 12%) 35%, hsl(352 50% 15%) 65%, hsl(220 50% 6%) 100%)",
+   431→   431→          }}
+   432→   432→        />
+   433→   433→        <div
+   434→   434→          className="absolute inset-0"
+   435→   435→          style={{
+   436→   436→            backgroundImage: "radial-gradient(ellipse 80% 50% at 20% 40%, rgba(220,70%,18%,0.15), transparent 50%), radial-gradient(ellipse 60% 40% at 80% 30%, rgba(352,73%,50%,0.12), transparent 50%), radial-gradient(ellipse 50% 60% at 50% 80%, rgba(220,60%,30%,0.08), transparent 50%)",
+   437→   437→          }}
+   438→   438→        />
+   439→   439→      </div>
+   440→   440→
+   441→   441→      <div
+   442→   442→        className="absolute inset-0 opacity-[0.015]"
+   443→   443→        style={{
+   444→   444→          backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+   445→   445→          backgroundSize: "128px 128px",
+   446→   446→        }}
+   447→   447→      />
+   448→   448→
+   449→   449→      {ORB_CONFIG.map((orb, i) => (
+   450→   450→        <FloatingOrb key={i} size={orb.size} x={orb.x} y={orb.y} color={orb.color} opacity={orb.opacity} duration={orb.duration} index={i} />
+   451→   451→      ))}
+   452→   452→
+   453→   453→      {FLOATING_ICONS.map((fi, i) => (
+   454→   454→        <FloatingGameIcon key={i} icon={fi.icon} x={fi.x} y={fi.y} size={fi.size} duration={fi.duration} delay={fi.delay} />
+   455→   455→      ))}
+   456→   456→
+   457→   457→      {PARTICLES.map((p) => (
+   458→   458→        <Particle key={p.id} p={p} />
+   459→   459→      ))}
+   460→   460→
+   461→   461→      <div
+   462→   462→        className="absolute inset-0 opacity-[0.03]"
+   463→   463→        style={{
+   464→   464→          backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+   465→   465→          backgroundSize: "60px 60px",
+   466→   466→        }}
+   467→   467→      />
+   468→   468→
+   469→   469→      <motion.div
+   470→   470→        initial={{ scaleX: 0 }}
+   471→   471→        animate={{ scaleX: 1 }}
+   472→   472→        transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+   473→   473→        className="absolute top-0 left-0 right-0 h-px origin-center"
+   474→   474→        style={{
+   475→   475→          background: "linear-gradient(90deg, transparent, var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)), var(--region-primary, hsl(220 70% 18%)), transparent)",
+   476→   476→        }}
+   477→   477→      />
+   478→   478→
+   479→   479→      <motion.div
+   480→   480→        className="absolute bottom-0 left-0 right-0 h-px origin-center"
+   481→   481→        initial={{ scaleX: 0 }}
+   482→   482→        animate={{ scaleX: 1 }}
+   483→   483→        transition={{ duration: 1.5, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   484→   484→        style={{
+   485→   485→          background: "linear-gradient(90deg, transparent, var(--region-secondary, hsl(352 73% 50%)), var(--region-primary, hsl(220 70% 18%)), var(--region-secondary, hsl(352 73% 50%)), transparent)",
+   486→   486→          opacity: 0.4,
+   487→   487→        }}
+   488→   488→      />
+   489→   489→
+   490→   490→      <div className="container relative z-10 mx-auto flex min-h-[90vh] max-w-7xl flex-col items-center px-4 pt-24 pb-12 sm:pt-28 md:pt-32 lg:flex-row lg:items-center lg:justify-between lg:gap-12 lg:pt-0">
+   491→   491→
+   492→   492→        <div className="flex flex-1 flex-col items-center text-center lg:items-start lg:text-left">
+   493→   493→          <motion.div
+   494→   494→            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+   495→   495→            animate={{ opacity: 1, y: 0, scale: 1 }}
+   496→   496→            transition={{ ...SPRING_SNAP, delay: 0.05 }}
+   497→   497→            className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.07] px-5 py-2 backdrop-blur-md"
+   498→   498→          >
+   499→   499→            <motion.span
+   500→   500→              animate={{ rotate: [0, 20, -20, 0], scale: [1, 1.2, 1, 1.2] }}
+   501→   501→              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+   502→   502→            >
+   503→   503→              <Sparkles className="h-4 w-4 text-amber-400" />
+   504→   504→            </motion.span>
+   505→   505→            <span className="text-xs font-semibold tracking-wide text-white/70">
+   506→   506→              {rt("hero.pill", "Plataforma #1 de Entretenimento em Moçambique")}
+   507→   507→            </span>
+   508→   508→            <motion.div
+   509→   509→              className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+   510→   510→              animate={{ opacity: [1, 0.4, 1], scale: [1, 0.7, 1] }}
+   511→   511→              transition={{ duration: 1.5, repeat: Infinity }}
+   512→   512→            />
+   513→   513→          </motion.div>
+   514→   514→
+   515→   515→          <motion.h1
+   516→   516→            initial={{ opacity: 0, y: 40 }}
+   517→   517→            animate={{ opacity: 1, y: 0 }}
+   518→   518→            transition={{ ...SPRING_BOUNCE, delay: 0.15 }}
+   519→   519→            className="mb-2 max-w-2xl font-display text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl"
+   520→   520→          >
+   521→   521→            {rt("hero.title.prefix", t("hero.title.prefix"))}{" "}
+   522→   522→          </motion.h1>
+   523→   523→
+   524→   524→          <div className="relative mb-5 h-[1.15em] max-w-2xl">
+   525→   525→            <AnimatePresence mode="wait">
+   526→   526→              <motion.span
+   527→   527→                key={rotatingWord}
+   528→   528→                initial={{ y: 30, opacity: 0, rotateX: -90, filter: "blur(8px)" }}
+   529→   529→                animate={{ y: 0, opacity: 1, rotateX: 0, filter: "blur(0px)" }}
+   530→   530→                exit={{ y: -30, opacity: 0, rotateX: 90, filter: "blur(8px)" }}
+   531→   531→                transition={{ ...SPRING_SNAP, duration: 0.5 }}
+   532→   532→                className="absolute left-0 right-0 font-display text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+   533→   533→                style={{
+   534→   534→                  backgroundImage: "linear-gradient(135deg, var(--region-secondary, hsl(352 73% 50%)), #f59e0b, #fbbf24, var(--region-secondary, hsl(352 73% 50%)))",
+   535→   535→                  backgroundSize: "300% 100%",
+   536→   536→                  WebkitBackgroundClip: "text",
+   537→   537→                  WebkitTextFillColor: "transparent",
+   538→   538→                  backgroundClip: "text",
+   539→   539→                }}
+   540→   540→              >
+   541→   541→                {rotatingWord}
+   542→   542→              </motion.span>
+   543→   543→            </AnimatePresence>
+   544→   544→            <motion.div
+   545→   545→              className="absolute -bottom-1 left-0 h-[3px] rounded-full"
+   546→   546→              style={{
+   547→   547→                background: "linear-gradient(90deg, var(--region-secondary, hsl(352 73% 50%)), #f59e0b, var(--region-secondary, hsl(352 73% 50%)))",
+   548→   548→                backgroundSize: "200% 100%",
+   549→   549→              }}
+   550→   550→              animate={{
+   551→   551→                scaleX: [0, 1],
+   552→   552→                backgroundPosition: ["0% 0%", "200% 0%"],
+   553→   553→              }}
+   554→   554→              transition={{
+   555→   555→                scaleX: { ...SPRING_BOUNCE, delay: 0.5 },
+   556→   556→                backgroundPosition: { duration: 3, repeat: Infinity, ease: "linear" },
+   557→   557→              }}
+   558→   558→            />
+   559→   559→          </div>
+   560→   560→
+   561→   561→          <motion.p
+   562→   562→            initial={{ opacity: 0, y: 25 }}
+   563→   563→            animate={{ opacity: 1, y: 0 }}
+   564→   564→            transition={{ ...SPRING_GENTLE, delay: 0.3 }}
+   565→   565→            className="mb-9 max-w-lg text-base leading-relaxed text-white/60 sm:text-lg"
+   566→   566→          >
+   567→   567→            {rt(
+   568→   568→              "hero.subtitle",
+   569→   569→              "Sorteios transparentes, jogos ao vivo e prémios reais. Junte-se a milhares de moçambicanos que já estão a ganhar."
+   570→   570→            )}
+   571→   571→          </motion.p>
+   572→   572→
+   573→   573→          <div className="mb-9 flex flex-col gap-4 sm:flex-row sm:gap-5">
+   574→   574→            <GlowingButton to="/marketplace" primary delay={0.4}>
+   575→   575→              {rt("hero.cta", t("hero.cta"))}
+   576→   576→              <motion.span
+   577→   577→                className="inline-block"
+   578→   578→                animate={{ x: [0, 4, 0] }}
+   579→   579→                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+   580→   580→              >
+   581→   581→                <ArrowRight className="h-5 w-5" />
+   582→   582→              </motion.span>
+   583→   583→            </GlowingButton>
+   584→   584→            <GlowingButton to="/live-hub" primary={false} delay={0.4}>
+   585→   585→              <Zap className="h-4 w-4 text-amber-400" />
+   586→   586→              <span>{rt("hero.cta.live", "Ver ao Vivo")}</span>
+   587→   587→              <ChevronRight className="h-3.5 w-3.5" />
+   588→   588→            </GlowingButton>
+   589→   589→          </div>
+   590→   590→
+   591→   591→          <motion.div
+   592→   592→            initial={{ opacity: 0 }}
+   593→   593→            animate={{ opacity: 1 }}
+   594→   594→            transition={{ delay: 0.7, duration: 0.6 }}
+   595→   595→            className="flex flex-wrap items-center justify-center gap-4 lg:justify-start"
+   596→   596→          >
+   597→   597→            {TRUST_ITEMS.map((item, i) => (
+   598→   598→              <motion.div
+   599→   599→                key={item.key}
+   600→   600→                initial={{ opacity: 0, x: -15, scale: 0.9 }}
+   601→   601→                animate={{ opacity: 1, x: 0, scale: 1 }}
+   602→   602→                transition={{ ...SPRING_GENTLE, delay: 0.75 + i * 0.1 }}
+   603→   603→                whileHover={{ scale: 1.08, y: -2 }}
+   604→   604→                className="inline-flex cursor-default items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-sm transition-colors duration-300 hover:border-white/[0.12] hover:bg-white/[0.06]"
+   605→   605→              >
+   606→   606→                <motion.div
+   607→   607→                  animate={{ scale: [1, 1.15, 1] }}
+   608→   608→                  transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
+   609→   609→                >
+   610→   610→                  <item.icon className="h-3.5 w-3.5 text-white/40" />
+   611→   611→                </motion.div>
+   612→   612→                <span className="text-xs font-medium text-white/50">{rt(item.key, item.fallback)}</span>
+   613→   613→              </motion.div>
+   614→   614→            ))}
+   615→   615→            {participantCount > 0 && (
+   616→   616→              <motion.div
+   617→   617→                initial={{ opacity: 0, x: -15, scale: 0.9 }}
+   618→   618→                animate={{ opacity: 1, x: 0, scale: 1 }}
+   619→   619→                transition={{ ...SPRING_GENTLE, delay: 1.05 }}
+   620→   620→                whileHover={{ scale: 1.08, y: -2 }}
+   621→   621→                className="inline-flex cursor-default items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-sm"
+   622→   622→              >
+   623→   623→                <motion.div
+   624→   624→                  animate={{ scale: [1, 1.15, 1] }}
+   625→   625→                  transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+   626→   626→                >
+   627→   627→                  <Users className="h-3.5 w-3.5 text-white/40" />
+   628→   628→                </motion.div>
+   629→   629→                <span className="text-xs font-medium text-white/50">
+   630→   630→                  +{participantCount.toLocaleString()} {t("hero.badge.participants")}
+   631→   631→                </span>
+   632→   632→              </motion.div>
+   633→   633→            )}
+   634→   634→          </motion.div>
+   635→   635→        </div>
+   636→   636→
+   637→   637→        <div ref={statsRef} className="mt-12 flex w-full max-w-md flex-col items-center gap-5 lg:mt-0 lg:max-w-sm xl:max-w-md">
+   638→   638→          <div className="grid w-full grid-cols-2 gap-3">
+   639→   639→            {STATS_CONFIG.map((stat, i) => (
+   640→   640→              <StatCard
+   641→   641→                key={stat.key}
+   642→   642→                icon={stat.icon}
+   643→   643→                value={statValues[stat.key]}
+   644→   644→                suffix={stat.suffix}
+   645→   645→                label={rt(`hero.stat.${stat.key}`, stat.label)}
+   646→   646→                index={i}
+   647→   647→              />
+   648→   648→            ))}
+   649→   649→          </div>
+   650→   650→
+   651→   651→          <AnimatePresence>
+   652→   652→            {countdownEnabled && featuredRaffle && featuredRaffle.end_date && (
+   653→   653→              <motion.div
+   654→   654→                initial={{ opacity: 0, scale: 0.9, y: 25 }}
+   655→   655→                animate={{ opacity: 1, scale: 1, y: 0 }}
+   656→   656→                exit={{ opacity: 0, scale: 0.9, y: 25 }}
+   657→   657→                transition={{ ...SPRING_BOUNCE, delay: 0.2 }}
+   658→   658→                className="w-full overflow-hidden rounded-2xl border border-amber-500/[0.18] bg-amber-500/[0.05] backdrop-blur-xl"
+   659→   659→              >
+   660→   660→                <div className="p-5">
+   661→   661→                  <div className="mb-4 flex items-center gap-2">
+   662→   662→                    <motion.div
+   663→   663→                      animate={{ rotate: [0, 360] }}
+   664→   664→                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+   665→   665→                    >
+   666→   666→                      <Trophy className="h-5 w-5 text-amber-400" />
+   667→   667→                    </motion.div>
+   668→   668→                    <span className="text-sm font-semibold text-amber-300">{featuredRaffle.title}</span>
+   669→   669→                    <span className="text-white/20">·</span>
+   670→   670→                    <span className="text-sm font-medium text-amber-200/60">{featuredRaffle.prize_title}</span>
+   671→   671→                  </div>
+   672→   672→                  <CountdownTimer targetDate={new Date(featuredRaffle.end_date)} />
+   673→   673→                </div>
+   674→   674→              </motion.div>
+   675→   675→            )}
+   676→   676→          </AnimatePresence>
+   677→   677→
+   678→   678→          <motion.div
+   679→   679→            initial={{ opacity: 0, y: 30 }}
+   680→   680→            animate={statsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+   681→   681→            transition={{ ...SPRING_BOUNCE, delay: 1.2 }}
+   682→   682→            className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 backdrop-blur-xl"
+   683→   683→          >
+   684→   684→            <div className="mb-3 flex items-center gap-2">
+   685→   685→              <motion.div
+   686→   686→                animate={{ rotate: [0, 10, -10, 0] }}
+   687→   687→                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+   688→   688→              >
+   689→   689→                <Gamepad2 className="h-5 w-5 text-emerald-400" />
+   690→   690→              </motion.div>
+   691→   691→              <span className="text-sm font-semibold text-white/80">
+   692→   692→                {rt("hero.live.title", "Entretenimento ao Vivo")}
+   693→   693→              </span>
+   694→   694→              <motion.div
+   695→   695→                className="ml-auto h-2 w-2 rounded-full bg-emerald-400"
+   696→   696→                animate={{ opacity: [1, 0.3, 1], boxShadow: ["0 0 4px rgba(52,211,153,0.6)", "0 0 8px rgba(52,211,153,0.8)", "0 0 4px rgba(52,211,153,0.6)"] }}
+   697→   697→                transition={{ duration: 2, repeat: Infinity }}
+   698→   698→              />
+   699→   699→            </div>
+   700→   700→            <p className="mb-4 text-xs leading-relaxed text-white/40">
+   701→   701→              {rt(
+   702→   702→                "hero.live.desc",
+   703→   703→                "Jogos interactivos, sorteios em directo e experiências únicas — tudo ao vivo, em tempo real, para toda a comunidade."
+   704→   704→              )}
+   705→   705→            </p>
+   706→   706→            <div className="flex flex-wrap gap-2">
+   707→   707→              {[
+   708→   708→                { name: "Quiz", color: "text-violet-400", border: "border-violet-400/20" },
+   709→   709→                { name: "Roleta", color: "text-rose-400", border: "border-rose-400/20" },
+   710→   710→                { name: "Bingo", color: "text-sky-400", border: "border-sky-400/20" },
+   711→   711→              ].map((game, i) => (
+   712→   712→                <motion.span
+   713→   713→                  key={game.name}
+   714→   714→                  initial={{ opacity: 0, scale: 0.7, y: 10 }}
+   715→   715→                  animate={statsInView ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.7, y: 10 }}
+   716→   716→                  transition={{ ...SPRING_SNAP, delay: 1.5 + i * 0.12 }}
+   717→   717→                  whileHover={{ scale: 1.1, y: -2 }}
+   718→   718→                  className={`cursor-default rounded-lg border ${game.border} bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold ${game.color}`}
+   719→   719→                >
+   720→   720→                  {game.name}
+   721→   721→                </motion.span>
+   722→   722→              ))}
+   723→   723→            </div>
+   724→   724→          </motion.div>
+   725→   725→        </div>
+   726→   726→      </div>
+   727→   727→
+   728→   728→      <div className="absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to top, hsl(220 40% 6%), transparent)" }} />
+   729→   729→    </section>
+   730→   730→  );
+   731→   731→};
+   732→   732→
+   733→   733→export default HeroSection;
+   734→   734→
