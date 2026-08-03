@@ -1,0 +1,502 @@
+     1→  1410→.dirv2-filter-chip[data-active="1"] { background: var(--chip-active-bg, rgba(255,255,255,0.05)); border-color: var(--chip-active-border, rgba(255,255,255,0.08)); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+     2→  1411→.dirv2-filter-chip:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+     3→  1412→.dirv2-filter-count { font-size: 0.65rem; opacity: 0.5; font-weight: 600; margin-left: 0.125rem; }
+     4→  1413→.dirv2-card { position: relative; overflow: hidden; border-radius: 1.5rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+     5→  1414→.dirv2-card:hover { border-color: hsl(220 70% 18% / 0.2); box-shadow: 0 25px 60px -15px rgba(0,0,0,0.3), 0 0 40px -15px hsl(220 70% 18% / 0.15), 0 0 80px -30px hsl(352 73% 50% / 0.1); background: rgba(255,255,255,0.04); }
+     6→  1415→.dirv2-card-shine { position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; z-index: 5; }
+     7→  1416→.dirv2-card:hover .dirv2-card-shine { animation: card-shine-sweep 0.8s ease-out; }
+     8→  1417→.dirv2-card-avatar { width: 64px; height: 64px; border-radius: 1.25rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.12), hsl(352 73% 50% / 0.06)); flex-shrink: 0; position: relative; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 4px 20px -5px hsl(220 70% 18% / 0.15); }
+     9→  1418→.dirv2-card:hover .dirv2-card-avatar { transform: scale(1.08) rotate(-3deg); box-shadow: 0 8px 30px -5px hsl(220 70% 18% / 0.25); }
+    10→  1419→.dirv2-verified-pulse { position: absolute; bottom: -3px; right: -3px; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%)); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px hsl(45 93% 47% / 0.4); }
+    11→  1420→.dirv2-verified-pulse::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid hsl(45 93% 47% / 0.3); animation: verified-ring-pulse 2s ease-out infinite; }
+    12→  1421→@keyframes verified-ring-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+    13→  1422→.dirv2-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 700; background: var(--badge-bg, rgba(255,255,255,0.04)); color: var(--badge-color, hsl(var(--muted-foreground))); border: 1px solid var(--badge-border, rgba(255,255,255,0.06)); white-space: nowrap; }
+    14→  1423→.dirv2-card-stat { padding: 0.75rem; border-radius: 1rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: all 0.3s ease; }
+    15→  1424→.dirv2-card:hover .dirv2-card-stat { background: rgba(255,255,255,0.035); }
+    16→  1425→.dirv2-card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.04); }
+    17→  1426→.dirv2-list-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    18→  1427→.dirv2-list-card:hover { background: rgba(255,255,255,0.045); border-color: hsl(220 70% 18% / 0.15); box-shadow: 0 12px 35px -10px rgba(0,0,0,0.2), 0 0 30px -15px hsl(220 70% 18% / 0.1); }
+    19→  1428→.dirv2-list-shine { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent); pointer-events: none; z-index: 5; }
+    20→  1429→.dirv2-list-card:hover .dirv2-list-shine { animation: card-shine-sweep 0.7s ease-out; }
+    21→  1430→.dirv2-list-avatar { width: 56px; height: 56px; border-radius: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.12), hsl(352 73% 50% / 0.06)); flex-shrink: 0; position: relative; transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+    22→  1431→.dirv2-list-card:hover .dirv2-list-avatar { transform: scale(1.06); }
+    23→  1432→.dirv2-verified-dot { position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%)); display: flex; align-items: center; justify-content: center; }
+    24→  1433→.dirv2-mobile-card { padding: 1rem; border-radius: 1.25rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; position: relative; overflow: hidden; }
+    25→  1434→.dirv2-mobile-card::after { content: ""; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; }
+    26→  1435→.dirv2-mobile-card:active::after { animation: card-shine-sweep 0.6s ease-out; }
+    27→  1436→.dirv2-mobile-avatar { width: 44px; height: 44px; border-radius: 0.875rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.15), hsl(352 73% 50% / 0.08)); flex-shrink: 0; }
+    28→  1437→.dirv2-bottom-cta { position: relative; overflow: hidden; border-radius: 1.5rem; background: linear-gradient(135deg, hsl(220 70% 18% / 0.05), hsl(352 73% 50% / 0.03), hsl(270 60% 40% / 0.03)); }
+    29→  1438→.dirv2-bottom-cta::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: conic-gradient(from 0deg, hsl(220 70% 18% / 0.5), hsl(352 73% 50% / 0.3), hsl(270 60% 55% / 0.2), hsl(190 80% 50% / 0.15), hsl(220 70% 18% / 0.5)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; animation: conic-rotate 6s linear infinite; }
+    30→  1439→@keyframes conic-rotate { to { transform: rotate(360deg); } }
+    31→  1440→
+    32→  1441→/* ============================================ */
+    33→  1442→/* MARKETPLACE V2 - Premium Redesign            */
+    34→  1443→/* ============================================ */
+    35→  1444→.mkt-search-box { position: relative; border-radius: 1rem; padding: 2px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.07); backdrop-filter: blur(20px); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    36→  1445→.mkt-search-box::before { content: ""; position: absolute; inset: -1.5px; border-radius: 1.1rem; padding: 2px; background: conic-gradient(from var(--search-angle, 0deg), hsl(220 70% 18% / 0.5), hsl(352 73% 50% / 0.3), hsl(270 60% 55% / 0.2), hsl(220 70% 18% / 0.1), hsl(220 70% 18% / 0.5)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; opacity: calc(0.3 + var(--search-glow, 0) * 0.7); transition: opacity 0.4s ease; animation: search-border-spin 4s linear infinite; }
+    37→  1446→.mkt-search-box:focus-within { border-color: hsl(220 70% 18% / 0.2); box-shadow: 0 0 40px hsl(220 70% 18% / 0.08); }
+    38→  1447→.mkt-tab { display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 700; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+    39→  1448→.mkt-tab[data-active="1"] { background: var(--tab-bg, rgba(255,255,255,0.05)); border-color: var(--tab-border, rgba(255,255,255,0.08)); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    40→  1449→.mkt-tab:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+    41→  1450→.mkt-tab-count { font-size: 0.65rem; opacity: 0.5; font-weight: 600; margin-left: 0.125rem; }
+    42→  1451→.mkt-filter-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; border-radius: 0.875rem; font-size: 0.75rem; font-weight: 700; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+    43→  1452→.mkt-filter-chip[data-active="1"] { background: var(--chip-active-bg, rgba(255,255,255,0.05)); border-color: var(--chip-active-border, rgba(255,255,255,0.08)); }
+    44→  1453→.mkt-filter-chip:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+    45→  1454→.mkt-filter-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 600; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.3s ease; }
+    46→  1455→.mkt-filter-btn:hover { background: rgba(255,255,255,0.06); }
+    47→  1456→.mkt-filter-badge { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: hsl(352 73% 50%); color: white; font-size: 9px; font-weight: 800; }
+    48→  1457→.mkt-section-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    49→  1458→.mkt-section-icon { width: 40px; height: 40px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; }
+    50→  1459→.mkt-section-count { font-size: 0.8rem; font-weight: 800; font-family: var(--font-display); }
+    51→  1460→.mkt-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; }
+    52→  1461→.mkt-card:hover { border-color: hsl(220 70% 18% / 0.18); box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25), 0 0 35px -15px hsl(220 70% 18% / 0.12); background: rgba(255,255,255,0.04); }
+    53→  1462→.mkt-card-shine { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; z-index: 5; }
+    54→  1463→.mkt-card:hover .mkt-card-shine { animation: card-shine-sweep 0.7s ease-out; }
+    55→  1464→.mkt-game-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    56→  1465→.mkt-game-card:hover { border-color: hsl(45 93% 47% / 0.2); box-shadow: 0 15px 40px -10px rgba(0,0,0,0.2), 0 0 25px -10px hsl(45 93% 47% / 0.1); }
+    57→  1466→.mkt-price-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 0.625rem; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #fff; }
+    58→  1467→.mkt-hot-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 800; background: linear-gradient(135deg, hsl(352 73% 50%), hsl(20 90% 50%)); color: white; box-shadow: 0 2px 10px hsl(352 73% 50% / 0.3); animation: hot-pulse 2s ease-in-out infinite; }
+    59→  1468→@keyframes hot-pulse { 0%, 100% { box-shadow: 0 2px 10px hsl(352 73% 50% / 0.3); } 50% { box-shadow: 0 2px 20px hsl(352 73% 50% / 0.5); } }
+    60→  1469→.mkt-status-badge { display: inline-flex; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.65rem; font-weight: 700; backdrop-filter: blur(8px); }
+    61→  1470→.mkt-time-badge { position: absolute; top: 2.5rem; right: 0.625rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.65rem; font-weight: 600; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); color: rgba(255,255,255,0.9); }
+    62→  1471→.mkt-location-badge { position: absolute; bottom: 0.625rem; left: 0.625rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.6rem; font-weight: 600; background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); color: rgba(255,255,255,0.8); }
+    63→  1472→.mkt-type-badge { display: inline-flex; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.6rem; font-weight: 700; color: white; }
+    64→  1473→.mkt-progress-ring { overflow: visible; flex-shrink: 0; }
+    65→  1474→
+    66→  1475→/* ============================================ */
+    67→  1476→/* RAFFLE DETAIL V2 - Premium Redesign          */
+    68→  1477→/* ============================================ */
+    69→  1478→.rd-back-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 600; color: hsl(var(--muted-foreground)); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.3s ease; }
+    70→  1479→.rd-back-btn:hover { background: rgba(255,255,255,0.06); color: hsl(var(--foreground)); }
+    71→  1480→.rd-image-wrap { position: relative; overflow: hidden; border-radius: 1.5rem; aspect-ratio: 16/9; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+    72→  1481→.rd-image-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%); pointer-events: none; }
+    73→  1482→.rd-icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: all 0.3s ease; }
+    74→  1483→.rd-icon-btn:hover { background: rgba(0,0,0,0.6); }
+    75→  1484→.rd-price-badge { display: inline-flex; padding: 0.4rem 1rem; border-radius: 0.75rem; font-size: 1rem; font-weight: 900; color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: 0.02em; }
+    76→  1485→.rd-business-badge { display: inline-flex; padding: 0.3rem 0.75rem; border-radius: 0.625rem; font-size: 0.7rem; font-weight: 700; background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.08); }
+    77→  1486→.rd-excl-badge { display: inline-flex; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(8px); }
+    78→  1487→.rd-stat-card { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px); transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+    79→  1488→.rd-stat-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.05); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+    80→  1489→.rd-stat-icon { width: 44px; height: 44px; border-radius: 0.875rem; display: flex; align-items: center; justify-content: center; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+    81→  1490→.rd-stat-card:hover .rd-stat-icon { transform: scale(1.1) rotate(-5deg); }
+    82→  1491→.rd-bolao-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid hsl(352 73% 50% / 0.2); color: hsl(352 73% 50%); cursor: pointer; transition: all 0.3s ease; }
+    83→  1492→.rd-bolao-btn:hover { background: hsl(352 73% 50% / 0.1); }
+    84→  1493→.rd-progress-section { padding: 1.5rem; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); }
+    85→  1494→.rd-info-card { padding: 1.5rem; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid var(--card-accent, hsl(220 70% 18% / 0.15)); transition: all 0.3s ease; }
+    86→  1495→.rd-info-card:hover { border-color: var(--card-accent, hsl(220 70% 18% / 0.25)); }
+    87→  1496→.rd-ticket-panel { position: relative; overflow: hidden; border-radius: 1.5rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px); }
+    88→  1497→.rd-ticket-panel::before { content: ""; position: absolute; inset: -1px; border-radius: 1.6rem; padding: 1.5px; background: conic-gradient(from 0deg, hsl(220 70% 18% / 0.3), hsl(352 73% 50% / 0.2), hsl(220 70% 18% / 0.1), hsl(220 70% 18% / 0.3)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; animation: conic-rotate 8s linear infinite; }
+    89→  1498→.rd-lucky-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 700; background: hsl(45 93% 47% / 0.08); border: 1.5px dashed hsl(45 93% 47% / 0.3); color: hsl(45 93% 47%); cursor: pointer; transition: all 0.3s ease; margin-bottom: 1rem; }
+    90→  1499→.rd-lucky-btn:hover { background: hsl(45 93% 47% / 0.12); border-color: hsl(45 93% 47% / 0.5); }
+    91→  1500→.rd-number-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.375rem; max-height: 320px; overflow-y: auto; padding-right: 0.25rem; margin-bottom: 1.5rem; }
+    92→  1501→.rd-number-grid::-webkit-scrollbar { width: 3px; }
+    93→  1502→.rd-number-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    94→  1503→.rd-num { aspect-ratio: 1; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; background: rgba(255,255,255,0.04); color: hsl(var(--foreground)); }
+    95→  1504→.rd-num.available:hover { background: rgba(255,255,255,0.08); border-color: hsl(220 70% 18% / 0.3); transform: scale(1.05); }
+    96→  1505→.rd-num.selected { border-color: transparent; transform: scale(1.05); }
+    97→  1506→.rd-num.sold { background: rgba(255,255,255,0.02); opacity: 0.2; cursor: not-allowed; }
+    98→  1507→.rd-selected-bar { padding-top: 1rem; margin-bottom: 1rem; border-top: 1px solid rgba(255,255,255,0.06); }
+    99→  1508→.rd-selected-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; background: hsl(220 70% 18% / 0.15); color: hsl(220 70% 18%); cursor: pointer; transition: all 0.2s ease; }
+   100→  1509→.rd-selected-chip:hover { background: hsl(220 70% 18% / 0.25); }
+   101→  1510→.rd-buy-btn { display: flex; align-items: center; justify-content: center; gap: 0.625rem; padding: 0.875rem; border-radius: 1rem; font-size: 1rem; font-weight: 800; color: white; border: none; cursor: pointer; box-shadow: 0 6px 25px hsl(220 70% 18% / 0.3); transition: all 0.3s ease; }
+   102→  1511→.rd-checkout-sheet { width: 100%; max-width: 28rem; overflow: hidden; display: flex; flex-direction: column; border-radius: 1.5rem; background: hsl(var(--card)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+   103→  1512→.rd-checkout-header { padding: 1.25rem 1.25rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+   104→  1513→.rd-close-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: none; color: hsl(var(--muted-foreground)); cursor: pointer; }
+   105→  1514→.rd-order-summary { border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 0.75rem; }
+   106→  1515→.rd-order-total { padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; }
+   107→  1516→.rd-trust-badge { border-radius: 0.75rem; padding: 0.5rem; background: rgba(255,255,255,0.03); }
+   108→  1517→.rd-cancel-btn { display: flex; align-items: center; justify-content: center; padding: 0.75rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 600; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.3s ease; }
+   109→  1518→.rd-cancel-btn:hover { background: rgba(255,255,255,0.06); }
+   110→  1519→.rd-cta-btn { display: inline-flex; align-items: center; gap: 0.625rem; padding: 0.875rem 2rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 800; color: white; border: none; cursor: pointer; box-shadow: 0 6px 30px hsl(220 70% 18% / 0.3); }
+   111→  1520→
+   112→  1521→@media (max-width: 768px) {
+   113→  1522→  .dirv2-card:hover, .dirv2-list-card:hover, .mkt-card:hover, .mkt-game-card:hover { transform: none; box-shadow: none; }
+   114→  1523→  .rd-stat-card:hover { transform: none; }
+   115→  1524→}
+   116→  1525→
+   117→  1526→/* ============================================ */
+   118→  1527→/* CREATIVE EFFECTS V3 - Stickers, Glow & Magic */
+   119→  1528→/* ============================================ */
+   120→  1529→
+   121→  1530→@keyframes ping-slow { 0% { transform: scale(1); opacity: 0.4; } 75%, 100% { transform: scale(2.2); opacity: 0; } }
+   122→  1531→@keyframes float-sticker { 0%, 100% { transform: translateY(0) rotate(var(--sticker-rot-start, -3deg)); } 50% { transform: translateY(calc(var(--sticker-float, -12px))) rotate(var(--sticker-rot-end, 3deg)); } }
+   123→  1532→@keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 20%, transparent); } 50% { box-shadow: 0 0 40px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent), 0 0 80px color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 15%, transparent); } }
+   124→  1533→@keyframes shimmer-text { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+   125→  1534→@keyframes confetti-fall { 0% { transform: translateY(-10px) rotate(0deg); opacity: 1; } 100% { transform: translateY(30px) rotate(360deg); opacity: 0; } }
+   126→  1535→@keyframes orbit-ring { from { transform: rotate(0deg) translateX(var(--orbit-r, 60px)) rotate(0deg); } to { transform: rotate(360deg) translateX(var(--orbit-r, 60px)) rotate(-360deg); } }
+   127→  1536→@keyframes magnetic-glow { 0%, 100% { filter: brightness(1) drop-shadow(0 0 0px transparent); } 50% { filter: brightness(1.15) drop-shadow(0 0 12px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 30%, transparent)); } }
+   128→  1537→@keyframes gradient-x { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+   129→  1538→@keyframes border-dance { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+   130→  1539→@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+   131→  1540→@keyframes slide-in-bounce { 0% { transform: translateX(-30px) scale(0.9); opacity: 0; } 60% { transform: translateX(5px) scale(1.02); } 100% { transform: translateX(0) scale(1); opacity: 1; } }
+   132→  1541→@keyframes sparkle-burst { 0% { transform: scale(0) rotate(0deg); opacity: 1; } 50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; } 100% { transform: scale(0) rotate(360deg); opacity: 0; } }
+   133→  1542→@keyframes wave-text { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+   134→  1543→
+   135→  1544→.animate-ping-slow { animation: ping-slow 2.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+   136→  1545→.animate-float-sticker { animation: float-sticker 4s ease-in-out infinite; }
+   137→  1546→.animate-glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+   138→  1547→.animate-magnetic-glow { animation: magnetic-glow 4s ease-in-out infinite; }
+   139→  1548→.animate-breathe { animation: breathe 4s ease-in-out infinite; }
+   140→  1549→.animate-slide-in-bounce { animation: slide-in-bounce 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+   141→  1550→
+   142→  1551→.text-shimmer-animated {
+   143→  1552→  background: linear-gradient(90deg, var(--region-primary, hsl(var(--primary))) 0%, var(--region-accent, hsl(var(--accent))) 25%, var(--region-secondary, hsl(var(--secondary))) 50%, var(--region-accent, hsl(var(--accent))) 75%, var(--region-primary, hsl(var(--primary))) 100%);
+   144→  1553→  background-size: 200% auto;
+   145→  1554→  -webkit-background-clip: text;
+   146→  1555→  background-clip: text;
+   147→  1556→  -webkit-text-fill-color: transparent;
+   148→  1557→  animation: shimmer-text 4s linear infinite;
+   149→  1558→}
+   150→  1559→
+   151→  1560→.text-shimmer-slow {
+   152→  1561→  background: linear-gradient(90deg, hsl(var(--foreground)) 0%, color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 60%, hsl(var(--foreground))) 50%, hsl(var(--foreground)) 100%);
+   153→  1562→  background-size: 200% auto;
+   154→  1563→  -webkit-background-clip: text;
+   155→  1564→  background-clip: text;
+   156→  1565→  -webkit-text-fill-color: transparent;
+   157→  1566→  animation: shimmer-text 6s linear infinite;
+   158→  1567→}
+   159→  1568→
+   160→  1569→.glass-premium {
+   161→  1570→  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+   162→  1571→  backdrop-filter: blur(24px) saturate(1.4);
+   163→  1572→  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+   164→  1573→  border: 1px solid rgba(255,255,255,0.06);
+   165→  1574→  box-shadow: 0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+   166→  1575→}
+   167→  1576→
+   168→  1577→.glass-premium:hover {
+   169→  1578→  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+   170→  1579→  border-color: rgba(255,255,255,0.1);
+   171→  1580→  box-shadow: 0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+   172→  1581→}
+   173→  1582→
+   174→  1583→.gradient-border-animated {
+   175→  1584→  position: relative;
+   176→  1585→}
+   177→  1586→.gradient-border-animated::before {
+   178→  1587→  content: "";
+   179→  1588→  position: absolute;
+   180→  1589→  inset: -1px;
+   181→  1590→  border-radius: inherit;
+   182→  1591→  padding: 1.5px;
+   183→  1592→  background: linear-gradient(90deg, color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent), color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 40%, transparent), color-mix(in srgb, var(--region-secondary, hsl(var(--secondary))) 30%, transparent), color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent));
+   184→  1593→  background-size: 200% 100%;
+   185→  1594→  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+   186→  1595→  -webkit-mask-composite: xor;
+   187→  1596→  mask-composite: exclude;
+   188→  1597→  pointer-events: none;
+   189→  1598→  animation: border-dance 6s linear infinite;
+   190→  1599→  opacity: 0.6;
+   191→  1600→  transition: opacity 0.4s ease;
+   192→  1601→}
+   193→  1602→.gradient-border-animated:hover::before { opacity: 1; }
+   194→  1603→
+   195→  1604→.sticker {
+   196→  1605→  display: inline-flex;
+   197→  1606→  align-items: center;
+   198→  1607→  justify-content: center;
+   199→  1608→  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+   200→  1609→  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+   201→  1610→}
+   202→  1611→.sticker:hover {
+   203→  1612→  transform: scale(1.2) rotate(-5deg) !important;
+   204→  1613→  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.4));
+   205→  1614→}
+   206→  1615→
+   207→  1616→.sticker-glow {
+   208→  1617→  position: relative;
+   209→  1618→}
+   210→  1619→.sticker-glow::after {
+   211→  1620→  content: "";
+   212→  1621→  position: absolute;
+   213→  1622→  inset: -4px;
+   214→  1623→  border-radius: inherit;
+   215→  1624→  background: inherit;
+   216→  1625→  filter: blur(12px);
+   217→  1626→  opacity: 0.3;
+   218→  1627→  z-index: -1;
+   219→  1628→  transition: opacity 0.4s ease;
+   220→  1629→}
+   221→  1630→.sticker-glow:hover::after { opacity: 0.5; }
+   222→  1631→
+   223→  1632→.hover-lift { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease; }
+   224→  1633→.hover-lift:hover { transform: translateY(-6px); box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25); }
+   225→  1634→
+   226→  1635→.hover-glow { transition: box-shadow 0.4s ease; }
+   227→  1636→.hover-glow:hover { box-shadow: 0 0 30px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 20%, transparent), 0 0 60px color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 10%, transparent); }
+   228→  1637→
+   229→  1638→.text-wave span {
+   230→  1639→  display: inline-block;
+   231→  1640→  animation: wave-text 2s ease-in-out infinite;
+   232→  1641→}
+   233→  1642→.text-wave span:nth-child(2) { animation-delay: 0.1s; }
+   234→  1643→.text-wave span:nth-child(3) { animation-delay: 0.2s; }
+   235→  1644→.text-wave span:nth-child(4) { animation-delay: 0.3s; }
+   236→  1645→.text-wave span:nth-child(5) { animation-delay: 0.4s; }
+   237→  1646→.text-wave span:nth-child(6) { animation-delay: 0.5s; }
+   238→  1647→.text-wave span:nth-child(7) { animation-delay: 0.6s; }
+   239→  1648→
+   240→  1649→.sparkle-container { position: relative; }
+   241→  1650→.sparkle-container::before, .sparkle-container::after {
+   242→  1651→  content: "\2728";
+   243→  1652→  position: absolute;
+   244→  1653→  font-size: 14px;
+   245→  1654→  animation: sparkle-burst 3s ease-in-out infinite;
+   246→  1655→  pointer-events: none;
+   247→  1656→}
+   248→  1657→.sparkle-container::before { top: -8px; right: -12px; animation-delay: 0s; }
+   249→  1658→.sparkle-container::after { bottom: -6px; left: -10px; animation-delay: 1.5s; }
+   250→  1659→
+   251→  1660→.orbit-dot {
+   252→  1661→  position: absolute;
+   253→  1662→  width: 8px;
+   254→  1663→  height: 8px;
+   255→  1664→  border-radius: 50%;
+   256→  1665→  background: var(--region-primary, hsl(var(--primary)));
+   257→  1666→  animation: orbit-ring var(--orbit-dur, 8s) linear infinite;
+   258→  1667→  box-shadow: 0 0 10px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 50%, transparent);
+   259→  1668→}
+   260→  1669→
+   261→  1670→.card-3d-perspective {
+   262→  1671→  perspective: 800px;
+   263→  1672→}
+   264→  1673→.card-3d {
+   265→  1674→  transform-style: preserve-3d;
+   266→  1675→  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+   267→  1676→}
+   268→  1677→.card-3d:hover {
+   269→  1678→  transform: rotateY(-5deg) rotateX(3deg) translateZ(10px);
+   270→  1679→}
+   271→  1680→
+   272→  1681→.emoji-rain {
+   273→  1682→  position: fixed;
+   274→  1683→  pointer-events: none;
+   275→  1684→  z-index: 9999;
+   276→  1685→  font-size: 24px;
+   277→  1686→  animation: confetti-fall 3s ease-in forwards;
+   278→  1687→}
+   279→  1688→
+   280→  1689→.btn-magic {
+   281→  1690→  position: relative;
+   282→  1691→  overflow: hidden;
+   283→  1692→}
+   284→  1693→.btn-magic::before {
+   285→  1694→  content: "";
+   286→  1695→  position: absolute;
+   287→  1696→  top: 50%;
+   288→  1697→  left: 50%;
+   289→  1698→  width: 0;
+   290→  1699→  height: 0;
+   291→  1700→  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+   292→  1701→  border-radius: 50%;
+   293→  1702→  transform: translate(-50%, -50%);
+   294→  1703→  transition: width 0.6s ease, height 0.6s ease;
+   295→  1704→}
+   296→  1705→.btn-magic:hover::before { width: 300px; height: 300px; }
+   297→  1706→
+   298→  1707→.border-gradient-animated {
+   299→  1708→  border-image: linear-gradient(var(--angle, 0deg), var(--region-primary, hsl(var(--primary))), var(--region-accent, hsl(var(--accent))), var(--region-secondary, hsl(var(--secondary))), var(--region-primary, hsl(var(--primary)))) 1;
+   300→  1709→  animation: gradient-x 4s ease infinite;
+   301→  1710→  background: border-gradient-animated;
+   302→  1711→}
+   303→  1712→
+   304→  1713→.progress-glow {
+   305→  1714→  box-shadow: 0 0 8px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent);
+   306→  1715→}
+   307→  1716→
+   308→  1717→.tag-glow {
+   309→  1718→  animation: glow-pulse 3s ease-in-out infinite;
+   310→  1719→}
+   311→  1720→
+   312→  1721→.floating-badge {
+   313→  1722→  animation: float-sticker 3s ease-in-out infinite;
+   314→  1723→}
+   315→  1724→
+   316→  1725→/* ===== Gaming-themed CSS Effects ===== */
+   317→  1726→
+   318→  1727→/* 1. Gaming sticker/badge float animation */
+   319→  1728→@keyframes sticker-float {
+   320→  1729→  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1); }
+   321→  1730→  25% { transform: translateY(-8px) rotate(2deg) scale(1.05); }
+   322→  1731→  50% { transform: translateY(-4px) rotate(-1deg) scale(1.02); }
+   323→  1732→  75% { transform: translateY(-12px) rotate(3deg) scale(0.98); }
+   324→  1733→}
+   325→  1734→.gaming-sticker {
+   326→  1735→  animation: sticker-float 6s ease-in-out infinite;
+   327→  1736→  display: inline-flex;
+   328→  1737→  align-items: center;
+   329→  1738→  justify-content: center;
+   330→  1739→}
+   331→  1740→
+   332→  1741→/* 2. Prize glow shimmer */
+   333→  1742→@keyframes prize-shimmer {
+   334→  1743→  0% { background-position: -200% center; }
+   335→  1744→  100% { background-position: 200% center; }
+   336→  1745→}
+   337→  1746→.prize-shimmer {
+   338→  1747→  background: linear-gradient(90deg, transparent 0%, rgba(251, 191, 36, 0.08) 25%, rgba(251, 191, 36, 0.15) 50%, rgba(251, 191, 36, 0.08) 75%, transparent 100%);
+   339→  1748→  background-size: 200% 100%;
+   340→  1749→  animation: prize-shimmer 3s linear infinite;
+   341→  1750→}
+   342→  1751→
+   343→  1752→/* 3. Neon card border effect */
+   344→  1753→@keyframes neon-flicker {
+   345→  1754→  0%, 100% { opacity: 1; }
+   346→  1755→  92% { opacity: 1; }
+   347→  1756→  93% { opacity: 0.7; }
+   348→  1757→  94% { opacity: 1; }
+   349→  1758→  96% { opacity: 0.8; }
+   350→  1759→  97% { opacity: 1; }
+   351→  1760→}
+   352→  1761→.neon-card-border {
+   353→  1762→  position: relative;
+   354→  1763→}
+   355→  1764→.neon-card-border::before {
+   356→  1765→  content: '';
+   357→  1766→  position: absolute;
+   358→  1767→  inset: -1px;
+   359→  1768→  border-radius: inherit;
+   360→  1769→  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)));
+   361→  1770→  background-size: 200% 200%;
+   362→  1771→  animation: gradient-pan 4s ease infinite, neon-flicker 8s ease-in-out infinite;
+   363→  1772→  z-index: -1;
+   364→  1773→  opacity: 0.6;
+   365→  1774→  transition: opacity 0.3s;
+   366→  1775→}
+   367→  1776→.neon-card-border:hover::before {
+   368→  1777→  opacity: 1;
+   369→  1778→}
+   370→  1779→
+   371→  1780→/* 4. Ripple button effect */
+   372→  1781→.gaming-btn-ripple {
+   373→  1782→  position: relative;
+   374→  1783→  overflow: hidden;
+   375→  1784→}
+   376→  1785→.gaming-btn-ripple::after {
+   377→  1786→  content: '';
+   378→  1787→  position: absolute;
+   379→  1788→  inset: 0;
+   380→  1789→  background: radial-gradient(circle at var(--rx, 50%) var(--ry, 50%), rgba(255,255,255,0.2) 0%, transparent 60%);
+   381→  1790→  opacity: 0;
+   382→  1791→  transition: opacity 0.3s;
+   383→  1792→}
+   384→  1793→.gaming-btn-ripple:hover::after {
+   385→  1794→  opacity: 1;
+   386→  1795→}
+   387→  1796→
+   388→  1797→/* 5. Typing/reveal text animation */
+   389→  1798→@keyframes text-reveal {
+   390→  1799→  0% { clip-path: inset(0 100% 0 0); }
+   391→  1800→  100% { clip-path: inset(0 0 0 0); }
+   392→  1801→}
+   393→  1802→.text-reveal {
+   394→  1803→  animation: text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+   395→  1804→}
+   396→  1805→.text-reveal-delay-1 {
+   397→  1806→  animation-delay: 0.1s;
+   398→  1807→  clip-path: inset(0 100% 0 0);
+   399→  1808→}
+   400→  1809→.text-reveal-delay-2 {
+   401→  1810→  animation-delay: 0.2s;
+   402→  1811→  clip-path: inset(0 100% 0 0);
+   403→  1812→}
+   404→  1813→.text-reveal-delay-3 {
+   405→  1814→  animation-delay: 0.3s;
+   406→  1815→  clip-path: inset(0 100% 0 0);
+   407→  1816→}
+   408→  1817→
+   409→  1818→/* 6. Energy line sweep for section dividers */
+   410→  1819→@keyframes energy-line {
+   411→  1820→  0% { transform: translateX(-100%); opacity: 0; }
+   412→  1821→  20% { opacity: 1; }
+   413→  1822→  80% { opacity: 1; }
+   414→  1823→  100% { transform: translateX(100%); opacity: 0; }
+   415→  1824→}
+   416→  1825→.energy-line-divider {
+   417→  1826→  position: relative;
+   418→  1827→  height: 1px;
+   419→  1828→  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+   420→  1829→  overflow: hidden;
+   421→  1830→}
+   422→  1831→.energy-line-divider::after {
+   423→  1832→  content: '';
+   424→  1833→  position: absolute;
+   425→  1834→  top: -1px;
+   426→  1835→  left: 0;
+   427→  1836→  width: 30%;
+   428→  1837→  height: 3px;
+   429→  1838→  background: linear-gradient(90deg, transparent, hsl(var(--primary)), hsl(var(--accent)), transparent);
+   430→  1839→  border-radius: 2px;
+   431→  1840→  animation: energy-line 6s ease-in-out infinite;
+   432→  1841→}
+   433→  1842→
+   434→  1843→/* 7. Glow dot background pattern */
+   435→  1844→.glow-dots-bg {
+   436→  1845→  position: relative;
+   437→  1846→}
+   438→  1847→.glow-dots-bg::before {
+   439→  1848→  content: '';
+   440→  1849→  position: absolute;
+   441→  1850→  inset: 0;
+   442→  1851→  background-image: radial-gradient(circle 1px at 10% 20%, hsl(var(--primary) / 0.15), transparent 1px), radial-gradient(circle 1px at 30% 60%, hsl(var(--accent) / 0.1), transparent 1px), radial-gradient(circle 1px at 50% 30%, hsl(var(--primary) / 0.12), transparent 1px), radial-gradient(circle 1px at 70% 70%, hsl(var(--accent) / 0.08), transparent 1px), radial-gradient(circle 1px at 90% 40%, hsl(var(--primary) / 0.1), transparent 1px), radial-gradient(circle 1px at 20% 80%, hsl(var(--accent) / 0.12), transparent 1px), radial-gradient(circle 1px at 60% 10%, hsl(var(--primary) / 0.08), transparent 1px), radial-gradient(circle 1px at 80% 90%, hsl(var(--accent) / 0.1), transparent 1px);
+   443→  1852→  pointer-events: none;
+   444→  1853→  z-index: 0;
+   445→  1854→  animation: cosmic-pulse 10s ease-in-out infinite;
+   446→  1855→}
+   447→  1856→
+   448→  1857→/* 8. 3D perspective tilt for cards on hover */
+   449→  1858→.perspective-tilt {
+   450→  1859→  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+   451→  1860→  transform-style: preserve-3d;
+   452→  1861→}
+   453→  1862→.perspective-tilt:hover {
+   454→  1863→  transform: translateY(-6px) rotateX(2deg) rotateY(-2deg);
+   455→  1864→  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.2), 0 0 20px hsl(var(--primary) / 0.08);
+   456→  1865→}
+   457→  1866→
+   458→  1867→/* 9. Confetti burst keyframe (for winners) */
+   459→  1868→@keyframes confetti-fall {
+   460→  1869→  0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+   461→  1870→  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+   462→  1871→}
+   463→  1872→.confetti-piece {
+   464→  1873→  position: fixed;
+   465→  1874→  width: 8px;
+   466→  1875→  height: 8px;
+   467→  1876→  pointer-events: none;
+   468→  1877→  z-index: 9999;
+   469→  1878→  animation: confetti-fall 3s ease-in forwards;
+   470→  1879→}
+   471→  1880→
+   472→  1881→/* 10. Pulse ring for live indicators */
+   473→  1882→@keyframes live-pulse-ring {
+   474→  1883→  0% { transform: scale(0.8); opacity: 0.8; border-color: hsl(var(--accent)); }
+   475→  1884→  100% { transform: scale(2.2); opacity: 0; border-color: hsl(var(--accent)); }
+   476→  1885→}
+   477→  1886→.live-pulse-ring {
+   478→  1887→  position: relative;
+   479→  1888→}
+   480→  1889→.live-pulse-ring::before {
+   481→  1890→  content: '';
+   482→  1891→  position: absolute;
+   483→  1892→  inset: -4px;
+   484→  1893→  border-radius: 50%;
+   485→  1894→  border: 2px solid hsl(var(--accent));
+   486→  1895→  animation: live-pulse-ring 2s ease-out infinite;
+   487→  1896→  pointer-events: none;
+   488→  1897→}
+   489→  1898→
+   490→  1899→
+   491→  1900→/* ===== ENHANCED BACKGROUND EFFECTS ===== */
+   492→  1901→
+   493→  1902→/* Slow morph blob variant */
+   494→  1903→.morph-blob-slow {
+   495→  1904→  animation: morph 25s ease-in-out infinite;
+   496→  1905→}
+   497→  1906→
+   498→  1907→/* Subtle noise texture overlay */
+   499→  1908→.bg-noise-overlay {
+   500→  1909→  position: absolute;
+
+[showing lines 1-500 of 857; use offset=501 with limit to continue reading]
