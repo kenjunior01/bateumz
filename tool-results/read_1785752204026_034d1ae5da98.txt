@@ -1,0 +1,886 @@
+    33→const currentAnnouncement: Announcement | null = {
+    34→  id: "live-may2025",
+    35→  emoji: "\ud83d\udd25",
+    36→  text: "Lives happening now — join and win real-time prizes!",
+    37→  cta: { label: "Join Now", href: "/lives-agora" },
+    38→  gradient: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary-glow)) 45%, hsl(var(--accent)))",
+    39→};
+    40→
+    41→type SubItem = { label: string; href: string; icon: typeof Trophy; desc: string; badge?: string; live?: boolean; trending?: boolean };
+    42→type MenuGroup = { label: string; icon: typeof Trophy; items: SubItem[]; spotlight: { label: string; desc: string; href: string; cta: string } };
+    43→
+    44→const Navbar = () => {
+    45→  const [open, setOpen] = useState(false);
+    46→  const [scrolled, setScrolled] = useState(false);
+    47→  const [hidden, setHidden] = useState(false);
+    48→  const [unread, setUnread] = useState(0);
+    49→  const [liveCount, setLiveCount] = useState(0);
+    50→  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+    51→  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
+    52→  const lastY = useRef(0);
+    53→  const navRef = useRef<HTMLDivElement>(null);
+    54→  const { user, role, signOut, profile } = useAuth();
+    55→  const { t } = useLanguage();
+    56→  const { format } = useCurrency();
+    57→  const location = useLocation();
+    58→
+    59→  // Premium scroll progress indicator (top of viewport)
+    60→  const { scrollYProgress } = useScroll();
+    61→  const progressScaleX = useSpring(scrollYProgress, {
+    62→    stiffness: 120,
+    63→    damping: 30,
+    64→    mass: 0.3,
+    65→    restDelta: 0.001,
+    66→  });
+    67→
+    68→  // Scroll-aware: shrink navbar and auto-hide on scroll down
+    69→  useEffect(() => {
+    70→    const handleScroll = () => {
+    71→      const y = window.scrollY;
+    72→      setScrolled(y > 20);
+    73→      if (y > 200) {
+    74→        setHidden(y > lastY.current && y - lastY.current > 5);
+    75→      } else {
+    76→        setHidden(false);
+    77→      }
+    78→      lastY.current = y;
+    79→    };
+    80→    window.addEventListener("scroll", handleScroll, { passive: true });
+    81→    return () => window.removeEventListener("scroll", handleScroll);
+    82→  }, []);
+    83→
+    84→  // Check if announcement was dismissed in this session
+    85→  useEffect(() => {
+    86→    setAnnouncementDismissed(sessionStorage.getItem(ANNOUNCEMENT_KEY) === currentAnnouncement?.id);
+    87→  }, []);
+    88→
+    89→  // Notification count for desktop bell
+    90→  useEffect(() => {
+    91→    if (!user) { setUnread(0); return; }
+    92→    let mounted = true;
+    93→    const load = async () => {
+    94→      const { count } = await (supabase as any)
+    95→        .from("notifications")
+    96→        .select("id", { count: "exact", head: true })
+    97→        .eq("user_id", user.id)
+    98→        .eq("read", false);
+    99→      if (mounted) setUnread(count || 0);
+   100→    };
+   101→    load();
+   102→    const ch = (supabase as any)
+   103→      .channel("nav-notif")
+   104→      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => load())
+   105→      .subscribe();
+   106→    return () => { mounted = false; (supabase as any).removeChannel(ch); };
+   107→  }, [user]);
+   108→
+   109→  // Live activity count — real-time pulse of how many streams are active right now
+   110→  useEffect(() => {
+   111→    let mounted = true;
+   112→    const load = async () => {
+   113→      try {
+   114→        const { count } = await (supabase as any)
+   115→          .from("live_sessions")
+   116→          .select("id", { count: "exact", head: true })
+   117→          .eq("status", "active");
+   118→        if (mounted) setLiveCount(count || 0);
+   119→      } catch {
+   120→        if (mounted) setLiveCount(0);
+   121→      }
+   122→    };
+   123→    load();
+   124→    const ch = (supabase as any)
+   125→      .channel("nav-live-count")
+   126→      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => load())
+   127→      .subscribe();
+   128→    const interval = setInterval(load, 30000);
+   129→    return () => { mounted = false; (supabase as any).removeChannel(ch); clearInterval(interval); };
+   130→  }, []);
+   131→
+   132→  // Wallet balance for authed users
+   133→  useEffect(() => {
+   134→    if (!user) { setWalletBalance(null); return; }
+   135→    let mounted = true;
+   136→    const load = async () => {
+   137→      try {
+   138→        const { data } = await (supabase as any)
+   139→          .from("wallets")
+   140→          .select("balance")
+   141→          .eq("user_id", user.id)
+   142→          .single();
+   143→        if (mounted && typeof data?.balance === "number") setWalletBalance(data.balance);
+   144→      } catch {
+   145→        if (mounted) setWalletBalance(null);
+   146→      }
+   147→    };
+   148→    load();
+   149→    const ch = (supabase as any)
+   150→      .channel("nav-wallet")
+   151→      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` }, () => load())
+   152→      .subscribe();
+   153→    return () => { mounted = false; (supabase as any).removeChannel(ch); };
+   154→  }, [user]);
+   155→
+   156→  // Close mobile menu on route change
+   157→  useEffect(() => { setOpen(false); }, [location.pathname]);
+   158→
+   159→  // Cursor-follow spotlight — desktop only
+   160→  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+   161→    const el = navRef.current;
+   162→    if (!el) return;
+   163→    const rect = el.getBoundingClientRect();
+   164→    const x = ((e.clientX - rect.left) / rect.width) * 100;
+   165→    el.style.setProperty("--navbar-mx", `${x}%`);
+   166→  }, []);
+   167→
+   168→  // Build initials for avatar
+   169→  const initials = (() => {
+   170→    const name: string = profile?.display_name?.trim() || user?.email?.split("@")[0] || "U";
+   171→    const parts = name.split(/\s+/).slice(0, 2);
+   172→    return parts.map((p: string) => p.charAt(0).toUpperCase()).join("") || "U";
+   173→  })();
+   174→
+   175→  const dismissAnnouncement = () => {
+   176→    if (currentAnnouncement) {
+   177→    sessionStorage.setItem(ANNOUNCEMENT_KEY, currentAnnouncement.id);
+   178→    setAnnouncementDismissed(true);
+   179→    }
+   180→  };
+   181→
+   182→  const groups: MenuGroup[] = [
+   183→    {
+   184→      label: t("nav.group.raffles"),
+   185→      icon: Ticket,
+   186→      spotlight: {
+   187→        label: t("nav.spotlight.marketplace"),
+   188→        desc: t("nav.spotlight.marketplace.desc"),
+   189→        href: "/marketplace",
+   190→        cta: t("nav.spotlight.cta"),
+   191→      },
+   192→      items: [
+   193→        { label: t("nav.marketplace"), href: "/marketplace", icon: Store, desc: t("nav.marketplace.desc"), trending: true },
+   194→        { label: t("nav.contests"), href: "/concursos", icon: Trophy, desc: t("nav.contests.desc") },
+   195→        { label: t("nav.instantwin"), href: "/instant-win", icon: Sparkles, desc: t("nav.instantwin.desc") },
+   196→        { label: t("nav.mytickets"), href: "/my-tickets", icon: Ticket, desc: t("nav.mytickets.desc") },
+   197→      ],
+   198→    },
+   199→    {
+   200→      label: t("nav.group.business"),
+   201→      icon: Building2,
+   202→      spotlight: {
+   203→        label: t("nav.spotlight.prestacoes"),
+   204→        desc: t("nav.spotlight.prestacoes.desc"),
+   205→        href: "/prestacoes/catalogo",
+   206→        cta: t("nav.spotlight.cta"),
+   207→      },
+   208→      items: [
+   209→        { label: t("nav.directory"), href: "/empresas", icon: Building2, desc: t("nav.directory.desc") },
+   210→        { label: t("nav.installments.catalog"), href: "/prestacoes/catalogo", icon: Calendar, desc: t("nav.installments.catalog.desc"), badge: t("nav.badge.new") },
+   211→        { label: t("nav.installments.about"), href: "/prestacoes", icon: Calendar, desc: t("nav.installments.about.desc") },
+   212→        { label: t("nav.createraffle"), href: "/dashboard/raffles/create", icon: Gift, desc: t("nav.createraffle.desc") },
+   213→      ],
+   214→    },
+   215→    {
+   216→      label: t("nav.group.entertainment"),
+   217→      icon: Gamepad2,
+   218→      spotlight: {
+   219→        label: t("nav.spotlight.live"),
+   220→        desc: t("nav.spotlight.live.desc"),
+   221→        href: "/lives-agora",
+   222→        cta: t("nav.spotlight.cta.live"),
+   223→      },
+   224→      items: [
+   225→        { label: t("nav.games"), href: "/jogos", icon: Gamepad2, desc: t("nav.games.desc"), badge: "Hot", trending: true },
+   226→        { label: t("nav.tournaments"), href: "/tournaments", icon: Swords, desc: t("nav.tournaments.desc"), badge: t("nav.badge.new") },
+   227→        { label: t("nav.livedraw"), href: "/lives-agora", icon: Radio, desc: t("nav.livedraw.desc"), live: true },
+   228→        { label: t("nav.lives"), href: "/lives", icon: Radio, desc: t("nav.lives.desc") },
+   229→        { label: t("nav.blog"), href: "/blog", icon: Newspaper, desc: t("nav.blog.desc") },
+   230→      ],
+   231→    },
+   232→    {
+   233→      label: t("nav.group.community"),
+   234→      icon: MessageCircle,
+   235→      spotlight: {
+   236→        label: t("nav.spotlight.transparency"),
+   237→        desc: t("nav.spotlight.transparency.desc"),
+   238→        href: "/transparencia",
+   239→        cta: t("nav.spotlight.cta"),
+   240→      },
+   241→      items: [
+   242→        { label: t("nav.hub"), href: "/community", icon: MessageCircle, desc: t("nav.hub.desc") },
+   243→        { label: t("nav.winners"), href: "/historico", icon: History, desc: t("nav.winners.desc") },
+   244→        { label: t("nav.transparency"), href: "/transparencia", icon: ShieldCheck, desc: t("nav.transparency.desc") },
+   245→        { label: t("nav.how"), href: "/como-funciona", icon: BookOpen, desc: t("nav.how.desc") },
+   246→      ],
+   247→    },
+   248→    {
+   249→      label: t("nav.group.more"),
+   250→      icon: LayoutGrid,
+   251→      spotlight: {
+   252→        label: t("nav.spotlight.referral"),
+   253→        desc: t("nav.spotlight.referral.desc"),
+   254→        href: "/referral",
+   255→        cta: t("nav.spotlight.cta"),
+   256→      },
+   257→      items: [
+   258→        { label: t("nav.referral"), href: "/referral", icon: Users, desc: t("nav.referral.desc") },
+   259→        { label: t("nav.faq"), href: "/faq", icon: HelpCircle, desc: t("nav.faq.desc") },
+   260→      ],
+   261→    },
+   262→  ];
+   263→
+   264→  // Mobile quick actions — one-tap access at the top of the mobile menu
+   265→  const quickActions = [
+   266→    { label: t("nav.quick.live"), href: "/lives-agora", icon: Radio, live: true },
+   267→    { label: t("nav.quick.games"), href: "/jogos", icon: Gamepad2 },
+   268→    { label: t("nav.quick.market"), href: "/marketplace", icon: Store },
+   269→    { label: t("nav.quick.tickets"), href: "/my-tickets", icon: Ticket },
+   270→  ];
+   271→
+   272→  // Show/hide navbar on specific routes (overlay, dashboard, admin)
+   273→  const hideNavbar = location.pathname.startsWith("/overlay/");
+   274→  if (hideNavbar) return null;
+   275→
+   276→  return (
+   277→    <>
+   278→      <AnimatePresence>
+   279→        {currentAnnouncement && !announcementDismissed && (
+   280→          <motion.div
+   281→            initial={{ height: 0, opacity: 0 }}
+   282→            animate={{ height: "auto", opacity: 1 }}
+   283→            exit={{ height: 0, opacity: 0 }}
+   284→            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+   285→            className="relative z-[51] hidden lg:block overflow-hidden"
+   286→          >
+   287→            <div
+   288→              style={{ background: currentAnnouncement.gradient }}
+   289→              className="relative overflow-hidden"
+   290→            >
+   291→              <div className="absolute inset-0 animate-shimmer" aria-hidden="true" />
+   292→              <div className="navbar-announcement-inner relative flex items-center justify-between px-6 py-2">
+   293→                <div className="flex items-center gap-3 min-w-0">
+   294→                  <motion.span
+   295→                    animate={{ rotate: [0, 10, -10, 0] }}
+   296→                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   297→                    className="text-xl"
+   298→                    aria-hidden="true"
+   299→                  >
+   300→                    {currentAnnouncement.emoji}
+   301→                  </motion.span>
+   302→                  <p className="text-xs font-semibold text-primary-foreground truncate">
+   303→                    {currentAnnouncement.text}
+   304→                  </p>
+   305→                </div>
+   306→                <div className="flex items-center gap-2 shrink-0">
+   307→                  <Link
+   308→                    to={currentAnnouncement.cta.href}
+   309→                    onClick={dismissAnnouncement}
+   310→                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold text-primary-foreground backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-105 active:scale-95"
+   311→                  >
+   312→                    {currentAnnouncement.cta.label}
+   313→                    <ArrowRight className="h-3 w-3" />
+   314→                  </Link>
+   315→                  <button
+   316→                    onClick={dismissAnnouncement}
+   317→                    className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-primary-foreground/70 transition-colors hover:bg-white/30 hover:text-primary-foreground"
+   318→                    aria-label="Fechar anúncio"
+   319→                  >
+   320→                    <X className="h-3 w-3" />
+   321→                  </button>
+   322→                </div>
+   323→              </div>
+   324→            </div>
+   325→          </motion.div>
+   326→        )}
+   327→      </AnimatePresence>
+   328→
+   329→      <motion.nav
+   330→        ref={navRef}
+   331→        initial={{ y: -20, opacity: 0 }}
+   332→        animate={{ y: hidden ? -100 : 0, opacity: 1 }}
+   333→        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   334→        onMouseMove={handleMouseMove}
+   335→        className={
+   336→          "navbar-shell fixed top-0 left-0 right-0 z-50 hidden lg:block transition-transform duration-300" +
+   337→          (announcementDismissed ? " top-0" : (currentAnnouncement && !announcementDismissed ? "top-[38px]" : "top-0"))
+   338→        }
+   339→      >
+   340→        <div className="navbar-spotlight" aria-hidden="true" />
+   341→
+   342→        <motion.div
+   343→          aria-hidden="true"
+   344→          className="navbar-scroll-progress"
+   345→          style={{ scaleX: progressScaleX }}
+   346→        />
+   347→        <div className="navbar-aurora-strip" aria-hidden="true" />
+   348→        <div
+   349→          className="absolute bottom-0 left-0 right-0 h-[2px]"
+   350→          style={{
+   351→            background: "linear-gradient(90deg, transparent, var(--region-primary, hsl(var(--primary))) 20%, hsl(var(--accent)) 50%, var(--region-primary, hsl(var(--primary))) 80%, transparent)",
+   352→            backgroundSize: "300% 100%",
+   353→            animation: "border-flow 4s linear infinite",
+   354→            opacity: scrolled ? 1 : 0.4,
+   355→          }}
+   356→        />
+   357→
+   358→        <div
+   359→          className={
+   360→            "relative transition-all duration-500 ease-out " +
+   361→            (scrolled ? "navbar-scrolled glass-strong shadow-elegant" : "glass-subtle")
+   362→          }
+   363→        >
+   364→          <div
+   365→            className={
+   366→              "container mx-auto flex items-center justify-between transition-all duration-500 " +
+   367→              (scrolled ? "px-6 py-2" : "px-6 py-3.5")
+   368→          }
+   369→          >
+   370→            <Link to="/" className="group relative flex items-center gap-2.5">
+   371→              <motion.div
+   372→                whileHover={{ scale: 1.1, rotate: -3 }}
+   373→                whileTap={{ scale: 0.95 }}
+   374→                className="navbar-logo-ring relative"
+   375→              >
+   376→                <img
+   377→                  src={bateuLogo}
+   378→                  alt="Bateu"
+   379→                  className={"transition-all duration-500 " + (scrolled ? "h-8 w-8" : "h-9 w-9")}
+   380→                />
+   381→                <div className="absolute inset-0 rounded-full bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+   382→              </motion.div>
+   383→              <div className="flex items-center gap-2">
+   384→                <span
+   385→                  className={"navbar-brand-text font-display font-bold transition-all duration-500 text-gradient-primary " + (scrolled ? "text-lg" : "text-xl")}
+   386→                >
+   387→                  Bateu
+   388→                </span>
+   389→                <span className="navbar-verified-dot hidden md:inline-flex" title={t("nav.verified")}>
+   390→                  <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   391→                </span>
+   392→                <Link
+   393→                  to="/lives-agora"
+   394→                  className="navbar-live-orb hidden items-center md:inline-flex"
+   395→                  title={t("nav.live.count")}
+   396→                  aria-label={`${liveCount} ${t("nav.live.count")}`}
+   397→                >
+   398→                  <span className="navbar-live-orb-ring" aria-hidden="true" />
+   399→                  <span className="tabular-nums">{liveCount}</span>
+   400→                  <span className="hidden xl:inline opacity-80">{t("nav.live")}</span>
+   401→                </Link>
+   402→              </div>
+   403→            </Link>
+   404→
+   405→            <div className="hidden lg:flex">
+   406→              <NavigationMenu>
+   407→                <NavigationMenuList className="gap-0.5">
+   408→                  {groups.map((g, gi) => (
+   409→                    <NavigationMenuItem key={g.label}>
+   410→                      <NavigationMenuTrigger
+   411→                        className={
+   412→                          "navbar-trigger bg-transparent text-sm font-medium transition-all duration-200 data-[state=open]:text-foreground " +
+   413→                          "text-muted-foreground hover:text-foreground " +
+   414→                          "hover:bg-secondary/50 data-[state=open]:bg-secondary/50 " +
+   415→                          "rounded-lg px-3 py-2"
+   416→                        }
+   417→                      >
+   418→                        <span className="flex items-center gap-2">
+   419→                          <span className="navbar-group-icon">
+   420→                            <g.icon className="h-[11px] w-[11px]" strokeWidth={2.2} />
+   421→                          </span>
+   422→                          {g.label}
+   423→                          {(gi === 2 || (gi === 0 && liveCount > 0)) && (
+   424→                            <span className="relative flex h-2 w-2">
+   425→                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+   426→                              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+   427→                            </span>
+   428→                          )}
+   429→                          {g.items.some(i => i.trending) && (
+   430→                            <span className="hidden xl:inline-flex items-center gap-1 ml-1 rounded-md bg-accent/12 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+   431→                              <Flame className="h-2.5 w-2.5" />
+   432→                              <span className="hidden 2xl:inline">Trending</span>
+   433→                            </span>
+   434→                          )}
+   435→                        </span>
+   436→                      </NavigationMenuTrigger>
+   437→                      <NavigationMenuContent>
+   438→                        <div className="navbar-mega-panel premium-card rounded-2xl p-2 w-[480px]">
+   439→                          <div className="navbar-mega-header mb-1 flex items-center justify-between px-2 pt-1">
+   440→                            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+   441→                              <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   442→                              {g.label}
+   443→                            </span>
+   444→                            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-accent/80">
+   445→                              <Sparkles className="h-3 w-3" />
+   446→                              {t("nav.mega.explore")}
+   447→                            </span>
+   448→                          </div>
+   449→                          <ul className="gap-0.5">
+   450→                            {g.items.map((item, ii) => (
+   451→                              <motion.li
+   452→                                key={item.label}
+   453→                                initial={{ opacity: 0, x: -8 }}
+   454→                                animate={{ opacity: 1, x: 0 }}
+   455→                                transition={{ delay: ii * 0.04, duration: 0.2 }}
+   456→                              >
+   457→                                <Link
+   458→                                  to={item.href}
+   459→                                  className="group/item flex items-start gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-primary/5"
+   460→                                >
+   461→                                  <div
+   462→                                    className={
+   463→                                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 " +
+   464→                                      "bg-gradient-to-br from-primary/10 to-accent/5 " +
+   465→                                      "text-primary group-hover/item:from-primary/20 group-hover/item:to-accent/10 " +
+   466→                                      "group-hover/item:shadow-md group-hover/item:scale-105"
+   467→                                    }
+   468→                                  >
+   469→                                    <item.icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+   470→                                  </div>
+   471→                                  <div className="flex-1 min-w-0">
+   472→                                    <div className="flex items-center gap-2">
+   473→                                      <span className="text-sm font-semibold text-foreground group-hover/item:text-gradient-primary transition-colors">
+   474→                                        {item.label}
+   475→                                      </span>
+   476→                                      {item.trending && (
+   477→                                        <span className="flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+   478→                                          <Flame className="h-2.5 w-2.5" />
+   479→                                          <span>Trending</span>
+   480→                                        </span>
+   481→                                      )}
+   482→                                      {item.live && (
+   483→                                        <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+   484→                                          <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   485→                                          AO VIVO
+   486→                                        </span>
+   487→                                      )}
+   488→                                      {item.badge && !item.live && !item.trending && (
+   489→                                        <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+   490→                                          {item.badge}
+   491→                                        </span>
+   492→                                      )}
+   493→                                    </div>
+   494→                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+   495→                                      {item.desc}
+   496→                                    </p>
+   497→                                  </div>
+   498→                                  <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover/item:text-primary/60 group-hover/item:translate-x-0.5 transition-all -rotate-90 mt-0.5" />
+   499→                                </Link>
+   500→                              </motion.li>
+   501→                            ))}
+   502→                          </ul>
+   503→                          <Link to={g.spotlight.href} className="navbar-spotlight-card group/spotlight flex items-center gap-3">
+   504→                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+   505→                              <Rocket className="h-4 w-4" strokeWidth={2.2} />
+   506→                            </span>
+   507→                            <div className="min-w-0 flex-1">
+   508→                              <p className="truncate text-sm font-bold text-primary-foreground">
+   509→                                {g.spotlight.label}
+   510→                              </p>
+   511→                              <p className="truncate text-xs text-primary-foreground/80">
+   512→                                {g.spotlight.desc}
+   513→                              </p>
+   514→                            </div>
+   515→                            <span className="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5">
+   516→                              {g.spotlight.cta}
+   517→                              <ArrowRight className="h-3 w-3" />
+   518→                            </span>
+   519→                          </Link>
+   520→                        </div>
+   521→                      </NavigationMenuContent>
+   522→                    </NavigationMenuItem>
+   523→                  ))}
+   524→                </NavigationMenuList>
+   525→              </NavigationMenu>
+   526→            </div>
+   527→
+   528→            <div className="hidden items-center gap-1.5 lg:flex">
+   529→              <Link
+   530→                to="/marketplace"
+   531→                className="navbar-search-trigger group flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md transition-colors hover:bg-secondary/50 hover:text-foreground"
+   532→                aria-label={t("nav.search")}
+   533→              >
+   534→                <Search className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+   535→                <span className="hidden xl:inline">{t("nav.search.placeholder")}</span>
+   536→                <kbd className="navbar-kbd hidden xl:inline-flex">⌘K</kbd>
+   537→              </Link>
+   538→              <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md">
+   539→                <RegionCountrySwitcher compact />
+   540→                <LanguageSwitcher />
+   541→                <ThemeToggle />
+   542→              </div>
+   543→
+   544→              {user && (
+   545→                <Link
+   546→                  to={role === "business" ? "/dashboard/notifications" : "/profile"}
+   547→                  className="navbar-bell relative flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   548→                  aria-label={t("nav.notifications")}
+   549→                >
+   550→                  <Bell className="h-[18px] w-[18px]" />
+   551→                  {unread > 0 && (
+   552→                    <span className="navbar-bell-badge absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground px-1 shadow-glow">
+   553→                      {unread > 9 ? "9+" : unread}
+   554→                    </span>
+   555→                  )}
+   556→                </Link>
+   557→              )}
+   558→
+   559→              <div className="w-px h-6 bg-border/60 mx-1" />
+   560→
+   561→              {user ? (
+   562→                <motion.div
+   563→                  className="navbar-user-cluster flex items-center gap-1 rounded-xl border border-border/60 bg-card/40 p-1 backdrop-blur-md"
+   564→                  initial={{ opacity: 0, x: 10 }}
+   565→                  animate={{ opacity: 1, x: 0 }}
+   566→                  transition={{ delay: 0.1 }}
+   567→                >
+   568→                  {walletBalance !== null && (
+   569→                    <Link
+   570→                      to="/wallet"
+   571→                      className="navbar-wallet-pill group relative"
+   572→                      title={t("nav.wallet")}
+   573→                      aria-label={t("nav.wallet")}
+   574→                    >
+   575→                      <span className="navbar-wallet-shine" aria-hidden="true" />
+   576→                      <Wallet className="h-3.5 w-3.5 relative" />
+   577→                      <span className="tabular-nums relative">{format(walletBalance)}</span>
+   578→                    </Link>
+   579→                  )}
+   580→                  <Link
+   581→                    to="/my-points"
+   582→                    className="navbar-points-pill group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-200 hover:bg-secondary/50"
+   583→                    title={t("nav.points")}
+   584→                  >
+   585→                    <Star className="h-4 w-4 text-accent fill-accent/30 transition-transform group-hover:rotate-12" />
+   586→                    <span className="text-gradient-primary font-semibold">
+   587→                      {t("nav.points")}
+   588→                    </span>
+   589→                  </Link>
+   590→                  <Link
+   591→                    to={role === "admin" ? "/admin" : role === "business" ? "/dashboard" : "/profile"}
+   592→                    className="navbar-avatar-ring"
+   593→                    title={profile?.display_name || t("nav.profile")}
+   594→                    aria-label={t("nav.profile")}
+   595→                  >
+   596→                    {profile?.avatar_url ? (
+   597→                      <img src={profile.avatar_url} alt={profile?.display_name || "Perfil"} />
+   598→                    ) : (
+   599→                      <span>{initials}</span>
+   600→                    )}
+   601→                  </Link>
+   602→                  {role === "admin" && (
+   603→                    <Link
+   604→                      to="/admin"
+   605→                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-destructive transition-all duration-200 hover:bg-destructive/10"
+   606→                    >
+   607→                      <Crown className="h-3.5 w-3.5" />
+   608→                      {t("nav.admin")}
+   609→                    </Link>
+   610→                  )}
+   611→                  <button
+   612→                    onClick={signOut}
+   613→                    className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-secondary/50"
+   614→                    title={t("nav.signout")}
+   615→                    aria-label={t("nav.signout")}
+   616→                  >
+   617→                    {t("nav.signout")}
+   618→                  </button>
+   619→                </motion.div>
+   620→              ) : (
+   621→                <motion.div
+   622→                  className="flex items-center gap-2"
+   623→                  initial={{ opacity: 0, x: 10 }}
+   624→                  animate={{ opacity: 1, x: 0 }}
+   625→                  transition={{ delay: 0.1 }}
+   626→                >
+   627→                  <Link
+   628→                    to="/login"
+   629→                    className="hover-lift rounded-xl px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-secondary/50"
+   630→                  >
+   631→                    {t("nav.signin")}
+   632→                  </Link>
+   633→                  <Link
+   634→                    to="/register"
+   635→                    className="btn-premium glow-primary hover-lift flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-primary-foreground"
+   636→                  >
+   637→                    <Zap className="h-4 w-4" />
+   638→                    {t("nav.signup")}
+   639→                  </Link>
+   640→                </motion.div>
+   641→              )}
+   642→            </div>
+   643→
+   644→            <div className="flex items-center gap-1 lg:hidden">
+   645→              <Link
+   646→                to="/marketplace"
+   647→                className="flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   648→                aria-label={t("nav.search")}
+   649→              >
+   650→                <Search className="h-5 w-5" />
+   651→              </Link>
+   652→              <LanguageSwitcher />
+   653→              <ThemeToggle />
+   654→              <motion.button
+   655→                whileTap={{ scale: 0.9 }}
+   656→                className="relative flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
+   657→                onClick={() => setOpen(!open)}
+   658→                aria-label="Menu"
+   659→              >
+   660→                <AnimatePresence mode="wait" initial={false}>
+   661→                  {open ? (
+   662→                    <motion.span
+   663→                      key="close"
+   664→                      initial={{ rotate: -90, opacity: 0 }}
+   665→                      animate={{ rotate: 0, opacity: 1 }}
+   666→                      exit={{ rotate: 90, opacity: 0 }}
+   667→                      transition={{ duration: 0.15 }}
+   668→                    >
+   669→                      <X className="h-5 w-5" />
+   670→                    </motion.span>
+   671→                  ) : (
+   672→                    <motion.span
+   673→                      key="menu"
+   674→                      initial={{ rotate: 90, opacity: 0 }}
+   675→                      animate={{ rotate: 0, opacity: 1 }}
+   676→                      exit={{ rotate: -90, opacity: 0 }}
+   677→                      transition={{ duration: 0.15 }}
+   678→                    >
+   679→                      <Menu className="h-5 w-5" />
+   680→                    </motion.span>
+   681→                  )}
+   682→                </AnimatePresence>
+   683→              </motion.button>
+   684→            </div>
+   685→          </div>
+   686→        </div>
+   687→      </motion.nav>
+   688→
+   689→      <AnimatePresence>
+   690→        {open && (
+   691→          <>
+   692→            <motion.div
+   693→              initial={{ opacity: 0 }}
+   694→              animate={{ opacity: 1 }}
+   695→              exit={{ opacity: 0 }}
+   696→              transition={{ duration: 0.2 }}
+   697→              className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
+   698→              onClick={() => setOpen(false)}
+   699→            />
+   700→
+   701→            <motion.div
+   702→              initial={{ y: "-10%", opacity: 0 }}
+   703→              animate={{ y: 0, opacity: 1 }}
+   704→              exit={{ y: "-10%", opacity: 0 }}
+   705→              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   706→              className="fixed top-0 left-0 right-0 z-50 lg:hidden"
+   707→            >
+   708→              <div className="glass-strong shadow-elegant border-b border-border/50">
+   709→                <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+   710→                  <Link to="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+   711→                    <img src={bateuLogo} alt="Bateu" className="h-8 w-8" />
+   712→                    <span className="font-display text-lg font-bold text-gradient-primary">Bateu</span>
+   713→                    <span className="navbar-verified-dot ml-0.5 inline-flex" title={t("nav.verified")}>
+   714→                      <BadgeCheck className="h-[10px] w-[10px]" strokeWidth={2.5} />
+   715→                    </span>
+   716→                  </Link>
+   717→                  <motion.button
+   718→                    whileTap={{ scale: 0.9 }}
+   719→                    onClick={() => setOpen(false)}
+   720→                    className="flex h-9 w-9 items-center justify-center rounded-xl text-foreground hover:bg-secondary/50 transition-colors"
+   721→                  >
+   722→                    <X className="h-5 w-5" />
+   723→                  </motion.button>
+   724→                </div>
+   725→
+   726→                <div className="flex flex-col gap-1 px-3 py-3 max-h-[78vh] overflow-y-auto">
+   727→                  <motion.div
+   728→                    initial={{ opacity: 0, y: -8 }}
+   729→                    animate={{ opacity: 1, y: 0 }}
+   730→                    transition={{ delay: 0.04 }}
+   731→                    className="grid grid-cols-4 gap-2 mb-3 px-1"
+   732→                  >
+   733→                    {quickActions.map((qa) => (
+   734→                      <Link
+   735→                        key={qa.label}
+   736→                        to={qa.href}
+   737→                        onClick={() => setOpen(false)}
+   738→                        className="navbar-quick-action"
+   739→                      >
+   740→                        <span className="navbar-quick-action-icon relative">
+   741→                          <qa.icon className="h-4 w-4" strokeWidth={1.9} />
+   742→                          {qa.live && (
+   743→                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent pulse-live" />
+   744→                          )}
+   745→                        </span>
+   746→                        <span>{qa.label}</span>
+   747→                      </Link>
+   748→                    ))}
+   749→                  </motion.div>
+   750→
+   751→                  <div className="mb-3 flex items-center gap-2 px-1">
+   752→                    <Link
+   753→                      to="/lives-agora"
+   754→                      onClick={() => setOpen(false)}
+   755→                      className="navbar-mobile-live"
+   756→                    >
+   757→                      <span className="navbar-live-orb-ring" aria-hidden="true" />
+   758→                      <span className="tabular-nums">{liveCount}</span>
+   759→                      <span className="opacity-90">{t("nav.live")}</span>
+   760→                    </Link>
+   761→                    <Link
+   762→                      to="/marketplace"
+   763→                      onClick={() => setOpen(false)}
+   764→                      className="navbar-search-trigger flex flex-1 items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-xs text-muted-foreground backdrop-blur-md"
+   765→                    >
+   766→                      <Search className="h-3.5 w-3.5" />
+   767→                      <span className="flex-1 text-left">{t("nav.search.placeholder")}</span>
+   768→                    </Link>
+   769→                  </div>
+   770→
+   771→                  {!user && (
+   772→                    <Link
+   773→                      to="/register"
+   774→                      onClick={() => setOpen(false)}
+   775→                      className="navbar-hero-cta mb-3 flex items-center gap-3 rounded-2xl p-4"
+   776→                    >
+   777→                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+   778→                        <Flame className="h-5 w-5" />
+   779→                      </span>
+   780→                      <div className="min-w-0 flex-1">
+   781→                        <p className="text-sm font-bold text-primary-foreground">
+   782→                          {t("nav.hero.cta.title")}
+   783→                        </p>
+   784→                        <p className="truncate text-xs text-primary-foreground/80">
+   785→                          {t("nav.hero.cta.subtitle")}
+   786→                        </p>
+   787→                      </div>
+   788→                      <Zap className="h-4 w-4 text-primary-foreground" />
+   789→                    </Link>
+   790→                  )}
+   791→
+   792→                  {groups.map((g, gi) => (
+   793→                    <motion.div
+   794→                      key={g.label}
+   795→                      initial={{ opacity: 0, y: 10 }}
+   796→                      animate={{ opacity: 1, y: 0 }}
+   797→                      transition={{ delay: 0.08 + gi * 0.05 }}
+   798→                    >
+   799→                      <p className="mb-1.5 flex items-center gap-1.5 px-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+   800→                        <g.icon className="h-3 w-3" strokeWidth={2.2} />
+   801→                        {g.label}
+   802→                      </p>
+   803→                      <div className="flex flex-col gap-0.5">
+   804→                        {g.items.map((item) => (
+   805→                          <Link
+   806→                            key={item.label}
+   807→                            to={item.href}
+   808→                            onClick={() => setOpen(false)}
+   809→                            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground transition-all duration-200 hover:bg-primary/5 active:scale-[0.98]"
+   810→                          >
+   811→                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/5 text-primary group-hover:from-primary/20 group-hover:to-accent/10 transition-all">
+   812→                              <item.icon className="h-4 w-4" strokeWidth={1.8} />
+   813→                            </div>
+   814→                            <span className="flex-1 font-medium">{item.label}</span>
+   815→                            {item.trending && (
+   816→                              <span className="flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">
+   817→                                <Flame className="h-3 w-3" />
+   818→                                <span>Trending</span>
+   819→                              </span>
+   820→                            )}
+   821→                            {item.live && (
+   822→                              <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase text-accent">
+   823→                                <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-live" />
+   824→                                AO VIVO
+   825→                              </span>
+   826→                            )}
+   827→                            {item.badge && !item.live && !item.trending && (
+   828→                              <span className="badge-premium rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+   829→                                {item.badge}
+   830→                              </span>
+   831→                            )}
+   832→                          </Link>
+   833→                        ))}
+   834→                      </div>
+   835→                      <Link
+   836→                        to={g.spotlight.href}
+   837→                        onClick={() => setOpen(false)}
+   838→                        className="navbar-spotlight-card group/spotlight mt-1 mb-2 flex items-center gap-3"
+   839→                      >
+   840→                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+   841→                          <Rocket className="h-3.5 w-3.5" strokeWidth={2.2} />
+   842→                        </span>
+   843→                        <div className="min-w-0 flex-1">
+   844→                          <p className="truncate text-xs font-bold text-primary-foreground">{g.spotlight.label}</p>
+   845→                          <p className="truncate text-[11px] text-primary-foreground/75">{g.spotlight.desc}</p>
+   846→                        </div>
+   847→                        <ArrowRight className="h-3.5 w-3.5 text-primary-foreground transition-transform group-hover/spotlight:translate-x-0.5" />
+   848→                      </Link>
+   849→                    </motion.div>
+   850→                  ))}
+   851→
+   852→                  <motion.div
+   853→                    initial={{ opacity: 0, y: 10 }}
+   854→                    animate={{ opacity: 1, y: 0 }}
+   855→                    transition={{ delay: 0.08 + groups.length * 0.05 + 0.05 }}
+   856→                    className="pt-2 pb-1"
+   857→                  >
+   858→                    {!user ? (
+   859→                      <div className="grid grid-cols-2 gap-2 px-1">
+   860→                        <Link
+   861→                          to="/login"
+   862→                          onClick={() => setOpen(false)}
+   863→                          className="hover-lift flex items-center justify-center rounded-xl border border-border bg-secondary/50 py-2.5 text-sm font-semibold transition-all hover:bg-secondary"
+   864→                        >
+   865→                          {t("nav.signin")}
+   866→                        </Link>
+   867→                        <Link
+   868→                          to="/register"
+   869→                          onClick={() => setOpen(false)}
+   870→                          className="btn-premium glow-primary hover-lift flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-primary-foreground"
+   871→                        >
+   872→                          <Zap className="h-4 w-4" />
+   873→                          {t("nav.signup")}
+   874→                        </Link>
+   875→                      </div>
+   876→                    ) : (
+   877→                      <div className="flex flex-col gap-1.5 px-1">
+   878→                        {walletBalance !== null && (
+   879→                          <Link
+   880→                            to="/wallet"
+   881→                            onClick={() => setOpen(false)}
+   882→                            className="navbar-wallet-pill group relative w-full justify-center py-2.5"
+   883→                          >
+   884→                            <span className="navbar-wallet-shine" aria-hidden="true" />
+   885→                            <Wallet className="h-4 w-4 relative" />
+   886→                            <span className="relative">{t("nav.wallet")}: {format(walletBalance)}</span>
+   887→                          </Link>
+   888→                        )}
+   889→                        <Link
+   890→                          to="/my-points"
+   891→                          onClick={() => setOpen(false)}
+   892→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-primary/5 transition-colors"
+   893→                        >
+   894→                          <Star className="h-4 w-4 text-accent fill-accent/30" />
+   895→                          <span className="text-gradient-primary font-semibold">{t("nav.points")}</span>
+   896→                        </Link>
+   897→                        <button
+   898→                          onClick={() => { setOpen(false); signOut(); }}
+   899→                          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors text-left"
+   900→                        >
+   901→                          <LifeBuoy className="h-4 w-4" />
+   902→                          {t("nav.signout")}
+   903→                        </button>
+   904→                      </div>
+   905→                    )}
+   906→                  </motion.div>
+   907→                </div>
+   908→              </div>
+   909→            </motion.div>
+   910→          </>
+   911→        )}
+   912→      </AnimatePresence>
+   913→    </>
+   914→  );
+   915→};
+   916→
+   917→export default Navbar;
+   918→
