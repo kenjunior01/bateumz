@@ -1,0 +1,375 @@
+     1→   460→      100% { background-position: 200% center; }
+     2→   461→    }
+     3→   462→    @keyframes floatSlow {
+     4→   463→      0%, 100% { transform: translateY(0px); }
+     5→   464→      50% { transform: translateY(-8px); }
+     6→   465→    }
+     7→   466→    @keyframes trophySpin {
+     8→   467→      0% { transform: rotateY(0deg) scale(1); }
+     9→   468→      25% { transform: rotateY(90deg) scale(1.15); }
+    10→   469→      50% { transform: rotateY(180deg) scale(1.3); }
+    11→   470→      75% { transform: rotateY(270deg) scale(1.15); }
+    12→   471→      100% { transform: rotateY(360deg) scale(1); }
+    13→   472→    }
+    14→   473→    @keyframes winnerGlow {
+    15→   474→      0%, 100% { filter: drop-shadow(0 0 10px ${pc}80) drop-shadow(0 0 20px ${ac}60); }
+    16→   475→      50% { filter: drop-shadow(0 0 20px ${pc}CC) drop-shadow(0 0 40px ${ac}80) drop-shadow(0 0 60px ${pc}40); }
+    17→   476→    }
+    18→   477→    @keyframes ambientOrb1 {
+    19→   478→      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+    20→   479→      33% { transform: translate(30px, -20px) scale(1.1); opacity: 0.5; }
+    21→   480→      66% { transform: translate(-20px, 10px) scale(0.9); opacity: 0.2; }
+    22→   481→    }
+    23→   482→    @keyframes ambientOrb2 {
+    24→   483→      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+    25→   484→      33% { transform: translate(-40px, 20px) scale(1.2); opacity: 0.4; }
+    26→   485→      66% { transform: translate(20px, -30px) scale(0.8); opacity: 0.15; }
+    27→   486→    }
+    28→   487→    .neon-pulse { animation: neonPulse 2s ease-in-out infinite; }
+    29→   488→    .glow-text { animation: glowText 2s ease-in-out infinite; }
+    30→   489→    .border-glow { animation: borderGlow 2s ease-in-out infinite; }
+    31→   490→    .shimmer-text {
+    32→   491→      background: linear-gradient(90deg, ${pc}, #ffffff, ${ac}, ${pc});
+    33→   492→      background-size: 200% auto;
+    34→   493→      -webkit-background-clip: text;
+    35→   494→      -webkit-text-fill-color: transparent;
+    36→   495→      background-clip: text;
+    37→   496→      animation: shimmer 3s linear infinite;
+    38→   497→    }
+    39→   498→    .float-slow { animation: floatSlow 4s ease-in-out infinite; }
+    40→   499→    .winner-glow { animation: winnerGlow 1.5s ease-in-out infinite; }
+    41→   500→    .trophy-spin { animation: trophySpin 3s ease-in-out infinite; }
+    42→   501→  `;
+    43→   502→
+    44→   503→  return (
+    45→   504→    <div className="fixed inset-0 overflow-hidden font-sans" style={{ color: branding.textColor }}>
+    46→   505→      <style>{cssKeyframes}</style>
+    47→   506→
+    48→   507→      {branding.backgroundImageUrl && (
+    49→   508→        <div className="fixed inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `url(${branding.backgroundImageUrl})` }} />
+    50→   509→      )}
+    51→   510→
+    52→   511→      {isNeon && isLive && (
+    53→   512→        <>
+    54→   513→          <div className="fixed w-[300px] h-[300px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${pc}25, transparent 70%)`, top: '10%', left: '5%', animation: 'ambientOrb1 8s ease-in-out infinite', filter: 'blur(40px)' }} />
+    55→   514→          <div className="fixed w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}20, transparent 70%)`, bottom: '15%', right: '10%', animation: 'ambientOrb2 10s ease-in-out infinite', filter: 'blur(40px)' }} />
+    56→   515→        </>
+    57→   516→      )}
+    58→   517→
+    59→   518→      {isNeon && isLive && (
+    60→   519→        <div className="fixed left-0 right-0 h-[2px] pointer-events-none z-[1]" style={{ top: `${scanlineY}%`, background: `linear-gradient(90deg, transparent, ${pc}30, ${pc}60, ${pc}30, transparent)`, filter: 'blur(1px)' }} />
+    61→   520→      )}
+    62→   521→
+    63→   522→      <AnimatePresence>
+    64→   523→        {screenFlash && (
+    65→   524→          <motion.div className="fixed inset-0 z-[100] pointer-events-none" style={{ background: `radial-gradient(circle, ${pc}40, transparent 70%)` }} initial={{ opacity: 0 }} animate={{ opacity: [0, 0.8, 0] }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} />
+    66→   525→        )}
+    67→   526→      </AnimatePresence>
+    68→   527→
+    69→   528→      <motion.div className="fixed inset-0" animate={screenShake ? { x: [0, -5, 5, -3, 3, 0], y: [0, 3, -3, 5, -5, 0] } : { x: 0, y: 0 }} transition={{ duration: 0.5 }}>
+    70→   529→
+    71→   530→        <div className="absolute top-5 left-5 flex flex-col gap-2.5 items-start z-30">
+    72→   531→          <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 20 }} className={`relative flex items-center gap-3 px-5 py-2.5 rounded-2xl backdrop-blur-2xl shadow-2xl border ${isLive ? 'bg-black/80 border-red-500/50 neon-pulse' : ended ? 'bg-black/80 border-gray-600/40' : 'bg-black/80 border-white/10'}`}>
+    73→   532→            <div className="relative">
+    74→   533→              <Radio className={`h-5 w-5 ${isLive ? 'text-red-500 animate-pulse' : 'text-gray-500'}`} />
+    75→   534→              <div className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${isLive ? 'bg-red-500 animate-ping' : 'bg-gray-600'}`} />
+    76→   535→            </div>
+    77→   536→            <div className="flex flex-col">
+    78→   537→              <span className={`text-[11px] font-black tracking-[0.2em] uppercase ${isLive ? 'text-red-400' : ''}`}>{isLive ? 'AO VIVO' : ended ? 'ENCERRADA' : 'EM BREVE'}</span>
+    79→   538→              <span className="text-[9px] opacity-50 font-mono tracking-wider">{code}</span>
+    80→   539→            </div>
+    81→   540→            {isLive && (
+    82→   541→              <motion.span key={elapsed} initial={{ y: -4, opacity: 0.5 }} animate={{ y: 0, opacity: 1 }} className="text-[13px] font-mono font-black ml-3 pl-3 border-l border-white/10" style={{ color: pc }}>{fmtTime(elapsed)}</motion.span>
+    83→   542→            )}
+    84→   543→            {isLive && (
+    85→   544→              <motion.div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+    86→   545→                <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, transparent, ${pc}15, transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 4s linear infinite' }} />
+    87→   546→              </motion.div>
+    88→   547→            )}
+    89→   548→          </motion.div>
+    90→   549→
+    91→   550→          <AnimatePresence mode="wait">
+    92→   551→            {round && !ended && (
+    93→   552→              <motion.div key={round.game + round.phase} initial={{ x: -80, opacity: 0, scale: 0.95 }} animate={{ x: 0, opacity: 1, scale: 1 }} exit={{ x: -80, opacity: 0, scale: 0.95 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className={`flex items-center gap-2.5 px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'bg-black/70 border-glow' : 'bg-black/70 border-white/10'}`} style={{ borderColor: `${sc}40` }}>
+    94→   553→                <Gamepad2 className="h-4 w-4" style={{ color: ac }} />
+    95→   554→                <span className="text-[11px] font-bold uppercase tracking-wider">{round.game}</span>
+    96→   555→                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${round.phase === 'running' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{round.phase}</span>
+    97→   556→                {round.timeLeft > 0 && (
+    98→   557→                  <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-white/10">
+    99→   558→                    <Clock className="h-3.5 w-3.5" />
+   100→   559→                    <motion.span key={round.timeLeft} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="font-mono text-[12px] font-black" style={{ color: round.timeLeft <= 5 ? '#ef4444' : pc }}>{round.timeLeft}s</motion.span>
+   101→   560→                  </div>
+   102→   561→                )}
+   103→   562→              </motion.div>
+   104→   563→            )}
+   105→   564→          </AnimatePresence>
+   106→   565→
+   107→   566→          <AnimatePresence>
+   108→   567→            {roundTransition && prevRound && (
+   109→   568→              <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.9 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }} className="px-4 py-2 rounded-xl bg-black/80 backdrop-blur-xl border" style={{ borderColor: `${ac}50` }}>
+   110→   569→                <span className="text-[10px] uppercase tracking-[0.15em] opacity-60">Proximo jogo</span>
+   111→   570→                <div className="flex items-center gap-2 mt-0.5">
+   112→   571→                  <Gamepad2 className="h-3.5 w-3.5" style={{ color: sc }} />
+   113→   572→                  <span className="text-sm font-black shimmer-text">{round?.game || ''}</span>
+   114→   573→                </div>
+   115→   574→              </motion.div>
+   116→   575→            )}
+   117→   576→          </AnimatePresence>
+   118→   577→        </div>
+   119→   578→
+   120→   579→        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5">
+   121→   580→          {branding.companyLogoUrl && (
+   122→   581→            <motion.div initial={{ scale: 0, opacity: 0, rotate: -180 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className={`relative ${isNeon ? 'neon-pulse' : ''}`} style={{ borderRadius: 12 }}>
+   123→   582→              <img src={branding.companyLogoUrl} alt="" className="h-12 w-12 rounded-xl object-cover shadow-lg" style={{ border: `2px solid ${pc}50` }} />
+   124→   583→            </motion.div>
+   125→   584→          )}
+   126→   585→          {branding.companyName && (
+   127→   586→            <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }} className="px-5 py-1.5 rounded-full backdrop-blur-xl border" style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderColor: `${pc}30` }}>
+   128→   587→              <span className={`text-[11px] font-black tracking-[0.2em] uppercase ${isNeon ? 'glow-text' : ''}`} style={{ color: pc }}>{branding.companyName}</span>
+   129→   588→            </motion.div>
+   130→   589→          )}
+   131→   590→          {branding.companySlogan && !isMinimal && (
+   132→   591→            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 0.3, duration: 1 }} className="text-[9px] tracking-widest uppercase max-w-[200px] text-center truncate">{branding.companySlogan}</motion.span>
+   133→   592→          )}
+   134→   593→        </div>
+   135→   594→
+   136→   595→        <div className="absolute top-5 right-5 flex flex-col items-end gap-2.5 z-30">
+   137→   596→          <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 20 }} className="flex gap-2">
+   138→   597→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${sc}30` }}>
+   139→   598→              <Users className="h-4 w-4 mb-1" style={{ color: sc }} />
+   140→   599→              <AnimatedNumber value={totalPlayers} color={branding.textColor} size="text-xl" />
+   141→   600→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Players</span>
+   142→   601→            </motion.div>
+   143→   602→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${ac}30` }}>
+   144→   603→              <Flame className="h-4 w-4 mb-1" style={{ color: ac }} />
+   145→   604→              <AnimatedNumber value={winnerCount} color={branding.textColor} size="text-xl" />
+   146→   605→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Wins</span>
+   147→   606→            </motion.div>
+   148→   607→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${pc}30` }}>
+   149→   608→              <Gamepad2 className="h-4 w-4 mb-1" style={{ color: pc }} />
+   150→   609→              <AnimatedNumber value={totalGames} color={branding.textColor} size="text-xl" />
+   151→   610→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Games</span>
+   152→   611→            </motion.div>
+   153→   612→          </motion.div>
+   154→   613→        </div>
+   155→   614→
+   156→   615→        <AnimatePresence>
+   157→   616→          {isLive && currentScore > 0 && (layoutParam === 'scoreboard' || layoutParam === 'fullscreen') && (
+   158→   617→            <motion.div initial={{ y: 50, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 50, opacity: 0, scale: 0.9 }} transition={{ type: 'spring', stiffness: 200, damping: 18 }} className="absolute bottom-20 left-5 z-30">
+   159→   618→              <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl backdrop-blur-2xl border shadow-2xl ${isNeon ? 'neon-pulse' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: `${pc}40`, background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(0,0,0,0.7))' }}>
+   160→   619→                <Zap className="h-6 w-6" style={{ color: pc }} />
+   161→   620→                <div className="flex flex-col">
+   162→   621→                  <span className="text-[9px] opacity-50 uppercase tracking-wider font-bold">Pontuacao</span>
+   163→   622→                  <motion.span key={displayScore} className="text-3xl font-black tabular-nums leading-none" style={{ color: pc }} initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>{displayScore.toLocaleString()}</motion.span>
+   164→   623→                </div>
+   165→   624→              </div>
+   166→   625→            </motion.div>
+   167→   626→          )}
+   168→   627→        </AnimatePresence>
+   169→   628→
+   170→   629→        {layoutParam !== 'minimal' && (
+   171→   630→          <div className={`absolute z-30 ${layoutParam === 'fullscreen' ? 'top-24 left-5 w-[420px]' : 'top-5 right-5 w-[380px]'} ${layoutParam === 'scoreboard' ? 'top-24 right-5 w-[340px]' : ''}`}>
+   172→   631→            <motion.div initial={layoutParam === 'fullscreen' ? { x: -100, opacity: 0 } : { x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 22 }} className={`relative rounded-2xl overflow-hidden backdrop-blur-2xl border shadow-2xl ${pulseEffect ? 'neon-pulse' : ''} ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: `${pc}30` }}>
+   173→   632→
+   174→   633→              <div className="relative px-5 py-3.5 flex items-center gap-3 overflow-hidden" style={{ background: `linear-gradient(135deg, ${pc}30, ${ac}20, ${sc}15)`, borderBottom: `1px solid ${pc}25` }}>
+   175→   634→                <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, ${pc}20, transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 3s linear infinite' }} />
+   176→   635→                <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}>
+   177→   636→                  <Trophy className="h-5 w-5 relative z-10" style={{ color: pc }} />
+   178→   637→                </motion.div>
+   179→   638→                <span className={`text-sm font-black tracking-[0.1em] uppercase relative z-10 ${isNeon ? 'glow-text' : ''}`}>{layoutParam === 'scoreboard' ? 'PLACAR' : 'TOP JOGADORES'}</span>
+   180→   639→                <span className="ml-auto text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-white/10 relative z-10">{sorted.length}</span>
+   181→   640→              </div>
+   182→   641→
+   183→   642→              {sorted.length === 0 ? (
+   184→   643→                <div className="py-12 text-center">
+   185→   644→                  <motion.div animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}>
+   186→   645→                    <Gamepad2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+   187→   646→                  </motion.div>
+   188→   647→                  <p className="text-[12px] opacity-30 font-bold tracking-wider">AGUARDANDO JOGADORES...</p>
+   189→   648→                  <div className="flex justify-center gap-1 mt-3">
+   190→   649→                    {[0, 1, 2].map(i => (
+   191→   650→                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pc, opacity: 0.3 }} animate={{ opacity: [0.3, 0.8, 0.3], y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} />
+   192→   651→                    ))}
+   193→   652→                  </div>
+   194→   653→                </div>
+   195→   654→              ) : (
+   196→   655→                <ul className="divide-y divide-white/[0.04]">
+   197→   656→                  <AnimatePresence initial={false}>
+   198→   657→                    {sorted.map((e, i) => (
+   199→   658→                      <motion.li key={e.id} layout initial={{ opacity: 0, x: layoutParam === 'fullscreen' ? -40 : 40, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1, backgroundColor: e.isNew ? `${pc}15` : i === 0 ? `${pc}08` : 'transparent' }} exit={{ opacity: 0, x: -30, scale: 0.85 }} transition={{ type: 'spring', stiffness: 350, damping: 28, backgroundColor: { duration: 1.5 } }} className="relative px-4 py-3 border-l-[3px] cursor-default" style={{ borderLeftColor: getRankBorderColor(i), boxShadow: getRankGlow(i) }}>
+   200→   659→
+   201→   660→                        {i === 0 && <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(90deg, ${pc}08, transparent 60%)` }} />}
+   202→   661→
+   203→   662→                        <div className="flex items-center gap-3 relative z-10">
+   204→   663→                          <motion.div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${i === 0 ? 'bg-yellow-500/20' : i === 1 ? 'bg-gray-400/15' : i === 2 ? 'bg-amber-600/15' : 'bg-white/[0.06]'}`} style={i === 0 ? { boxShadow: `0 0 10px ${pc}30` } : {}} whileHover={{ scale: 1.15, rotate: 5 }}>
+   205→   664→                            {getRankIcon(i)}
+   206→   665→                          </motion.div>
+   207→   666→
+   208→   667→                          <div className="flex-1 min-w-0">
+   209→   668→                            <div className="flex items-center gap-1.5">
+   210→   669→                              <p className={`text-[12px] font-black truncate ${i === 0 ? 'shimmer-text' : i < 3 ? 'text-white' : 'text-white/80'}`}>{e.name}</p>
+   211→   670→                              {i === 0 && <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0 float-slow" />}
+   212→   671→                              <RankIndicator prev={e.prevRank} curr={i} />
+   213→   672→                            </div>
+   214→   673→                            <p className="text-[9px] opacity-40 truncate mt-0.5">{e.game}</p>
+   215→   674→                          </div>
+   216→   675→
+   217→   676→                          <div className="flex flex-col items-end shrink-0">
+   218→   677→                            <div className="flex items-center gap-1.5">
+   219→   678→                              <AnimatedNumber value={e.score} color={i === 0 ? pc : i < 3 ? '#e5e5e5' : branding.textColor} size="text-[15px]" />
+   220→   679→                              {e.scoreDelta !== undefined && e.scoreDelta > 0 && (
+   221→   680→                                <motion.span initial={{ opacity: 1, y: 0 }} animate={{ opacity: 0, y: -12 }} transition={{ duration: 1.5 }} className="text-[9px] font-black text-emerald-400">+{e.scoreDelta}</motion.span>
+   222→   681→                              )}
+   223→   682→                            </div>
+   224→   683→                            <span className="text-[8px] opacity-30 font-bold">pts</span>
+   225→   684→                          </div>
+   226→   685→                        </div>
+   227→   686→
+   228→   687→                        <div className="mt-2 ml-11 h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
+   229→   688→                          <motion.div className="h-full rounded-full" style={{ backgroundColor: i === 0 ? pc : i === 1 ? '#9ca3af' : i === 2 ? ac : `${sc}80`, boxShadow: i === 0 ? `0 0 8px ${pc}60` : 'none' }} initial={{ width: 0 }} animate={{ width: `${barWidth(e.score)}%` }} transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.05 }} />
+   230→   689→                        </div>
+   231→   690→                      </motion.li>
+   232→   691→                    ))}
+   233→   692→                  </AnimatePresence>
+   234→   693→                </ul>
+   235→   694→              )}
+   236→   695→            </motion.div>
+   237→   696→          </div>
+   238→   697→        )}
+   239→   698→
+   240→   699→        {layoutParam !== 'minimal' && (
+   241→   700→          <div className="absolute bottom-0 left-0 right-0 z-30">
+   242→   701→            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 22, delay: 0.3 }} className="relative" style={{ background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.85))', paddingTop: 30 }}>
+   243→   702→              <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl backdrop-blur-xl border overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderColor: `${pc}20`, borderTop: `1px solid ${pc}30` }}>
+   244→   703→                <div className="flex items-center gap-3 overflow-hidden">
+   245→   704→                  <div className="flex items-center gap-1.5 shrink-0">
+   246→   705→                    <Activity className="h-3.5 w-3.5" style={{ color: pc }} />
+   247→   706→                    <span className="text-[9px] font-black uppercase tracking-[0.15em] opacity-60">Live</span>
+   248→   707→                  </div>
+   249→   708→                  <div className="w-px h-4 bg-white/10 shrink-0" />
+   250→   709→                  <div className="flex-1 overflow-hidden relative h-5">
+   251→   710→                    <AnimatePresence mode="popLayout">
+   252→   711→                      {tickerEvents.length > 0 ? (
+   253→   712→                        tickerEvents.map(ev => (
+   254→   713→                          <motion.div key={ev.id} initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 0.8 }} exit={{ x: -100, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 25 }} className="absolute inset-0 flex items-center gap-2 whitespace-nowrap">
+   255→   714→                            <Fingerprint className="h-3 w-3 shrink-0" style={{ color: ev.color }} />
+   256→   715→                            <span className="text-[11px] font-bold">{ev.text}</span>
+   257→   716→                          </motion.div>
+   258→   717→                        ))
+   259→   718→                      ) : (
+   260→   719→                        <motion.div key="empty" className="absolute inset-0 flex items-center" initial={{ opacity: 0 }} animate={{ opacity: 0.3 }}>
+   261→   720→                          <span className="text-[10px] tracking-wider">Aguardando eventos...</span>
+   262→   721→                        </motion.div>
+   263→   722→                      )}
+   264→   723→                    </AnimatePresence>
+   265→   724→                  </div>
+   266→   725→                </div>
+   267→   726→              </div>
+   268→   727→            </motion.div>
+   269→   728→          </div>
+   270→   729→        )}
+   271→   730→
+   272→   731→        <AnimatePresence>
+   273→   732→          {newPlayerNotify && layoutParam !== 'minimal' && (
+   274→   733→            <motion.div key={newPlayerNotify.id} initial={{ x: 200, opacity: 0, scale: 0.8 }} animate={{ x: 0, opacity: 1, scale: 1 }} exit={{ x: 200, opacity: 0, scale: 0.8 }} transition={{ type: 'spring', stiffness: 250, damping: 22 }} className={`absolute top-1/2 -translate-y-1/2 ${layoutParam === 'fullscreen' ? 'right-5' : 'right-[400px]'} z-40`}>
+   275→   734→              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl backdrop-blur-2xl border shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.85)', borderColor: `${sc}50`, boxShadow: `0 0 20px ${sc}30, 0 0 40px ${sc}15` }}>
+   276→   735→                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${sc}, ${ac})`, boxShadow: `0 0 15px ${sc}50` }}>
+   277→   736→                  <Users className="h-5 w-5 text-white" />
+   278→   737→                </motion.div>
+   279→   738→                <div className="flex flex-col">
+   280→   739→                  <span className="text-[9px] uppercase tracking-[0.15em] opacity-50 font-bold">Novo jogador</span>
+   281→   740→                  <span className="text-sm font-black" style={{ color: sc }}>{newPlayerNotify.name}</span>
+   282→   741→                </div>
+   283→   742→                <motion.div initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.2 }}>
+   284→   743→                  <Sparkles className="h-5 w-5" style={{ color: pc }} />
+   285→   744→                </motion.div>
+   286→   745→              </div>
+   287→   746→            </motion.div>
+   288→   747→          )}
+   289→   748→        </AnimatePresence>
+   290→   749→
+   291→   750→        {particles.map(p => (
+   292→   751→          <ParticleBurst key={p.id} x={p.x} y={p.y} color={p.color} />
+   293→   752→        ))}
+   294→   753→
+   295→   754→        <AnimatePresence>
+   296→   755→          {winner && showWinnerAnimation && (
+   297→   756→            <motion.div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+   298→   757→              <motion.div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+   299→   758→
+   300→   759→              <motion.div initial={{ opacity: 0, scale: 0.3, y: 80, rotateX: -30 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }} exit={{ opacity: 0, scale: 0.8, y: 40, transition: { duration: 0.5, ease: 'easeIn' } }} transition={{ type: 'spring', stiffness: 180, damping: 18 }} className="relative winner-glow">
+   301→   760→                <motion.div className="absolute -inset-4 rounded-[28px] pointer-events-none" style={{ background: `linear-gradient(135deg, ${pc}60, ${ac}40, ${sc}60)`, filter: 'blur(20px)' }} animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }} />
+   302→   761→
+   303→   762→                <div className="relative px-14 py-8 rounded-3xl backdrop-blur-2xl border-2 shadow-2xl" style={{ background: `linear-gradient(135deg, ${pc}E6, ${ac}CC, ${pc}E6)`, borderColor: 'rgba(255,255,255,0.3)', backgroundSize: '200% 200%', animation: 'shimmer 3s ease infinite' }}>
+   304→   763→                  <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite' }} />
+   305→   764→
+   306→   765→                  <div className="flex items-center gap-6 relative z-10">
+   307→   766→                    <div className="flex flex-col items-center gap-2">
+   308→   767→                      <div className="trophy-spin">
+   309→   768→                        <Trophy className="h-16 w-16 text-yellow-900 drop-shadow-lg" />
+   310→   769→                      </div>
+   311→   770→                      <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+   312→   771→                        <Sparkles className="h-6 w-6 text-yellow-800" />
+   313→   772→                      </motion.div>
+   314→   773→                    </div>
+   315→   774→
+   316→   775→                    <div className="flex-1 min-w-[200px]">
+   317→   776→                      <div className="flex items-center gap-2 mb-2">
+   318→   777→                        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}>
+   319→   778→                          <Crown className="h-5 w-5 text-yellow-800" />
+   320→   779→                        </motion.div>
+   321→   780→                        <span className="text-[11px] uppercase tracking-[0.3em] font-black text-black/60">VENCEDOR</span>
+   322→   781→                        <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut', delay: 0.3 }}>
+   323→   782→                          <Crown className="h-5 w-5 text-yellow-800" />
+   324→   783→                        </motion.div>
+   325→   784→                      </div>
+   326→   785→                      <motion.p className="text-4xl font-black text-black leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.15)' }} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 18 }}>{winner.name}</motion.p>
+   327→   786→                      {winner.meta && (
+   328→   787→                        <motion.p className="text-base font-bold text-black/60 mt-1" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>{winner.meta}</motion.p>
+   329→   788→                      )}
+   330→   789→                    </div>
+   331→   790→
+   332→   791→                    <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 1.2, ease: 'easeInOut' }}>
+   333→   792→                      <Trophy className="h-14 w-14 text-yellow-900" />
+   334→   793→                    </motion.div>
+   335→   794→                  </div>
+   336→   795→
+   337→   796→                  <div className="flex justify-center gap-2 mt-4 relative z-10">
+   338→   797→                    {Array.from({ length: 7 }).map((_, i) => (
+   339→   798→                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full bg-yellow-700/60" animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.3, 0.8], y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.15, ease: 'easeInOut' }} />
+   340→   799→                    ))}
+   341→   800→                  </div>
+   342→   801→                </div>
+   343→   802→              </motion.div>
+   344→   803→            </motion.div>
+   345→   804→          )}
+   346→   805→        </AnimatePresence>
+   347→   806→
+   348→   807→      </motion.div>
+   349→   808→
+   350→   809→      {isNeon && isLive && layoutParam !== 'minimal' && (
+   351→   810→        <>
+   352→   811→          <div className="absolute top-0 left-0 w-20 h-20 pointer-events-none z-20">
+   353→   812→            <div className="absolute top-3 left-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   354→   813→            <div className="absolute top-3 left-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   355→   814→          </div>
+   356→   815→          <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none z-20">
+   357→   816→            <div className="absolute top-3 right-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   358→   817→            <div className="absolute top-3 right-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   359→   818→          </div>
+   360→   819→          <div className="absolute bottom-0 left-0 w-20 h-20 pointer-events-none z-20">
+   361→   820→            <div className="absolute bottom-3 left-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   362→   821→            <div className="absolute bottom-3 left-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   363→   822→          </div>
+   364→   823→          <div className="absolute bottom-0 right-0 w-20 h-20 pointer-events-none z-20">
+   365→   824→            <div className="absolute bottom-3 right-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   366→   825→            <div className="absolute bottom-3 right-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   367→   826→          </div>
+   368→   827→        </>
+   369→   828→      )}
+   370→   829→    </div>
+   371→   830→  );
+   372→   831→};
+   373→   832→
+   374→   833→export default OverlayPro;
+   375→   834→
