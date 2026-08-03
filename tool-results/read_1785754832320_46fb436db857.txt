@@ -1,0 +1,390 @@
+     1→import { useState, useMemo, useRef } from "react";
+     2→import { Link } from "react-router-dom";
+     3→import { motion, AnimatePresence } from "framer-motion";
+     4→import { Helmet } from "react-helmet-async";
+     5→import { Search, Gamepad2, Users, Brain, Zap, Swords, Grid3X3, Target, Sparkles, Dices, LayoutGrid, Hash, Shuffle, Palette, Map, Crosshair, Layers, Radio, Trophy, Pencil, Bomb, SmilePlus, Anchor, CircleDot, Package, RotateCcw, Vote, Skull, Heart, Lock, ChevronRight } from "lucide-react";
+     6→import Navbar from "@/components/Navbar";
+     7→import Footer from "@/components/Footer";
+     8→
+     9→interface GameDef {
+    10→  id: string;
+    11→  label: string;
+    12→  emoji: string;
+    13→  desc: string;
+    14→  grad: string;
+    15→  category: string;
+    16→  players: string;
+    17→  icon: any;
+    18→  hasBot: boolean;
+    19→}
+    20→
+    21→const ALL_GAMES: GameDef[] = [
+    22→  { id: "tictactoepro", label: "Galo PRO", emoji: "\u2715", desc: "Galo Ultimate \u2014 9 mini-tabuleiros, estrategia avancada!", grad: "from-violet-600 to-indigo-700", category: "Estrategia", players: "1v1 / Bot", icon: Grid3X3, hasBot: true },
+    23→  { id: "connect4", label: "Ligar 4", emoji: "\ud83d\udd34", desc: "Estrategia pura: ligue 4 pecas em linha para vencer!", grad: "from-blue-500 to-yellow-500", category: "Estrategia", players: "1v1 / Bot", icon: LayoutGrid, hasBot: true },
+    24→  { id: "snakebattle", label: "Batalha de Cobras", emoji: "\ud83d\udc0d", desc: "Duas cobras, um tabuleiro \u2014 quem cresce mais ganha!", grad: "from-emerald-500 to-teal-600", category: "Arcade", players: "1v1 / Bot", icon: Gamepad2, hasBot: true },
+    25→  { id: "quickmath", label: "Duelo de Matematica", emoji: "\ud83e\uddee", desc: "Contas rapidas \u2014 quem resolve primeiro marca ponto!", grad: "from-cyan-500 to-blue-700", category: "Puzzle", players: "1v1 / Bot", icon: Brain, hasBot: true },
+    26→  { id: "memorycards", label: "Memoria VS Cartas", emoji: "\ud83c\udccf", desc: "Encontre os pares no tabuleiro partilhado!", grad: "from-indigo-500 to-violet-600", category: "Puzzle", players: "1v1 / Bot", icon: Brain, hasBot: true },
+    27→  { id: "guessnumber100", label: "Adivinha 1 a 100", emoji: "\ud83d\udd22", desc: "Quente/Frio \u2014 quem adivinha o numero secreto primeiro?", grad: "from-teal-500 to-cyan-700", category: "Puzzle", players: "1v1 / Bot", icon: Hash, hasBot: true },
+    28→  { id: "pongvs", label: "Pong VS", emoji: "\ud83c\udfd3", desc: "Classico Pong arcade \u2014 primeiro a 5 pontos!", grad: "from-blue-600 to-indigo-700", category: "Arcade", players: "1v1 / Bot", icon: Gamepad2, hasBot: false },
+    29→  { id: "whackamole", label: "Bate o Alvo", emoji: "\ud83c\udfaf", desc: "Toque nas criaturas que aparecem \u2014 30 segundos de caos!", grad: "from-emerald-500 to-green-600", category: "Arcade", players: "1v1 / Bot", icon: Target, hasBot: false },
+    30→  { id: "colorcatch", label: "Pesca Cores", emoji: "\ud83c\udfa8", desc: "Clique nas cores certas o mais rapido possivel!", grad: "from-pink-500 to-rose-600", category: "Reflexo", players: "Solo / Bot", icon: Palette, hasBot: false },
+    31→  { id: "diceluel", label: "Duelo de Dados", emoji: "\ud83c\udfb2", desc: "Banco ou Arriscar? Corrida a 100 pontos!", grad: "from-amber-600 to-yellow-600", category: "Sorte", players: "1v1 / Bot", icon: Dices, hasBot: false },
+    32→  { id: "spotdifference", label: "Encontre Diferencas", emoji: "\ud83d\udd0d", desc: "Encontre 5 diferencas entre cenas geradas!", grad: "from-amber-500 to-yellow-600", category: "Puzzle", players: "Solo", icon: Search, hasBot: false },
+    33→  { id: "wordchain", label: "Corrente de Palavras", emoji: "\ud83d\udd17", desc: "A ultima letra vira a primeira \u2014 nao repita!", grad: "from-teal-500 to-emerald-600", category: "Palavras", players: "1v1 / Bot", icon: Shuffle, hasBot: false },
+    34→  { id: "numbertetris", label: "Numeros Caindo", emoji: "\ud83d\udd22", desc: "Numeros caem e combinam \u2014 estilo Tetris 2048!", grad: "from-orange-600 to-red-700", category: "Puzzle", players: "Solo", icon: LayoutGrid, hasBot: false },
+    35→  { id: "cannonbattle", label: "Batalha de Canhoes", emoji: "\ud83d\udca3", desc: "Ajuste angulo e forca \u2014 destrua o adversario!", grad: "from-red-600 to-orange-700", category: "Estrategia", players: "1v1 / Bot", icon: Crosshair, hasBot: false },
+    36→  { id: "towerstack", label: "Torre VS", emoji: "\ud83c\udfd7\ufe0f", desc: "Empilhe blocos com precisao \u2014 quem constroi mais alto!", grad: "from-sky-500 to-blue-600", category: "Arcade", players: "1v1 / Bot", icon: Layers, hasBot: false },
+    37→  { id: "match4", label: "Combina 4", emoji: "\u2728", desc: "Combine 4+ pecas iguais \u2014 cascatas e combos!", grad: "from-pink-500 to-rose-600", category: "Puzzle", players: "1v1 / Bot", icon: Sparkles, hasBot: false },
+    38→  { id: "mazerace", label: "Corrida no Labirinto", emoji: "\ud83e\udde9", desc: "Quem sai do labirinto primeiro?", grad: "from-green-600 to-emerald-700", category: "Arcade", players: "1v1 / Bot", icon: Map, hasBot: false },
+    39→  { id: "slotsvs", label: "Caca-Niqueis VS", emoji: "\ud83c\udfb0", desc: "Gire as maquinas \u2014 quem acumula mais moedas vence!", grad: "from-amber-500 to-yellow-500", category: "Sorte", players: "1v1 / Bot", icon: Sparkles, hasBot: false },
+    40→  { id: "triviaflash", label: "Trivia Flash", emoji: "\u2757", desc: "Verdadeiro ou Falso \u2014 20 perguntas, velocidade conta!", grad: "from-emerald-500 to-teal-700", category: "Quiz", players: "Solo / Bot", icon: Brain, hasBot: false },
+    41→  { id: "patternmemory", label: "Memoria de Padroes", emoji: "\ud83e\udde9", desc: "Memorize o padrao de celulas iluminadas!", grad: "from-purple-500 to-violet-700", category: "Puzzle", players: "Solo / Bot", icon: Grid3X3, hasBot: false },
+    42→  { id: "targettap", label: "Alvo Rapido", emoji: "\ud83c\udfaf", desc: "Toque nos alvos certos antes que desaparecam!", grad: "from-orange-500 to-red-600", category: "Reflexo", players: "Solo", icon: Target, hasBot: false },
+    43→  { id: "colormatch", label: "Cor versus Palavra", emoji: "\ud83c\udfa8", desc: "Teste Stroop \u2014 identifique a COR do texto!", grad: "from-pink-500 to-rose-700", category: "Reflexo", players: "Solo / Bot", icon: Palette, hasBot: true },
+    44→  { id: "wordscramble", label: "Palavras Embaralhadas", emoji: "\ud83d\udc24", desc: "Descubra a palavra escondida nas letras misturadas!", grad: "from-rose-500 to-pink-600", category: "Palavras", players: "Solo / Bot", icon: Shuffle, hasBot: false },
+    45→  { id: "reactionrace", label: "Corrida de Reacao", emoji: "\u26a1", desc: "Quem reage mais rapido ao sinal?", grad: "from-yellow-500 to-red-600", category: "Reflexo", players: "1v1 / Bot", icon: Zap, hasBot: false },
+    46→  { id: "ballbreaker", label: "Quebra-Bloco VS", emoji: "\ud83e\udde6", desc: "Destrua todos os blocos \u2014 quem limpa primeiro!", grad: "from-red-500 to-orange-600", category: "Arcade", players: "1v1 / Bot", icon: Gamepad2, hasBot: false },
+    47→  { id: "spaceshooter", label: "Nave Espacial VS", emoji: "\ud83d\ude80", desc: "Destrua naves inimigas \u2014 quem faz mais pontos!", grad: "from-slate-500 to-blue-700", category: "Arcade", players: "1v1 / Bot", icon: Zap, hasBot: false },
+    48→  { id: "colorsequence", label: "Sequencia de Cores", emoji: "\ud83d\udfe2", desc: "Memorize a sequencia de cores e repita!", grad: "from-violet-500 to-fuchsia-600", category: "Puzzle", players: "1v1 / Bot", icon: Sparkles, hasBot: true },
+    49→  { id: "rps", label: "Pedra Papel Tesoura", emoji: "\u270a", desc: "Jokenpo classico \u2014 melhor de 3, 5 ou 7 rounds!", grad: "from-amber-500 to-orange-600", category: "Sorte", players: "1v1 / Bot", icon: Swords, hasBot: true },
+    50→  { id: "tictactoe", label: "Galo VS", emoji: "\u2715", desc: "Rapido, com apostas, streaks e modo velocidade!", grad: "from-violet-500 to-pink-500", category: "Estrategia", players: "1v1 / Bot", icon: CircleDot, hasBot: false },
+    51→  { id: "checkers", label: "Damas", emoji: "\u265f\ufe0f", desc: "Jogo classico com capturas e promocao a rei!", grad: "from-amber-700 to-red-800", category: "Estrategia", players: "1v1 / Bot", icon: Grid3X3, hasBot: false },
+    52→  { id: "battleship", label: "Batalha Naval", emoji: "\ud83d\udea2", desc: "Esconda os navios e afunde a frota inimiga!", grad: "from-slate-600 to-blue-900", category: "Estrategia", players: "1v1 / Bot", icon: Anchor, hasBot: false },
+    53→  { id: "dominoes", label: "Domino", emoji: "\ud83c\udfb2", desc: "Encaixe as pecas e esvazie a mao!", grad: "from-slate-600 to-zinc-700", category: "Estrategia", players: "1v1 / Bot", icon: LayoutGrid, hasBot: false },
+    54→  { id: "ludo", label: "Ludo", emoji: "\ud83c\udfb2", desc: "4 jogadores, dado, pecas e estrategia!", grad: "from-emerald-600 to-teal-700", category: "Estrategia", players: "1v1 / Bot", icon: Dices, hasBot: false },
+    55→  { id: "uno", label: "UNO Cartas", emoji: "\ud83c\udccf", desc: "Cartas com cores, especiais e UNO!", grad: "from-indigo-500 to-purple-600", category: "Cartas", players: "1v1 / Bot", icon: Sparkles, hasBot: false },
+    56→  { id: "tap", label: "Tap Battle", emoji: "\u26a1", desc: "Batalha de toques: 1v1 ou contra o bot!", grad: "from-amber-500 to-orange-500", category: "Reflexo", players: "1v1 / Bot", icon: Zap, hasBot: true },
+    57→  { id: "quiz", label: "Quiz Battle", emoji: "\ud83e\udde0", desc: "Trivia ao vivo, sozinho ou com convidado!", grad: "from-sky-500 to-blue-500", category: "Quiz", players: "1v1 / Bot", icon: Brain, hasBot: false },
+    58→  { id: "millionaire", label: "Quem Quer Ser Milionario?", emoji: "\ud83d\udcb0", desc: "Perguntas e respostas para o premio maximo!", grad: "from-purple-500 to-violet-500", category: "Quiz", players: "Solo", icon: Trophy, hasBot: false },
+    59→  { id: "wheel", label: "Roda de Premios", emoji: "\ud83c\udfb0", desc: "Sorteie premios reais com probabilidades configuraveis!", grad: "from-violet-500 to-fuchsia-500", category: "Sorte", players: "Solo", icon: RotateCcw, hasBot: false },
+    60→  { id: "mystery", label: "Caixa Misteriosa", emoji: "\ud83c\udf81", desc: "4 caixas, premios escondidos!", grad: "from-emerald-500 to-teal-500", category: "Sorte", players: "Solo", icon: Package, hasBot: false },
+    61→  { id: "emoji", label: "Batalha de Emojis", emoji: "\ud83d\udca5", desc: "Vote ao vivo, vencedores entram no sorteio!", grad: "from-pink-500 to-rose-500", category: "Social", players: "Multi", icon: Vote, hasBot: false },
+    62→  { id: "keyword", label: "Caca a Palavra", emoji: "\ud83d\udd0e", desc: "Audiencia adivinha a palavra-chave secreta!", grad: "from-amber-500 to-orange-500", category: "Social", players: "Multi", icon: Search, hasBot: false },
+    63→  { id: "truthordare", label: "Verdade ou Desafio", emoji: "\ud83d\udd25", desc: "Verdades picantes e desafios engracados!", grad: "from-rose-500 to-red-600", category: "Social", players: "Multi", icon: Heart, hasBot: false },
+    64→  { id: "punishment", label: "Roleta de Castigos", emoji: "\ud83d\udc80", desc: "Gire a roleta e cumpra o castigo!", grad: "from-red-600 to-rose-700", category: "Social", players: "Multi", icon: Skull, hasBot: false },
+    65→  { id: "guessEmoji", label: "Adivinhe o Emoji", emoji: "\ud83d\ude0e", desc: "Decifre a frase a partir dos emojis!", grad: "from-yellow-500 to-amber-600", category: "Quiz", players: "Multi", icon: SmilePlus, hasBot: false },
+    66→  { id: "quickdraw", label: "Desenho Rapido", emoji: "\ud83c\udfa8", desc: "Desenhe e deixe o publico adivinhar!", grad: "from-emerald-500 to-teal-600", category: "Social", players: "Multi", icon: Pencil, hasBot: false },
+    67→  { id: "hotpotato", label: "Batata Quente", emoji: "\ud83d\udca3", desc: "Passe a batata \u2014 quem tiver quando explodir, sai!", grad: "from-orange-500 to-red-600", category: "Social", players: "Multi", icon: Bomb, hasBot: false },
+    68→  { id: "chaos", label: "Desafio Caotico", emoji: "\ud83c\udf2a\ufe0f", desc: "Desafios aleatorios contra o relogio!", grad: "from-rose-500 to-pink-600", category: "Social", players: "Multi", icon: Shuffle, hasBot: false },
+    69→  { id: "boknowledge", label: "Batalha de Conhecimentos", emoji: "\ud83d\udcda", desc: "Trivia VS com bonus de streak \u2014 10 perguntas!", grad: "from-cyan-500 to-purple-600", category: "Quiz", players: "1v1 / Bot", icon: Brain, hasBot: false },
+    70→  { id: "numguess", label: "Adivinha o Numero VS", emoji: "\ud83d\udd22", desc: "Duelo \u2014 quem adivinha o numero secreto primeiro?", grad: "from-violet-500 to-fuchsia-600", category: "Puzzle", players: "1v1 / Bot", icon: Hash, hasBot: false },
+    71→  { id: "speed", label: "Duelo de Velocidade", emoji: "\u26a1", desc: "Quem reage mais rapido?", grad: "from-cyan-500 to-blue-600", category: "Reflexo", players: "1v1 / Bot", icon: Zap, hasBot: false },
+    72→  { id: "vsduel", label: "Arena de Duelo VS", emoji: "\u2694\ufe0f", desc: "Duelo 1v1: reacao, matematica e palavras!", grad: "from-red-500 to-orange-600", category: "Variado", players: "1v1", icon: Swords, hasBot: false },
+    73→  { id: "challenge", label: "Roleta de Desafios", emoji: "\ud83c\udfad", desc: "Gire a roleta e cumpra o desafio ao vivo!", grad: "from-fuchsia-500 to-pink-500", category: "Social", players: "Multi", icon: RotateCcw, hasBot: false },
+    74→  { id: "kahoot", label: "Quiz ao Vivo", emoji: "\ud83c\udfaf", desc: "Quiz multiplayer \u2014 a audiencia joga em tempo real!", grad: "from-sky-500 to-indigo-600", category: "Quiz", players: "Multi", icon: Brain, hasBot: false },
+    75→  { id: "bingo", label: "Bingo ao Vivo", emoji: "\ud83c\udfb1", desc: "Cartao virtual com numeros sorteados em tempo real!", grad: "from-emerald-500 to-teal-600", category: "Sorte", players: "Multi", icon: Trophy, hasBot: false },
+    76→  { id: "memory", label: "Jogo da Memoria VS", emoji: "\ud83e\udde0", desc: "Batalha de pares \u2014 quem tem melhor memoria?", grad: "from-indigo-500 to-purple-600", category: "Puzzle", players: "1v1 / Bot", icon: Brain, hasBot: false },
+    77→  { id: "mexerica", label: "Mexerica", emoji: "\u270b", desc: "Bate a Mao \u2014 jogo mocambicano de reflexos!", grad: "from-amber-600 to-red-700", category: "Mocambicano", players: "1v1 / Bot", icon: Zap, hasBot: true },
+    78→  { id: "chigogo", label: "Chigogo", emoji: "\ud83e\udea8", desc: "Adivinha a Pedrinha \u2014 esconda e descubra!", grad: "from-yellow-700 to-amber-800", category: "Mocambicano", players: "1v1 / Bot", icon: Target, hasBot: true },
+    79→  { id: "urusse", label: "Urusse", emoji: "\ud83e\uddf4", desc: "Mancala mocambicano \u2014 semeie, capture e venca!", grad: "from-green-700 to-amber-900", category: "Mocambicano", players: "1v1 / Bot", icon: Gamepad2, hasBot: true },
+    80→  { id: "capulanaquiz", label: "Capulana Quiz", emoji: "\ud83d\udc57", desc: "Quiz de cultura mocambicana!", grad: "from-yellow-500 to-green-700", category: "Mocambicano", players: "1v1 / Bot", icon: Brain, hasBot: true },
+    81→];
+    82→
+    83→const CATEGORIES = [
+    84→  { id: "todos", label: "Todos", emoji: "\ud83c\udfae" },
+    85→  { id: "Estrategia", label: "Estrategia", emoji: "\u265f\ufe0f" },
+    86→  { id: "Arcade", label: "Arcade", emoji: "\ud83d\udc7e" },
+    87→  { id: "Puzzle", label: "Puzzle", emoji: "\ud83e\udde9" },
+    88→  { id: "Reflexo", label: "Reflexo", emoji: "\u26a1" },
+    89→  { id: "Quiz", label: "Quiz", emoji: "\ud83e\udde0" },
+    90→  { id: "Sorte", label: "Sorte", emoji: "\ud83c\udfb2" },
+    91→  { id: "Social", label: "Social", emoji: "\ud83d\udc65" },
+    92→  { id: "Palavras", label: "Palavras", emoji: "\ud83d\udc24" },
+    93→  { id: "Cartas", label: "Cartas", emoji: "\ud83c\udccf" },
+    94→  { id: "Variado", label: "Variado", emoji: "\ud83c\udfa3" },
+    95→  { id: "Mocambicano", label: "Mocambicano", emoji: "\ud83c\uddf2" },
+    96→];
+    97→
+    98→const SPRING = { type: "spring" as const, stiffness: 300, damping: 25 };
+    99→const THEME_P = "hsl(220 70% 18%)";
+   100→const THEME_A = "hsl(352 73% 50%)";
+   101→
+   102→const AllGames = () => {
+   103→  const [search, setSearch] = useState("");
+   104→  const [category, setCategory] = useState("todos");
+   105→  const [sortBy, setSortBy] = useState<"name" | "category">("name");
+   106→  const heroRef = useRef<HTMLDivElement>(null);
+   107→  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+   108→
+   109→  const filtered = useMemo(() => {
+   110→    let list = ALL_GAMES;
+   111→    if (category !== "todos") list = list.filter((g) => g.category === category);
+   112→    if (search.trim()) {
+   113→      const q = search.toLowerCase();
+   114→      list = list.filter((g) => g.label.toLowerCase().includes(q) || g.desc.toLowerCase().includes(q) || g.category.toLowerCase().includes(q));
+   115→    }
+   116→    if (sortBy === "name") list = [...list].sort((a, b) => a.label.localeCompare(b.label));
+   117→    else list = [...list].sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
+   118→    return list;
+   119→  }, [search, category, sortBy]);
+   120→
+   121→  const botGames = useMemo(() => ALL_GAMES.filter((g) => g.hasBot), []);
+   122→  const categoryCounts = useMemo(() => {
+   123→    const m: Record<string, number> = { todos: ALL_GAMES.length };
+   124→    ALL_GAMES.forEach((g) => { m[g.category] = (m[g.category] || 0) + 1; });
+   125→    return m;
+   126→  }, []);
+   127→
+   128→  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+   129→    if (!heroRef.current) return;
+   130→    const rect = heroRef.current.getBoundingClientRect();
+   131→    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+   132→  };
+   133→
+   134→  return (
+   135→    <div className="min-h-screen bg-mesh-soft bg-noise pb-20 lg:pb-0">
+   136→      <Helmet>
+   137→        <title>50+ Jogos Online Gratis \u2014 Bateu</title>
+   138→        <meta name="description" content="Jogue mais de 50 jogos online gratis: estrategia, arcade, puzzle, quiz, reflexo e muito mais. Jogue contra amigos ou contra o computador!" />
+   139→        <meta property="og:title" content="50+ Jogos Online Gratis \u2014 Bateu" />
+   140→        <meta property="og:description" content="Jogue mais de 50 jogos online gratis: estrategia, arcade, puzzle, quiz, reflexo e muito mais. Jogue contra amigos ou contra o computador!" />
+   141→        <meta property="og:type" content="website" />
+   142→        <link rel="canonical" href={`${window.location.origin}/jogos`} />
+   143→      </Helmet>
+   144→
+   145→      <Navbar />
+   146→      <div className="floating-stars"><span /><span /><span /><span /><span /><span /><span /><span /></div>
+   147→      <div className="ambient-glow" />
+   148→
+   149→      <div
+   150→        ref={heroRef}
+   151→        onMouseMove={handleMouseMove}
+   152→        className="dir-hero-bg relative overflow-hidden hidden md:block"
+   153→        style={{ minHeight: "380px" }}
+   154→      >
+   155→        <div className="aurora-hero">
+   156→          <div className="aurora-blob aurora-blob-1" style={{ background: "hsl(220 70% 18% / 0.25)" }} />
+   157→          <div className="aurora-blob aurora-blob-2" style={{ background: "hsl(352 73% 50% / 0.15)" }} />
+   158→          <div className="aurora-blob aurora-blob-3" style={{ background: "hsl(42 95% 52% / 0.12)" }} />
+   159→        </div>
+   160→        <div className="hero-grid-overlay" style={{ "--grid-color": "rgba(255,255,255,0.5)" } as any} />
+   161→        <div
+   162→          className="hero-mouse-light"
+   163→          style={{ background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, hsl(220 70% 18% / 0.06), transparent 40%)` }}
+   164→        />
+   165→        <div className="hero-bottom-fade" />
+   166→
+   167→        <div className="relative z-10 container mx-auto px-4 py-14">
+   168→          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 0.1 }} className="max-w-2xl">
+   169→            <motion.div
+   170→              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4"
+   171→              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+   172→              initial={{ opacity: 0, scale: 0.8 }}
+   173→              animate={{ opacity: 1, scale: 1 }}
+   174→              transition={{ ...SPRING, delay: 0.15 }}
+   175→            >
+   176→              <Gamepad2 className="h-4 w-4" style={{ color: THEME_P }} />
+   177→              <span className="text-xs font-bold text-muted-foreground">{ALL_GAMES.length} JOGOS DISPONIVEIS</span>
+   178→            </motion.div>
+   179→
+   180→            <h1 className="text-4xl md:text-6xl font-black font-display tracking-tight mb-3">
+   181→              <span className="text-shimmer" style={{
+   182→                "--shimmer-c1": "hsl(var(--foreground))",
+   183→                "--shimmer-c2": "hsl(220 70% 18% / 0.6)",
+   184→              } as React.CSSProperties}>Todos os Jogos</span>
+   185→            </h1>
+   186→            <p className="text-base text-muted-foreground mb-6 max-w-xl">
+   187→              Mais de 50 jogos online gratis. Estrategia, arcade, puzzle, quiz, reflexos e muito mais \u2014 jogue contra amigos ou contra o computador!
+   188→            </p>
+   189→
+   190→            <div className="flex flex-wrap gap-3 mb-6">
+   191→              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "hsl(220 70% 18% / 0.1)", color: "hsl(220 70% 18%)" }}>
+   192→                <Users className="h-3.5 w-3.5" /> {botGames.length} jogos com Bot IA
+   193→              </span>
+   194→              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "hsl(352 73% 50% / 0.1)", color: "hsl(352 73% 50%)" }}>
+   195→                <Zap className="h-3.5 w-3.5" /> Jogo instantaneo
+   196→              </span>
+   197→              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "hsl(42 95% 52% / 0.1)", color: "hsl(42 95% 52%)" }}>
+   198→                <Radio className="h-3.5 w-3.5" /> Modo Live
+   199→              </span>
+   200→            </div>
+   201→
+   202→            <div className="dir-search-wrap max-w-md">
+   203→              <div className="relative">
+   204→                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   205→                <input
+   206→                  type="text"
+   207→                  placeholder="Procurar jogo..."
+   208→                  value={search}
+   209→                  onChange={(e) => setSearch(e.target.value)}
+   210→                  className="w-full pl-11 pr-4 py-3 rounded-full bg-white/[0.03] border-white/[0.06] text-sm focus:outline-none focus:border-hsl(220 70% 18% / 0.4) transition-all"
+   211→                />
+   212→              </div>
+   213→            </div>
+   214→          </motion.div>
+   215→        </div>
+   216→      </div>
+   217→
+   218→      <div className="container mx-auto px-4 pt-4 pb-2 relative z-20">
+   219→        <motion.div
+   220→          className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
+   221→          initial={{ opacity: 0, y: 10 }}
+   222→          animate={{ opacity: 1, y: 0 }}
+   223→          transition={{ delay: 0.3 }}
+   224→        >
+   225→          {CATEGORIES.map((c, i) => {
+   226→            const isActive = category === c.id;
+   227→            return (
+   228→              <motion.button
+   229→                key={c.id}
+   230→                onClick={() => setCategory(c.id)}
+   231→                className={"section-tab-v2 relative flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap " + (isActive ? "active" : "")}
+   232→                style={{
+   233→                  backgroundColor: isActive ? "hsl(220 70% 18% / 0.12)" : "rgba(255,255,255,0.03)",
+   234→                  color: isActive ? THEME_P : "hsl(var(--muted-foreground))",
+   235→                  border: isActive ? "1px solid hsl(220 70% 18% / 0.25)" : "1px solid rgba(255,255,255,0.05)",
+   236→                }}
+   237→                initial={{ opacity: 0, y: 10 }}
+   238→                animate={{ opacity: 1, y: 0 }}
+   239→                transition={{ ...SPRING, delay: 0.35 + i * 0.03 }}
+   240→                whileHover={{ scale: 1.03 }}
+   241→                whileTap={{ scale: 0.95 }}
+   242→              >
+   243→                <div className="tab-glow rounded-full" style={{ background: "radial-gradient(ellipse at center, hsl(220 70% 18% / 0.08), transparent 70%)" }} />
+   244→                <span className="relative z-10">{c.emoji}</span>
+   245→                <span className="relative z-10">{c.label}</span>
+   246→                <span className="relative z-10 text-[10px] opacity-50 ml-0.5">({categoryCounts[c.id] || 0})</span>
+   247→              </motion.button>
+   248→            );
+   249→          })}
+   250→        </motion.div>
+   251→
+   252→        <div className="flex items-center gap-2 mt-3">
+   253→          <span className="text-xs text-muted-foreground">Ordenar:</span>
+   254→          {(["name", "category"] as const).map((s) => (
+   255→            <motion.button
+   256→              key={s}
+   257→              onClick={() => setSortBy(s)}
+   258→              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+   259→              style={{
+   260→                backgroundColor: sortBy === s ? "hsl(220 70% 18% / 0.1)" : "transparent",
+   261→                color: sortBy === s ? THEME_P : "hsl(var(--muted-foreground))",
+   262→              }}
+   263→              whileHover={{ scale: 1.05 }}
+   264→              whileTap={{ scale: 0.95 }}
+   265→            >
+   266→              {s === "name" ? "Nome" : "Categoria"}
+   267→            </motion.button>
+   268→          ))}
+   269→          <span className="text-xs text-muted-foreground ml-auto">{filtered.length} jogo{filtered.length !== 1 ? "s" : ""}</span>
+   270→        </div>
+   271→      </div>
+   272→
+   273→      <section className="container mx-auto px-4 pb-8 relative z-20">
+   274→        <AnimatePresence mode="wait">
+   275→          <motion.div
+   276→            key={category + search + sortBy}
+   277→            initial={{ opacity: 0, y: 8 }}
+   278→            animate={{ opacity: 1, y: 0 }}
+   279→            exit={{ opacity: 0 }}
+   280→            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4"
+   281→          >
+   282→            {filtered.map((game, i) => (
+   283→              <motion.div
+   284→                key={game.id}
+   285→                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+   286→                animate={{ opacity: 1, y: 0, scale: 1 }}
+   287→                transition={{ ...SPRING, delay: Math.min(i, 18) * 0.03 }}
+   288→              >
+   289→                <Link
+   290→                  to={`/lives?game=${game.id}`}
+   291→                  className="game-card-v2 block cursor-pointer"
+   292→                  style={{ border: "1px solid rgba(255,255,255,0.05)" }}
+   293→                >
+   294→                  <div className={`h-1.5 bg-gradient-to-r ${game.grad}`} />
+   295→                  <div className="p-3 md:p-4">
+   296→                    <div className={`game-visual inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${game.grad} mb-3 text-xl shadow-lg`}>
+   297→                      {game.emoji}
+   298→                    </div>
+   299→                    <h3 className="text-sm font-bold leading-tight mb-1 line-clamp-1">{game.label}</h3>
+   300→                    <p className="text-[11px] text-muted-foreground line-clamp-2 mb-3">{game.desc}</p>
+   301→                    <div className="flex items-center gap-1.5 flex-wrap">
+   302→                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: "rgba(255,255,255,0.05)", color: "hsl(var(--muted-foreground))" }}>
+   303→                        {game.players}
+   304→                      </span>
+   305→                      {game.hasBot && (
+   306→                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ background: "hsl(220 60% 40% / 0.15)", color: "hsl(220 60% 40%)" }}>
+   307→                          Bot IA
+   308→                        </span>
+   309→                      )}
+   310→                    </div>
+   311→                    <div className="mt-3 pt-2 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+   312→                      <span className="text-[10px] text-muted-foreground/50">{game.category}</span>
+   313→                      <motion.span className="text-[10px] font-semibold flex items-center gap-0.5" style={{ color: THEME_P }}>
+   314→                        Jogar <ChevronRight className="h-3 w-3" />
+   315→                      </motion.span>
+   316→                    </div>
+   317→                  </div>
+   318→                </Link>
+   319→              </motion.div>
+   320→            ))}
+   321→          </motion.div>
+   322→        </AnimatePresence>
+   323→
+   324→        {filtered.length === 0 && (
+   325→          <div className="empty-state-v2 text-center py-20">
+   326→            <div className="empty-orb" style={{ backgroundColor: THEME_P, width: 120, height: 120, top: "20%", left: "40%" }} />
+   327→            <motion.div className="empty-float inline-block relative">
+   328→              <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6" style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.1), hsl(352 73% 50% / 0.05))", border: "1px dashed hsl(220 70% 18% / 0.2)" }}>
+   329→                <Gamepad2 className="h-11 w-11 text-muted-foreground/20" />
+   330→              </div>
+   331→            </motion.div>
+   332→            <p className="text-lg font-bold text-muted-foreground">Nenhum jogo encontrado</p>
+   333→            <p className="text-sm text-muted-foreground/50 mt-1">Tenta outro termo de pesquisa ou categoria</p>
+   334→          </div>
+   335→        )}
+   336→      </section>
+   337→
+   338→      {category === "todos" && !search && (
+   339→        <section className="container mx-auto px-4 pb-12 relative z-20">
+   340→          <motion.div
+   341→            className="dir-cta-banner"
+   342→            initial={{ opacity: 0, y: 15 }}
+   343→            animate={{ opacity: 1, y: 0 }}
+   344→            transition={{ delay: 0.5 }}
+   345→          >
+   346→            <div className="p-7 md:p-8 rounded-[1.25rem]" style={{ background: "linear-gradient(135deg, hsl(220 70% 18% / 0.06), hsl(352 73% 50% / 0.03))" }}>
+   347→              <div className="flex items-start gap-4">
+   348→                <motion.div
+   349→                  className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shrink-0"
+   350→                  animate={{ y: [0, -4, 0] }}
+   351→                  transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+   352→                >
+   353→                  <span>\ud83e\udd16</span>
+   354→                </motion.div>
+   355→                <div className="flex-1">
+   356→                  <h2 className="text-xl font-black font-display mb-1">Jogue contra o Computador</h2>
+   357→                  <p className="text-sm text-muted-foreground mb-4">
+   358→                    {botGames.length} jogos tem inteligencia artificial integrada com 3 niveis de dificuldade. Nao precisa de parceiro \u2014 jogue quando quiser!
+   359→                  </p>
+   360→                  <div className="flex flex-wrap gap-2">
+   361→                    {botGames.slice(0, 8).map((g) => (
+   362→                      <Link
+   363→                        key={g.id}
+   364→                        to={`/lives?game=${g.id}`}
+   365→                        className="game-card-v2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+   366→                        style={{ border: "1px solid rgba(255,255,255,0.05)" }}
+   367→                      >
+   368→                        <span>{g.emoji}</span> <span>{g.label}</span>
+   369→                      </Link>
+   370→                    ))}
+   371→                    {botGames.length > 8 && (
+   372→                      <span className="inline-flex items-center px-3 py-1.5 text-xs text-muted-foreground">
+   373→                        <span>+{botGames.length - 8} mais</span>
+   374→                      </span>
+   375→                    )}
+   376→                  </div>
+   377→                </div>
+   378→              </div>
+   379→            </div>
+   380→          </motion.div>
+   381→        </section>
+   382→      )}
+   383→
+   384→      <Footer />
+   385→    </div>
+   386→  );
+   387→};
+   388→
+   389→export default AllGames;
+   390→

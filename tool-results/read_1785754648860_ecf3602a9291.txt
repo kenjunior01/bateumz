@@ -1,0 +1,585 @@
+     1→   100→    role: "manager" as "manager" | "senior_manager",
+     2→   101→    region_ids: [] as string[],
+     3→   102→    is_active: true,
+     4→   103→  });
+     5→   104→  const [savingManager, setSavingManager] = useState(false);
+     6→   105→
+     7→   106→  // Region dialog
+     8→   107→  const [regionDialogOpen, setRegionDialogOpen] = useState(false);
+     9→   108→  const [editingRegion, setEditingRegion] = useState<Region | null>(null);
+    10→   109→  const [regionForm, setRegionForm] = useState({
+    11→   110→    name: "",
+    12→   111→    country_code: "",
+    13→   112→    description: "",
+    14→   113→    language_code: "en",
+    15→   114→    currency_code: "USD",
+    16→   115→    timezone: "UTC",
+    17→   116→    is_active: true,
+    18→   117→  });
+    19→   118→  const [savingRegion, setSavingRegion] = useState(false);
+    20→   119→
+    21→   120→  // Delete confirmation
+    22→   121→  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    23→   122→  const [deleteTarget, setDeleteTarget] = useState<{ type: "manager" | "region"; id: string; name: string } | null>(null);
+    24→   123→  const [deleting, setDeleting] = useState(false);
+    25→   124→
+    26→   125→  const loadData = useCallback(async () => {
+    27→   126→    setLoading(true);
+    28→   127→    try {
+    29→   128→      const [managersRes, regionsRes] = await Promise.all([
+    30→   129→        sb.from("regional_managers").select("*").order("created_at", { ascending: false }),
+    31→   130→        sb.from("regions").select("*").order("country_code", { ascending: true }),
+    32→   131→      ]);
+    33→   132→      if (managersRes.data) setManagers(managersRes.data as RegionalManager[]);
+    34→   133→      if (regionsRes.data) setRegions(regionsRes.data as Region[]);
+    35→   134→    } catch (err) {
+    36→   135→      console.error("Error loading regional data:", err);
+    37→   136→      toast.error("Error loading data");
+    38→   137→    } finally {
+    39→   138→      setLoading(false);
+    40→   139→    }
+    41→   140→  }, []);
+    42→   141→
+    43→   142→  useEffect(() => { loadData(); }, [loadData]);
+    44→   143→
+    45→   144→  // ===== Manager CRUD =====
+    46→   145→  const openAddManager = () => {
+    47→   146→    setEditingManager(null);
+    48→   147→    setManagerForm({ email: "", name: "", role: "manager", region_ids: [], is_active: true });
+    49→   148→    setManagerDialogOpen(true);
+    50→   149→  };
+    51→   150→
+    52→   151→  const openEditManager = (m: RegionalManager) => {
+    53→   152→    setEditingManager(m);
+    54→   153→    setManagerForm({
+    55→   154→      email: m.user_email || "",
+    56→   155→      name: m.user_name || "",
+    57→   156→      role: m.role,
+    58→   157→      region_ids: m.region_ids || [],
+    59→   158→      is_active: m.is_active,
+    60→   159→    });
+    61→   160→    setManagerDialogOpen(true);
+    62→   161→  };
+    63→   162→
+    64→   163→  const handleSaveManager = async () => {
+    65→   164→    if (!managerForm.email || !managerForm.name) {
+    66→   165→      toast.error(t("regional.managerName") + " / " + t("regional.managerEmail") + " required");
+    67→   166→      return;
+    68→   167→    }
+    69→   168→    setSavingManager(true);
+    70→   169→    try {
+    71→   170→      if (editingManager) {
+    72→   171→        const { error } = await sb
+    73→   172→          .from("regional_managers")
+    74→   173→          .update({
+    75→   174→            user_name: managerForm.name,
+    76→   175→            role: managerForm.role,
+    77→   176→            region_ids: managerForm.region_ids,
+    78→   177→            is_active: managerForm.is_active,
+    79→   178→          })
+    80→   179→          .eq("id", editingManager.id);
+    81→   180→        if (error) throw error;
+    82→   181→        toast.success(t("common.save") + "!");
+    83→   182→      } else {
+    84→   183→        const { error } = await sb
+    85→   184→          .from("regional_managers")
+    86→   185→          .insert({
+    87→   186→            user_email: managerForm.email,
+    88→   187→            user_name: managerForm.name,
+    89→   188→            role: managerForm.role,
+    90→   189→            region_ids: managerForm.region_ids,
+    91→   190→            is_active: managerForm.is_active,
+    92→   191→          });
+    93→   192→        if (error) throw error;
+    94→   193→        toast.success(t("regional.addManager") + "!");
+    95→   194→      }
+    96→   195→      setManagerDialogOpen(false);
+    97→   196→      loadData();
+    98→   197→    } catch (err: any) {
+    99→   198→      toast.error(err.message || "Error saving manager");
+   100→   199→    } finally {
+   101→   200→      setSavingManager(false);
+   102→   201→    }
+   103→   202→  };
+   104→   203→
+   105→   204→  // ===== Region CRUD =====
+   106→   205→  const openAddRegion = () => {
+   107→   206→    setEditingRegion(null);
+   108→   207→    setRegionForm({ name: "", country_code: "", description: "", language_code: "en", currency_code: "USD", timezone: "UTC", is_active: true });
+   109→   208→    setRegionDialogOpen(true);
+   110→   209→  };
+   111→   210→
+   112→   211→  const openEditRegion = (r: Region) => {
+   113→   212→    setEditingRegion(r);
+   114→   213→    setRegionForm({
+   115→   214→      name: r.name,
+   116→   215→      country_code: r.country_code,
+   117→   216→      description: r.description || "",
+   118→   217→      language_code: r.language_code,
+   119→   218→      currency_code: r.currency_code,
+   120→   219→      timezone: r.timezone,
+   121→   220→      is_active: r.is_active,
+   122→   221→    });
+   123→   222→    setRegionDialogOpen(true);
+   124→   223→  };
+   125→   224→
+   126→   225→  const handleSaveRegion = async () => {
+   127→   226→    if (!regionForm.name || !regionForm.country_code) {
+   128→   227→      toast.error(t("regional.name") + " / " + t("regional.country") + " required");
+   129→   228→      return;
+   130→   229→    }
+   131→   230→    setSavingRegion(true);
+   132→   231→    try {
+   133→   232→      const country = COUNTRIES.find(c => c.code === regionForm.country_code);
+   134→   233→      const payload = {
+   135→   234→        ...regionForm,
+   136→   235→        country_name: country?.label || regionForm.country_code,
+   137→   236→      };
+   138→   237→      if (editingRegion) {
+   139→   238→        const { error } = await sb.from("regions").update(payload).eq("id", editingRegion.id);
+   140→   239→        if (error) throw error;
+   141→   240→        toast.success(t("common.save") + "!");
+   142→   241→      } else {
+   143→   242→        const { error } = await sb.from("regions").insert(payload);
+   144→   243→        if (error) throw error;
+   145→   244→        toast.success(t("regional.createRegion") + "!");
+   146→   245→      }
+   147→   246→      setRegionDialogOpen(false);
+   148→   247→      loadData();
+   149→   248→    } catch (err: any) {
+   150→   249→      toast.error(err.message || "Error saving region");
+   151→   250→    } finally {
+   152→   251→      setSavingRegion(false);
+   153→   252→    }
+   154→   253→  };
+   155→   254→
+   156→   255→  // ===== Delete =====
+   157→   256→  const handleDelete = async () => {
+   158→   257→    if (!deleteTarget) return;
+   159→   258→    setDeleting(true);
+   160→   259→    try {
+   161→   260→      const table = deleteTarget.type === "manager" ? "regional_managers" : "regions";
+   162→   261→      const { error } = await sb.from(table).delete().eq("id", deleteTarget.id);
+   163→   262→      if (error) throw error;
+   164→   263→      toast.success(t("regional.removeManager"));
+   165→   264→      setDeleteDialogOpen(false);
+   166→   265→      setDeleteTarget(null);
+   167→   266→      loadData();
+   168→   267→    } catch (err: any) {
+   169→   268→      toast.error(err.message || "Error deleting");
+   170→   269→    } finally {
+   171→   270→      setDeleting(false);
+   172→   271→    }
+   173→   272→  };
+   174→   273→
+   175→   274→  const filteredManagers = managers.filter(m =>
+   176→   275→    m.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   177→   276→    m.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
+   178→   277→  );
+   179→   278→
+   180→   279→  const getRegionName = (regionId: string) => {
+   181→   280→    const r = regions.find(r => r.id === regionId);
+   182→   281→    return r?.name || regionId;
+   183→   282→  };
+   184→   283→
+   185→   284→  const getCountryFlag = (code: string) => {
+   186→   285→    return COUNTRIES.find(c => c.code === code)?.flag || "🌍";
+   187→   286→  };
+   188→   287→
+   189→   288→  // ===== RENDER =====
+   190→   289→  return (
+   191→   290→    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+   192→   291→      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+   193→   292→        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
+   194→   293→        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+   195→   294→        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/3 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+   196→   295→      </div>
+   197→   296→
+   198→   297→      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+   199→   298→        <motion.div
+   200→   299→          initial={{ opacity: 0, y: -20 }}
+   201→   300→          animate={{ opacity: 1, y: 0 }}
+   202→   301→          className="mb-8"
+   203→   302→        >
+   204→   303→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   205→   304→            <div>
+   206→   305→              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+   207→   306→                <Globe className="inline h-8 w-8 mr-2 text-cyan-400" />
+   208→   307→                {t("regional.title")}
+   209→   308→              </h1>
+   210→   309→              <p className="text-slate-400 mt-1">{t("regional.dashboard")} — {t("regional.managers")} & {t("regional.regions")}</p>
+   211→   310→            </div>
+   212→   311→            <div className="flex gap-2">
+   213→   312→              <Button onClick={openAddManager} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/20">
+   214→   313→                <Plus className="h-4 w-4 mr-2" /> {t("regional.addManager")}
+   215→   314→              </Button>
+   216→   315→              <Button onClick={openAddRegion} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+   217→   316→                <MapPin className="h-4 w-4 mr-2" /> {t("regional.createRegion")}
+   218→   317→              </Button>
+   219→   318→            </div>
+   220→   319→          </div>
+   221→   320→        </motion.div>
+   222→   321→
+   223→   322→        <motion.div
+   224→   323→          initial={{ opacity: 0, y: 10 }}
+   225→   324→          animate={{ opacity: 1, y: 0 }}
+   226→   325→          transition={{ delay: 0.1 }}
+   227→   326→          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+   228→   327→        >
+   229→   328→          {[
+   230→   329→            { icon: Users, label: t("regional.managers"), value: managers.length, color: "from-cyan-500 to-blue-600", shadow: "shadow-cyan-500/20" },
+   231→   330→            { icon: MapPin, label: t("regional.regions"), value: regions.length, color: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-500/20" },
+   232→   331→            { icon: UserCheck, label: t("regional.users"), value: managers.reduce((a, m) => a + (m.stats?.total_users || 0), 0).toLocaleString(), color: "from-violet-500 to-purple-600", shadow: "shadow-violet-500/20" },
+   233→   332→            { icon: BarChart3, label: t("regional.revenue"), value: "$" + managers.reduce((a, m) => a + (m.stats?.total_revenue || 0), 0).toLocaleString(), color: "from-amber-500 to-orange-600", shadow: "shadow-amber-500/20" },
+   234→   333→          ].map((stat, i) => (
+   235→   334→            <Card key={i} className="bg-slate-900/50 border-slate-800 backdrop-blur-sm overflow-hidden relative group">
+   236→   335→              <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
+   237→   336→              <CardContent className="p-5 relative">
+   238→   337→                <div className="flex items-center justify-between">
+   239→   338→                  <div>
+   240→   339→                    <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">{stat.label}</p>
+   241→   340→                    <p className="text-2xl font-black text-white mt-1">{stat.value}</p>
+   242→   341→                  </div>
+   243→   342→                  <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.color} ${stat.shadow} shadow-lg`}>
+   244→   343→                    <stat.icon className="h-5 w-5 text-white" />
+   245→   344→                  </div>
+   246→   345→                </div>
+   247→   346→              </CardContent>
+   248→   347→            </Card>
+   249→   348→          ))}
+   250→   349→        </motion.div>
+   251→   350→
+   252→   351→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   253→   352→          <TabsList className="bg-slate-900/80 border border-slate-800 p-1 rounded-2xl">
+   254→   353→            <TabsTrigger value="managers" className="rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-600 data-[state=active]:text-white">
+   255→   354→              <Users className="h-4 w-4 mr-2" /> {t("regional.managers")}
+   256→   355→            </TabsTrigger>
+   257→   356→            <TabsTrigger value="regions" className="rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white">
+   258→   357→              <MapPin className="h-4 w-4 mr-2" /> {t("regional.regions")}
+   259→   358→            </TabsTrigger>
+   260→   359→          </TabsList>
+   261→   360→
+   262→   361→          <TabsContent value="managers" className="mt-6">
+   263→   362→            <div className="relative mb-6">
+   264→   363→              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+   265→   364→              <Input
+   266→   365→                placeholder={`${t("common.search")}...`}
+   267→   366→                value={searchQuery}
+   268→   367→                onChange={(e) => setSearchQuery(e.target.value)}
+   269→   368→                className="pl-11 bg-slate-900/50 border-slate-800 text-white placeholder:text-slate-600 rounded-xl h-12"
+   270→   369→              />
+   271→   370→            </div>
+   272→   371→
+   273→   372→            {loading ? (
+   274→   373→              <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-cyan-400" /></div>
+   275→   374→            ) : filteredManagers.length === 0 ? (
+   276→   375→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+   277→   376→                <Users className="h-16 w-16 text-slate-700 mx-auto mb-4" />
+   278→   377→                <p className="text-slate-500 text-lg font-semibold">{t("regional.noManagers")}</p>
+   279→   378→              </motion.div>
+   280→   379→            ) : (
+   281→   380→              <div className="space-y-3">
+   282→   381→                <AnimatePresence>
+   283→   382→                  {filteredManagers.map((manager) => (
+   284→   383→                    <motion.div
+   285→   384→                      key={manager.id}
+   286→   385→                      layout
+   287→   386→                      initial={{ opacity: 0, y: 10 }}
+   288→   387→                      animate={{ opacity: 1, y: 0 }}
+   289→   388→                      exit={{ opacity: 0, x: -20 }}
+   290→   389→                    >
+   291→   390→                      <Card
+   292→   391→                        className="bg-slate-900/50 border-slate-800 backdrop-blur-sm cursor-pointer hover:border-slate-700 transition-all duration-300 overflow-hidden"
+   293→   392→                        onClick={() => setExpandedManager(expandedManager === manager.id ? null : manager.id)}
+   294→   393→                      >
+   295→   394→                        <CardContent className="p-5">
+   296→   395→                          <div className="flex items-center gap-4">
+   297→   396→                            <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br ${manager.role === "senior_manager" ? "from-amber-500 to-orange-600" : "from-cyan-500 to-blue-600"} flex items-center justify-center text-white font-black text-lg shadow-lg`}
+   298→   397→                            >
+   299→   398→                              {manager.user_name?.charAt(0)?.toUpperCase() || "?"}
+   300→   399→                              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${manager.is_active ? "bg-emerald-400" : "bg-slate-600"}`} />
+   301→   400→                            </div>
+   302→   401→
+   303→   402→                            <div className="flex-1 min-w-0">
+   304→   403→                              <div className="flex items-center gap-2">
+   305→   404→                                <h3 className="text-white font-bold truncate">{manager.user_name}</h3>
+   306→   405→                                <Badge variant={manager.role === "senior_manager" ? "default" : "secondary"}
+   307→   406→                                  className={manager.role === "senior_manager" ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-slate-800 text-slate-400"}
+   308→   407→                                >
+   309→   408→                                  {manager.role === "senior_manager" ? "Senior" : "Manager"}
+   310→   409→                                </Badge>
+   311→   410→                                {!manager.is_active && <Badge variant="secondary" className="bg-red-500/20 text-red-400 border-red-500/30">Inactive</Badge>}
+   312→   411→                              </div>
+   313→   412→                              <p className="text-sm text-slate-500 truncate">{manager.user_email}</p>
+   314→   413→                              <p className="text-xs text-slate-600 mt-0.5">
+   315→   414→                                {manager.region_ids?.length || 0} {t("regional.assignedRegions").toLowerCase()}
+   316→   415→                              </p>
+   317→   416→                            </div>
+   318→   417→
+   319→   418→                            <div className="flex items-center gap-2">
+   320→   419→                              <Button size="sm" variant="ghost" className="text-slate-500 hover:text-white" onClick={(e) => { e.stopPropagation(); openEditManager(manager); }}>
+   321→   420→                                <Edit3 className="h-4 w-4" />
+   322→   421→                              </Button>
+   323→   422→                              <Button size="sm" variant="ghost" className="text-slate-500 hover:text-red-400" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: "manager", id: manager.id, name: manager.user_name || "" }); setDeleteDialogOpen(true); }}>
+   324→   423→                                <Trash2 className="h-4 w-4" />
+   325→   424→                              </Button>
+   326→   425→                              {expandedManager === manager.id ? <ChevronUp className="h-5 w-5 text-slate-500" /> : <ChevronDown className="h-5 w-5 text-slate-500" />}
+   327→   426→                            </div>
+   328→   427→                          </div>
+   329→   428→
+   330→   429→                          <AnimatePresence>
+   331→   430→                            {expandedManager === manager.id && (
+   332→   431→                              <motion.div
+   333→   432→                                initial={{ height: 0, opacity: 0 }}
+   334→   433→                                animate={{ height: "auto", opacity: 1 }}
+   335→   434→                                exit={{ height: 0, opacity: 0 }}
+   336→   435→                                className="overflow-hidden"
+   337→   436→                              >
+   338→   437→                                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-4">
+   339→   438→                                  <div className="bg-slate-800/50 rounded-xl p-3">
+   340→   439→                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{t("regional.users")}</p>
+   341→   440→                                    <p className="text-xl font-black text-white">{(manager.stats?.total_users || 0).toLocaleString()}</p>
+   342→   441→                                  </div>
+   343→   442→                                  <div className="bg-slate-800/50 rounded-xl p-3">
+   344→   443→                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{t("regional.revenue")}</p>
+   345→   444→                                    <p className="text-xl font-black text-emerald-400">${(manager.stats?.total_revenue || 0).toLocaleString()}</p>
+   346→   445→                                  </div>
+   347→   446→                                  <div className="bg-slate-800/50 rounded-xl p-3">
+   348→   447→                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{t("regional.activeLives")}</p>
+   349→   448→                                    <p className="text-xl font-black text-cyan-400">{manager.stats?.active_lives || 0}</p>
+   350→   449→                                  </div>
+   351→   450→                                  <div className="bg-slate-800/50 rounded-xl p-3">
+   352→   451→                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{t("regional.totalGames")}</p>
+   353→   452→                                    <p className="text-xl font-black text-violet-400">{manager.stats?.total_games || 0}</p>
+   354→   453→                                  </div>
+   355→   454→                                </div>
+   356→   455→                                {(manager.region_ids?.length || 0) > 0 && (
+   357→   456→                                  <div className="mt-4">
+   358→   457→                                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{t("regional.assignedRegions")}</p>
+   359→   458→                                    <div className="flex flex-wrap gap-2">
+   360→   459→                                      {manager.region_ids.map(rid => (
+   361→   460→                                        <Badge key={rid} variant="outline" className="border-slate-700 text-slate-400 bg-slate-800/50">
+   362→   461→                                          {getCountryFlag(regions.find(r => r.id === rid)?.country_code || "")} {getRegionName(rid)}
+   363→   462→                                        </Badge>
+   364→   463→                                      ))}
+   365→   464→                                    </div>
+   366→   465→                                  </div>
+   367→   466→                                )}
+   368→   467→                              </motion.div>
+   369→   468→                            )}
+   370→   469→                          </AnimatePresence>
+   371→   470→                        </CardContent>
+   372→   471→                      </Card>
+   373→   472→                    </motion.div>
+   374→   473→                  ))}
+   375→   474→                </AnimatePresence>
+   376→   475→              </div>
+   377→   476→            )}
+   378→   477→          </TabsContent>
+   379→   478→
+   380→   479→          <TabsContent value="regions" className="mt-6">
+   381→   480→            {loading ? (
+   382→   481→              <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>
+   383→   482→            ) : (
+   384→   483→              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   385→   484→                <AnimatePresence>
+   386→   485→                  {regions.map((region) => (
+   387→   486→                    <motion.div
+   388→   487→                      key={region.id}
+   389→   488→                      layout
+   390→   489→                      initial={{ opacity: 0, scale: 0.95 }}
+   391→   490→                      animate={{ opacity: 1, scale: 1 }}
+   392→   491→                      exit={{ opacity: 0, scale: 0.95 }}
+   393→   492→                    >
+   394→   493→                      <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm hover:border-slate-700 transition-all duration-300 group overflow-hidden">
+   395→   494→                        <CardHeader className="pb-3">
+   396→   495→                          <div className="flex items-start justify-between">
+   397→   496→                            <div className="flex items-center gap-3">
+   398→   497→                              <span className="text-3xl">{getCountryFlag(region.country_code)}</span>
+   399→   498→                              <div>
+   400→   499→                                <CardTitle className="text-white text-base font-bold">{region.name}</CardTitle>
+   401→   500→                                <p className="text-xs text-slate-500">{region.country_code} · {region.language_code.toUpperCase()} · {region.currency_code}</p>
+   402→   501→                              </div>
+   403→   502→                            </div>
+   404→   503→                            <div className="flex items-center gap-1">
+   405→   504→                              <Button size="sm" variant="ghost" className="text-slate-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEditRegion(region)}>
+   406→   505→                                <Edit3 className="h-3.5 w-3.5" />
+   407→   506→                              </Button>
+   408→   507→                              <Button size="sm" variant="ghost" className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setDeleteTarget({ type: "region", id: region.id, name: region.name }); setDeleteDialogOpen(true); }}>
+   409→   508→                                <Trash2 className="h-3.5 w-3.5" />
+   410→   509→                              </Button>
+   411→   510→                            </div>
+   412→   511→                          </div>
+   413→   512→                        </CardHeader>
+   414→   513→                        <CardContent className="pt-0">
+   415→   514→                          {region.description && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{region.description}</p>}
+   416→   515→                          <div className="flex items-center gap-3 text-xs text-slate-500">
+   417→   516→                            <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {region.user_count || 0}</span>
+   418→   517→                            <Badge variant={region.is_active ? "default" : "secondary"} className={region.is_active ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400"}>
+   419→   518→                              {region.is_active ? "Active" : "Inactive"}
+   420→   519→                            </Badge>
+   421→   520→                          </div>
+   422→   521→                        </CardContent>
+   423→   522→                      </Card>
+   424→   523→                    </motion.div>
+   425→   524→                  ))}
+   426→   525→                </AnimatePresence>
+   427→   526→              </div>
+   428→   527→            )}
+   429→   528→          </TabsContent>
+   430→   529→        </Tabs>
+   431→   530→      </div>
+   432→   531→
+   433→   532→      <Dialog open={managerDialogOpen} onOpenChange={setManagerDialogOpen}>
+   434→   533→        <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-lg">
+   435→   534→          <DialogHeader>
+   436→   535→            <DialogTitle className="text-xl font-bold">
+   437→   536→              {editingManager ? t("regional.editRegion").replace("Region", "Manager") : t("regional.addManager")}
+   438→   537→            </DialogTitle>
+   439→   538→          </DialogHeader>
+   440→   539→          <div className="space-y-4 py-2">
+   441→   540→            <div className="space-y-2">
+   442→   541→              <Label className="text-slate-400">{t("regional.managerName")}</Label>
+   443→   542→              <Input value={managerForm.name} onChange={(e) => setManagerForm({ ...managerForm, name: e.target.value })} className="bg-slate-800 border-slate-700" placeholder="John Doe" />
+   444→   543→            </div>
+   445→   544→            <div className="space-y-2">
+   446→   545→              <Label className="text-slate-400">{t("regional.managerEmail")}</Label>
+   447→   546→              <Input type="email" value={managerForm.email} onChange={(e) => setManagerForm({ ...managerForm, email: e.target.value })} className="bg-slate-800 border-slate-700" placeholder="manager@company.com" disabled={!!editingManager} />
+   448→   547→            </div>
+   449→   548→            <div className="space-y-2">
+   450→   549→              <Label className="text-slate-400">Role</Label>
+   451→   550→              <Select value={managerForm.role} onValueChange={(v) => setManagerForm({ ...managerForm, role: v as any })}>
+   452→   551→                <SelectTrigger className="bg-slate-800 border-slate-700"><SelectValue /></SelectTrigger>
+   453→   552→                <SelectContent className="bg-slate-800 border-slate-700">
+   454→   553→                  <SelectItem value="manager">Manager</SelectItem>
+   455→   554→                  <SelectItem value="senior_manager">Senior Manager</SelectItem>
+   456→   555→                </SelectContent>
+   457→   556→              </Select>
+   458→   557→            </div>
+   459→   558→            <div className="space-y-2">
+   460→   559→              <Label className="text-slate-400">{t("regional.assignedRegions")}</Label>
+   461→   560→              <div className="max-h-40 overflow-y-auto rounded-xl bg-slate-800 border border-slate-700 p-2 space-y-1">
+   462→   561→                {regions.map(region => (
+   463→   562→                  <label key={region.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50 cursor-pointer transition-colors">
+   464→   563→                    <input
+   465→   564→                      type="checkbox"
+   466→   565→                      checked={managerForm.region_ids.includes(region.id)}
+   467→   566→                      onChange={(e) => {
+   468→   567→                        if (e.target.checked) {
+   469→   568→                          setManagerForm({ ...managerForm, region_ids: [...managerForm.region_ids, region.id] });
+   470→   569→                        } else {
+   471→   570→                          setManagerForm({ ...managerForm, region_ids: managerForm.region_ids.filter(id => id !== region.id) });
+   472→   571→                        }
+   473→   572→                      }}
+   474→   573→                      className="rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+   475→   574→                    />
+   476→   575→                    <span className="text-sm text-slate-300">{getCountryFlag(region.country_code)} {region.name}</span>
+   477→   576→                  </label>
+   478→   577→                ))}
+   479→   578→                {regions.length === 0 && <p className="text-xs text-slate-600 text-center py-2">No regions created yet</p>}
+   480→   579→              </div>
+   481→   580→            </div>
+   482→   581→            <div className="flex items-center justify-between">
+   483→   582→              <Label className="text-slate-400">Active</Label>
+   484→   583→              <Switch checked={managerForm.is_active} onCheckedChange={(v) => setManagerForm({ ...managerForm, is_active: v })} />
+   485→   584→            </div>
+   486→   585→          </div>
+   487→   586→          <DialogFooter className="gap-2">
+   488→   587→            <Button variant="outline" onClick={() => setManagerDialogOpen(false)} className="border-slate-700 text-slate-300">{t("regional.cancel")}</Button>
+   489→   588→            <Button onClick={handleSaveManager} disabled={savingManager} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white">
+   490→   589→              {savingManager && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("regional.save")}
+   491→   590→            </Button>
+   492→   591→          </DialogFooter>
+   493→   592→        </DialogContent>
+   494→   593→      </Dialog>
+   495→   594→
+   496→   595→      <Dialog open={regionDialogOpen} onOpenChange={setRegionDialogOpen}>
+   497→   596→        <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-lg">
+   498→   597→          <DialogHeader>
+   499→   598→            <DialogTitle className="text-xl font-bold">
+   500→   599→              {editingRegion ? t("regional.editRegion") : t("regional.createRegion")}
+   501→   600→            </DialogTitle>
+   502→   601→          </DialogHeader>
+   503→   602→          <div className="space-y-4 py-2">
+   504→   603→            <div className="space-y-2">
+   505→   604→              <Label className="text-slate-400">{t("regional.name")}</Label>
+   506→   605→              <Input value={regionForm.name} onChange={(e) => setRegionForm({ ...regionForm, name: e.target.value })} className="bg-slate-800 border-slate-700" placeholder="e.g. Mozambique" />
+   507→   606→            </div>
+   508→   607→            <div className="space-y-2">
+   509→   608→              <Label className="text-slate-400">{t("regional.country")}</Label>
+   510→   609→              <Select value={regionForm.country_code} onValueChange={(v) => setRegionForm({ ...regionForm, country_code: v })}>
+   511→   610→                <SelectTrigger className="bg-slate-800 border-slate-700"><SelectValue placeholder="Select country" /></SelectTrigger>
+   512→   611→                <SelectContent className="bg-slate-800 border-slate-700">
+   513→   612→                  {COUNTRIES.map(c => (
+   514→   613→                    <SelectItem key={c.code} value={c.code}>{c.flag} {c.label}</SelectItem>
+   515→   614→                  ))}
+   516→   615→                </SelectContent>
+   517→   616→              </Select>
+   518→   617→            </div>
+   519→   618→            <div className="space-y-2">
+   520→   619→              <Label className="text-slate-400">{t("regional.description")}</Label>
+   521→   620→              <Textarea value={regionForm.description} onChange={(e) => setRegionForm({ ...regionForm, description: e.target.value })} className="bg-slate-800 border-slate-700" rows={2} placeholder="Optional description..." />
+   522→   621→            </div>
+   523→   622→            <div className="grid grid-cols-2 gap-4">
+   524→   623→              <div className="space-y-2">
+   525→   624→                <Label className="text-slate-400">{t("regional.language")}</Label>
+   526→   625→                <Select value={regionForm.language_code} onValueChange={(v) => setRegionForm({ ...regionForm, language_code: v })}>
+   527→   626→                  <SelectTrigger className="bg-slate-800 border-slate-700"><SelectValue /></SelectTrigger>
+   528→   627→                  <SelectContent className="bg-slate-800 border-slate-700">
+   529→   628→                    {LANGUAGES.map(l => (
+   530→   629→                      <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>
+   531→   630→                    ))}
+   532→   631→                  </SelectContent>
+   533→   632→                </Select>
+   534→   633→              </div>
+   535→   634→              <div className="space-y-2">
+   536→   635→                <Label className="text-slate-400">{t("regional.currency")}</Label>
+   537→   636→                <Select value={regionForm.currency_code} onValueChange={(v) => setRegionForm({ ...regionForm, currency_code: v })}>
+   538→   637→                  <SelectTrigger className="bg-slate-800 border-slate-700"><SelectValue /></SelectTrigger>
+   539→   638→                  <SelectContent className="bg-slate-800 border-slate-700">
+   540→   639→                    {CURRENCIES.map(c => (
+   541→   640→                      <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+   542→   641→                    ))}
+   543→   642→                  </SelectContent>
+   544→   643→                </Select>
+   545→   644→              </div>
+   546→   645→            </div>
+   547→   646→            <div className="space-y-2">
+   548→   647→              <Label className="text-slate-400">Timezone</Label>
+   549→   648→              <Input value={regionForm.timezone} onChange={(e) => setRegionForm({ ...regionForm, timezone: e.target.value })} className="bg-slate-800 border-slate-700" placeholder="UTC" />
+   550→   649→            </div>
+   551→   650→            <div className="flex items-center justify-between">
+   552→   651→              <Label className="text-slate-400">Active</Label>
+   553→   652→              <Switch checked={regionForm.is_active} onCheckedChange={(v) => setRegionForm({ ...regionForm, is_active: v })} />
+   554→   653→            </div>
+   555→   654→          </div>
+   556→   655→          <DialogFooter className="gap-2">
+   557→   656→            <Button variant="outline" onClick={() => setRegionDialogOpen(false)} className="border-slate-700 text-slate-300">{t("regional.cancel")}</Button>
+   558→   657→            <Button onClick={handleSaveRegion} disabled={savingRegion} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white">
+   559→   658→              {savingRegion && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("regional.save")}
+   560→   659→            </Button>
+   561→   660→          </DialogFooter>
+   562→   661→        </DialogContent>
+   563→   662→      </Dialog>
+   564→   663→
+   565→   664→      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+   566→   665→        <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md">
+   567→   666→          <DialogHeader>
+   568→   667→            <DialogTitle className="flex items-center gap-2 text-red-400">
+   569→   668→              <AlertTriangle className="h-5 w-5" /> {t("regional.removeManager")}
+   570→   669→            </DialogTitle>
+   571→   670→          </DialogHeader>
+   572→   671→          <p className="text-slate-400">{t("regional.confirmRemove")}</p>
+   573→   672→          <p className="text-white font-bold">{deleteTarget?.name}</p>
+   574→   673→          <DialogFooter className="gap-2">
+   575→   674→            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="border-slate-700 text-slate-300">{t("regional.cancel")}</Button>
+   576→   675→            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+   577→   676→              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("regional.removeManager")}
+   578→   677→            </Button>
+   579→   678→          </DialogFooter>
+   580→   679→        </DialogContent>
+   581→   680→      </Dialog>
+   582→   681→    </div>
+   583→   682→  );
+   584→   683→}
+   585→   684→
