@@ -1,0 +1,1776 @@
+     1→// =============================================================
+     2→// eSports Advanced Features Library
+     3→// Seasons, Betting, Anti-Cheat, Reputation, Transfers,
+     4→// Sponsors, Achievements, Stream Overlay, Match Chat
+     5→// =============================================================
+     6→
+     7→import { supabase } from '@/integrations/supabase/client';
+     8→const sb: any = supabase;
+     9→
+    10→// ============================================================
+    11→// TYPES
+    12→// ============================================================
+    13→
+    14→export type SeasonStatus = 'upcoming' | 'active' | 'paused' | 'completed' | 'cancelled';
+    15→export type BetStatus = 'open' | 'settled' | 'refunded' | 'cancelled';
+    16→export type ReportCategory = 'cheating' | 'griefing' | 'smurfing' | 'boosting' | 'disconnection' | 'bug_exploit' | 'toxicity' | 'match_fixing' | 'other';
+    17→export type EvidenceType = 'screenshot' | 'video' | 'replay' | 'stream_clip' | 'log' | 'admin_note';
+    18→export type TransferStatus = 'requested' | 'accepted' | 'rejected' | 'cancelled';
+    19→export type SponsorStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+    20→export type AchievementCategory = 'seasonal' | 'lifetime' | 'tournament' | 'streak' | 'social' | 'special';
+    21→export type PunishmentType = 'warning' | 'temporary_ban' | 'permanent_ban' | 'points_deduction' | 'match_forfeit';
+    22→export type PredictionMarketType = 'match_winner' | 'tournament_winner' | 'mvp' | 'first_blood' | 'map_winner' | 'special';
+    23→export type AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+    24→
+    25→export interface Season {
+    26→  id: string;
+    27→  name: string;
+    28→  slug: string;
+    29→  description?: string;
+    30→  game_id?: string;
+    31→  region_id?: string;
+    32→  creator_id?: string;
+    33→  business_id?: string;
+    34→  start_date: string;
+    35→  end_date: string;
+    36→  status: SeasonStatus;
+    37→  is_published: boolean;
+    38→  is_featured: boolean;
+    39→  total_rounds: number;
+    40→  matches_per_round: number;
+    41→  points_win: number;
+    42→  points_draw: number;
+    43→  points_loss: number;
+    44→  bonus_points_per_kill: number;
+    45→  max_teams: number;
+    46→  registered_teams: number;
+    47→  prize_pool: number;
+    48→  currency: string;
+    49→  prize_distribution: number[];
+    50→  prize_description?: string;
+    51→  cover_image_url?: string;
+    52→  primary_color: string;
+    53→  secondary_color: string;
+    54→  total_matches: number;
+    55→  total_viewers: number;
+    56→  created_at: string;
+    57→  updated_at: string;
+    58→}
+    59→
+    60→export interface SeasonTeam {
+    61→  id: string;
+    62→  season_id: string;
+    63→  team_id?: string;
+    64→  team_name: string;
+    65→  team_logo?: string;
+    66→  matches_played: number;
+    67→  matches_won: number;
+    68→  matches_drawn: number;
+    69→  matches_lost: number;
+    70→  points: number;
+    71→  total_kills: number;
+    72→  total_deaths: number;
+    73→  total_damage: number;
+    74→  win_streak: number;
+    75→  loss_streak: number;
+    76→  best_win_streak: number;
+    77→  final_placement?: number;
+    78→  prize_won: number;
+    79→  registered_at: string;
+    80→}
+    81→
+    82→export interface SeasonMatch {
+    83→  id: string;
+    84→  season_id: string;
+    85→  round_number: number;
+    86→  match_number: number;
+    87→  team1_id?: string;
+    88→  team2_id?: string;
+    89→  team1_name?: string;
+    90→  team2_name?: string;
+    91→  team1_logo?: string;
+    92→  team2_logo?: string;
+    93→  team1_score: number;
+    94→  team2_score: number;
+    95→  team1_kills: number;
+    96→  team2_kills: number;
+    97→  winner_id?: string;
+    98→  is_draw: boolean;
+    99→  scheduled_at?: string;
+   100→  started_at?: string;
+   101→  completed_at?: string;
+   102→  status: string;
+   103→  lobby_id?: string;
+   104→  lobby_password?: string;
+   105→  map_name?: string;
+   106→  mode_name?: string;
+   107→  viewer_count: number;
+   108→  mvp_user_id?: string;
+   109→  mvp_name?: string;
+   110→  created_at: string;
+   111→}
+   112→
+   113→export interface Bet {
+   114→  id: string;
+   115→  user_id: string;
+   116→  match_id?: string;
+   117→  championship_id?: string;
+   118→  season_match_id?: string;
+   119→  bet_type: PredictionMarketType;
+   120→  predicted_outcome: Record<string, any>;
+   121→  predicted_label: string;
+   122→  odds: number;
+   123→  amount_wagered: number;
+   124→  potential_payout: number;
+   125→  status: BetStatus;
+   126→  is_correct?: boolean;
+   127→  amount_won: number;
+   128→  settled_at?: string;
+   129→  created_at: string;
+   130→}
+   131→
+   132→export interface UserWallet {
+   133→  id: string;
+   134→  user_id: string;
+   135→  balance: number;
+   136→  total_earned: number;
+   137→  total_wagered: number;
+   138→  total_won: number;
+   139→  total_lost: number;
+   140→  created_at: string;
+   141→  updated_at: string;
+   142→}
+   143→
+   144→export interface WalletTransaction {
+   145→  id: string;
+   146→  user_id: string;
+   147→  wallet_id: string;
+   148→  type: string;
+   149→  amount: number;
+   150→  balance_after: number;
+   151→  description?: string;
+   152→  reference_id?: string;
+   153→  created_at: string;
+   154→}
+   155→
+   156→export interface Evidence {
+   157→  id: string;
+   158→  report_id?: string;
+   159→  championship_id?: string;
+   160→  match_id?: string;
+   161→  submitted_by?: string;
+   162→  target_user_id?: string;
+   163→  evidence_type: EvidenceType;
+   164→  file_url: string;
+   165→  thumbnail_url?: string;
+   166→  description?: string;
+   167→  metadata?: Record<string, any>;
+   168→  chain_index: number;
+   169→  parent_evidence_id?: string;
+   170→  is_verified: boolean;
+   171→  verified_by?: string;
+   172→  verified_at?: string;
+   173→  created_at: string;
+   174→}
+   175→
+   176→export interface Punishment {
+   177→  id: string;
+   178→  user_id: string;
+   179→  team_id?: string;
+   180→  championship_id?: string;
+   181→  punishment_type: PunishmentType;
+   182→  reason: string;
+   183→  evidence_ids: string[];
+   184→  duration_days?: number;
+   185→  starts_at: string;
+   186→  ends_at?: string;
+   187→  is_active: boolean;
+   188→  points_deducted: number;
+   189→  matches_forfeited: number;
+   190→  issued_by?: string;
+   191→  created_at: string;
+   192→}
+   193→
+   194→export interface UserReputation {
+   195→  id: string;
+   196→  user_id: string;
+   197→  karma_points: number;
+   198→  reputation_score: number;
+   199→  total_matches: number;
+   200→  total_wins: number;
+   201→  total_reports_filed: number;
+   202→  total_reports_against: number;
+   203→  reports_confirmed: number;
+   204→  reports_dismissed: number;
+   205→  no_show_count: number;
+   206→  disconnection_count: number;
+   207→  sportsmanship_votes: number;
+   208→  sportsmanship_total: number;
+   209→  reputation_title: string;
+   210→  earned_badges: string[];
+   211→  created_at: string;
+   212→  updated_at: string;
+   213→}
+   214→
+   215→export interface SportsmanshipRating {
+   216→  id: string;
+   217→  match_id?: string;
+   218→  season_match_id?: string;
+   219→  rater_user_id: string;
+   220→  rated_user_id: string;
+   221→  rating: number;
+   222→  comment?: string;
+   223→  tags?: string[];
+   224→  created_at: string;
+   225→}
+   226→
+   227→export interface Transfer {
+   228→  id: string;
+   229→  player_user_id: string;
+   230→  from_team_id?: string;
+   231→  to_team_id?: string;
+   232→  status: TransferStatus;
+   233→  transfer_fee: number;
+   234→  contract_details?: Record<string, any>;
+   235→  requested_by?: string;
+   236→  responded_by?: string;
+   237→  message?: string;
+   238→  response_message?: string;
+   239→  completed_at?: string;
+   240→  created_at: string;
+   241→  updated_at: string;
+   242→}
+   243→
+   244→export interface Sponsor {
+   245→  id: string;
+   246→  championship_id?: string;
+   247→  season_id?: string;
+   248→  company_name: string;
+   249→  logo_url?: string;
+   250→  website_url?: string;
+   251→  contact_email?: string;
+   252→  sponsorship_type: string;
+   253→  value: number;
+   254→  currency: string;
+   255→  status: SponsorStatus;
+   256→  contract_details?: Record<string, any>;
+   257→  banner_url?: string;
+   258→  overlay_url?: string;
+   259→  social_mention: boolean;
+   260→  logo_placement: string;
+   261→  start_date?: string;
+   262→  end_date?: string;
+   263→  created_at: string;
+   264→}
+   265→
+   266→export interface Achievement {
+   267→  id: string;
+   268→  name: string;
+   269→  slug: string;
+   270→  description: string;
+   271→  icon_url?: string;
+   272→  icon_emoji?: string;
+   273→  category: AchievementCategory;
+   274→  requirement: Record<string, any>;
+   275→  reward_coins: number;
+   276→  reward_badge?: string;
+   277→  reward_xp: number;
+   278→  rarity: AchievementRarity;
+   279→  is_hidden: boolean;
+   280→  is_active: boolean;
+   281→  sort_order: number;
+   282→  created_at: string;
+   283→}
+   284→
+   285→export interface UserAchievement {
+   286→  id: string;
+   287→  user_id: string;
+   288→  achievement_id: string;
+   289→  progress: number;
+   290→  target: number;
+   291→  is_completed: boolean;
+   292→  completed_at?: string;
+   293→  notified: boolean;
+   294→  created_at: string;
+   295→}
+   296→
+   297→export interface PredictionMarket {
+   298→  id: string;
+   299→  championship_id?: string;
+   300→  match_id?: string;
+   301→  season_match_id?: string;
+   302→  market_type: PredictionMarketType;
+   303→  question: string;
+   304→  options: Array<{
+   305→    id: string;
+   306→    label: string;
+   307→    odds: number;
+   308→    total_wagered: number;
+   309→  }>;
+   310→  status: BetStatus;
+   311→  winning_option_id?: string;
+   312→  total_pool: number;
+   313→  total_bettors: number;
+   314→  closes_at?: string;
+   315→  settled_at?: string;
+   316→  created_at: string;
+   317→}
+   318→
+   319→export interface HighlightClip {
+   320→  id: string;
+   321→  match_id?: string;
+   322→  season_match_id?: string;
+   323→  championship_id?: string;
+   324→  clip_url: string;
+   325→  thumbnail_url?: string;
+   326→  title?: string;
+   327→  description?: string;
+   328→  submitted_by?: string;
+   329→  player_user_id?: string;
+   330→  player_name?: string;
+   331→  team_name?: string;
+   332→  clip_type: string;
+   333→  views: number;
+   334→  likes: number;
+   335→  is_featured: boolean;
+   336→  created_at: string;
+   337→}
+   338→
+   339→export interface StreamOverlay {
+   340→  id: string;
+   341→  championship_id?: string;
+   342→  season_id?: string;
+   343→  name: string;
+   344→  show_scores: boolean;
+   345→  show_teams: boolean;
+   346→  show_sponsors: boolean;
+   347→  show_bracket: boolean;
+   348→  show_mvp: boolean;
+   349→  show_social: boolean;
+   350→  show_chat: boolean;
+   351→  bg_color: string;
+   352→  bg_opacity: number;
+   353→  text_color: string;
+   354→  accent_color: string;
+   355→  font_family: string;
+   356→  position: string;
+   357→  widget_url?: string;
+   358→  is_active: boolean;
+   359→  created_at: string;
+   360→  updated_at: string;
+   361→}
+   362→
+   363→export interface MatchChatMessage {
+   364→  id: string;
+   365→  match_id?: string;
+   366→  season_match_id?: string;
+   367→  championship_id?: string;
+   368→  user_id: string;
+   369→  username: string;
+   370→  user_avatar?: string;
+   371→  team_id?: string;
+   372→  team_name?: string;
+   373→  message: string;
+   374→  message_type: string;
+   375→  is_pinned: boolean;
+   376→  likes: number;
+   377→  reports: number;
+   378→  is_deleted: boolean;
+   379→  created_at: string;
+   380→}
+   381→
+   382→export interface CreateSeasonData {
+   383→  name: string;
+   384→  description?: string;
+   385→  game_id?: string;
+   386→  start_date: string;
+   387→  end_date: string;
+   388→  total_rounds?: number;
+   389→  points_win?: number;
+   390→  points_draw?: number;
+   391→  points_loss?: number;
+   392→  bonus_points_per_kill?: number;
+   393→  max_teams?: number;
+   394→  prize_pool?: number;
+   395→  currency?: string;
+   396→  prize_distribution?: number[];
+   397→  prize_description?: string;
+   398→  cover_image_url?: string;
+   399→  primary_color?: string;
+   400→  secondary_color?: string;
+   401→  is_featured?: boolean;
+   402→}
+   403→
+   404→// ============================================================
+   405→// LABEL MAPS (Portuguese)
+   406→// ============================================================
+   407→
+   408→export const SEASON_STATUS_LABELS: Record<SeasonStatus, string> = {
+   409→  upcoming: 'A Iniciar',
+   410→  active: 'Em Curso',
+   411→  paused: 'Pausada',
+   412→  completed: 'Concluida',
+   413→  cancelled: 'Cancelada',
+   414→};
+   415→
+   416→export const BET_STATUS_LABELS: Record<BetStatus, string> = {
+   417→  open: 'Aberta',
+   418→  settled: 'Resolvida',
+   419→  refunded: 'Reembolsada',
+   420→  cancelled: 'Cancelada',
+   421→};
+   422→
+   423→export const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
+   424→  cheating: 'Trapaça',
+   425→  griefing: 'Sabotagem',
+   426→  smurfing: 'Smurfing',
+   427→  boosting: 'Boosting',
+   428→  disconnection: 'Desconexao',
+   429→  bug_exploit: 'Explorar Bug',
+   430→  toxicity: 'Toxicidade',
+   431→  match_fixing: 'Manipulacao de Jogo',
+   432→  other: 'Outro',
+   433→};
+   434→
+   435→export const EVIDENCE_TYPE_LABELS: Record<EvidenceType, string> = {
+   436→  screenshot: 'Screenshot',
+   437→  video: 'Video',
+   438→  replay: 'Replay',
+   439→  stream_clip: 'Clip de Stream',
+   440→  log: 'Log do Jogo',
+   441→  admin_note: 'Nota do Admin',
+   442→};
+   443→
+   444→export const TRANSFER_STATUS_LABELS: Record<TransferStatus, string> = {
+   445→  requested: 'Pendente',
+   446→  accepted: 'Aceite',
+   447→  rejected: 'Rejeitado',
+   448→  cancelled: 'Cancelado',
+   449→};
+   450→
+   451→export const PUNISHMENT_TYPE_LABELS: Record<PunishmentType, string> = {
+   452→  warning: 'Aviso',
+   453→  temporary_ban: 'Ban Temporario',
+   454→  permanent_ban: 'Ban Permanente',
+   455→  points_deduction: 'Deducao de Pontos',
+   456→  match_forfeit: 'Desistencia do Jogo',
+   457→};
+   458→
+   459→export const ACHIEVEMENT_RARITY_LABELS: Record<AchievementRarity, string> = {
+   460→  common: 'Comum',
+   461→  uncommon: 'Incomum',
+   462→  rare: 'Raro',
+   463→  epic: 'Epico',
+   464→  legendary: 'Lendario',
+   465→  mythic: 'Mitico',
+   466→};
+   467→
+   468→export const ACHIEVEMENT_RARITY_COLORS: Record<AchievementRarity, string> = {
+   469→  common: '#9CA3AF',
+   470→  uncommon: '#22C55E',
+   471→  rare: '#3B82F6',
+   472→  epic: '#A855F7',
+   473→  legendary: '#F59E0B',
+   474→  mythic: '#EF4444',
+   475→};
+   476→
+   477→export const ACHIEVEMENT_CATEGORY_LABELS: Record<AchievementCategory, string> = {
+   478→  seasonal: 'Temporada',
+   479→  lifetime: 'Historico',
+   480→  tournament: 'Torneio',
+   481→  streak: 'Sequencias',
+   482→  social: 'Social',
+   483→  special: 'Especial',
+   484→};
+   485→
+   486→export const PREDICTION_TYPE_LABELS: Record<PredictionMarketType, string> = {
+   487→  match_winner: 'Vencedor do Jogo',
+   488→  tournament_winner: 'Vencedor do Torneio',
+   489→  mvp: 'MVP do Jogo',
+   490→  first_blood: 'Primeira Eliminacao',
+   491→  map_winner: 'Vencedor do Mapa',
+   492→  special: 'Especial',
+   493→};
+   494→
+   495→export const SPONSOR_TYPE_LABELS: Record<string, string> = {
+   496→  prize: 'Premio',
+   497→  product: 'Produto',
+   498→  media: 'Media',
+   499→  equipment: 'Equipamento',
+   500→  venue: 'Local',
+   501→  other: 'Outro',
+   502→};
+   503→
+   504→// ============================================================
+   505→// HELPER
+   506→// ============================================================
+   507→
+   508→function slugify(text: string): string {
+   509→  return text
+   510→    .toLowerCase()
+   511→    .normalize('NFD')
+   512→    .replace(/[\u0300-\u036f]/g, '')
+   513→    .replace(/[^a-z0-9]+/g, '-')
+   514→    .replace(/(^-|-$)/g, '');
+   515→}
+   516→
+   517→// ============================================================
+   518→// SEASONS
+   519→// ============================================================
+   520→
+   521→export async function createSeason(data: CreateSeasonData): Promise<Season> {
+   522→  const slug = slugify(data.name) + '-' + Date.now().toString(36);
+   523→  const { data: season, error } = await sb
+   524→    .from('esport_seasons')
+   525→    .insert({
+   526→      ...data,
+   527→      slug,
+   528→      prize_distribution: data.prize_distribution || [50, 30, 20],
+   529→      currency: data.currency || 'AOA',
+   530→      points_win: data.points_win ?? 3,
+   531→      points_draw: data.points_draw ?? 1,
+   532→      points_loss: data.points_loss ?? 0,
+   533→      bonus_points_per_kill: data.bonus_points_per_kill ?? 0.5,
+   534→      max_teams: data.max_teams || 16,
+   535→      total_rounds: data.total_rounds || 10,
+   536→      primary_color: data.primary_color || '#8B5CF6',
+   537→      secondary_color: data.secondary_color || '#EC4899',
+   538→    })
+   539→    .select()
+   540→    .single();
+   541→  if (error) throw new Error('Erro ao criar temporada: ' + error.message);
+   542→  return season;
+   543→}
+   544→
+   545→export async function updateSeason(id: string, data: Partial<Season>): Promise<Season> {
+   546→  const { data: season, error } = await sb
+   547→    .from('esport_seasons')
+   548→    .update({ ...data, updated_at: new Date().toISOString() })
+   549→    .eq('id', id)
+   550→    .select()
+   551→    .single();
+   552→  if (error) throw new Error('Erro ao atualizar temporada: ' + error.message);
+   553→  return season;
+   554→}
+   555→
+   556→export async function updateSeasonStatus(id: string, status: SeasonStatus): Promise<Season> {
+   557→  const { data: season, error } = await sb
+   558→    .from('esport_seasons')
+   559→    .update({ status, updated_at: new Date().toISOString() })
+   560→    .eq('id', id)
+   561→    .select()
+   562→    .single();
+   563→  if (error) throw new Error('Erro ao atualizar estado: ' + error.message);
+   564→  return season;
+   565→}
+   566→
+   567→export async function getSeasons(filters?: {
+   568→  status?: SeasonStatus;
+   569→  game_id?: string;
+   570→  is_featured?: boolean;
+   571→  is_published?: boolean;
+   572→  limit?: number;
+   573→  offset?: number;
+   574→}): Promise<Season[]> {
+   575→  let query = sb.from('esport_seasons').select('*').order('created_at', { ascending: false });
+   576→  if (filters?.status) query = query.eq('status', filters.status);
+   577→  if (filters?.game_id) query = query.eq('game_id', filters.game_id);
+   578→  if (filters?.is_featured !== undefined) query = query.eq('is_featured', filters.is_featured);
+   579→  if (filters?.is_published !== undefined) query = query.eq('is_published', filters.is_published);
+   580→  if (filters?.limit) query = query.limit(filters.limit);
+   581→  if (filters?.offset) query = query.range(filters.offset, (filters.offset || 0) + (filters?.limit || 20) - 1);
+   582→  const { data, error } = await query;
+   583→  if (error) throw new Error('Erro ao buscar temporadas: ' + error.message);
+   584→  return data || [];
+   585→}
+   586→
+   587→export async function getSeason(id: string): Promise<Season | null> {
+   588→  const { data, error } = await sb.from('esport_seasons').select('*').eq('id', id).single();
+   589→  if (error) return null;
+   590→  return data;
+   591→}
+   592→
+   593→export async function getSeasonBySlug(slug: string): Promise<Season | null> {
+   594→  const { data, error } = await sb.from('esport_seasons').select('*').eq('slug', slug).single();
+   595→  if (error) return null;
+   596→  return data;
+   597→}
+   598→
+   599→export async function getFeaturedSeasons(): Promise<Season[]> {
+   600→  const { data, error } = await sb
+   601→    .from('esport_seasons')
+   602→    .select('*')
+   603→    .eq('is_featured', true)
+   604→    .eq('is_published', true)
+   605→    .order('created_at', { ascending: false })
+   606→    .limit(5);
+   607→  if (error) return [];
+   608→  return data || [];
+   609→}
+   610→
+   611→// ============================================================
+   612→// SEASON TEAMS
+   613→// ============================================================
+   614→
+   615→export async function registerSeasonTeam(seasonId: string, data: {
+   616→  team_id: string;
+   617→  team_name: string;
+   618→  team_logo?: string;
+   619→}): Promise<SeasonTeam> {
+   620→  const { data: st, error } = await sb
+   621→    .from('esport_season_teams')
+   622→    .insert({
+   623→      season_id: seasonId,
+   624→      team_id: data.team_id,
+   625→      team_name: data.team_name,
+   626→      team_logo: data.team_logo,
+   627→    })
+   628→    .select()
+   629→    .single();
+   630→  if (error) throw new Error('Erro ao registar equipa: ' + error.message);
+   631→  return st;
+   632→}
+   633→
+   634→export async function getSeasonTeams(seasonId: string): Promise<SeasonTeam[]> {
+   635→  const { data, error } = await sb
+   636→    .from('esport_season_teams')
+   637→    .select('*')
+   638→    .eq('season_id', seasonId)
+   639→    .order('points', { ascending: false });
+   640→  if (error) return [];
+   641→  return data || [];
+   642→}
+   643→
+   644→export async function getSeasonStandings(seasonId: string): Promise<SeasonTeam[]> {
+   645→  const { data, error } = await sb
+   646→    .from('esport_season_teams')
+   647→    .select('*')
+   648→    .eq('season_id', seasonId)
+   649→    .order('points', { ascending: false })
+   650→    .order('total_kills', { ascending: false });
+   651→  if (error) return [];
+   652→  return data || [];
+   653→}
+   654→
+   655→export async function removeSeasonTeam(seasonTeamId: string): Promise<void> {
+   656→  const { error } = await sb.from('esport_season_teams').delete().eq('id', seasonTeamId);
+   657→  if (error) throw new Error('Erro ao remover equipa: ' + error.message);
+   658→}
+   659→
+   660→// ============================================================
+   661→// SEASON MATCHES
+   662→// ============================================================
+   663→
+   664→export async function createSeasonMatch(data: {
+   665→  season_id: string;
+   666→  round_number: number;
+   667→  match_number: number;
+   668→  team1_id?: string;
+   669→  team2_id?: string;
+   670→  team1_name?: string;
+   671→  team2_name?: string;
+   672→  team1_logo?: string;
+   673→  team2_logo?: string;
+   674→  scheduled_at?: string;
+   675→  map_name?: string;
+   676→  mode_name?: string;
+   677→}): Promise<SeasonMatch> {
+   678→  const { data: match, error } = await sb
+   679→    .from('esport_season_matches')
+   680→    .insert(data)
+   681→    .select()
+   682→    .single();
+   683→  if (error) throw new Error('Erro ao criar jogo: ' + error.message);
+   684→  return match;
+   685→}
+   686→
+   687→export async function reportSeasonMatchResult(matchId: string, data: {
+   688→  team1_score: number;
+   689→  team2_score: number;
+   690→  team1_kills?: number;
+   691→  team2_kills?: number;
+   692→  winner_id?: string;
+   693→  is_draw?: boolean;
+   694→  mvp_user_id?: string;
+   695→  mvp_name?: string;
+   696→}): Promise<SeasonMatch> {
+   697→  const { data: match, error } = await sb
+   698→    .from('esport_season_matches')
+   699→    .update({
+   700→      ...data,
+   701→      status: 'completed',
+   702→      completed_at: new Date().toISOString(),
+   703→    })
+   704→    .eq('id', matchId)
+   705→    .select()
+   706→    .single();
+   707→  if (error) throw new Error('Erro ao reportar resultado: ' + error.message);
+   708→  return match;
+   709→}
+   710→
+   711→export async function getSeasonMatches(seasonId: string, roundNumber?: number): Promise<SeasonMatch[]> {
+   712→  let query = sb
+   713→    .from('esport_season_matches')
+   714→    .select('*')
+   715→    .eq('season_id', seasonId)
+   716→    .order('round_number', { ascending: true })
+   717→    .order('match_number', { ascending: true });
+   718→  if (roundNumber !== undefined) query = query.eq('round_number', roundNumber);
+   719→  const { data, error } = await query;
+   720→  if (error) return [];
+   721→  return data || [];
+   722→}
+   723→
+   724→export async function generateSeasonSchedule(seasonId: string, teamIds: string[], teamNames: string[], teamLogos: string[]): Promise<SeasonMatch[]> {
+   725→  const season = await getSeason(seasonId);
+   726→  if (!season) throw new Error('Temporada nao encontrada');
+   727→
+   728→  const totalRounds = season.total_rounds || 10;
+   729→  const matches: SeasonMatch[] = [];
+   730→  let matchNum = 0;
+   731→
+   732→  for (let round = 1; round <= totalRounds; round++) {
+   733→    const shuffled = [...teamIds]
+   734→      .map((id, i) => ({ id, name: teamNames[i], logo: teamLogos[i] }))
+   735→      .sort(() => Math.random() - 0.5);
+   736→
+   737→    for (let i = 0; i < shuffled.length - 1; i += 2) {
+   738→      matchNum++;
+   739→      const match = await createSeasonMatch({
+   740→        season_id: seasonId,
+   741→        round_number: round,
+   742→        match_number: matchNum,
+   743→        team1_id: shuffled[i].id,
+   744→        team1_name: shuffled[i].name,
+   745→        team1_logo: shuffled[i].logo,
+   746→        team2_id: shuffled[i + 1].id,
+   747→        team2_name: shuffled[i + 1].name,
+   748→        team2_logo: shuffled[i + 1].logo,
+   749→      });
+   750→      matches.push(match);
+   751→    }
+   752→  }
+   753→  return matches;
+   754→}
+   755→
+   756→export async function updateSeasonStandings(seasonId: string, matchId: string): Promise<SeasonTeam[]> {
+   757→  const match = await sb.from('esport_season_matches').select('*').eq('id', matchId).single();
+   758→  const season = await getSeason(seasonId);
+   759→  if (!match || !season) throw new Error('Jogo ou temporada nao encontrados');
+   760→
+   761→  if (match.team1_id && match.winner_id === match.team1_id) {
+   762→    await sb.raw(
+   763→      `UPDATE esport_season_teams SET 
+   764→        matches_played = matches_played + 1, matches_won = matches_won + 1,
+   765→        points = points + ?, total_kills = total_kills + ?, total_deaths = total_deaths + ?,
+   766→        win_streak = win_streak + 1, loss_streak = 0,
+   767→        best_win_streak = GREATEST(best_win_streak, win_streak + 1)
+   768→        WHERE season_id = ? AND team_id = ?`,
+   769→      [season.points_win, match.team1_kills || 0, match.team2_kills || 0, seasonId, match.team1_id]
+   770→    );
+   771→    await sb.raw(
+   772→      `UPDATE esport_season_teams SET 
+   773→        matches_played = matches_played + 1, matches_lost = matches_lost + 1,
+   774→        points = points + ?, total_kills = total_kills + ?, total_deaths = total_deaths + ?,
+   775→        loss_streak = loss_streak + 1, win_streak = 0
+   776→        WHERE season_id = ? AND team_id = ?`,
+   777→      [season.points_loss, match.team2_kills || 0, match.team1_kills || 0, seasonId, match.team2_id]
+   778→    );
+   779→  } else if (match.team2_id && match.winner_id === match.team2_id) {
+   780→    await sb.raw(
+   781→      `UPDATE esport_season_teams SET 
+   782→        matches_played = matches_played + 1, matches_won = matches_won + 1,
+   783→        points = points + ?, total_kills = total_kills + ?, total_deaths = total_deaths + ?,
+   784→        win_streak = win_streak + 1, loss_streak = 0,
+   785→        best_win_streak = GREATEST(best_win_streak, win_streak + 1)
+   786→        WHERE season_id = ? AND team_id = ?`,
+   787→      [season.points_win, match.team2_kills || 0, match.team1_kills || 0, seasonId, match.team2_id]
+   788→    );
+   789→    await sb.raw(
+   790→      `UPDATE esport_season_teams SET 
+   791→        matches_played = matches_played + 1, matches_lost = matches_lost + 1,
+   792→        points = points + ?, total_kills = total_kills + ?, total_deaths = total_deaths + ?,
+   793→        loss_streak = loss_streak + 1, win_streak = 0
+   794→        WHERE season_id = ? AND team_id = ?`,
+   795→      [season.points_loss, match.team1_kills || 0, match.team2_kills || 0, seasonId, match.team1_id]
+   796→    );
+   797→  } else if (match.is_draw) {
+   798→    for (const tid of [match.team1_id, match.team2_id]) {
+   799→      if (!tid) continue;
+   800→      await sb.raw(
+   801→        `UPDATE esport_season_teams SET 
+   802→          matches_played = matches_played + 1, matches_drawn = matches_drawn + 1,
+   803→          points = points + ?, win_streak = 0, loss_streak = 0
+   804→          WHERE season_id = ? AND team_id = ?`,
+   805→        [season.points_draw, seasonId, tid]
+   806→      );
+   807→    }
+   808→  }
+   809→
+   810→  return getSeasonStandings(seasonId);
+   811→}
+   812→
+   813→// ============================================================
+   814→// WALLET & BETTING
+   815→// ============================================================
+   816→
+   817→export async function getOrCreateWallet(userId: string): Promise<UserWallet> {
+   818→  const { data: wallet } = await sb.from('user_wallets').select('*').eq('user_id', userId).single();
+   819→  if (wallet) return wallet;
+   820→
+   821→  const { data: newWallet, error } = await sb
+   822→    .from('user_wallets')
+   823→    .insert({ user_id: userId, balance: 1000 })
+   824→    .select()
+   825→    .single();
+   826→  if (error) throw new Error('Erro ao criar carteira: ' + error.message);
+   827→  return newWallet;
+   828→}
+   829→
+   830→export async function getWallet(userId: string): Promise<UserWallet | null> {
+   831→  const { data } = await sb.from('user_wallets').select('*').eq('user_id', userId).single();
+   832→  return data;
+   833→}
+   834→
+   835→export async function addWalletTransaction(data: {
+   836→  user_id: string;
+   837→  type: string;
+   838→  amount: number;
+   839→  balance_after: number;
+   840→  description?: string;
+   841→  reference_id?: string;
+   842→}): Promise<WalletTransaction> {
+   843→  const wallet = await getOrCreateWallet(data.user_id);
+   844→  const { data: tx, error } = await sb
+   845→    .from('wallet_transactions')
+   846→    .insert({
+   847→      wallet_id: wallet.id,
+   848→      ...data,
+   849→    })
+   850→    .select()
+   851→    .single();
+   852→  if (error) throw new Error('Erro ao registar transacao: ' + error.message);
+   853→  return tx;
+   854→}
+   855→
+   856→export async function placeBet(data: {
+   857→  user_id: string;
+   858→  match_id?: string;
+   859→  season_match_id?: string;
+   860→  championship_id?: string;
+   861→  bet_type: PredictionMarketType;
+   862→  predicted_outcome: Record<string, any>;
+   863→  predicted_label: string;
+   864→  odds: number;
+   865→  amount_wagered: number;
+   866→}): Promise<Bet> {
+   867→  const wallet = await getOrCreateWallet(data.user_id);
+   868→  if (wallet.balance < data.amount_wagered) {
+   869→    throw new Error('Saldo insuficiente');
+   870→  }
+   871→
+   872→  const newBalance = wallet.balance - data.amount_wagered;
+   873→  const potentialPayout = Math.floor(data.amount_wagered * data.odds);
+   874→
+   875→  const { data: bet, error } = await sb
+   876→    .from('esport_bets')
+   877→    .insert({
+   878→      ...data,
+   879→      potential_payout: potentialPayout,
+   880→    })
+   881→    .select()
+   882→    .single();
+   883→  if (error) throw new Error('Erro ao apostar: ' + error.message);
+   884→
+   885→  await sb
+   886→    .from('user_wallets')
+   887→    .update({
+   888→      balance: newBalance,
+   889→      total_wagered: wallet.total_wagered + data.amount_wagered,
+   890→    })
+   891→    .eq('user_id', data.user_id);
+   892→
+   893→  await addWalletTransaction({
+   894→    user_id: data.user_id,
+   895→    type: 'bet_placed',
+   896→    amount: -data.amount_wagered,
+   897→    balance_after: newBalance,
+   898→    description: `Aposta: ${data.predicted_label} @ ${data.odds}x`,
+   899→    reference_id: bet.id,
+   900→  });
+   901→
+   902→  return bet;
+   903→}
+   904→
+   905→export async function settleBet(betId: string, isCorrect: boolean): Promise<Bet> {
+   906→  const { data: bet } = await sb.from('esport_bets').select('*').eq('id', betId).single();
+   907→  if (!bet) throw new Error('Aposta nao encontrada');
+   908→  if (bet.status !== 'open') throw new Error('Aposta ja resolvida');
+   909→
+   910→  const wallet = await getOrCreateWallet(bet.user_id);
+   911→  let newBalance = wallet.balance;
+   912→  let amountWon = 0;
+   913→
+   914→  if (isCorrect) {
+   915→    amountWon = bet.potential_payout;
+   916→    newBalance += amountWon;
+   917→    await sb.from('user_wallets').update({
+   918→      balance: newBalance,
+   919→      total_earned: wallet.total_earned + amountWon,
+   920→      total_won: wallet.total_won + amountWon,
+   921→    }).eq('user_id', bet.user_id);
+   922→
+   923→    await addWalletTransaction({
+   924→      user_id: bet.user_id,
+   925→      type: 'bet_won',
+   926→      amount: amountWon,
+   927→      balance_after: newBalance,
+   928→      description: `Ganhaste ${amountWon} moedas!`,
+   929→      reference_id: betId,
+   930→    });
+   931→  } else {
+   932→    await sb.from('user_wallets').update({
+   933→      total_lost: wallet.total_lost + bet.amount_wagered,
+   934→    }).eq('user_id', bet.user_id);
+   935→  }
+   936→
+   937→  const { data: settled, error } = await sb
+   938→    .from('esport_bets')
+   939→    .update({
+   940→      status: 'settled',
+   941→      is_correct: isCorrect,
+   942→      amount_won: amountWon,
+   943→      settled_at: new Date().toISOString(),
+   944→    })
+   945→    .eq('id', betId)
+   946→    .select()
+   947→    .single();
+   948→  if (error) throw new Error('Erro ao resolver aposta: ' + error.message);
+   949→  return settled;
+   950→}
+   951→
+   952→export async function refundBet(betId: string): Promise<Bet> {
+   953→  const { data: bet } = await sb.from('esport_bets').select('*').eq('id', betId).single();
+   954→  if (!bet) throw new Error('Aposta nao encontrada');
+   955→
+   956→  const wallet = await getOrCreateWallet(bet.user_id);
+   957→  const newBalance = wallet.balance + bet.amount_wagered;
+   958→
+   959→  await sb.from('user_wallets').update({ balance: newBalance }).eq('user_id', bet.user_id);
+   960→  await addWalletTransaction({
+   961→    user_id: bet.user_id,
+   962→    type: 'bet_refunded',
+   963→    amount: bet.amount_wagered,
+   964→    balance_after: newBalance,
+   965→    description: 'Aposta reembolsada',
+   966→    reference_id: betId,
+   967→  });
+   968→
+   969→  const { data: refunded, error } = await sb
+   970→    .from('esport_bets')
+   971→    .update({ status: 'refunded', settled_at: new Date().toISOString() })
+   972→    .eq('id', betId)
+   973→    .select()
+   974→    .single();
+   975→  if (error) throw new Error('Erro ao reembolsar: ' + error.message);
+   976→  return refunded;
+   977→}
+   978→
+   979→export async function getUserBets(userId: string, filters?: {
+   980→  status?: BetStatus;
+   981→  championship_id?: string;
+   982→  limit?: number;
+   983→}): Promise<Bet[]> {
+   984→  let query = sb.from('esport_bets').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+   985→  if (filters?.status) query = query.eq('status', filters.status);
+   986→  if (filters?.championship_id) query = query.eq('championship_id', filters.championship_id);
+   987→  if (filters?.limit) query = query.limit(filters.limit);
+   988→  const { data, error } = await query;
+   989→  if (error) return [];
+   990→  return data || [];
+   991→}
+   992→
+   993→export async function getWalletTransactions(userId: string, limit = 20): Promise<WalletTransaction[]> {
+   994→  const { data, error } = await sb
+   995→    .from('wallet_transactions')
+   996→    .select('*')
+   997→    .eq('user_id', userId)
+   998→    .order('created_at', { ascending: false })
+   999→    .limit(limit);
+  1000→  if (error) return [];
+  1001→  return data || [];
+  1002→}
+  1003→
+  1004→export async function claimDailyBonus(userId: string): Promise<UserWallet> {
+  1005→  const wallet = await getOrCreateWallet(userId);
+  1006→  const bonus = 50;
+  1007→  const newBalance = wallet.balance + bonus;
+  1008→
+  1009→  await sb.from('user_wallets').update({
+  1010→    balance: newBalance,
+  1011→    total_earned: wallet.total_earned + bonus,
+  1012→  }).eq('user_id', userId);
+  1013→
+  1014→  await addWalletTransaction({
+  1015→    user_id: userId,
+  1016→    type: 'daily_bonus',
+  1017→    amount: bonus,
+  1018→    balance_after: newBalance,
+  1019→    description: 'Bonus diario de 50 moedas!',
+  1020→  });
+  1021→
+  1022→  return { ...wallet, balance: newBalance, total_earned: wallet.total_earned + bonus };
+  1023→}
+  1024→
+  1025→// ============================================================
+  1026→// PREDICTION MARKETS
+  1027→// ============================================================
+  1028→
+  1029→export async function createPredictionMarket(data: {
+  1030→  championship_id?: string;
+  1031→  match_id?: string;
+  1032→  season_match_id?: string;
+  1033→  market_type: PredictionMarketType;
+  1034→  question: string;
+  1035→  options: Array<{ id: string; label: string; odds: number }>;
+  1036→  closes_at?: string;
+  1037→}): Promise<PredictionMarket> {
+  1038→  const optionsWithWagered = data.options.map(o => ({ ...o, total_wagered: 0 }));
+  1039→  const { data: market, error } = await sb
+  1040→    .from('esport_prediction_markets')
+  1041→    .insert({
+  1042→      ...data,
+  1043→      options: optionsWithWagered,
+  1044→      status: 'open',
+  1045→    })
+  1046→    .select()
+  1047→    .single();
+  1048→  if (error) throw new Error('Erro ao criar mercado: ' + error.message);
+  1049→  return market;
+  1050→}
+  1051→
+  1052→export async function getMatchMarkets(matchId: string): Promise<PredictionMarket[]> {
+  1053→  const { data, error } = await sb
+  1054→    .from('esport_prediction_markets')
+  1055→    .select('*')
+  1056→    .eq('match_id', matchId)
+  1057→    .order('created_at', { ascending: false });
+  1058→  if (error) return [];
+  1059→  return data || [];
+  1060→}
+  1061→
+  1062→export async function settlePredictionMarket(
+  1063→  marketId: string,
+  1064→  winningOptionId: string
+  1065→): Promise<PredictionMarket> {
+  1066→  const { data: market } = await sb.from('esport_prediction_markets').select('*').eq('id', marketId).single();
+  1067→  if (!market) throw new Error('Mercado nao encontrado');
+  1068→
+  1069→  const { data: settled, error } = await sb
+  1070→    .from('esport_prediction_markets')
+  1071→    .update({
+  1072→      status: 'settled',
+  1073→      winning_option_id: winningOptionId,
+  1074→      settled_at: new Date().toISOString(),
+  1075→    })
+  1076→    .eq('id', marketId)
+  1077→    .select()
+  1078→    .single();
+  1079→  if (error) throw new Error('Erro ao resolver mercado: ' + error.message);
+  1080→  return settled;
+  1081→}
+  1082→
+  1083→// ============================================================
+  1084→// ANTI-CHEAT & EVIDENCE
+  1085→// ============================================================
+  1086→
+  1087→export async function submitEvidence(data: {
+  1088→  report_id?: string;
+  1089→  championship_id?: string;
+  1090→  match_id?: string;
+  1091→  submitted_by: string;
+  1092→  target_user_id: string;
+  1093→  evidence_type: EvidenceType;
+  1094→  file_url: string;
+  1095→  thumbnail_url?: string;
+  1096→  description?: string;
+  1097→  metadata?: Record<string, any>;
+  1098→  parent_evidence_id?: string;
+  1099→}): Promise<Evidence> {
+  1100→  const { data: existing } = await sb
+  1101→    .from('esport_evidence')
+  1102→    .select('chain_index')
+  1103→    .eq('match_id', data.match_id)
+  1104→    .order('chain_index', { ascending: false })
+  1105→    .limit(1);
+  1106→
+  1107→  const chainIndex = (existing && existing.length > 0) ? (existing[0].chain_index + 1) : 0;
+  1108→
+  1109→  const { data: evidence, error } = await sb
+  1110→    .from('esport_evidence')
+  1111→    .insert({
+  1112→      ...data,
+  1113→      chain_index: chainIndex,
+  1114→    })
+  1115→    .select()
+  1116→    .single();
+  1117→  if (error) throw new Error('Erro ao submeter evidencia: ' + error.message);
+  1118→  return evidence;
+  1119→}
+  1120→
+  1121→export async function getMatchEvidence(matchId: string): Promise<Evidence[]> {
+  1122→  const { data, error } = await sb
+  1123→    .from('esport_evidence')
+  1124→    .select('*')
+  1125→    .eq('match_id', matchId)
+  1126→    .order('chain_index', { ascending: true });
+  1127→  if (error) return [];
+  1128→  return data || [];
+  1129→}
+  1130→
+  1131→export async function verifyEvidence(evidenceId: string, verifiedBy: string): Promise<Evidence> {
+  1132→  const { data, error } = await sb
+  1133→    .from('esport_evidence')
+  1134→    .update({
+  1135→      is_verified: true,
+  1136→      verified_by: verifiedBy,
+  1137→      verified_at: new Date().toISOString(),
+  1138→    })
+  1139→    .eq('id', evidenceId)
+  1140→    .select()
+  1141→    .single();
+  1142→  if (error) throw new Error('Erro ao verificar evidencia: ' + error.message);
+  1143→  return data;
+  1144→}
+  1145→
+  1146→export async function issuePunishment(data: {
+  1147→  user_id: string;
+  1148→  team_id?: string;
+  1149→  championship_id?: string;
+  1150→  punishment_type: PunishmentType;
+  1151→  reason: string;
+  1152→  evidence_ids?: string[];
+  1153→  duration_days?: number;
+  1154→  points_deducted?: number;
+  1155→  matches_forfeited?: number;
+  1156→  issued_by: string;
+  1157→}): Promise<Punishment> {
+  1158→  const endsAt = data.duration_days
+  1159→    ? new Date(Date.now() + data.duration_days * 86400000).toISOString()
+  1160→    : null;
+  1161→
+  1162→  const { data: punishment, error } = await sb
+  1163→    .from('esport_punishments')
+  1164→    .insert({
+  1165→      ...data,
+  1166→      ends_at: endsAt,
+  1167→      evidence_ids: data.evidence_ids || [],
+  1168→      points_deducted: data.points_deducted || 0,
+  1169→      matches_forfeited: data.matches_forfeited || 0,
+  1170→    })
+  1171→    .select()
+  1172→    .single();
+  1173→  if (error) throw new Error('Erro ao aplicar punicao: ' + error.message);
+  1174→
+  1175→  if (data.points_deducted && data.points_deducted > 0) {
+  1176→    await sb.raw(
+  1177→      `UPDATE user_reputation SET karma_points = GREATEST(0, karma_points - ?) WHERE user_id = ?`,
+  1178→      [data.points_deducted, data.user_id]
+  1179→    );
+  1180→  }
+  1181→
+  1182→  return punishment;
+  1183→}
+  1184→
+  1185→export async function getUserPunishments(userId: string): Promise<Punishment[]> {
+  1186→  const { data, error } = await sb
+  1187→    .from('esport_punishments')
+  1188→    .select('*')
+  1189→    .eq('user_id', userId)
+  1190→    .order('created_at', { ascending: false });
+  1191→  if (error) return [];
+  1192→  return data || [];
+  1193→}
+  1194→
+  1195→export async function getActivePunishments(userId: string): Promise<Punishment[]> {
+  1196→  const { data, error } = await sb
+  1197→    .from('esport_punishments')
+  1198→    .select('*')
+  1199→    .eq('user_id', userId)
+  1200→    .eq('is_active', true)
+  1201→    .order('created_at', { ascending: false });
+  1202→  if (error) return [];
+  1203→  return data || [];
+  1204→}
+  1205→
+  1206→// ============================================================
+  1207→// REPUTATION & SPORTSMANSHIP
+  1208→// ============================================================
+  1209→
+  1210→export async function getOrCreateReputation(userId: string): Promise<UserReputation> {
+  1211→  const { data: rep } = await sb.from('user_reputation').select('*').eq('user_id', userId).single();
+  1212→  if (rep) return rep;
+  1213→
+  1214→  const { data: newRep, error } = await sb
+  1215→    .from('user_reputation')
+  1216→    .insert({ user_id: userId, karma_points: 100, reputation_score: 5.0 })
+  1217→    .select()
+  1218→    .single();
+  1219→  if (error) throw new Error('Erro ao criar reputacao: ' + error.message);
+  1220→  return newRep;
+  1221→}
+  1222→
+  1223→export async function getReputation(userId: string): Promise<UserReputation | null> {
+  1224→  const { data } = await sb.from('user_reputation').select('*').eq('user_id', userId).single();
+  1225→  return data;
+  1226→}
+  1227→
+  1228→export async function getTopReputation(limit = 50): Promise<UserReputation[]> {
+  1229→  const { data, error } = await sb
+  1230→    .from('user_reputation')
+  1231→    .select('*')
+  1232→    .order('karma_points', { ascending: false })
+  1233→    .limit(limit);
+  1234→  if (error) return [];
+  1235→  return data || [];
+  1236→}
+  1237→
+  1238→export async function rateSportsmanship(data: {
+  1239→  match_id?: string;
+  1240→  season_match_id?: string;
+  1241→  rater_user_id: string;
+  1242→  rated_user_id: string;
+  1243→  rating: number;
+  1244→  comment?: string;
+  1245→  tags?: string[];
+  1246→}): Promise<SportsmanshipRating> {
+  1247→  const { data: rating, error } = await sb
+  1248→    .from('sportsmanship_ratings')
+  1249→    .insert(data)
+  1250→    .select()
+  1251→    .single();
+  1252→  if (error) throw new Error('Erro ao avaliar: ' + error.message);
+  1253→
+  1254→  await sb.raw(
+  1255→    `UPDATE user_reputation SET 
+  1256→      sportsmanship_votes = sportsmanship_votes + 1,
+  1257→      sportsmanship_total = sportsmanship_total + ?,
+  1258→      karma_points = karma_points + CASE WHEN ? >= 4 THEN 2 WHEN ? >= 3 THEN 0 ELSE -3 END
+  1259→    WHERE user_id = ?`,
+  1260→    [data.rating, data.rating, data.rating, data.rated_user_id]
+  1261→  );
+  1262→
+  1263→  return rating;
+  1264→}
+  1265→
+  1266→export async function getUserSportsmanshipRatings(userId: string): Promise<SportsmanshipRating[]> {
+  1267→  const { data, error } = await sb
+  1268→    .from('sportsmanship_ratings')
+  1269→    .select('*')
+  1270→    .eq('rated_user_id', userId)
+  1271→    .order('created_at', { ascending: false })
+  1272→    .limit(20);
+  1273→  if (error) return [];
+  1274→  return data || [];
+  1275→}
+  1276→
+  1277→// ============================================================
+  1278→// TRANSFERS
+  1279→// ============================================================
+  1280→
+  1281→export async function requestTransfer(data: {
+  1282→  player_user_id: string;
+  1283→  from_team_id?: string;
+  1284→  to_team_id?: string;
+  1285→  transfer_fee?: number;
+  1286→  message?: string;
+  1287→  requested_by: string;
+  1288→}): Promise<Transfer> {
+  1289→  const { data: transfer, error } = await sb
+  1290→    .from('esport_transfers')
+  1291→    .insert({
+  1292→      ...data,
+  1293→      status: 'requested',
+  1294→      transfer_fee: data.transfer_fee || 0,
+  1295→    })
+  1296→    .select()
+  1297→    .single();
+  1298→  if (error) throw new Error('Erro ao solicitar transferencia: ' + error.message);
+  1299→  return transfer;
+  1300→}
+  1301→
+  1302→export async function respondToTransfer(transferId: string, data: {
+  1303→  status: 'accepted' | 'rejected';
+  1304→  responded_by: string;
+  1305→  response_message?: string;
+  1306→}): Promise<Transfer> {
+  1307→  const updateData: Record<string, any> = {
+  1308→    status: data.status,
+  1309→    responded_by: data.responded_by,
+  1310→    response_message: data.response_message,
+  1311→    updated_at: new Date().toISOString(),
+  1312→  };
+  1313→
+  1314→  if (data.status === 'accepted') {
+  1315→    updateData.completed_at = new Date().toISOString();
+  1316→  }
+  1317→
+  1318→  const { data: transfer, error } = await sb
+  1319→    .from('esport_transfers')
+  1320→    .update(updateData)
+  1321→    .eq('id', transferId)
+  1322→    .select()
+  1323→    .single();
+  1324→  if (error) throw new Error('Erro ao responder transferencia: ' + error.message);
+  1325→  return transfer;
+  1326→}
+  1327→
+  1328→export async function getTransfers(filters?: {
+  1329→  status?: TransferStatus;
+  1330→  player_user_id?: string;
+  1331→  limit?: number;
+  1332→}): Promise<Transfer[]> {
+  1333→  let query = sb.from('esport_transfers').select('*').order('created_at', { ascending: false });
+  1334→  if (filters?.status) query = query.eq('status', filters.status);
+  1335→  if (filters?.player_user_id) query = query.eq('player_user_id', filters.player_user_id);
+  1336→  if (filters?.limit) query = query.limit(filters.limit);
+  1337→  const { data, error } = await query;
+  1338→  if (error) return [];
+  1339→  return data || [];
+  1340→}
+  1341→
+  1342→export async function getOpenTransfers(limit = 20): Promise<Transfer[]> {
+  1343→  return getTransfers({ status: 'requested', limit });
+  1344→}
+  1345→
+  1346→// ============================================================
+  1347→// SPONSORS
+  1348→// ============================================================
+  1349→
+  1350→export async function createSponsor(data: {
+  1351→  championship_id?: string;
+  1352→  season_id?: string;
+  1353→  company_name: string;
+  1354→  logo_url?: string;
+  1355→  website_url?: string;
+  1356→  contact_email?: string;
+  1357→  sponsorship_type?: string;
+  1358→  value?: number;
+  1359→  currency?: string;
+  1360→  banner_url?: string;
+  1361→  overlay_url?: string;
+  1362→  social_mention?: boolean;
+  1363→  logo_placement?: string;
+  1364→  start_date?: string;
+  1365→  end_date?: string;
+  1366→}): Promise<Sponsor> {
+  1367→  const { data: sponsor, error } = await sb
+  1368→    .from('esport_sponsors')
+  1369→    .insert({
+  1370→      ...data,
+  1371→      status: 'pending',
+  1372→      currency: data.currency || 'AOA',
+  1373→      sponsorship_type: data.sponsorship_type || 'prize',
+  1374→      logo_placement: data.logo_placement || 'banner',
+  1375→      social_mention: data.social_mention ?? true,
+  1376→    })
+  1377→    .select()
+  1378→    .single();
+  1379→  if (error) throw new Error('Erro ao criar patrocinador: ' + error.message);
+  1380→  return sponsor;
+  1381→}
+  1382→
+  1383→export async function getSponsors(championshipId?: string, seasonId?: string): Promise<Sponsor[]> {
+  1384→  let query = sb.from('esport_sponsors').select('*').order('created_at', { ascending: false });
+  1385→  if (championshipId) query = query.eq('championship_id', championshipId);
+  1386→  if (seasonId) query = query.eq('season_id', seasonId);
+  1387→  const { data, error } = await query;
+  1388→  if (error) return [];
+  1389→  return data || [];
+  1390→}
+  1391→
+  1392→export async function updateSponsorStatus(id: string, status: SponsorStatus): Promise<Sponsor> {
+  1393→  const { data, error } = await sb
+  1394→    .from('esport_sponsors')
+  1395→    .update({ status })
+  1396→    .eq('id', id)
+  1397→    .select()
+  1398→    .single();
+  1399→  if (error) throw new Error('Erro ao atualizar patrocinador: ' + error.message);
+  1400→  return data;
+  1401→}
+  1402→
+  1403→export async function deleteSponsor(id: string): Promise<void> {
+  1404→  const { error } = await sb.from('esport_sponsors').delete().eq('id', id);
+  1405→  if (error) throw new Error('Erro ao remover patrocinador: ' + error.message);
+  1406→}
+  1407→
+  1408→// ============================================================
+  1409→// ACHIEVEMENTS
+  1410→// ============================================================
+  1411→
+  1412→export async function getAchievements(category?: AchievementCategory): Promise<Achievement[]> {
+  1413→  let query = sb
+  1414→    .from('esport_achievements')
+  1415→    .select('*')
+  1416→    .eq('is_active', true)
+  1417→    .order('sort_order', { ascending: true });
+  1418→  if (category) query = query.eq('category', category);
+  1419→  const { data, error } = await query;
+  1420→  if (error) return [];
+  1421→  return data || [];
+  1422→}
+  1423→
+  1424→export async function getUserAchievements(userId: string): Promise<(UserAchievement & { achievement?: Achievement })[]> {
+  1425→  const { data, error } = await sb
+  1426→    .from('user_achievements')
+  1427→    .select('*, achievement:esport_achievements(*)')
+  1428→    .eq('user_id', userId)
+  1429→    .order('created_at', { ascending: false });
+  1430→  if (error) return [];
+  1431→  return data || [];
+  1432→}
+  1433→
+  1434→export async function checkAndUnlockAchievement(userId: string, type: string, currentValue: number): Promise<UserAchievement | null> {
+  1435→  const { data: achievements } = await sb
+  1436→    .from('esport_achievements')
+  1437→    .select('*')
+  1438→    .eq('is_active', true);
+  1439→  if (!achievements) return null;
+  1440→
+  1441→  for (const ach of achievements) {
+  1442→    const req = ach.requirement as Record<string, any>;
+  1443→    if (req.type !== type) continue;
+  1444→    if (currentValue < req.count) continue;
+  1445→
+  1446→    const { data: existing } = await sb
+  1447→      .from('user_achievements')
+  1448→      .select('*')
+  1449→      .eq('user_id', userId)
+  1450→      .eq('achievement_id', ach.id)
+  1451→      .single();
+  1452→
+  1453→    if (existing) {
+  1454→      if (existing.is_completed) continue;
+  1455→      await sb.from('user_achievements')
+  1456→        .update({
+  1457→          progress: Math.min(currentValue, req.count),
+  1458→          is_completed: true,
+  1459→          completed_at: new Date().toISOString(),
+  1460→        })
+  1461→        .eq('id', existing.id);
+  1462→
+  1463→      if (ach.reward_coins > 0) {
+  1464→        await sb.raw(
+  1465→          `UPDATE user_wallets SET balance = balance + ?, total_earned = total_earned + ? WHERE user_id = ?`,
+  1466→          [ach.reward_coins, ach.reward_coins, userId]
+  1467→        );
+  1468→        await addWalletTransaction({
+  1469→          user_id: userId,
+  1470→          type: 'achievement_reward',
+  1471→          amount: ach.reward_coins,
+  1472→          balance_after: 0,
+  1473→          description: `Conquista desbloqueada: ${ach.name}! +${ach.reward_coins} moedas`,
+  1474→          reference_id: ach.id,
+  1475→        });
+  1476→      }
+  1477→
+  1478→      if (ach.reward_badge) {
+  1479→        await sb.raw(
+  1480→          `UPDATE user_reputation SET earned_badges = array_append(earned_badges, ?) WHERE user_id = ? AND NOT ? = ANY(earned_badges)`,
+  1481→          [ach.reward_badge, userId, ach.reward_badge]
+  1482→        );
+  1483→      }
+  1484→
+  1485→      return { ...existing, is_completed: true, completed_at: new Date().toISOString() };
+  1486→    } else {
+  1487→      const isCompleted = currentValue >= req.count;
+  1488→      const { data: ua, error } = await sb
+  1489→        .from('user_achievements')
+  1490→        .insert({
+  1491→          user_id: userId,
+  1492→          achievement_id: ach.id,
+  1493→          progress: Math.min(currentValue, req.count),
+  1494→          target: req.count,
+  1495→          is_completed: isCompleted,
+  1496→          completed_at: isCompleted ? new Date().toISOString() : undefined,
+  1497→        })
+  1498→        .select()
+  1499→        .single();
+  1500→      if (error) continue;
+  1501→
+  1502→      if (isCompleted && ach.reward_coins > 0) {
+  1503→        await sb.raw(
+  1504→          `UPDATE user_wallets SET balance = balance + ?, total_earned = total_earned + ? WHERE user_id = ?`,
+  1505→          [ach.reward_coins, ach.reward_coins, userId]
+  1506→        );
+  1507→      }
+  1508→
+  1509→      return ua;
+  1510→    }
+  1511→  }
+  1512→
+  1513→  return null;
+  1514→}
+  1515→
+  1516→// ============================================================
+  1517→// STREAM OVERLAYS
+  1518→// ============================================================
+  1519→
+  1520→export async function createStreamOverlay(data: {
+  1521→  championship_id?: string;
+  1522→  season_id?: string;
+  1523→  name: string;
+  1524→  show_scores?: boolean;
+  1525→  show_teams?: boolean;
+  1526→  show_sponsors?: boolean;
+  1527→  show_bracket?: boolean;
+  1528→  show_mvp?: boolean;
+  1529→  bg_color?: string;
+  1530→  accent_color?: string;
+  1531→  text_color?: string;
+  1532→  position?: string;
+  1533→}): Promise<StreamOverlay> {
+  1534→  const widgetUrl = `${window.location.origin}/esports/overlay/${data.championship_id || 'generic'}`;
+  1535→  const { data: overlay, error } = await sb
+  1536→    .from('esport_stream_overlays')
+  1537→    .insert({
+  1538→      ...data,
+  1539→      widget_url: widgetUrl,
+  1540→      show_scores: data.show_scores ?? true,
+  1541→      show_teams: data.show_teams ?? true,
+  1542→      show_sponsors: data.show_sponsors ?? true,
+  1543→      show_mvp: data.show_mvp ?? true,
+  1544→      bg_color: data.bg_color || '#000000',
+  1545→      accent_color: data.accent_color || '#8B5CF6',
+  1546→      text_color: data.text_color || '#FFFFFF',
+  1547→      font_family: 'Inter',
+  1548→      position: data.position || 'bottom',
+  1549→    })
+  1550→    .select()
+  1551→    .single();
+  1552→  if (error) throw new Error('Erro ao criar overlay: ' + error.message);
+  1553→  return overlay;
+  1554→}
+  1555→
+  1556→export async function getStreamOverlays(championshipId?: string): Promise<StreamOverlay[]> {
+  1557→  let query = sb.from('esport_stream_overlays').select('*').order('created_at', { ascending: false });
+  1558→  if (championshipId) query = query.eq('championship_id', championshipId);
+  1559→  const { data, error } = await query;
+  1560→  if (error) return [];
+  1561→  return data || [];
+  1562→}
+  1563→
+  1564→export async function toggleOverlay(id: string, isActive: boolean): Promise<StreamOverlay> {
+  1565→  const { data, error } = await sb
+  1566→    .from('esport_stream_overlays')
+  1567→    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+  1568→    .eq('id', id)
+  1569→    .select()
+  1570→    .single();
+  1571→  if (error) throw new Error('Erro ao atualizar overlay: ' + error.message);
+  1572→  return data;
+  1573→}
+  1574→
+  1575→// ============================================================
+  1576→// MATCH CHAT
+  1577→// ============================================================
+  1578→
+  1579→export async function sendMatchChatMessage(data: {
+  1580→  match_id?: string;
+  1581→  season_match_id?: string;
+  1582→  championship_id?: string;
+  1583→  user_id: string;
+  1584→  username: string;
+  1585→  user_avatar?: string;
+  1586→  team_id?: string;
+  1587→  team_name?: string;
+  1588→  message: string;
+  1589→  message_type?: string;
+  1590→}): Promise<MatchChatMessage> {
+  1591→  const { data: msg, error } = await sb
+  1592→    .from('esport_match_chat')
+  1593→    .insert({
+  1594→      ...data,
+  1595→      message_type: data.message_type || 'chat',
+  1596→    })
+  1597→    .select()
+  1598→    .single();
+  1599→  if (error) throw new Error('Erro ao enviar mensagem: ' + error.message);
+  1600→  return msg;
+  1601→}
+  1602→
+  1603→export async function getMatchChatMessages(matchId: string, limit = 50): Promise<MatchChatMessage[]> {
+  1604→  const { data, error } = await sb
+  1605→    .from('esport_match_chat')
+  1606→    .select('*')
+  1607→    .eq('match_id', matchId)
+  1608→    .eq('is_deleted', false)
+  1609→    .order('created_at', { ascending: true })
+  1610→    .limit(limit);
+  1611→  if (error) return [];
+  1612→  return data || [];
+  1613→}
+  1614→
+  1615→export async function likeChatMessage(messageId: string): Promise<void> {
+  1616→  await sb.raw(
+  1617→    `UPDATE esport_match_chat SET likes = likes + 1 WHERE id = ?`,
+  1618→    [messageId]
+  1619→  );
+  1620→}
+  1621→
+  1622→export async function pinChatMessage(messageId: string, isPinned: boolean): Promise<void> {
+  1623→  await sb.from('esport_match_chat')
+  1624→    .update({ is_pinned: isPinned })
+  1625→    .eq('id', messageId);
+  1626→}
+  1627→
+  1628→// ============================================================
+  1629→// HIGHLIGHT CLIPS
+  1630→// ============================================================
+  1631→
+  1632→export async function submitHighlightClip(data: {
+  1633→  match_id?: string;
+  1634→  season_match_id?: string;
+  1635→  championship_id?: string;
+  1636→  clip_url: string;
+  1637→  thumbnail_url?: string;
+  1638→  title?: string;
+  1639→  description?: string;
+  1640→  submitted_by: string;
+  1641→  player_user_id?: string;
+  1642→  player_name?: string;
+  1643→  team_name?: string;
+  1644→  clip_type?: string;
+  1645→}): Promise<HighlightClip> {
+  1646→  const { data: clip, error } = await sb
+  1647→    .from('esport_highlight_clips')
+  1648→    .insert({
+  1649→      ...data,
+  1650→      clip_type: data.clip_type || 'manual',
+  1651→    })
+  1652→    .select()
+  1653→    .single();
+  1654→  if (error) throw new Error('Erro ao submeter clip: ' + error.message);
+  1655→  return clip;
+  1656→}
+  1657→
+  1658→export async function getMatchClips(matchId: string): Promise<HighlightClip[]> {
+  1659→  const { data, error } = await sb
+  1660→    .from('esport_highlight_clips')
+  1661→    .select('*')
+  1662→    .eq('match_id', matchId)
+  1663→    .order('likes', { ascending: false });
+  1664→  if (error) return [];
+  1665→  return data || [];
+  1666→}
+  1667→
+  1668→export async function getFeaturedClips(limit = 20): Promise<HighlightClip[]> {
+  1669→  const { data, error } = await sb
+  1670→    .from('esport_highlight_clips')
+  1671→    .select('*')
+  1672→    .eq('is_featured', true)
+  1673→    .order('likes', { ascending: false })
+  1674→    .limit(limit);
+  1675→  if (error) return [];
+  1676→  return data || [];
+  1677→}
+  1678→
+  1679→export async function likeClip(clipId: string): Promise<void> {
+  1680→  await sb.raw(`UPDATE esport_highlight_clips SET views = views + 1, likes = likes + 1 WHERE id = ?`, [clipId]);
+  1681→}
+  1682→
+  1683→// ============================================================
+  1684→// DAILY BONUS CHECK
+  1685→// ============================================================
+  1686→
+  1687→export async function canClaimDailyBonus(userId: string): Promise<boolean> {
+  1688→  const { data: tx } = await sb
+  1689→    .from('wallet_transactions')
+  1690→    .select('created_at')
+  1691→    .eq('user_id', userId)
+  1692→    .eq('type', 'daily_bonus')
+  1693→    .order('created_at', { ascending: false })
+  1694→    .limit(1);
+  1695→
+  1696→  if (!tx || tx.length === 0) return true;
+  1697→  const lastClaim = new Date(tx[0].created_at);
+  1698→  const now = new Date();
+  1699→  return lastClaim.toDateString() !== now.toDateString();
+  1700→}
+  1701→
+  1702→// ============================================================
+  1703→// GLOBAL ELO LEADERBOARD
+  1704→// ============================================================
+  1705→
+  1706→export interface GlobalLeaderboardEntry {
+  1707→  user_id: string;
+  1708→  username?: string;
+  1709→  avatar_url?: string;
+  1710→ team_name?: string;
+  1711→ team_logo?: string;
+  1712→ rating: number;
+  1713→ total_matches: number;
+  1714→ wins: number;
+  1715→ karma_points: number;
+  1716→ reputation_title: string;
+  1717→}
+  1718→
+  1719→export async function getGlobalLeaderboard(filters?: {
+  1720→  game_id?: string;
+  1721→  region?: string;
+  1722→  limit?: number;
+  1723→}): Promise<GlobalLeaderboardEntry[]> {
+  1724→  let query = sb
+  1725→    .from('esport_teams')
+  1726→    .select('id, name, logo_url, rating, total_wins, total_tournaments')
+  1727→    .order('rating', { ascending: false })
+  1728→    .limit(filters?.limit || 100);
+  1729→
+  1730→  const { data: teams, error } = await query;
+  1731→  if (error) return [];
+  1732→
+  1733→  return (teams || []).map((t: any) => ({
+  1734→    user_id: t.owner_id,
+  1735→    team_name: t.name,
+  1736→    team_logo: t.logo_url,
+  1737→    rating: t.rating || 1000,
+  1738→    total_matches: t.total_tournaments || 0,
+  1739→    wins: t.total_wins || 0,
+  1740→    karma_points: 0,
+  1741→    reputation_title: '',
+  1742→  }));
+  1743→}
+  1744→
+  1745→export async function getPlayerLeaderboard(limit = 50): Promise<GlobalLeaderboardEntry[]> {
+  1746→  const { data: reps } = await sb
+  1747→    .from('user_reputation')
+  1748→    .select('*')
+  1749→    .order('karma_points', { ascending: false })
+  1750→    .limit(limit);
+  1751→  if (!reps) return [];
+  1752→
+  1753→  const userIds = reps.map((r: any) => r.user_id);
+  1754→  const { data: profiles } = await sb
+  1755→    .from('profiles')
+  1756→    .select('id, username, avatar_url')
+  1757→    .in('id', userIds);
+  1758→
+  1759→  const profileMap: Record<string, any> = {};
+  1760→  (profiles || []).forEach((p: any) => { profileMap[p.id] = p; });
+  1761→
+  1762→  return reps.map((r: any) => {
+  1763→    const profile = profileMap[r.user_id] || {};
+  1764→    return {
+  1765→      user_id: r.user_id,
+  1766→      username: profile.username || 'Anonimo',
+  1767→      avatar_url: profile.avatar_url,
+  1768→      rating: r.karma_points,
+  1769→      total_matches: r.total_matches,
+  1770→      wins: r.total_wins,
+  1771→      karma_points: r.karma_points,
+  1772→      reputation_title: r.reputation_title,
+  1773→    };
+  1774→  });
+  1775→}
+  1776→

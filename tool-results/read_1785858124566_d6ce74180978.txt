@@ -1,0 +1,1519 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { supabase } from "@/integrations/supabase/client";
+     6→import { useAuth } from "@/contexts/AuthContext";
+     7→import { useToast } from "@/hooks/use-toast";
+     8→import { Button } from "@/components/ui/button";
+     9→import { Badge } from "@/components/ui/badge";
+    10→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    11→import { Input } from "@/components/ui/input";
+    12→import { Textarea } from "@/components/ui/textarea";
+    13→import { Label } from "@/components/ui/label";
+    14→import { Separator } from "@/components/ui/separator";
+    15→import { Skeleton } from "@/components/ui/skeleton";
+    16→import { Switch } from "@/components/ui/switch";
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogHeader,
+    21→  DialogTitle,
+    22→  DialogTrigger,
+    23→} from "@/components/ui/dialog";
+    24→import {
+    25→  Select,
+    26→  SelectContent,
+    27→  SelectItem,
+    28→  SelectTrigger,
+    29→  SelectValue,
+    30→} from "@/components/ui/select";
+    31→import {
+    32→  Tabs,
+    33→  TabsContent,
+    34→  TabsList,
+    35→  TabsTrigger,
+    36→} from "@/components/ui/tabs";
+    37→import {
+    38→  Trophy,
+    39→  Plus,
+    40→  Play,
+    41→  Pause,
+    42→  Trash2,
+    43→  Edit3,
+    44→  Users,
+    45→  Calendar,
+    46→  DollarSign,
+    47→  CheckCircle,
+    48→  Eye,
+    49→  AlertTriangle,
+    50→  ChevronLeft,
+    51→  ChevronRight,
+    52→  Upload,
+    53→  X,
+    54→  MapPin,
+    55→  Settings,
+    56→  Zap,
+    57→  CircleDot,
+    58→  Clock,
+    59→} from "lucide-react";
+    60→import {
+    61→  type Championship,
+    62→  type ChampStatus,
+    63→  type EsportGame,
+    64→  type EsportMatch,
+    65→  type MatchFormat,
+    66→  type Platform,
+    67→  type TournamentFormat,
+    68→  type VerificationMethod,
+    69→  type RegionServer,
+    70→  type ChampTeam,
+    71→  type MatchPlacement,
+    72→  type MatchResultStatus,
+    73→  getChampionships,
+    74→  getChampionship,
+    75→  createChampionship,
+    76→  updateChampionship,
+    77→  updateChampionshipStatus,
+    78→  getEsportGames,
+    79→  getChampTeams,
+    80→  getChampMatches,
+    81→  getMatchPlacements,
+    82→  submitPlacements,
+    83→  reportMatchResult,
+    84→  updateMatchStatus,
+    85→  GAME_EMOJIS,
+    86→  STATUS_LABELS,
+    87→  FORMAT_LABELS,
+    88→  PLATFORM_LABELS,
+    89→  TOURNAMENT_FORMAT_LABELS,
+    90→  VERIFICATION_LABELS,
+    91→  DEFAULT_BR_PLACEMENT_POINTS,
+    92→} from "@/lib/esports";
+    93→
+    94→const sb: any = supabase;
+    95→
+    96→const STEP_LABELS = ["Basico", "Jogo e Formato", "Registo", "Premios", "Regras e Config", "Visual e Stream"];
+    97→
+    98→const STATUS_COLORS: Record<ChampStatus, string> = {
+    99→  draft: "bg-zinc-500/20 text-zinc-300 border-zinc-500/30",
+   100→  registration_open: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+   101→  registration_closed: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+   102→  check_in: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+   103→  live: "bg-red-500/20 text-red-400 border-red-500/30",
+   104→  completed: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+   105→  cancelled: "bg-zinc-500/20 text-zinc-500 border-zinc-500/30",
+   106→};
+   107→
+   108→const MATCH_STATUS_COLORS: Record<string, string> = {
+   109→  pending: "bg-zinc-500/20 text-zinc-300",
+   110→  in_progress: "bg-red-500/20 text-red-400",
+   111→  completed: "bg-emerald-500/20 text-emerald-400",
+   112→  disputed: "bg-orange-500/20 text-orange-400",
+   113→  cancelled: "bg-zinc-500/20 text-zinc-500",
+   114→};
+   115→
+   116→const REGION_SERVER_LABELS: Record<RegionServer, string> = {
+   117→  br: "Brasil",
+   118→  na: "America do Norte",
+   119→  eu: "Europa",
+   120→  asia: "Asia",
+   121→  latam: "America Latina",
+   122→};
+   123→
+   124→interface ChampForm {
+   125→  name: string;
+   126→  description: string;
+   127→  cover_image_url: string;
+   128→  logo_url: string;
+   129→  game_id: string;
+   130→  match_format: MatchFormat;
+   131→  platform: Platform;
+   132→  tournament_format: TournamentFormat;
+   133→  best_of: number;
+   134→  total_rounds: number;
+   135→  max_teams: number;
+   136→  min_teams: number;
+   137→  max_players_per_team: number;
+   138→  registration_opens_at: string;
+   139→  registration_closes_at: string;
+   140→  check_in_opens_at: string;
+   141→  check_in_closes_at: string;
+   142→  starts_at: string;
+   143→  ends_at: string;
+   144→  require_team: boolean;
+   145→  prize_pool: number;
+   146→  currency: string;
+   147→  prize_description: string;
+   148→  prize_image_url: string;
+   149→  prize_p1: number;
+   150→  prize_p2: number;
+   151→  prize_p3: number;
+   152→  sponsorship_banners: { image_url: string; link: string }[];
+   153→  custom_rules: string;
+   154→  map_pool: string[];
+   155→  mode_config: string;
+   156→  points_per_kill: number;
+   157→  placement_points: Record<number, number>;
+   158→  verification_method: VerificationMethod;
+   159→  region_server: RegionServer;
+   160→  primary_color: string;
+   161→  secondary_color: string;
+   162→  accent_color: string;
+   163→  stream_url: string;
+   164→  stream_platform: string;
+   165→  secondary_stream_url: string;
+   166→  allow_spectating: boolean;
+   167→  allow_predictions: boolean;
+   168→  allow_trash_talk: boolean;
+   169→  is_featured: boolean;
+   170→}
+   171→
+   172→const defaultForm = (): ChampForm => ({
+   173→  name: "",
+   174→  description: "",
+   175→  cover_image_url: "",
+   176→  logo_url: "",
+   177→  game_id: "",
+   178→  match_format: "squad",
+   179→  platform: "mobile",
+   180→  tournament_format: "single_elim",
+   181→  best_of: 1,
+   182→  total_rounds: 3,
+   183→  max_teams: 16,
+   184→  min_teams: 4,
+   185→  max_players_per_team: 4,
+   186→  registration_opens_at: "",
+   187→  registration_closes_at: "",
+   188→  check_in_opens_at: "",
+   189→  check_in_closes_at: "",
+   190→  starts_at: "",
+   191→  ends_at: "",
+   192→  require_team: true,
+   193→  prize_pool: 0,
+   194→  currency: "AOA",
+   195→  prize_description: "",
+   196→  prize_image_url: "",
+   197→  prize_p1: 60,
+   198→  prize_p2: 30,
+   199→  prize_p3: 10,
+   200→  sponsorship_banners: [],
+   201→  custom_rules: "",
+   202→  map_pool: [],
+   203→  mode_config: "",
+   204→  points_per_kill: 0,
+   205→  placement_points: { ...DEFAULT_BR_PLACEMENT_POINTS },
+   206→  verification_method: "screenshot",
+   207→  region_server: "br",
+   208→  primary_color: "#8b5cf6",
+   209→  secondary_color: "#1e1b4b",
+   210→  accent_color: "#f59e0b",
+   211→  stream_url: "",
+   212→  stream_platform: "twitch",
+   213→  secondary_stream_url: "",
+   214→  allow_spectating: true,
+   215→  allow_predictions: true,
+   216→  allow_trash_talk: true,
+   217→  is_featured: false,
+   218→});
+   219→
+   220→export default function DashboardEsports() {
+   221→  const { user } = useAuth();
+   222→  const { toast } = useToast();
+   223→  const [champs, setChamps] = useState<Championship[]>([]);
+   224→  const [games, setGames] = useState<EsportGame[]>([]);
+   225→  const [loading, setLoading] = useState(true);
+   226→  const [dialogOpen, setDialogOpen] = useState(false);
+   227→  const [editingChamp, setEditingChamp] = useState<Championship | null>(null);
+   228→  const [step, setStep] = useState(0);
+   229→  const [form, setForm] = useState<ChampForm>(defaultForm());
+   230→  const [saving, setSaving] = useState(false);
+   231→  const [selectedChamp, setSelectedChamp] = useState<Championship | null>(null);
+   232→  const [matches, setMatches] = useState<EsportMatch[]>([]);
+   233→  const [champTeams, setChampTeams] = useState<ChampTeam[]>([]);
+   234→  const [matchLoading, setMatchLoading] = useState(false);
+   235→  const [newMap, setNewMap] = useState("");
+   236→  const [newSponsor, setNewSponsor] = useState({ image_url: "", link: "" });
+   237→  const [brPlacements, setBrPlacements] = useState<Record<string, { placement: number; kills: number; deaths: number; damage_dealt: number }>>({});
+   238→  const [activeTab, setActiveTab] = useState("champs");
+   239→
+   240→  const loadData = useCallback(async () => {
+   241→    if (!user) return;
+   242→    try {
+   243→      setLoading(true);
+   244→      const [myChamps, allGames] = await Promise.all([
+   245→        getChampionships({ creator_id: user.id, limit: 50 }),
+   246→        getEsportGames(),
+   247→      ]);
+   248→      setChamps(myChamps);
+   249→      setGames(allGames);
+   250→    } catch (err: any) {
+   251→      toast({ title: "Erro", description: err.message });
+   252→    } finally {
+   253→      setLoading(false);
+   254→    }
+   255→  }, [user, toast]);
+   256→
+   257→  useEffect(() => {
+   258→    loadData();
+   259→  }, [loadData]);
+   260→
+   261→  const loadMatchManagement = useCallback(async (champ: Championship) => {
+   262→    setSelectedChamp(champ);
+   263→    setMatchLoading(true);
+   264→    setActiveTab("matches");
+   265→    try {
+   266→      const [m, ct] = await Promise.all([
+   267→        getChampMatches(champ.id),
+   268→        getChampTeams(champ.id),
+   269→      ]);
+   270→      setMatches(m);
+   271→      setChampTeams(ct);
+   272→    } catch (err: any) {
+   273→      toast({ title: "Erro", description: err.message });
+   274→    } finally {
+   275→      setMatchLoading(false);
+   276→    }
+   277→  }, [toast]);
+   278→
+   279→  const gameMap = new Map(games.map((g) => [g.id, g]));
+   280→
+   281→  const totalPrize = champs.reduce((s, c) => s + (c.prize_pool ?? 0), 0);
+   282→  const totalRegistered = champs.reduce((s, c) => s + (c.registered_teams ?? 0), 0);
+   283→
+   284→  const openCreateDialog = () => {
+   285→    setEditingChamp(null);
+   286→    setForm(defaultForm());
+   287→    setStep(0);
+   288→    setDialogOpen(true);
+   289→  };
+   290→
+   291→  const openEditDialog = (champ: Championship) => {
+   292→    setEditingChamp(champ);
+   293→    setForm({
+   294→      name: champ.name,
+   295→      description: champ.description || "",
+   296→      cover_image_url: champ.cover_image_url || "",
+   297→      logo_url: champ.logo_url || "",
+   298→      game_id: champ.game_id,
+   299→      match_format: champ.match_format,
+   300→      platform: champ.platform || "mobile",
+   301→      tournament_format: champ.tournament_format,
+   302→      best_of: champ.best_of,
+   303→      total_rounds: champ.total_rounds,
+   304→      max_teams: champ.max_teams,
+   305→      min_teams: champ.min_teams,
+   306→      max_players_per_team: champ.max_players_per_team,
+   307→      registration_opens_at: champ.registration_opens_at ? champ.registration_opens_at.slice(0, 16) : "",
+   308→      registration_closes_at: champ.registration_closes_at ? champ.registration_closes_at.slice(0, 16) : "",
+   309→      check_in_opens_at: champ.check_in_opens_at ? champ.check_in_opens_at.slice(0, 16) : "",
+   310→      check_in_closes_at: champ.check_in_closes_at ? champ.check_in_closes_at.slice(0, 16) : "",
+   311→      starts_at: champ.starts_at ? champ.starts_at.slice(0, 16) : "",
+   312→      ends_at: champ.ends_at ? champ.ends_at.slice(0, 16) : "",
+   313→      require_team: champ.require_team,
+   314→      prize_pool: champ.prize_pool,
+   315→      currency: champ.currency,
+   316→      prize_description: champ.prize_description || "",
+   317→      prize_image_url: champ.prize_image_url || "",
+   318→      prize_p1: champ.prize_distribution?.["1"] ?? 60,
+   319→      prize_p2: champ.prize_distribution?.["2"] ?? 30,
+   320→      prize_p3: champ.prize_distribution?.["3"] ?? 10,
+   321→      sponsorship_banners: (champ.sponsorship_banners as any[])?.map((s: any) => ({ image_url: s.image_url || s, link: s.link || "" })) || [],
+   322→      custom_rules: champ.custom_rules || "",
+   323→      map_pool: champ.map_pool || [],
+   324→      mode_config: champ.mode_config?.mode || "",
+   325→      points_per_kill: champ.points_per_kill,
+   326→      placement_points: champ.points_per_placement || { ...DEFAULT_BR_PLACEMENT_POINTS },
+   327→      verification_method: champ.verification_method || "screenshot",
+   328→      region_server: champ.region_server || "br",
+   329→      primary_color: champ.primary_color || "#8b5cf6",
+   330→      secondary_color: champ.secondary_color || "#1e1b4b",
+   331→      accent_color: champ.accent_color || "#f59e0b",
+   332→      stream_url: champ.stream_url || "",
+   333→      stream_platform: champ.stream_platform || "twitch",
+   334→      secondary_stream_url: champ.secondary_stream_url || "",
+   335→      allow_spectating: champ.allow_spectating,
+   336→      allow_predictions: champ.allow_predictions,
+   337→      allow_trash_talk: champ.allow_trash_talk,
+   338→      is_featured: champ.is_featured,
+   339→    });
+   340→    setStep(0);
+   341→    setDialogOpen(true);
+   342→  };
+   343→
+   344→  const handleSave = async () => {
+   345→    if (!user || !form.name.trim() || !form.game_id) {
+   346→      toast({ title: "Preencha nome e jogo", description: "Campos obrigatorios." });
+   347→      return;
+   348→    }
+   349→    setSaving(true);
+   350→    try {
+   351→      const prize_distribution: Record<string, number> = {
+   352→        "1": form.prize_p1 / 100,
+   353→        "2": form.prize_p2 / 100,
+   354→        "3": form.prize_p3 / 100,
+   355→      };
+   356→      const payload: any = {
+   357→        name: form.name,
+   358→        description: form.description || null,
+   359→        cover_image_url: form.cover_image_url || null,
+   360→        logo_url: form.logo_url || null,
+   361→        game_id: form.game_id,
+   362→        match_format: form.match_format,
+   363→        platform: form.platform,
+   364→        tournament_format: form.tournament_format,
+   365→        best_of: form.best_of,
+   366→        total_rounds: form.total_rounds,
+   367→        max_teams: form.max_teams,
+   368→        min_teams: form.min_teams,
+   369→        max_players_per_team: form.max_players_per_team,
+   370→        registration_opens_at: form.registration_opens_at || null,
+   371→        registration_closes_at: form.registration_closes_at || null,
+   372→        check_in_opens_at: form.check_in_opens_at || null,
+   373→        check_in_closes_at: form.check_in_closes_at || null,
+   374→        starts_at: form.starts_at || null,
+   375→        ends_at: form.ends_at || null,
+   376→        require_team: form.require_team,
+   377→        prize_pool: form.prize_pool,
+   378→        currency: form.currency,
+   379→        prize_description: form.prize_description || null,
+   380→        prize_image_url: form.prize_image_url || null,
+   381→        prize_distribution,
+   382→        sponsorship_banners: form.sponsorship_banners,
+   383→        custom_rules: form.custom_rules || null,
+   384→        map_pool: form.map_pool,
+   385→        mode_config: form.mode_config ? { mode: form.mode_config } : null,
+   386→        points_per_kill: form.points_per_kill,
+   387→        points_per_placement: form.placement_points,
+   388→        verification_method: form.verification_method,
+   389→        region_server: form.region_server,
+   390→        primary_color: form.primary_color,
+   391→        secondary_color: form.secondary_color,
+   392→        accent_color: form.accent_color,
+   393→        stream_url: form.stream_url || null,
+   394→        stream_platform: form.stream_platform || null,
+   395→        secondary_stream_url: form.secondary_stream_url || null,
+   396→        allow_spectating: form.allow_spectating,
+   397→        allow_predictions: form.allow_predictions,
+   398→        allow_trash_talk: form.allow_trash_talk,
+   399→        is_featured: form.is_featured,
+   400→        creator_id: user.id,
+   401→        status: editingChamp ? editingChamp.status : ("draft" as ChampStatus),
+   402→        is_published: editingChamp ? editingChamp.is_published : false,
+   403→        is_public: editingChamp ? editingChamp.is_public : true,
+   404→      };
+   405→      if (editingChamp) {
+   406→        await updateChampionship(editingChamp.id, payload);
+   407→        toast({ title: "Campeonato atualizado!" });
+   408→      } else {
+   409→        await createChampionship(payload);
+   410→        toast({ title: "Campeonato criado!" });
+   411→      }
+   412→      setDialogOpen(false);
+   413→      loadData();
+   414→    } catch (err: any) {
+   415→      toast({ title: "Erro ao salvar", description: err.message });
+   416→    } finally {
+   417→      setSaving(false);
+   418→    }
+   419→  };
+   420→
+   421→  const handleStatusChange = async (champ: Championship, status: ChampStatus) => {
+   422→    try {
+   423→      await updateChampionshipStatus(champ.id, status);
+   424→      toast({ title: `Status alterado para: ${STATUS_LABELS[status]}` });
+   425→      loadData();
+   426→      if (selectedChamp?.id === champ.id) {
+   427→        loadMatchManagement({ ...champ, status });
+   428→      }
+   429→    } catch (err: any) {
+   430→      toast({ title: "Erro", description: err.message });
+   431→    }
+   432→  };
+   433→
+   434→  const handleDeleteChamp = async (champ: Championship) => {
+   435→    try {
+   436→      await sb.from("esport_championships").delete().eq("id", champ.id);
+   437→      toast({ title: "Campeonato eliminado" });
+   438→      loadData();
+   439→      if (selectedChamp?.id === champ.id) setSelectedChamp(null);
+   440→    } catch (err: any) {
+   441→      toast({ title: "Erro ao eliminar", description: err.message });
+   442→    }
+   443→  };
+   444→
+   445→  const handleUpdateMatch = async (match: EsportMatch, data: any) => {
+   446→    try {
+   447→      const { error } = await sb.from("esport_matches").update({ ...data, updated_at: new Date().toISOString() }).eq("id", match.id);
+   448→      if (error) throw new Error(error.message);
+   449→      toast({ title: "Partida atualizada" });
+   450→      if (selectedChamp) loadMatchManagement(selectedChamp);
+   451→    } catch (err: any) {
+   452→      toast({ title: "Erro", description: err.message });
+   453→    }
+   454→  };
+   455→
+   456→  const handleSetWinner = async (match: EsportMatch, winnerId: string) => {
+   457→    try {
+   458→      const loserId = match.team1_id === winnerId ? match.team2_id : match.team1_id;
+   459→      await reportMatchResult(match.id, {
+   460→        team1_score: match.team1_score ?? 0,
+   461→        team2_score: match.team2_score ?? 0,
+   462→        winner_id: winnerId,
+   463→        loser_id: loserId || null,
+   464→        completed_at: new Date().toISOString(),
+   465→      });
+   466→      toast({ title: "Vencedor definido!" });
+   467→      if (selectedChamp) loadMatchManagement(selectedChamp);
+   468→    } catch (err: any) {
+   469→      toast({ title: "Erro", description: err.message });
+   470→    }
+   471→  };
+   472→
+   473→  const handleSubmitBRPlacements = async (match: EsportMatch) => {
+   474→    const placements = Object.entries(brPlacements).map(([ctId, d]) => ({
+   475→      champ_team_id: ctId,
+   476→      team_name: champTeams.find((ct) => ct.id === ctId)?.team_id ? champTeams.find((ct) => ct.id === ctId)?.player_name || "" : "",
+   477→      placement: d.placement,
+   478→      kills: d.kills,
+   479→      deaths: d.deaths,
+   480→      damage_dealt: d.damage_dealt,
+   481→    }));
+   482→    if (placements.length === 0) {
+   483→      toast({ title: "Preencha pelo menos uma colocacao" });
+   484→      return;
+   485→    }
+   486→    try {
+   487→      await submitPlacements(
+   488→        match.id,
+   489→        placements,
+   490→        selectedChamp?.points_per_placement || undefined,
+   491→        selectedChamp?.points_per_kill || undefined,
+   492→      );
+   493→      toast({ title: "Colocacoes enviadas!" });
+   494→      setBrPlacements({});
+   495→      if (selectedChamp) loadMatchManagement(selectedChamp);
+   496→    } catch (err: any) {
+   497→      toast({ title: "Erro", description: err.message });
+   498→    }
+   499→  };
+   500→
+   501→  const groupedMatches: Record<number, EsportMatch[]> = {};
+   502→  for (const m of matches) {
+   503→    if (!groupedMatches[m.round_number]) groupedMatches[m.round_number] = [];
+   504→    groupedMatches[m.round_number].push(m);
+   505→  }
+   506→
+   507→  const stepIndicator = (
+   508→    <div className="flex items-center justify-center gap-1 mb-8 px-2">
+   509→      {STEP_LABELS.map((label, i) => {
+   510→        const isCompleted = i < step;
+   511→        const isCurrent = i === step;
+   512→        return (
+   513→          <div key={i} className="flex items-center">
+   514→            {i > 0 && (
+   515→              <div
+   516→                className={`w-6 sm:w-10 h-0.5 mx-1 ${i <= step ? "bg-emerald-500" : "bg-zinc-700"}`}
+   517→              />
+   518→            )}
+   519→            <button
+   520→              type="button"
+   521→              onClick={() => setStep(i)}
+   522→              className="flex flex-col items-center gap-1"
+   523→            >
+   524→              <div
+   525→                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+   526→                  isCompleted
+   527→                    ? "bg-emerald-500 text-white"
+   528→                    : isCurrent
+   529→                    ? "bg-primary text-primary-foreground"
+   530→                    : "bg-zinc-700 text-zinc-400"
+   531→                }`}
+   532→              >
+   533→                {isCompleted ? <CheckCircle className="w-4 h-4" /> : i + 1}
+   534→              </div>
+   535→              <span className={`text-[10px] hidden sm:block ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
+   536→                {label}
+   537→              </span>
+   538→            </button>
+   539→          </div>
+   540→        );
+   541→      })}
+   542→    </div>
+   543→  );
+   544→
+   545→  const renderStep = () => {
+   546→    const f = form;
+   547→    const set = (patch: Partial<ChampForm>) => setForm({ ...f, ...patch });
+   548→
+   549→    switch (step) {
+   550→      case 0:
+   551→        return (
+   552→          <div className="space-y-4">
+   553→            <div className="space-y-2">
+   554→              <Label>Nome do Campeonato *</Label>
+   555→              <Input placeholder="Ex: Copa Bateu 2025" value={f.name} onChange={(e) => set({ name: e.target.value })} />
+   556→            </div>
+   557→            <div className="space-y-2">
+   558→              <Label>Descricao</Label>
+   559→              <Textarea placeholder="Descreva o campeonato..." value={f.description} onChange={(e) => set({ description: e.target.value })} rows={3} />
+   560→            </div>
+   561→            <div className="space-y-2">
+   562→              <Label>Imagem de Capa URL</Label>
+   563→              <div className="flex gap-2">
+   564→                <Input placeholder="https://..." value={f.cover_image_url} onChange={(e) => set({ cover_image_url: e.target.value })} />
+   565→                <Button variant="outline" size="icon" className="shrink-0">
+   566→                  <Upload className="w-4 h-4" />
+   567→                </Button>
+   568→              </div>
+   569→            </div>
+   570→            <div className="space-y-2">
+   571→              <Label>Logo URL</Label>
+   572→              <div className="flex gap-2">
+   573→                <Input placeholder="https://..." value={f.logo_url} onChange={(e) => set({ logo_url: e.target.value })} />
+   574→                <Button variant="outline" size="icon" className="shrink-0">
+   575→                  <Upload className="w-4 h-4" />
+   576→                </Button>
+   577→              </div>
+   578→            </div>
+   579→          </div>
+   580→        );
+   581→
+   582→      case 1:
+   583→        return (
+   584→          <div className="space-y-4">
+   585→            <div className="space-y-2">
+   586→              <Label>Jogo *</Label>
+   587→              <Select value={f.game_id} onValueChange={(v) => set({ game_id: v })}>
+   588→                <SelectTrigger><SelectValue placeholder="Selecionar jogo" /></SelectTrigger>
+   589→                <SelectContent>
+   590→                  {games.map((g) => (
+   591→                    <SelectItem key={g.id} value={g.id}>
+   592→                      {GAME_EMOJIS[g.slug] || "\uD83C\uDFAE"} {g.name} {g.genre ? `(${g.genre})` : ""}
+   593→                    </SelectItem>
+   594→                  ))}
+   595→                </SelectContent>
+   596→              </Select>
+   597→            </div>
+   598→            <div className="space-y-2">
+   599→              <Label>Formato de Partida</Label>
+   600→              <Select value={f.match_format} onValueChange={(v) => set({ match_format: v as MatchFormat })}>
+   601→                <SelectTrigger><SelectValue /></SelectTrigger>
+   602→                <SelectContent>
+   603→                  {Object.entries(FORMAT_LABELS).map(([k, v]) => (
+   604→                    <SelectItem key={k} value={k}>{v}</SelectItem>
+   605→                  ))}
+   606→                </SelectContent>
+   607→              </Select>
+   608→            </div>
+   609→            <div className="space-y-2">
+   610→              <Label>Plataforma</Label>
+   611→              <Select value={f.platform} onValueChange={(v) => set({ platform: v as Platform })}>
+   612→                <SelectTrigger><SelectValue /></SelectTrigger>
+   613→                <SelectContent>
+   614→                  {Object.entries(PLATFORM_LABELS).map(([k, v]) => (
+   615→                    <SelectItem key={k} value={k}>{v}</SelectItem>
+   616→                  ))}
+   617→                </SelectContent>
+   618→              </Select>
+   619→            </div>
+   620→            <div className="space-y-2">
+   621→              <Label>Formato do Torneio</Label>
+   622→              <Select value={f.tournament_format} onValueChange={(v) => set({ tournament_format: v as TournamentFormat })}>
+   623→                <SelectTrigger><SelectValue /></SelectTrigger>
+   624→                <SelectContent>
+   625→                  {Object.entries(TOURNAMENT_FORMAT_LABELS).map(([k, v]) => (
+   626→                    <SelectItem key={k} value={k}>{v}</SelectItem>
+   627→                  ))}
+   628→                </SelectContent>
+   629→              </Select>
+   630→            </div>
+   631→            <div className="grid grid-cols-2 gap-4">
+   632→              <div className="space-y-2">
+   633→                <Label>Best of</Label>
+   634→                <Select value={String(f.best_of)} onValueChange={(v) => set({ best_of: Number(v) })}>
+   635→                  <SelectTrigger><SelectValue /></SelectTrigger>
+   636→                  <SelectContent>
+   637→                    {[1, 3, 5].map((n) => (
+   638→                      <SelectItem key={n} value={String(n)}>Bo{n}</SelectItem>
+   639→                    ))}
+   640→                  </SelectContent>
+   641→                </Select>
+   642→              </div>
+   643→              <div className="space-y-2">
+   644→                <Label>Total de Rodadas</Label>
+   645→                <Input type="number" min={1} value={f.total_rounds} onChange={(e) => set({ total_rounds: Number(e.target.value) || 1 })} />
+   646→              </div>
+   647→            </div>
+   648→          </div>
+   649→        );
+   650→
+   651→      case 2:
+   652→        return (
+   653→          <div className="space-y-4">
+   654→            <div className="grid grid-cols-2 gap-4">
+   655→              <div className="space-y-2">
+   656→                <Label>Max Equipas</Label>
+   657→                <Select value={String(f.max_teams)} onValueChange={(v) => set({ max_teams: Number(v) })}>
+   658→                  <SelectTrigger><SelectValue /></SelectTrigger>
+   659→                  <SelectContent>
+   660→                    {[4, 8, 16, 32, 64, 128].map((n) => (
+   661→                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+   662→                    ))}
+   663→                  </SelectContent>
+   664→                </Select>
+   665→              </div>
+   666→              <div className="space-y-2">
+   667→                <Label>Min Equipas</Label>
+   668→                <Input type="number" min={2} value={f.min_teams} onChange={(e) => set({ min_teams: Number(e.target.value) || 2 })} />
+   669→              </div>
+   670→            </div>
+   671→            <div className="space-y-2">
+   672→              <Label>Max Jogadores por Equipa</Label>
+   673→              <Input type="number" min={1} max={10} value={f.max_players_per_team} onChange={(e) => set({ max_players_per_team: Number(e.target.value) || 1 })} />
+   674→            </div>
+   675→            <div className="grid grid-cols-2 gap-4">
+   676→              <div className="space-y-2">
+   677→                <Label>Abertura Inscricoes</Label>
+   678→                <Input type="datetime-local" value={f.registration_opens_at} onChange={(e) => set({ registration_opens_at: e.target.value })} />
+   679→              </div>
+   680→              <div className="space-y-2">
+   681→                <Label>Fecho Inscricoes</Label>
+   682→                <Input type="datetime-local" value={f.registration_closes_at} onChange={(e) => set({ registration_closes_at: e.target.value })} />
+   683→              </div>
+   684→            </div>
+   685→            <div className="grid grid-cols-2 gap-4">
+   686→              <div className="space-y-2">
+   687→                <Label>Check-in Abre</Label>
+   688→                <Input type="datetime-local" value={f.check_in_opens_at} onChange={(e) => set({ check_in_opens_at: e.target.value })} />
+   689→              </div>
+   690→              <div className="space-y-2">
+   691→                <Label>Check-in Fecha</Label>
+   692→                <Input type="datetime-local" value={f.check_in_closes_at} onChange={(e) => set({ check_in_closes_at: e.target.value })} />
+   693→              </div>
+   694→            </div>
+   695→            <div className="grid grid-cols-2 gap-4">
+   696→              <div className="space-y-2">
+   697→                <Label>Inicio</Label>
+   698→                <Input type="datetime-local" value={f.starts_at} onChange={(e) => set({ starts_at: e.target.value })} />
+   699→              </div>
+   700→              <div className="space-y-2">
+   701→                <Label>Fim</Label>
+   702→                <Input type="datetime-local" value={f.ends_at} onChange={(e) => set({ ends_at: e.target.value })} />
+   703→              </div>
+   704→            </div>
+   705→            <div className="flex items-center gap-3">
+   706→              <Switch checked={f.require_team} onCheckedChange={(v) => set({ require_team: v })} />
+   707→              <Label>Exigir equipa para inscricao</Label>
+   708→            </div>
+   709→          </div>
+   710→        );
+   711→
+   712→      case 3:
+   713→        return (
+   714→          <div className="space-y-4">
+   715→            <div className="grid grid-cols-2 gap-4">
+   716→              <div className="space-y-2">
+   717→                <Label>Premio Total</Label>
+   718→                <Input type="number" min={0} value={f.prize_pool || ""} onChange={(e) => set({ prize_pool: Number(e.target.value) || 0 })} />
+   719→              </div>
+   720→              <div className="space-y-2">
+   721→                <Label>Moeda</Label>
+   722→                <Select value={f.currency} onValueChange={(v) => set({ currency: v })}>
+   723→                  <SelectTrigger><SelectValue /></SelectTrigger>
+   724→                  <SelectContent>
+   725→                    {[
+   726→                      ["AOA", "AOA (Kwanza)"],
+   727→                      ["BRL", "BRL (Real)"],
+   728→                      ["USD", "USD (Dolar)"],
+   729→                      ["EUR", "EUR (Euro)"],
+   730→                    ].map(([k, v]) => (
+   731→                      <SelectItem key={k} value={k}>{v}</SelectItem>
+   732→                    ))}
+   733→                  </SelectContent>
+   734→                </Select>
+   735→              </div>
+   736→            </div>
+   737→            <div className="space-y-2">
+   738→              <Label>Descricao do Premio</Label>
+   739→              <Textarea placeholder="Detalhes sobre os premios..." value={f.prize_description} onChange={(e) => set({ prize_description: e.target.value })} rows={2} />
+   740→            </div>
+   741→            <div className="space-y-2">
+   742→              <Label>Imagem do Premio URL</Label>
+   743→              <div className="flex gap-2">
+   744→                <Input placeholder="https://..." value={f.prize_image_url} onChange={(e) => set({ prize_image_url: e.target.value })} />
+   745→                <Button variant="outline" size="icon" className="shrink-0">
+   746→                  <Upload className="w-4 h-4" />
+   747→                </Button>
+   748→              </div>
+   749→            </div>
+   750→            <Separator />
+   751→            <Label className="text-sm font-medium">Distribuicao de Premios (%)</Label>
+   752→            <div className="grid grid-cols-3 gap-3">
+   753→              <div className="space-y-1">
+   754→                <Label className="text-xs text-muted-foreground">1o Lugar (%)</Label>
+   755→                <Input type="number" min={0} max={100} value={f.prize_p1} onChange={(e) => set({ prize_p1: Number(e.target.value) || 0 })} />
+   756→              </div>
+   757→              <div className="space-y-1">
+   758→                <Label className="text-xs text-muted-foreground">2o Lugar (%)</Label>
+   759→                <Input type="number" min={0} max={100} value={f.prize_p2} onChange={(e) => set({ prize_p2: Number(e.target.value) || 0 })} />
+   760→              </div>
+   761→              <div className="space-y-1">
+   762→                <Label className="text-xs text-muted-foreground">3o Lugar (%)</Label>
+   763→                <Input type="number" min={0} max={100} value={f.prize_p3} onChange={(e) => set({ prize_p3: Number(e.target.value) || 0 })} />
+   764→              </div>
+   765→            </div>
+   766→            <Separator />
+   767→            <Label className="text-sm font-medium">Banners de Patrocinadores</Label>
+   768→            <div className="space-y-2 max-h-40 overflow-y-auto">
+   769→              {f.sponsorship_banners.map((s, i) => (
+   770→                <div key={i} className="flex items-center gap-2">
+   771→                  <Input placeholder="Imagem URL" value={s.image_url} onChange={(e) => {
+   772→                    const updated = [...f.sponsorship_banners];
+   773→                    updated[i] = { ...s, image_url: e.target.value };
+   774→                    set({ sponsorship_banners: updated });
+   775→                  }} className="flex-1" />
+   776→                  <Input placeholder="Link" value={s.link} onChange={(e) => {
+   777→                    const updated = [...f.sponsorship_banners];
+   778→                    updated[i] = { ...s, link: e.target.value };
+   779→                    set({ sponsorship_banners: updated });
+   780→                  }} className="flex-1" />
+   781→                  <Button variant="ghost" size="icon" className="text-red-400 shrink-0" onClick={() => set({ sponsorship_banners: f.sponsorship_banners.filter((_, j) => j !== i) })}>
+   782→                    <X className="w-4 h-4" />
+   783→                  </Button>
+   784→                </div>
+   785→              ))}
+   786→            </div>
+   787→            <div className="flex gap-2">
+   788→              <Input placeholder="Imagem URL do patrocinador" value={newSponsor.image_url} onChange={(e) => setNewSponsor({ ...newSponsor, image_url: e.target.value })} />
+   789→              <Input placeholder="Link" value={newSponsor.link} onChange={(e) => setNewSponsor({ ...newSponsor, link: e.target.value })} />
+   790→              <Button variant="outline" size="icon" className="shrink-0" onClick={() => {
+   791→                if (newSponsor.image_url.trim()) {
+   792→                  set({ sponsorship_banners: [...f.sponsorship_banners, { ...newSponsor }] });
+   793→                  setNewSponsor({ image_url: "", link: "" });
+   794→                }
+   795→              }}>
+   796→                <Plus className="w-4 h-4" />
+   797→              </Button>
+   798→            </div>
+   799→          </div>
+   800→        );
+   801→
+   802→      case 4:
+   803→        return (
+   804→          <div className="space-y-4">
+   805→            <div className="space-y-2">
+   806→              <Label>Regras Personalizadas</Label>
+   807→              <Textarea placeholder="Regras do campeonato..." value={f.custom_rules} onChange={(e) => set({ custom_rules: e.target.value })} rows={4} />
+   808→            </div>
+   809→            <Separator />
+   810→            <div className="space-y-2">
+   811→              <Label className="text-sm font-medium">Map Pool</Label>
+   812→              <div className="flex flex-wrap gap-2 mb-2">
+   813→                {f.map_pool.map((m, i) => (
+   814→                  <Badge key={i} variant="secondary" className="gap-1">
+   815→                    <MapPin className="w-3 h-3" />
+   816→                    {m}
+   817→                    <button type="button" className="ml-1 hover:text-red-400" onClick={() => set({ map_pool: f.map_pool.filter((_, j) => j !== i) })}>
+   818→                      <X className="w-3 h-3" />
+   819→                    </button>
+   820→                  </Badge>
+   821→                ))}
+   822→              </div>
+   823→              <div className="flex gap-2">
+   824→                <Input placeholder="Nome do mapa" value={newMap} onChange={(e) => setNewMap(e.target.value)} onKeyDown={(e) => {
+   825→                  if (e.key === "Enter" && newMap.trim()) {
+   826→                    set({ map_pool: [...f.map_pool, newMap.trim()] });
+   827→                    setNewMap("");
+   828→                  }
+   829→                }} />
+   830→                <Button variant="outline" onClick={() => {
+   831→                  if (newMap.trim()) {
+   832→                    set({ map_pool: [...f.map_pool, newMap.trim()] });
+   833→                    setNewMap("");
+   834→                  }
+   835→                }}>Adicionar</Button>
+   836→              </div>
+   837→            </div>
+   838→            <div className="space-y-2">
+   839→              <Label>Modo de Jogo</Label>
+   840→              <Input placeholder="Ex: Ranked, Casual, Custom..." value={f.mode_config} onChange={(e) => set({ mode_config: e.target.value })} />
+   841→            </div>
+   842→            <div className="space-y-2">
+   843→              <Label>Pontos por Abate (BR)</Label>
+   844→              <Input type="number" min={0} value={f.points_per_kill} onChange={(e) => set({ points_per_kill: Number(e.target.value) || 0 })} />
+   845→            </div>
+   846→            <Separator />
+   847→            <Label className="text-sm font-medium">Pontos por Colocacao (BR)</Label>
+   848→            <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+   849→              {Array.from({ length: 15 }, (_, i) => i + 1).map((p) => (
+   850→                <div key={p} className="flex items-center gap-2">
+   851→                  <span className="text-xs text-muted-foreground w-6">#{p}</span>
+   852→                  <Input
+   853→                    type="number"
+   854→                    min={0}
+   855→                    className="h-8 text-sm"
+   856→                    value={f.placement_points[p] ?? 0}
+   857→                    onChange={(e) => {
+   858→                      const updated = { ...f.placement_points, [p]: Number(e.target.value) || 0 };
+   859→                      set({ placement_points: updated });
+   860→                    }}
+   861→                  />
+   862→                </div>
+   863→              ))}
+   864→            </div>
+   865→            <Separator />
+   866→            <div className="space-y-2">
+   867→              <Label>Metodo de Verificacao</Label>
+   868→              <Select value={f.verification_method} onValueChange={(v) => set({ verification_method: v as VerificationMethod })}>
+   869→                <SelectTrigger><SelectValue /></SelectTrigger>
+   870→                <SelectContent>
+   871→                  {Object.entries(VERIFICATION_LABELS).map(([k, v]) => (
+   872→                    <SelectItem key={k} value={k}>{v}</SelectItem>
+   873→                  ))}
+   874→                </SelectContent>
+   875→              </Select>
+   876→            </div>
+   877→            <div className="space-y-2">
+   878→              <Label>Servidor da Regiao</Label>
+   879→              <Select value={f.region_server} onValueChange={(v) => set({ region_server: v as RegionServer })}>
+   880→                <SelectTrigger><SelectValue /></SelectTrigger>
+   881→                <SelectContent>
+   882→                  {Object.entries(REGION_SERVER_LABELS).map(([k, v]) => (
+   883→                    <SelectItem key={k} value={k}>{v}</SelectItem>
+   884→                  ))}
+   885→                </SelectContent>
+   886→              </Select>
+   887→            </div>
+   888→          </div>
+   889→        );
+   890→
+   891→      case 5:
+   892→        return (
+   893→          <div className="space-y-4">
+   894→            <Label className="text-sm font-medium">Cores</Label>
+   895→            <div className="grid grid-cols-3 gap-4">
+   896→              <div className="space-y-2">
+   897→                <Label className="text-xs">Cor Primaria</Label>
+   898→                <div className="flex items-center gap-2">
+   899→                  <input type="color" value={f.primary_color} onChange={(e) => set({ primary_color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+   900→                  <Input value={f.primary_color} onChange={(e) => set({ primary_color: e.target.value })} className="flex-1 font-mono text-xs" />
+   901→                </div>
+   902→              </div>
+   903→              <div className="space-y-2">
+   904→                <Label className="text-xs">Cor Secundaria</Label>
+   905→                <div className="flex items-center gap-2">
+   906→                  <input type="color" value={f.secondary_color} onChange={(e) => set({ secondary_color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+   907→                  <Input value={f.secondary_color} onChange={(e) => set({ secondary_color: e.target.value })} className="flex-1 font-mono text-xs" />
+   908→                </div>
+   909→              </div>
+   910→              <div className="space-y-2">
+   911→                <Label className="text-xs">Cor de Destaque</Label>
+   912→                <div className="flex items-center gap-2">
+   913→                  <input type="color" value={f.accent_color} onChange={(e) => set({ accent_color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+   914→                  <Input value={f.accent_color} onChange={(e) => set({ accent_color: e.target.value })} className="flex-1 font-mono text-xs" />
+   915→                </div>
+   916→              </div>
+   917→            </div>
+   918→            <Separator />
+   919→            <div className="space-y-2">
+   920→              <Label>URL da Transmissao</Label>
+   921→              <Input placeholder="https://twitch.tv/..." value={f.stream_url} onChange={(e) => set({ stream_url: e.target.value })} />
+   922→            </div>
+   923→            <div className="space-y-2">
+   924→              <Label>Plataforma de Stream</Label>
+   925→              <Select value={f.stream_platform} onValueChange={(v) => set({ stream_platform: v })}>
+   926→                <SelectTrigger><SelectValue /></SelectTrigger>
+   927→                <SelectContent>
+   928→                  <SelectItem value="twitch">Twitch</SelectItem>
+   929→                  <SelectItem value="youtube">YouTube</SelectItem>
+   930→                  <SelectItem value="facebook">Facebook</SelectItem>
+   931→                  <SelectItem value="trovo">Trovo</SelectItem>
+   932→                  <SelectItem value="kick">Kick</SelectItem>
+   933→                </SelectContent>
+   934→              </Select>
+   935→            </div>
+   936→            <div className="space-y-2">
+   937→              <Label>URL de Stream Secundaria</Label>
+   938→              <Input placeholder="https://..." value={f.secondary_stream_url} onChange={(e) => set({ secondary_stream_url: e.target.value })} />
+   939→            </div>
+   940→            <Separator />
+   941→            <div className="space-y-3">
+   942→              <div className="flex items-center justify-between">
+   943→                <Label>Permitir Espectadores</Label>
+   944→                <Switch checked={f.allow_spectating} onCheckedChange={(v) => set({ allow_spectating: v })} />
+   945→              </div>
+   946→              <div className="flex items-center justify-between">
+   947→                <Label>Permitir Palpites</Label>
+   948→                <Switch checked={f.allow_predictions} onCheckedChange={(v) => set({ allow_predictions: v })} />
+   949→              </div>
+   950→              <div className="flex items-center justify-between">
+   951→                <Label>Permitir Trash Talk</Label>
+   952→                <Switch checked={f.allow_trash_talk} onCheckedChange={(v) => set({ allow_trash_talk: v })} />
+   953→              </div>
+   954→              <div className="flex items-center justify-between">
+   955→                <Label>Campeonato em Destaque</Label>
+   956→                <Switch checked={f.is_featured} onCheckedChange={(v) => set({ is_featured: v })} />
+   957→              </div>
+   958→            </div>
+   959→          </div>
+   960→        );
+   961→
+   962→      default:
+   963→        return null;
+   964→    }
+   965→  };
+   966→
+   967→  const renderStatusActions = (champ: Championship) => {
+   968→    const actions: { label: string; icon: any; status: ChampStatus; variant?: "default" | "destructive" | "outline" }[] = [];
+   969→    if (champ.status === "draft") {
+   970→      actions.push({ label: "Abrir Inscricoes", icon: Users, status: "registration_open" });
+   971→    }
+   972→    if (champ.status === "registration_open") {
+   973→      actions.push({ label: "Iniciar Check-in", icon: Clock, status: "check_in" });
+   974→    }
+   975→    if (champ.status === "registration_closed" || champ.status === "check_in") {
+   976→      actions.push({ label: "Iniciar Campeonato", icon: Play, status: "live" });
+   977→    }
+   978→    if (champ.status === "live") {
+   979→      actions.push({ label: "Pausar", icon: Pause, status: "registration_closed", variant: "outline" });
+   980→      actions.push({ label: "Finalizar", icon: CheckCircle, status: "completed" });
+   981→    }
+   982→    if (champ.status !== "live" && champ.status !== "completed") {
+   983→      actions.push({ label: "Eliminar", icon: Trash2, status: "cancelled", variant: "destructive" });
+   984→    }
+   985→    return actions;
+   986→  };
+   987→
+   988→  if (loading) {
+   989→    return (
+   990→      <div className="space-y-6 p-4">
+   991→        <Skeleton className="h-10 w-64" />
+   992→        <div className="grid grid-cols-3 gap-4">
+   993→          {[1, 2, 3].map((i) => (
+   994→            <Skeleton key={i} className="h-24 rounded-xl" />
+   995→          ))}
+   996→        </div>
+   997→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   998→          {[1, 2, 3].map((i) => (
+   999→            <Skeleton key={i} className="h-48 rounded-xl" />
+  1000→          ))}
+  1001→        </div>
+  1002→      </div>
+  1003→    );
+  1004→  }
+  1005→
+  1006→  return (
+  1007→    <div className="min-h-screen bg-background p-4 md:p-6">
+  1008→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+  1009→        <TabsList className="mb-6">
+  1010→          <TabsTrigger value="champs" className="gap-2">
+  1011→            <Trophy className="w-4 h-4" />
+  1012→            Campeonatos
+  1013→          </TabsTrigger>
+  1014→          {selectedChamp && (
+  1015→            <TabsTrigger value="matches" className="gap-2">
+  1016→              <Settings className="w-4 h-4" />
+  1017→              Partidas - {selectedChamp.name}
+  1018→            </TabsTrigger>
+  1019→          )}
+  1020→        </TabsList>
+  1021→
+  1022→        <TabsContent value="champs">
+  1023→          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  1024→            <div>
+  1025→              <h1 className="text-2xl font-bold flex items-center gap-2">
+  1026→                <Trophy className="w-7 h-7 text-primary" />
+  1027→                Campeonatos Esports
+  1028→              </h1>
+  1029→              <p className="text-sm text-muted-foreground mt-1">
+  1030→                Crie e gerencie campeonatos competitivos
+  1031→              </p>
+  1032→            </div>
+  1033→            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+  1034→              <DialogTrigger asChild>
+  1035→                <Button
+  1036→                  className="gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+  1037→                  onClick={openCreateDialog}
+  1038→                >
+  1039→                  <Plus className="w-5 h-5" />
+  1040→                  Criar Campeonato
+  1041→                </Button>
+  1042→              </DialogTrigger>
+  1043→              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+  1044→                <DialogHeader>
+  1045→                  <DialogTitle>
+  1046→                    {editingChamp ? "Editar Campeonato" : "Novo Campeonato"}
+  1047→                  </DialogTitle>
+  1048→                </DialogHeader>
+  1049→                {stepIndicator}
+  1050→                {renderStep()}
+  1051→                <div className="flex items-center justify-between pt-4">
+  1052→                  <Button
+  1053→                    variant="outline"
+  1054→                    onClick={() => setStep(Math.max(0, step - 1))}
+  1055→                    disabled={step === 0}
+  1056→                    className="gap-2"
+  1057→                  >
+  1058→                    <ChevronLeft className="w-4 h-4" />
+  1059→                    Anterior
+  1060→                  </Button>
+  1061→                  {step < 5 ? (
+  1062→                    <Button onClick={() => setStep(step + 1)} className="gap-2">
+  1063→                      Proximo
+  1064→                      <ChevronRight className="w-4 h-4" />
+  1065→                    </Button>
+  1066→                  ) : (
+  1067→                    <Button onClick={handleSave} disabled={saving} className="gap-2">
+  1068→                      <Zap className="w-4 h-4" />
+  1069→                      {saving ? "Salvando..." : editingChamp ? "Salvar Alteracoes" : "Criar Campeonato"}
+  1070→                    </Button>
+  1071→                  )}
+  1072→                </div>
+  1073→              </DialogContent>
+  1074→            </Dialog>
+  1075→          </div>
+  1076→
+  1077→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  1078→            <Card className="bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 border-violet-500/20">
+  1079→              <CardContent className="p-4 flex items-center gap-3">
+  1080→                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+  1081→                  <Trophy className="w-5 h-5 text-violet-400" />
+  1082→                </div>
+  1083→                <div>
+  1084→                  <p className="text-xs text-muted-foreground">Meus Campeonatos</p>
+  1085→                  <p className="text-xl font-bold">{champs.length}</p>
+  1086→                </div>
+  1087→              </CardContent>
+  1088→            </Card>
+  1089→            <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20">
+  1090→              <CardContent className="p-4 flex items-center gap-3">
+  1091→                <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+  1092→                  <Users className="w-5 h-5 text-emerald-400" />
+  1093→                </div>
+  1094→                <div>
+  1095→                  <p className="text-xs text-muted-foreground">Equipas Inscritas</p>
+  1096→                  <p className="text-xl font-bold">{totalRegistered}</p>
+  1097→                </div>
+  1098→              </CardContent>
+  1099→            </Card>
+  1100→            <Card className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-500/20">
+  1101→              <CardContent className="p-4 flex items-center gap-3">
+  1102→                <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+  1103→                  <DollarSign className="w-5 h-5 text-yellow-400" />
+  1104→                </div>
+  1105→                <div>
+  1106→                  <p className="text-xs text-muted-foreground">Premios Totais</p>
+  1107→                  <p className="text-xl font-bold">{totalPrize.toLocaleString()} AOA</p>
+  1108→                </div>
+  1109→              </CardContent>
+  1110→            </Card>
+  1111→          </div>
+  1112→
+  1113→          {champs.length === 0 ? (
+  1114→            <Card className="p-12 text-center">
+  1115→              <Trophy className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+  1116→              <h3 className="text-xl font-semibold mb-2">Nenhum campeonato criado</h3>
+  1117→              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+  1118→                Crie o seu primeiro campeonato de esports e comece a receber inscricoes!
+  1119→              </p>
+  1120→              <Button
+  1121→                className="gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+  1122→                onClick={openCreateDialog}
+  1123→              >
+  1124→                <Plus className="w-4 h-4" />
+  1125→                Criar Primeiro Campeonato
+  1126→              </Button>
+  1127→            </Card>
+  1128→          ) : (
+  1129→            <AnimatePresence>
+  1130→              <motion.div
+  1131→                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+  1132→                initial={{ opacity: 0 }}
+  1133→                animate={{ opacity: 1 }}
+  1134→              >
+  1135→                {champs.map((champ) => {
+  1136→                  const game = gameMap.get(champ.game_id);
+  1137→                  const emoji = game ? (GAME_EMOJIS[game.slug] || "\uD83C\uDFAE") : "\uD83C\uDFAE";
+  1138→                  return (
+  1139→                    <motion.div
+  1140→                      key={champ.id}
+  1141→                      initial={{ opacity: 0, y: 12 }}
+  1142→                      animate={{ opacity: 1, y: 0 }}
+  1143→                      exit={{ opacity: 0, y: -12 }}
+  1144→                      whileHover={{ scale: 1.01 }}
+  1145→                    >
+  1146→                      <Card className="overflow-hidden hover:border-primary/40 transition-all">
+  1147→                        <div
+  1148→                          className="h-24"
+  1149→                          style={{
+  1150→                            background: champ.cover_image_url
+  1151→                              ? `url(${champ.cover_image_url}) center/cover`
+  1152→                              : `linear-gradient(135deg, ${champ.primary_color || "#8b5cf6"}, ${champ.secondary_color || "#1e1b4b"})`,
+  1153→                          }}
+  1154→                        />
+  1155→                        <CardContent className="p-4 space-y-3">
+  1156→                          <div className="flex items-start justify-between gap-2">
+  1157→                            <div className="min-w-0">
+  1158→                              <h3 className="font-semibold text-sm truncate">{champ.name}</h3>
+  1159→                              <div className="flex items-center gap-2 mt-1">
+  1160→                                <span className="text-sm">{emoji}</span>
+  1161→                                <Badge variant="secondary" className="text-xs">
+  1162→                                  {game?.name || "Jogo"}
+  1163→                                </Badge>
+  1164→                              </div>
+  1165→                            </div>
+  1166→                            <Badge variant="outline" className={`text-xs shrink-0 ${STATUS_COLORS[champ.status]}`}>
+  1167→                              {STATUS_LABELS[champ.status]}
+  1168→                            </Badge>
+  1169→                          </div>
+  1170→                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+  1171→                            <span className="flex items-center gap-1">
+  1172→                              <Users className="w-3.5 h-3.5" />
+  1173→                              {champ.registered_teams}/{champ.max_teams}
+  1174→                            </span>
+  1175→                            <span className="flex items-center gap-1">
+  1176→                              <Calendar className="w-3.5 h-3.5" />
+  1177→                              {champ.starts_at
+  1178→                                ? new Date(champ.starts_at).toLocaleDateString("pt-BR")
+  1179→                                : "--"}
+  1180→                            </span>
+  1181→                          </div>
+  1182→                          <div className="flex items-center flex-wrap gap-1.5">
+  1183→                            <Button
+  1184→                              variant="outline"
+  1185→                              size="sm"
+  1186→                              className="h-7 text-xs gap-1"
+  1187→                              onClick={() => openEditDialog(champ)}
+  1188→                            >
+  1189→                              <Edit3 className="w-3 h-3" />
+  1190→                              Editar
+  1191→                            </Button>
+  1192→                            {champ.status === "live" || champ.status === "check_in" ? (
+  1193→                              <Button
+  1194→                                variant="outline"
+  1195→                                size="sm"
+  1196→                                className="h-7 text-xs gap-1"
+  1197→                                onClick={() => loadMatchManagement(champ)}
+  1198→                              >
+  1199→                                <Eye className="w-3 h-3" />
+  1200→                                Partidas
+  1201→                              </Button>
+  1202→                            ) : null}
+  1203→                            {renderStatusActions(champ).map((action) => (
+  1204→                              <Button
+  1205→                                key={action.status}
+  1206→                                variant={action.variant || "default"}
+  1207→                                size="sm"
+  1208→                                className="h-7 text-xs gap-1"
+  1209→                                onClick={() => handleStatusChange(champ, action.status)}
+  1210→                              >
+  1211→                                <action.icon className="w-3 h-3" />
+  1212→                                {action.label}
+  1213→                              </Button>
+  1214→                            ))}
+  1215→                          </div>
+  1216→                        </CardContent>
+  1217→                      </Card>
+  1218→                    </motion.div>
+  1219→                  );
+  1220→                })}
+  1221→              </motion.div>
+  1222→            </AnimatePresence>
+  1223→          )}
+  1224→        </TabsContent>
+  1225→
+  1226→        <TabsContent value="matches">
+  1227→          {selectedChamp && (
+  1228→            <div className="space-y-6">
+  1229→              <div className="flex items-center justify-between">
+  1230→                <div>
+  1231→                  <h2 className="text-xl font-bold flex items-center gap-2">
+  1232→                    <Settings className="w-5 h-5" />
+  1233→                    Gestao de Partidas
+  1234→                  </h2>
+  1235→                  <p className="text-sm text-muted-foreground">Campeonato: {selectedChamp.name}</p>
+  1236→                </div>
+  1237→                <Badge variant="outline" className={STATUS_COLORS[selectedChamp.status]}>
+  1238→                  {STATUS_LABELS[selectedChamp.status]}
+  1239→                </Badge>
+  1240→              </div>
+  1241→
+  1242→              {matchLoading ? (
+  1243→                <div className="space-y-4">
+  1244→                  {Array.from({ length: 3 }).map((_, i) => (
+  1245→                    <Skeleton key={i} className="h-24 rounded-xl" />
+  1246→                  ))}
+  1247→                </div>
+  1248→              ) : matches.length === 0 ? (
+  1249→                <Card className="p-8 text-center">
+  1250→                  <CircleDot className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+  1251→                  <h3 className="text-lg font-semibold mb-2">Nenhuma partida encontrada</h3>
+  1252→                  <p className="text-sm text-muted-foreground">
+  1253→                    As partidas serao geradas quando o campeonato iniciar.
+  1254→                  </p>
+  1255→                </Card>
+  1256→              ) : (
+  1257→                <div className="space-y-6">
+  1258→                  {Object.entries(groupedMatches).sort(([a], [b]) => Number(a) - Number(b)).map(([round, roundMatches]) => (
+  1259→                    <Card key={round}>
+  1260→                      <CardHeader className="pb-3">
+  1261→                        <CardTitle className="text-base flex items-center gap-2">
+  1262→                          <MapPin className="w-4 h-4 text-primary" />
+  1263→                          Rodada {round}
+  1264→                          <Badge variant="secondary" className="text-xs">
+  1265→                            {roundMatches.length} {roundMatches.length === 1 ? "partida" : "partidas"}
+  1266→                          </Badge>
+  1267→                        </CardTitle>
+  1268→                      </CardHeader>
+  1269→                      <CardContent className="space-y-3">
+  1270→                        {roundMatches.map((match) => (
+  1271→                          <div
+  1272→                            key={match.id}
+  1273→                            className="p-4 rounded-lg border bg-muted/30 space-y-3"
+  1274→                          >
+  1275→                            <div className="flex items-center justify-between">
+  1276→                              <span className="text-sm font-medium">
+  1277→                                Partida #{match.match_number}
+  1278→                              </span>
+  1279→                              <div className="flex items-center gap-2">
+  1280→                                <Badge variant="outline" className={`text-xs ${MATCH_STATUS_COLORS[match.status]}`}>
+  1281→                                  {match.status === "pending"
+  1282→                                    ? "Pendente"
+  1283→                                    : match.status === "in_progress"
+  1284→                                    ? "Em Andamento"
+  1285→                                    : match.status === "completed"
+  1286→                                    ? "Concluida"
+  1287→                                    : match.status === "disputed"
+  1288→                                    ? "Disputada"
+  1289→                                    : "Cancelada"}
+  1290→                                </Badge>
+  1291→                                {match.status === "pending" && (
+  1292→                                  <Button
+  1293→                                    size="sm"
+  1294→                                    variant="outline"
+  1295→                                    className="h-7 text-xs gap-1 text-red-400"
+  1296→                                    onClick={() => handleUpdateMatch(match, { status: "in_progress" as MatchResultStatus, result_status: "in_progress" as MatchResultStatus, started_at: new Date().toISOString() })}
+  1297→                                  >
+  1298→                                    <Play className="w-3 h-3" />
+  1299→                                    Ao Vivo
+  1300→                                  </Button>
+  1301→                                )}
+  1302→                              </div>
+  1303→                            </div>
+  1304→
+  1305→                            {selectedChamp.tournament_format === "battle_royale" ? (
+  1306→                              <div className="space-y-2">
+  1307→                                <p className="text-xs text-muted-foreground font-medium">
+  1308→                                  Resultados por colocacao (BR)
+  1309→                                </p>
+  1310→                                <div className="space-y-2 max-h-64 overflow-y-auto">
+  1311→                                  {champTeams.map((ct) => {
+  1312→                                    const teamName = ct.player_name || ct.team_id || "--";
+  1313→                                    const existing = brPlacements[ct.id];
+  1314→                                    return (
+  1315→                                      <div key={ct.id} className="flex items-center gap-2">
+  1316→                                        <span className="text-xs w-28 truncate">{teamName}</span>
+  1317→                                        <Input
+  1318→                                          type="number"
+  1319→                                          min={1}
+  1320→                                          max={100}
+  1321→                                          placeholder="#"
+  1322→                                          className="w-16 h-7 text-xs"
+  1323→                                          value={existing?.placement ?? ""}
+  1324→                                          onChange={(e) =>
+  1325→                                            setBrPlacements({
+  1326→                                              ...brPlacements,
+  1327→                                              [ct.id]: {
+  1328→                                                placement: Number(e.target.value) || 0,
+  1329→                                                kills: existing?.kills || 0,
+  1330→                                                deaths: existing?.deaths || 0,
+  1331→                                                damage_dealt: existing?.damage_dealt || 0,
+  1332→                                              },
+  1333→                                            })
+  1334→                                          }
+  1335→                                        />
+  1336→                                        <Input
+  1337→                                          type="number"
+  1338→                                          min={0}
+  1339→                                          placeholder="Kills"
+  1340→                                          className="w-16 h-7 text-xs"
+  1341→                                          value={existing?.kills ?? ""}
+  1342→                                          onChange={(e) =>
+  1343→                                            setBrPlacements({
+  1344→                                              ...brPlacements,
+  1345→                                              [ct.id]: {
+  1346→                                                ...existing,
+  1347→                                                placement: existing?.placement || 0,
+  1348→                                                kills: Number(e.target.value) || 0,
+  1349→                                              },
+  1350→                                            })
+  1351→                                          }
+  1352→                                        />
+  1353→                                        <Input
+  1354→                                          type="number"
+  1355→                                          min={0}
+  1356→                                          placeholder="Deaths"
+  1357→                                          className="w-16 h-7 text-xs"
+  1358→                                          value={existing?.deaths ?? ""}
+  1359→                                          onChange={(e) =>
+  1360→                                            setBrPlacements({
+  1361→                                              ...brPlacements,
+  1362→                                              [ct.id]: {
+  1363→                                                ...existing,
+  1364→                                                placement: existing?.placement || 0,
+  1365→                                                deaths: Number(e.target.value) || 0,
+  1366→                                              },
+  1367→                                            })
+  1368→                                          }
+  1369→                                        />
+  1370→                                        <Input
+  1371→                                          type="number"
+  1372→                                          min={0}
+  1373→                                          placeholder="Dano"
+  1374→                                          className="w-20 h-7 text-xs"
+  1375→                                          value={existing?.damage_dealt ?? ""}
+  1376→                                          onChange={(e) =>
+  1377→                                            setBrPlacements({
+  1378→                                              ...brPlacements,
+  1379→                                              [ct.id]: {
+  1380→                                                ...existing,
+  1381→                                                placement: existing?.placement || 0,
+  1382→                                                damage_dealt: Number(e.target.value) || 0,
+  1383→                                              },
+  1384→                                            })
+  1385→                                          }
+  1386→                                        />
+  1387→                                      </div>
+  1388→                                    );
+  1389→                                  })}
+  1390→                                </div>
+  1391→                                <Button
+  1392→                                  size="sm"
+  1393→                                  className="gap-1"
+  1394→                                  onClick={() => handleSubmitBRPlacements(match)}
+  1395→                                >
+  1396→                                  <CheckCircle className="w-3.5 h-3.5" />
+  1397→                                  Enviar Resultados
+  1398→                                </Button>
+  1399→                              </div>
+  1400→                            ) : (
+  1401→                              <>
+  1402→                                <div className="grid grid-cols-2 gap-4">
+  1403→                                  <div className="space-y-1">
+  1404→                                    <p className="text-xs text-muted-foreground">Equipa 1</p>
+  1405→                                    <p className="font-medium text-sm truncate">
+  1406→                                      {match.team1_name || "TBD"}
+  1407→                                    </p>
+  1408→                                  </div>
+  1409→                                  <div className="space-y-1 text-right">
+  1410→                                    <p className="text-xs text-muted-foreground">Equipa 2</p>
+  1411→                                    <p className="font-medium text-sm truncate">
+  1412→                                      {match.team2_name || "TBD"}
+  1413→                                    </p>
+  1414→                                  </div>
+  1415→                                </div>
+  1416→                                <div className="flex items-center justify-center gap-4">
+  1417→                                  <Input
+  1418→                                    type="number"
+  1419→                                    min={0}
+  1420→                                    className="w-16 h-9 text-center text-lg font-bold"
+  1421→                                    value={match.team1_score ?? ""}
+  1422→                                    onChange={(e) => handleUpdateMatch(match, { team1_score: Number(e.target.value) || null })}
+  1423→                                  />
+  1424→                                  <span className="text-sm font-bold text-muted-foreground">VS</span>
+  1425→                                  <Input
+  1426→                                    type="number"
+  1427→                                    min={0}
+  1428→                                    className="w-16 h-9 text-center text-lg font-bold"
+  1429→                                    value={match.team2_score ?? ""}
+  1430→                                    onChange={(e) => handleUpdateMatch(match, { team2_score: Number(e.target.value) || null })}
+  1431→                                  />
+  1432→                                </div>
+  1433→                                {match.team1_id && match.team2_id && (
+  1434→                                  <div className="flex items-center justify-center gap-2">
+  1435→                                    <Button
+  1436→                                      size="sm"
+  1437→                                      variant={match.winner_id === match.team1_id ? "default" : "outline"}
+  1438→                                      className="text-xs"
+  1439→                                      onClick={() => handleSetWinner(match, match.team1_id)}
+  1440→                                    >
+  1441→                                      {match.team1_name || "T1"}
+  1442→                                    </Button>
+  1443→                                    <Button
+  1444→                                      size="sm"
+  1445→                                      variant={match.winner_id === match.team2_id ? "default" : "outline"}
+  1446→                                      className="text-xs"
+  1447→                                      onClick={() => handleSetWinner(match, match.team2_id)}
+  1448→                                    >
+  1449→                                      {match.team2_name || "T2"}
+  1450→                                    </Button>
+  1451→                                  </div>
+  1452→                                )}
+  1453→                              </>
+  1454→                            )}
+  1455→
+  1456→                            <Separator />
+  1457→
+  1458→                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+  1459→                              <div className="space-y-1">
+  1460→                                <Label className="text-xs text-muted-foreground">Codigo da Sala</Label>
+  1461→                                <Input
+  1462→                                  className="h-8 text-xs"
+  1463→                                  placeholder="Ex: ABC123"
+  1464→                                  value={match.lobby_id || ""}
+  1465→                                  onChange={(e) => handleUpdateMatch(match, { lobby_id: e.target.value || null })}
+  1466→                                />
+  1467→                              </div>
+  1468→                              <div className="space-y-1">
+  1469→                                <Label className="text-xs text-muted-foreground">Senha</Label>
+  1470→                                <Input
+  1471→                                  className="h-8 text-xs"
+  1472→                                  placeholder="Senha"
+  1473→                                  value={match.lobby_password || ""}
+  1474→                                  onChange={(e) => handleUpdateMatch(match, { lobby_password: e.target.value || null })}
+  1475→                                />
+  1476→                              </div>
+  1477→                              <div className="space-y-1">
+  1478→                                <Label className="text-xs text-muted-foreground">Mapa</Label>
+  1479→                                <Input
+  1480→                                  className="h-8 text-xs"
+  1481→                                  placeholder="Nome do mapa"
+  1482→                                  value={match.map_name || ""}
+  1483→                                  onChange={(e) => handleUpdateMatch(match, { map_name: e.target.value || null })}
+  1484→                                />
+  1485→                              </div>
+  1486→                              <div className="space-y-1">
+  1487→                                <Label className="text-xs text-muted-foreground">Modo</Label>
+  1488→                                <Input
+  1489→                                  className="h-8 text-xs"
+  1490→                                  placeholder="Modo de jogo"
+  1491→                                  value={match.mode_name || ""}
+  1492→                                  onChange={(e) => handleUpdateMatch(match, { mode_name: e.target.value || null })}
+  1493→                                />
+  1494→                              </div>
+  1495→                            </div>
+  1496→
+  1497→                            {match.status === "disputed" && (
+  1498→                              <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+  1499→                                <AlertTriangle className="w-4 h-4 text-orange-400" />
+  1500→                                <span className="text-xs text-orange-400">
+  1501→                                  Partida disputada: {match.dispute_reason || "Sem motivo informado"}
+  1502→                                </span>
+  1503→                              </div>
+  1504→                            )}
+  1505→                          </div>
+  1506→                        ))}
+  1507→                      </CardContent>
+  1508→                    </Card>
+  1509→                  ))}
+  1510→                </div>
+  1511→              )}
+  1512→            </div>
+  1513→          )}
+  1514→        </TabsContent>
+  1515→      </Tabs>
+  1516→    </div>
+  1517→  );
+  1518→}
+  1519→
