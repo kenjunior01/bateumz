@@ -1,0 +1,725 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react';
+     4→     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→     5→import {
+     6→     6→  Trophy, Gamepad2, Users, Clock, Search, Zap, Eye, Star, ChevronRight, Filter, TrendingUp, Shield, Radio, MapPin, Calendar, Swords, Coins, Award, ArrowLeftRight, Target, LayoutGrid
+     7→     7→} from 'lucide-react';
+     8→     8→import { Button } from '@/components/ui/button';
+     9→     9→import { Badge } from '@/components/ui/badge';
+    10→    10→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    11→    11→import { Input } from '@/components/ui/input';
+    12→    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    13→    13→import { Skeleton } from '@/components/ui/skeleton';
+    14→    14→import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+    15→    15→import { useAuth } from '@/contexts/AuthContext';
+    16→    16→import { useNavigate } from 'react-router-dom';
+    17→    17→import { supabase } from '@/integrations/supabase/client';
+    18→    18→import {
+    19→    19→  getEsportGames,
+    20→    20→  getChampionships,
+    21→    21→  getFeaturedChampionships,
+    22→    22→  getTeams,
+    23→    23→  getChampActivity,
+    24→    24→  getChampMatches,
+    25→    25→  GAME_EMOJIS,
+    26→    26→  STATUS_LABELS,
+    27→    27→  FORMAT_LABELS,
+    28→    28→  TOURNAMENT_FORMAT_LABELS,
+    29→    29→  GENRE_LABELS,
+    30→    30→  type EsportGame,
+    31→    31→  type Championship,
+    32→    32→  type EsportTeam,
+    33→    33→  type EsportMatch,
+    34→    34→  type EsportActivity,
+    35→    35→  type ChampStatus,
+    36→    36→} from '@/lib/esports';
+    37→    37→
+    38→    38→const sb: any = supabase;
+    39→    39→
+    40→    40→const FLOATING_ICONS = ['\uD83D\uDD25', '\u26A1', '\uD83C\uDFC6', '\uD83C\uDFAF', '\uD83D\uDCDC', '\u26BD', '\uD83C\uDFD7\uFE0F', '\uD83D\uDE80'];
+    41→    41→
+    42→    42→function ShimmerText({ children, className }: { children: string; className?: string }) {
+    43→    43→  return (
+    44→    44→    <span className={className}>
+    45→    45→      {children.split('').map((char, i) => (
+    46→    46→        <motion.span
+    47→    47→          key={i}
+    48→    48→          initial={{ opacity: 0.3 }}
+    49→    49→          animate={{ opacity: [0.3, 1, 0.3] }}
+    50→    50→          transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.06 }}
+    51→    51→          style={{ display: 'inline-block' }}
+    52→    52→        >
+    53→    53→          {char === ' ' ? '\u00A0' : char}
+    54→    54→        </motion.span>
+    55→    55→      ))}
+    56→    56→    </span>
+    57→    57→  );
+    58→    58→}
+    59→    59→
+    60→    60→function FloatingIcon({ emoji, delay, x, y }: { emoji: string; delay: number; x: number; y: number }) {
+    61→    61→  return (
+    62→    62→    <motion.div
+    63→    63→      className="absolute text-3xl md:text-5xl opacity-10 pointer-events-none select-none"
+    64→    64→      style={{ left: `${x}%`, top: `${y}%` }}
+    65→    65→      animate={{
+    66→    66→        y: [0, -20, 0],
+    67→    67→        rotate: [0, 10, -10, 0],
+    68→    68→        scale: [1, 1.1, 1],
+    69→    69→      }}
+    70→    70→      transition={{ duration: 6, repeat: Infinity, delay, ease: 'easeInOut' }}
+    71→    71→    >
+    72→    72→      {emoji}
+    73→    73→    </motion.div>
+    74→    74→  );
+    75→    75→}
+    76→    76→
+    77→    77→function formatCurrency(value: number, currency: string): string {
+    78→    78→  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(value);
+    79→    79→}
+    80→    80→
+    81→    81→function formatDate(dateStr: string): string {
+    82→    82→  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    83→    83→}
+    84→    84→
+    85→    85→function getStatusColor(status: ChampStatus): string {
+    86→    86→  switch (status) {
+    87→    87→    case 'live': return 'bg-red-500/20 text-red-400 border-red-500/40';
+    88→    88→    case 'registration_open': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+    89→    89→    case 'check_in': return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+    90→    90→    case 'registration_closed': return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
+    91→    91→    case 'completed': return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/40';
+    92→    92→    default: return 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30';
+    93→    93→  }
+    94→    94→}
+    95→    95→
+    96→    96→export default function EsportsHub() {
+    97→    97→  const { user } = useAuth();
+    98→    98→  const navigate = useNavigate();
+    99→    99→  const [games, setGames] = useState<EsportGame[]>([]);
+   100→   100→  const [championships, setChampionships] = useState<Championship[]>([]);
+   101→   101→  const [featured, setFeatured] = useState<Championship | null>(null);
+   102→   102→  const [topTeams, setTopTeams] = useState<EsportTeam[]>([]);
+   103→   103→  const [recentMatches, setRecentMatches] = useState<EsportMatch[]>([]);
+   104→   104→  const [activityFeed, setActivityFeed] = useState<EsportActivity[]>([]);
+   105→   105→  const [selectedGame, setSelectedGame] = useState<string | null>(null);
+   106→   106→  const [activeTab, setActiveTab] = useState('live');
+   107→   107→  const [searchQuery, setSearchQuery] = useState('');
+   108→   108→  const [stats, setStats] = useState({ totalChamps: 0, totalTeams: 0, totalPrizes: 0 });
+   109→   109→  const [loading, setLoading] = useState(true);
+   110→   110→  const [gameCounts, setGameCounts] = useState<Record<string, number>>({});
+   111→   111→
+   112→   112→  const loadData = useCallback(async () => {
+   113→   113→    setLoading(true);
+   114→   114→    try {
+   115→   115→      const [gamesData, allChamps, featuredChamps, teamsData] = await Promise.all([
+   116→   116→        getEsportGames(),
+   117→   117→        getChampionships({ is_published: true }),
+   118→   118→        getFeaturedChampionships(),
+   119→   119→        getTeams({ limit: 10, sort_by: 'rating', sort_dir: 'desc' }),
+   120→   120→      ]);
+   121→   121→
+   122→   122→      setGames(gamesData);
+   123→   123→      setChampionships(allChamps);
+   124→   124→      setTopTeams(teamsData);
+   125→   125→
+   126→   126→      if (featuredChamps.length > 0) {
+   127→   127→        setFeatured(featuredChamps[0]);
+   128→   128→      }
+   129→   129→
+   130→   130→      // Compute game counts
+   131→   131→      const counts: Record<string, number> = {};
+   132→   132→      for (const c of allChamps) {
+   133→   133→        counts[c.game_id] = (counts[c.game_id] || 0) + 1;
+   134→   134→      }
+   135→   135→      setGameCounts(counts);
+   136→   136→
+   137→   137→      // Stats
+   138→   138→      const published = allChamps.filter(c => c.is_published);
+   139→   139→      setStats({
+   140→   140→        totalChamps: published.length,
+   141→   141→        totalTeams: published.reduce((sum, c) => sum + (c.registered_teams || 0), 0),
+   142→   142→        totalPrizes: published.reduce((sum, c) => sum + (c.prize_pool || 0), 0),
+   143→   143→      });
+   144→   144→
+   145→   145→      // Recent matches from live/completed championships
+   146→   146→      const activeChampIds = allChamps.filter(c => c.status === 'live' || c.status === 'completed').map(c => c.id);
+   147→   147→      if (activeChampIds.length > 0) {
+   148→   148→        const { data: matches } = await sb.from('esport_matches')
+   149→   149→          .select('*')
+   150→   150→          .in('championship_id', activeChampIds.slice(0, 5))
+   151→   151→          .order('created_at', { ascending: false })
+   152→   152→          .limit(5);
+   153→   153→        setRecentMatches(matches || []);
+   154→   154→      }
+   155→   155→
+   156→   156→      // Activity from latest champ
+   157→   157→      if (featuredChamps.length > 0) {
+   158→   158→        const activities = await getChampActivity(featuredChamps[0].id, 5);
+   159→   159→        setActivityFeed(activities);
+   160→   160→      }
+   161→   161→    } catch (err) {
+   162→   162→      console.error('Erro ao carregar dados:', err);
+   163→   163→    } finally {
+   164→   164→      setLoading(false);
+   165→   165→    }
+   166→   166→  }, []);
+   167→   167→
+   168→   168→  useEffect(() => {
+   169→   169→    loadData();
+   170→   170→  }, [loadData]);
+   171→   171→
+   172→   172→  const filteredChamps = championships.filter(c => {
+   173→   173→    if (!c.is_published) return false;
+   174→   174→    if (selectedGame && c.game_id !== selectedGame) return false;
+   175→   175→    if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+   176→   176→    return true;
+   177→   177→  });
+   178→   178→
+   179→   179→  const tabFilter = (status: string) => {
+   180→   180→    if (status === 'live') return filteredChamps.filter(c => c.status === 'live' || c.status === 'check_in');
+   181→   181→    if (status === 'registration_open') return filteredChamps.filter(c => c.status === 'registration_open');
+   182→   182→    if (status === 'upcoming') return filteredChamps.filter(c => c.status === 'registration_closed' || c.status === 'draft');
+   183→   183→    if (status === 'completed') return filteredChamps.filter(c => c.status === 'completed');
+   184→   184→    return [];
+   185→   185→  };
+   186→   186→
+   187→   187→  const gameEmoji = (gameId: string, gameSlug?: string) => {
+   188→   188→    if (gameSlug && GAME_EMOJIS[gameSlug]) return GAME_EMOJIS[gameSlug];
+   189→   189→    const g = games.find(g => g.id === gameId);
+   190→   190→    if (g && GAME_EMOJIS[g.slug]) return GAME_EMOJIS[g.slug];
+   191→   191→    return '\uD83C\uDFAE';
+   192→   192→  };
+   193→   193→
+   194→   194→  const gameName = (gameId: string) => {
+   195→   195→    const g = games.find(g => g.id === gameId);
+   196→   196→    return g?.name || 'Jogo';
+   197→   197→  };
+   198→   198→
+   199→   199→  return (
+   200→   200→    <div className="min-h-screen bg-[#0a0a0f] text-white">
+   201→   201→      {/* Hero Section */}
+   202→   202→      <section className="relative overflow-hidden">
+   203→   203→        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-[#0a0a0f] to-cyan-900/30" />
+   204→   204→        <div className="absolute inset-0 opacity-20" style={{
+   205→   205→          backgroundImage: 'linear-gradient(rgba(139,92,246,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.15) 1px, transparent 1px)',
+   206→   206→          backgroundSize: '60px 60px',
+   207→   207→        }} />
+   208→   208→
+   209→   209→        {FLOATING_ICONS.map((icon, i) => (
+   210→   210→          <FloatingIcon key={i} emoji={icon} delay={i * 0.8} x={10 + (i * 11) % 80} y={10 + (i * 17) % 60} />
+   211→   211→        ))}
+   212→   212→
+   213→   213→        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-16 pb-10 md:pt-24 md:pb-16">
+   214→   214→          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
+   215→   215→            <div className="flex items-center gap-2 mb-4">
+   216→   216→              <Zap className="w-5 h-5 text-yellow-400" />
+   217→   217→              <span className="text-xs font-semibold uppercase tracking-widest text-yellow-400">Plataforma Competitiva</span>
+   218→   218→            </div>
+   219→   219→            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-4">
+   220→   220→              <ShimmerText className="bg-gradient-to-r from-yellow-300 via-white to-cyan-300 bg-clip-text text-transparent">
+   221→   221→                Campeonatos Esports
+   222→   222→              </ShimmerText>
+   223→   223→            </h1>
+   224→   224→            <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mb-8">
+   225→   225→              Compete nos maiores jogos. Free Fire, CoD, PUBG, Valorant e mais.
+   226→   226→            </p>
+   227→   227→          </motion.div>
+   228→   228→
+   229→   229→          {/* Stats Bar */}
+   230→   230→          <motion.div
+   231→   231→            className="grid grid-cols-3 gap-4 max-w-xl"
+   232→   232→            initial={{ opacity: 0, y: 20 }}
+   233→   233→            animate={{ opacity: 1, y: 0 }}
+   234→   234→            transition={{ duration: 0.6, delay: 0.3 }}
+   235→   235→          >
+   236→   236→            {[
+   237→   237→              { icon: Trophy, label: 'Total Campeonatos', value: stats.totalChamps },
+   238→   238→              { icon: Users, label: 'Equipas Registadas', value: stats.totalTeams },
+   239→   239→              { icon: Star, label: 'Premios Distribuidos', value: formatCurrency(stats.totalPrizes, 'BRL') },
+   240→   240→            ].map((s, i) => (
+   241→   241→              <div key={i} className="text-center">
+   242→   242→                <s.icon className="w-5 h-5 mx-auto mb-1 text-yellow-400" />
+   243→   243→                <div className="text-xl md:text-2xl font-bold text-white">{s.value}</div>
+   244→   244→                <div className="text-[10px] md:text-xs text-zinc-500 uppercase tracking-wider">{s.label}</div>
+   245→   245→              </div>
+   246→   246→            ))}
+   247→   247→          </motion.div>
+   248→   248→
+   249→   249→          <motion.div
+   250→   250→            className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-8 max-w-3xl mx-auto"
+   251→   251→            initial={{ opacity: 0, y: 20 }}
+   252→   252→            animate={{ opacity: 1, y: 0 }}
+   253→   253→            transition={{ duration: 0.6, delay: 0.5 }}
+   254→   254→          >
+   255→   255→            {[
+   256→   256→              { icon: Swords, label: 'Ligas', path: '/esports/seasons', color: 'from-violet-600 to-purple-600' },
+   257→   257→              { icon: Coins, label: 'Apostas', path: '/esports/betting', color: 'from-amber-600 to-orange-600', auth: true },
+   258→   258→              { icon: Target, label: 'Ranking', path: '/esports/leaderboard', color: 'from-cyan-600 to-blue-600' },
+   259→   259→              { icon: ArrowLeftRight, label: 'Transferencias', path: '/esports/transfers', color: 'from-emerald-600 to-green-600', auth: true },
+   260→   260→              { icon: Award, label: 'Conquistas', path: '/esports/achievements', color: 'from-pink-600 to-rose-600', auth: true },
+   261→   261→              { icon: LayoutGrid, label: 'Equipas', path: '/esports/equipas', color: 'from-indigo-600 to-violet-600', auth: true },
+   262→   262→            ].map((item, i) => (
+   263→   263→              <motion.button
+   264→   264→                key={i}
+   265→   265→                onClick={() => navigate(item.path)}
+   266→   266→                className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
+   267→   267→                whileHover={{ scale: 1.05, y: -2 }}
+   268→   268→                whileTap={{ scale: 0.95 }}
+   269→   269→              >
+   270→   270→                <div className={`p-2 rounded-lg bg-gradient-to-br ${item.color} shadow-lg`}>
+   271→   271→                  <item.icon className="w-5 h-5 text-white" />
+   272→   272→                </div>
+   273→   273→                <span className="text-xs font-semibold text-zinc-300 group-hover:text-white transition-colors">{item.label}</span>
+   274→   274→              </motion.button>
+   275→   275→            ))}
+   276→   276→          </motion.div>
+   277→   277→        </div>
+   278→   278→      </section>
+   279→   279→
+   280→   280→      {/* Game Filter Bar */}
+   281→   281→      <section className="border-y border-zinc-800/60 bg-[#0d0d14]">
+   282→   282→        <div className="max-w-7xl mx-auto px-4">
+   283→   283→          <div className="flex items-center gap-3 py-4 overflow-x-auto scrollbar-hide">
+   284→   284→            <Filter className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+   285→   285→            <button
+   286→   286→              onClick={() => setSelectedGame(null)}
+   287→   287→              className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+   288→   288→                !selectedGame
+   289→   289→                  ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-lg shadow-purple-500/20'
+   290→   290→                  : 'bg-zinc-800/60 text-zinc-400 hover:bg-zinc-700/60 hover:text-white'
+   291→   291→              }`}
+   292→   292→            >
+   293→   293→              Todos
+   294→   294→            </button>
+   295→   295→            {games.map((game) => {
+   296→   296→              const isActive = selectedGame === game.id;
+   297→   297→              const emoji = GAME_EMOJIS[game.slug] || '\uD83C\uDFAE';
+   298→   298→              return (
+   299→   299→                <motion.button
+   300→   300→                  key={game.id}
+   301→   301→                  onClick={() => setSelectedGame(isActive ? null : game.id)}
+   302→   302→                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+   303→   303→                    isActive
+   304→   304→                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-lg shadow-purple-500/30 ring-2 ring-purple-400/50'
+   305→   305→                      : 'bg-zinc-800/60 text-zinc-400 hover:bg-zinc-700/60 hover:text-white'
+   306→   306→                  }`}
+   307→   307→                  whileHover={{ scale: 1.03 }}
+   308→   308→                  whileTap={{ scale: 0.97 }}
+   309→   309→                >
+   310→   310→                  <span className="text-lg">{emoji}</span>
+   311→   311→                  <span>{game.name}</span>
+   312→   312→                  {(gameCounts[game.id] || 0) > 0 && (
+   313→   313→                    <Badge variant="secondary" className="ml-1 bg-purple-500/20 text-purple-300 text-[10px] px-1.5 py-0">
+   314→   314→                      {gameCounts[game.id]}
+   315→   315→                    </Badge>
+   316→   316→                  )}
+   317→   317→                </motion.button>
+   318→   318→              );
+   319→   319→            })}
+   320→   320→          </div>
+   321→   321→        </div>
+   322→   322→      </section>
+   323→   323→
+   324→   324→      {/* Featured Championship Banner */}
+   325→   325→      <AnimatePresence>
+   326→   326→        {featured && (
+   327→   327→          <motion.section
+   328→   328→            className="max-w-7xl mx-auto px-4 mt-6"
+   329→   329→            initial={{ opacity: 0, y: 20 }}
+   330→   330→            animate={{ opacity: 1, y: 0 }}
+   331→   331→            exit={{ opacity: 0, y: -10 }}
+   332→   332→          >
+   333→   333→            <Card className="relative overflow-hidden border-0 bg-gradient-to-r from-purple-900/50 via-zinc-900 to-cyan-900/40">
+   334→   334→              <div className="absolute inset-0 opacity-10" style={{
+   335→   335→                backgroundImage: `radial-gradient(circle at 20% 50%, ${featured.primary_color || '#8b5cf6'} 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${featured.accent_color || '#06b6d4'} 0%, transparent 50%)`,
+   336→   336→              }} />
+   337→   337→              <CardContent className="relative z-10 p-6 md:p-8">
+   338→   338→                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+   339→   339→                  <div className="flex-1">
+   340→   340→                    <div className="flex items-center gap-3 mb-3">
+   341→   341→                      <Badge className={`animate-pulse border ${getStatusColor(featured.status)}`}>
+   342→   342→                        <Radio className="w-3 h-3 mr-1" />
+   343→   343→                        {STATUS_LABELS[featured.status]}
+   344→   344→                      </Badge>
+   345→   345→                      {featured.status === 'live' && featured.total_viewers > 0 && (
+   346→   346→                        <Badge variant="secondary" className="bg-red-500/20 text-red-400">
+   347→   347→                          <Eye className="w-3 h-3 mr-1" />
+   348→   348→                          {featured.total_viewers} espectadores
+   349→   349→                        </Badge>
+   350→   350→                      )}
+   351→   351→                    </div>
+   352→   352→                    <div className="flex items-center gap-2 mb-2">
+   353→   353→                      <span className="text-2xl">{gameEmoji(featured.game_id)}</span>
+   354→   354→                      <span className="text-sm text-zinc-400">{gameName(featured.game_id)}</span>
+   355→   355→                      <Badge variant="outline" className="text-xs border-zinc-600 text-zinc-400">
+   356→   356→                        {FORMAT_LABELS[featured.match_format]}
+   357→   357→                      </Badge>
+   358→   358→                    </div>
+   359→   359→                    <h2 className="text-2xl md:text-3xl font-black mb-2">{featured.name}</h2>
+   360→   360→                    <p className="text-zinc-400 text-sm mb-3 line-clamp-2">{featured.description}</p>
+   361→   361→                    <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500">
+   362→   362→                      <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{featured.starts_at ? formatDate(featured.starts_at) : 'TBA'}</span>
+   363→   363→                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{featured.region_server?.toUpperCase() || 'Global'}</span>
+   364→   364→                      <span className="flex items-center gap-1"><Users className="w-4 h-4" />{featured.registered_teams}/{featured.max_teams} Equipas</span>
+   365→   365→                    </div>
+   366→   366→                  </div>
+   367→   367→                  <div className="flex flex-col items-center gap-3">
+   368→   368→                    <div className="text-center">
+   369→   369→                      <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Premio Total</div>
+   370→   370→                      <div className="text-3xl md:text-4xl font-black text-yellow-400">
+   371→   371→                        {formatCurrency(featured.prize_pool, featured.currency)}
+   372→   372→                      </div>
+   373→   373→                    </div>
+   374→   374→                    {featured.status === 'registration_open' && (
+   375→   375→                      <Button className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold hover:from-yellow-400 hover:to-orange-400">
+   376→   376→                        Inscrever Equipa
+   377→   377→                      </Button>
+   378→   378→                    )}
+   379→   379→                    {featured.stream_url && (
+   380→   380→                      <Button variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10">
+   381→   381→                        <Radio className="w-4 h-4 mr-2" />
+   382→   382→                        Assistir Ao Vivo
+   383→   383→                      </Button>
+   384→   384→                    )}
+   385→   385→                  </div>
+   386→   386→                </div>
+   387→   387→              </CardContent>
+   388→   388→            </Card>
+   389→   389→          </motion.section>
+   390→   390→        )}
+   391→   391→      </AnimatePresence>
+   392→   392→
+   393→   393→      {/* Search + Main Content */}
+   394→   394→      <section className="max-w-7xl mx-auto px-4 mt-6 pb-20">
+   395→   395→        <div className="flex flex-col lg:flex-row gap-6">
+   396→   396→          {/* Main Column */}
+   397→   397→          <div className="flex-1 min-w-0">
+   398→   398→            {/* Search Bar */}
+   399→   399→            <div className="relative mb-6">
+   400→   400→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+   401→   401→              <Input
+   402→   402→                placeholder="Buscar campeonatos..."
+   403→   403→                value={searchQuery}
+   404→   404→                onChange={(e) => setSearchQuery(e.target.value)}
+   405→   405→                className="pl-10 bg-zinc-900/80 border-zinc-800 focus:border-purple-500/50 text-white placeholder:text-zinc-600"
+   406→   406→              />
+   407→   407→            </div>
+   408→   408→
+   409→   409→            {/* Tabs */}
+   410→   410→            <Tabs value={activeTab} onValueChange={setActiveTab}>
+   411→   411→              <TabsList className="bg-zinc-900/80 border border-zinc-800 w-full justify-start overflow-x-auto">
+   412→   412→                <TabsTrigger value="live" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400">
+   413→   413→                  <Radio className="w-3.5 h-3.5 mr-1.5" /> Em Curso
+   414→   414→                </TabsTrigger>
+   415→   415→                <TabsTrigger value="registration_open" className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   416→   416→                  Inscricoes Abertas
+   417→   417→                </TabsTrigger>
+   418→   418→                <TabsTrigger value="upcoming" className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400">
+   419→   419→                  <Clock className="w-3.5 h-3.5 mr-1.5" /> Proximos
+   420→   420→                </TabsTrigger>
+   421→   421→                <TabsTrigger value="completed" className="data-[state=active]:bg-zinc-600/20 data-[state=active]:text-zinc-300">
+   422→   422→                  Finalizados
+   423→   423→                </TabsTrigger>
+   424→   424→              </TabsList>
+   425→   425→
+   426→   426→              {['live', 'registration_open', 'upcoming', 'completed'].map((tab) => (
+   427→   427→                <TabsContent key={tab} value={tab}>
+   428→   428→                  {loading ? (
+   429→   429→                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   430→   430→                      {Array.from({ length: 4 }).map((_, i) => (
+   431→   431→                        <Skeleton key={i} className="h-48 rounded-xl bg-zinc-900" />
+   432→   432→                      ))}
+   433→   433→                    </div>
+   434→   434→                  ) : tabFilter(tab).length === 0 ? (
+   435→   435→                    <motion.div
+   436→   436→                      initial={{ opacity: 0 }}
+   437→   437→                      animate={{ opacity: 1 }}
+   438→   438→                      className="text-center py-16"
+   439→   439→                    >
+   440→   440→                      <Gamepad2 className="w-12 h-12 mx-auto mb-4 text-zinc-700" />
+   441→   441→                      <p className="text-zinc-500 text-lg font-medium">Nenhum campeonato encontrado</p>
+   442→   442→                      <p className="text-zinc-600 text-sm mt-1">Tente outro filtro ou volte mais tarde</p>
+   443→   443→                    </motion.div>
+   444→   444→                  ) : (
+   445→   445→                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   446→   446→                      <AnimatePresence mode="popLayout">
+   447→   447→                        {tabFilter(tab).map((champ) => (
+   448→   448→                          <ChampionshipCard
+   449→   449→                            key={champ.id}
+   450→   450→                            champ={champ}
+   451→   451→                            gameEmoji={gameEmoji(champ.game_id)}
+   452→   452→                            gameLabel={gameName(champ.game_id)}
+   453→   453→                          />
+   454→   454→                        ))}
+   455→   455→                      </AnimatePresence>
+   456→   456→                    </div>
+   457→   457→                  )}
+   458→   458→                </TabsContent>
+   459→   459→              ))}
+   460→   460→            </Tabs>
+   461→   461→          </div>
+   462→   462→
+   463→   463→          {/* Sidebar */}
+   464→   464→          <aside className="w-full lg:w-80 flex-shrink-0 space-y-6">
+   465→   465→            <TopTeamsSection teams={topTeams} loading={loading} />
+   466→   466→            <NextMatchesSection matches={recentMatches} loading={loading} />
+   467→   467→            <ActivityFeedSection activities={activityFeed} loading={loading} />
+   468→   468→          </aside>
+   469→   469→        </div>
+   470→   470→      </section>
+   471→   471→    </div>
+   472→   472→  );
+   473→   473→}
+   474→   474→
+   475→   475→function ChampionshipCard({ champ, gameEmoji, gameLabel }: { champ: Championship; gameEmoji: string; gameLabel: string }) {
+   476→   476→  const progressPct = champ.max_teams > 0 ? Math.min((champ.registered_teams / champ.max_teams) * 100, 100) : 0;
+   477→   477→  const isLive = champ.status === 'live';
+   478→   478→
+   479→   479→  return (
+   480→   480→    <motion.div
+   481→   481→      layout
+   482→   482→      initial={{ opacity: 0, scale: 0.95 }}
+   483→   483→      animate={{ opacity: 1, scale: 1 }}
+   484→   484→      exit={{ opacity: 0, scale: 0.95 }}
+   485→   485→      whileHover={{ y: -4, scale: 1.01 }}
+   486→   486→      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+   487→   487→      style={{ perspective: '800px' }}
+   488→   488→    >
+   489→   489→      <Card className={`overflow-hidden border transition-all duration-300 cursor-pointer ${
+   490→   490→        isLive
+   491→   491→          ? 'border-red-500/40 shadow-lg shadow-red-500/10 hover:shadow-red-500/20'
+   492→   492→          : 'border-zinc-800 hover:border-zinc-600 hover:shadow-lg hover:shadow-purple-500/5'
+   493→   493→      }`}>
+   494→   494→        {/* Cover Gradient */}
+   495→   495→        <div
+   496→   496→          className="h-24 relative"
+   497→   497→          style={{
+   498→   498→            background: `linear-gradient(135deg, ${champ.primary_color || '#7c3aed'}, ${champ.secondary_color || '#1e1b4b'}, ${champ.accent_color || '#06b6d4'})`,
+   499→   499→          }}
+   500→   500→        >
+   501→   501→          <div className="absolute inset-0 flex items-start justify-between p-3">
+   502→   502→            <div className="flex items-center gap-2">
+   503→   503→              <Badge variant="secondary" className="bg-black/40 text-white backdrop-blur-sm text-xs">
+   504→   504→                {gameEmoji} {gameLabel}
+   505→   505→              </Badge>
+   506→   506→              <Badge variant="secondary" className="bg-black/40 text-white backdrop-blur-sm text-xs">
+   507→   507→                {FORMAT_LABELS[champ.match_format]}
+   508→   508→              </Badge>
+   509→   509→            </div>
+   510→   510→            <Badge className={`text-[10px] border backdrop-blur-sm ${getStatusColor(champ.status)} ${isLive ? 'animate-pulse' : ''}`}>
+   511→   511→              {STATUS_LABELS[champ.status]}
+   512→   512→            </Badge>
+   513→   513→          </div>
+   514→   514→          {champ.stream_url && (
+   515→   515→            <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-red-600 rounded text-[10px] font-bold text-white">
+   516→   516→              <Radio className="w-3 h-3" /> LIVE
+   517→   517→            </div>
+   518→   518→          )}
+   519→   519→        </div>
+   520→   520→
+   521→   521→        <CardContent className="p-4">
+   522→   522→          <h3 className="text-base font-bold text-white mb-2 line-clamp-1">{champ.name}</h3>
+   523→   523→
+   524→   524→          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 mb-3">
+   525→   525→            <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{champ.starts_at ? formatDate(champ.starts_at) : 'TBA'}</span>
+   526→   526→            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{champ.region_server?.toUpperCase() || 'Global'}</span>
+   527→   527→          </div>
+   528→   528→
+   529→   529→          <div className="flex items-center justify-between mb-2">
+   530→   530→            <span className="text-xs text-zinc-500">Premio</span>
+   531→   531→            <span className="text-lg font-black text-yellow-400">{formatCurrency(champ.prize_pool, champ.currency)}</span>
+   532→   532→          </div>
+   533→   533→
+   534→   534→          {/* Team Progress */}
+   535→   535→          <div className="space-y-1">
+   536→   536→            <div className="flex justify-between text-xs">
+   537→   537→              <span className="text-zinc-500">{champ.registered_teams}/{champ.max_teams} Equipas</span>
+   538→   538→              <span className="text-zinc-500">{Math.round(progressPct)}%</span>
+   539→   539→            </div>
+   540→   540→            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+   541→   541→              <motion.div
+   542→   542→                className="h-full rounded-full"
+   543→   543→                style={{ background: `linear-gradient(90deg, ${champ.primary_color || '#8b5cf6'}, ${champ.accent_color || '#06b6d4'})` }}
+   544→   544→                initial={{ width: 0 }}
+   545→   545→                animate={{ width: `${progressPct}%` }}
+   546→   546→                transition={{ duration: 0.8, ease: 'easeOut' }}
+   547→   547→              />
+   548→   548→            </div>
+   549→   549→          </div>
+   550→   550→        </CardContent>
+   551→   551→      </Card>
+   552→   552→    </motion.div>
+   553→   553→  );
+   554→   554→}
+   555→   555→
+   556→   556→function TopTeamsSection({ teams, loading }: { teams: EsportTeam[]; loading: boolean }) {
+   557→   557→  return (
+   558→   558→    <Card className="border-zinc-800 bg-zinc-900/60">
+   559→   559→      <CardHeader className="pb-3">
+   560→   560→        <CardTitle className="text-sm font-bold flex items-center gap-2 text-zinc-200">
+   561→   561→          <TrendingUp className="w-4 h-4 text-yellow-400" />
+   562→   562→          Top Equipas
+   563→   563→        </CardTitle>
+   564→   564→      </CardHeader>
+   565→   565→      <CardContent className="space-y-3 max-h-80 overflow-y-auto">
+   566→   566→        {loading ? (
+   567→   567→          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 rounded bg-zinc-800" />)
+   568→   568→        ) : teams.length === 0 ? (
+   569→   569→          <p className="text-zinc-600 text-xs text-center py-4">Sem equipas registadas</p>
+   570→   570→        ) : (
+   571→   571→          teams.map((team, i) => (
+   572→   572→            <motion.div
+   573→   573→              key={team.id}
+   574→   574→              className="flex items-center gap-3"
+   575→   575→              initial={{ opacity: 0, x: -10 }}
+   576→   576→              animate={{ opacity: 1, x: 0 }}
+   577→   577→              transition={{ delay: i * 0.05 }}
+   578→   578→            >
+   579→   579→              <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
+   580→   580→                i === 0 ? 'bg-yellow-500/20 text-yellow-400' : i === 1 ? 'bg-zinc-400/20 text-zinc-300' : i === 2 ? 'bg-amber-700/20 text-amber-500' : 'bg-zinc-800 text-zinc-500'
+   581→   581→              }`}>
+   582→   582→                {i + 1}
+   583→   583→              </span>
+   584→   584→              <Avatar className="w-8 h-8">
+   585→   585→                <AvatarImage src={team.logo_url || undefined} />
+   586→   586→                <AvatarFallback className="bg-zinc-800 text-xs">{team.tag || team.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+   587→   587→              </Avatar>
+   588→   588→              <div className="flex-1 min-w-0">
+   589→   589→                <div className="text-sm font-semibold text-zinc-200 truncate">{team.name}</div>
+   590→   590→                <div className="text-[10px] text-zinc-500">{team.total_wins}V / {team.total_losses}D</div>
+   591→   591→              </div>
+   592→   592→              <div className="text-right">
+   593→   593→                <div className="text-xs font-bold text-yellow-400">{formatCurrency(team.total_earnings, 'BRL')}</div>
+   594→   594→                <div className="text-[10px] text-zinc-600">Rating: {team.rating}</div>
+   595→   595→              </div>
+   596→   596→            </motion.div>
+   597→   597→          ))
+   598→   598→        )}
+   599→   599→      </CardContent>
+   600→   600→    </Card>
+   601→   601→  );
+   602→   602→}
+   603→   603→
+   604→   604→function NextMatchesSection({ matches, loading }: { matches: EsportMatch[]; loading: boolean }) {
+   605→   605→  const activityIcon = (type: string) => {
+   606→   606→    switch (type) {
+   607→   607→      case 'in_progress': return <Radio className="w-3.5 h-3.5 text-red-400" />;
+   608→   608→      case 'completed': return <Shield className="w-3.5 h-3.5 text-emerald-400" />;
+   609→   609→      default: return <Clock className="w-3.5 h-3.5 text-zinc-400" />;
+   610→   610→    }
+   611→   611→  };
+   612→   612→
+   613→   613→  return (
+   614→   614→    <Card className="border-zinc-800 bg-zinc-900/60">
+   615→   615→      <CardHeader className="pb-3">
+   616→   616→        <CardTitle className="text-sm font-bold flex items-center gap-2 text-zinc-200">
+   617→   617→          <Gamepad2 className="w-4 h-4 text-cyan-400" />
+   618→   618→          Proximos Jogos
+   619→   619→        </CardTitle>
+   620→   620→      </CardHeader>
+   621→   621→      <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+   622→   622→        {loading ? (
+   623→   623→          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 rounded bg-zinc-800" />)
+   624→   624→        ) : matches.length === 0 ? (
+   625→   625→          <p className="text-zinc-600 text-xs text-center py-4">Sem partidas proximas</p>
+   626→   626→        ) : (
+   627→   627→          matches.map((match, i) => (
+   628→   628→            <motion.div
+   629→   629→              key={match.id}
+   630→   630→              initial={{ opacity: 0, y: 5 }}
+   631→   631→              animate={{ opacity: 1, y: 0 }}
+   632→   632→              transition={{ delay: i * 0.05 }}
+   633→   633→              className={`p-3 rounded-lg border ${
+   634→   634→                match.status === 'in_progress'
+   635→   635→                  ? 'border-red-500/30 bg-red-500/5'
+   636→   636→                  : 'border-zinc-800 bg-zinc-800/30'
+   637→   637→              }`}
+   638→   638→            >
+   639→   639→              <div className="flex items-center justify-between mb-1.5">
+   640→   640→                {activityIcon(match.status)}
+   641→   641→                <span className="text-[10px] text-zinc-600">{match.map_name || `Partida ${match.match_number}`}</span>
+   642→   642→              </div>
+   643→   643→              <div className="flex items-center justify-between">
+   644→   644→                <div className="flex items-center gap-2 flex-1 min-w-0">
+   645→   645→                  <Avatar className="w-5 h-5">
+   646→   646→                    <AvatarImage src={match.team1_logo || undefined} />
+   647→   647→                    <AvatarFallback className="text-[8px] bg-zinc-700">T1</AvatarFallback>
+   648→   648→                  </Avatar>
+   649→   649→                  <span className="text-xs text-zinc-300 truncate">{match.team1_name || 'TBD'}</span>
+   650→   650→                </div>
+   651→   651→                <span className="text-[10px] text-zinc-600 font-bold mx-2">VS</span>
+   652→   652→                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+   653→   653→                  <span className="text-xs text-zinc-300 truncate">{match.team2_name || 'TBD'}</span>
+   654→   654→                  <Avatar className="w-5 h-5">
+   655→   655→                    <AvatarImage src={match.team2_logo || undefined} />
+   656→   656→                    <AvatarFallback className="text-[8px] bg-zinc-700">T2</AvatarFallback>
+   657→   657→                  </Avatar>
+   658→   658→                </div>
+   659→   659→              </div>
+   660→   660→              {(match.team1_score !== null || match.team2_score !== null) && (
+   661→   661→                <div className="flex justify-center gap-3 mt-1.5">
+   662→   662→                  <span className={`text-sm font-bold ${match.winner_id === match.team1_id ? 'text-emerald-400' : 'text-zinc-500'}`}>{match.team1_score ?? 0}</span>
+   663→   663→                  <span className="text-zinc-700">-</span>
+   664→   664→                  <span className={`text-sm font-bold ${match.winner_id === match.team2_id ? 'text-emerald-400' : 'text-zinc-500'}`}>{match.team2_score ?? 0}</span>
+   665→   665→                </div>
+   666→   666→              )}
+   667→   667→            </motion.div>
+   668→   668→          ))
+   669→   669→        )}
+   670→   670→      </CardContent>
+   671→   671→    </Card>
+   672→   672→  );
+   673→   673→}
+   674→   674→
+   675→   675→function ActivityFeedSection({ activities, loading }: { activities: EsportActivity[]; loading: boolean }) {
+   676→   676→  const actIcon = (type: string) => {
+   677→   677→    switch (type) {
+   678→   678→      case 'registration': return <Users className="w-3.5 h-3.5 text-emerald-400" />;
+   679→   679→      case 'match_result': return <Trophy className="w-3.5 h-3.5 text-yellow-400" />;
+   680→   680→      case 'check_in': return <Shield className="w-3.5 h-3.5 text-cyan-400" />;
+   681→   681→      case 'prize_distributed': return <Star className="w-3.5 h-3.5 text-yellow-400" />;
+   682→   682→      default: return <Zap className="w-3.5 h-3.5 text-purple-400" />;
+   683→   683→    }
+   684→   684→  };
+   685→   685→
+   686→   686→  return (
+   687→   687→    <Card className="border-zinc-800 bg-zinc-900/60">
+   688→   688→      <CardHeader className="pb-3">
+   689→   689→        <CardTitle className="text-sm font-bold flex items-center gap-2 text-zinc-200">
+   690→   690→          <Zap className="w-4 h-4 text-purple-400" />
+   691→   691→          Atividade Recente
+   692→   692→        </CardTitle>
+   693→   693→      </CardHeader>
+   694→   694→      <CardContent className="space-y-3 max-h-80 overflow-y-auto">
+   695→   695→        {loading ? (
+   696→   696→          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded bg-zinc-800" />)
+   697→   697→        ) : activities.length === 0 ? (
+   698→   698→          <p className="text-zinc-600 text-xs text-center py-4">Sem atividade recente</p>
+   699→   699→        ) : (
+   700→   700→          activities.map((act, i) => (
+   701→   701→            <motion.div
+   702→   702→              key={act.id}
+   703→   703→              className="flex gap-3"
+   704→   704→              initial={{ opacity: 0, x: -10 }}
+   705→   705→              animate={{ opacity: 1, x: 0 }}
+   706→   706→              transition={{ delay: i * 0.05 }}
+   707→   707→            >
+   708→   708→              <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
+   709→   709→                {actIcon(act.type)}
+   710→   710→              </div>
+   711→   711→              <div className="flex-1 min-w-0">
+   712→   712→                <p className="text-xs font-medium text-zinc-300 line-clamp-1">{act.title}</p>
+   713→   713→                {act.description && <p className="text-[10px] text-zinc-600 line-clamp-1 mt-0.5">{act.description}</p>}
+   714→   714→                <p className="text-[10px] text-zinc-700 mt-1">
+   715→   715→                  {new Date(act.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+   716→   716→                </p>
+   717→   717→              </div>
+   718→   718→            </motion.div>
+   719→   719→          ))
+   720→   720→        )}
+   721→   721→      </CardContent>
+   722→   722→    </Card>
+   723→   723→  );
+   724→   724→}
+   725→   725→

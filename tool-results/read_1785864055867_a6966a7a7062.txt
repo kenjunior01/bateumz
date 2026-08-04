@@ -1,0 +1,1658 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useMemo } from 'react';
+     4→import { motion } from 'framer-motion';
+     5→import {
+     6→  Trophy,
+     7→  Medal,
+     8→  Crown,
+     9→  Star,
+    10→  TrendingUp,
+    11→  Users,
+    12→  Shield,
+    13→  Flame,
+    14→  Target,
+    15→  Search,
+    16→  ChevronUp,
+    17→  ChevronDown,
+    18→  Minus,
+    19→  Zap,
+    20→  Award,
+    21→  Swords,
+    22→} from 'lucide-react';
+    23→import { Button } from '@/components/ui/button';
+    24→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    25→import { Badge } from '@/components/ui/badge';
+    26→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    27→import { Input } from '@/components/ui/input';
+    28→import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+    29→import {
+    30→  getPlayerLeaderboard,
+    31→  getGlobalLeaderboard,
+    32→  getTopReputation,
+    33→  type UserReputation,
+    34→  type GlobalLeaderboardEntry,
+    35→} from '@/lib/esports-advanced';
+    36→import { getTeams, type EsportTeam } from '@/lib/esports';
+    37→
+    38→// ============================================================
+    39→// DADOS MOCK - JOGADORES
+    40→// ============================================================
+    41→
+    42→const MOCK_PLAYERS: GlobalLeaderboardEntry[] = [
+    43→  {
+    44→    user_id: 'p1',
+    45→    username: 'NightWolf',
+    46→    avatar_url: '',
+    47→    rating: 2850,
+    48→    total_matches: 342,
+    49→    wins: 289,
+    50→    karma_points: 4820,
+    51→    reputation_title: 'Lenda Viva',
+    52→  },
+    53→  {
+    54→    user_id: 'p2',
+    55→    username: 'ShadowFx',
+    56→    avatar_url: '',
+    57→    rating: 2710,
+    58→    total_matches: 310,
+    59→    wins: 255,
+    60→    karma_points: 4510,
+    61→    reputation_title: 'Mestre Supremo',
+    62→  },
+    63→  {
+    64→    user_id: 'p3',
+    65→    username: 'ThunderKill',
+    66→    avatar_url: '',
+    67→    rating: 2680,
+    68→    total_matches: 298,
+    69→    wins: 241,
+    70→    karma_points: 4290,
+    71→    reputation_title: 'Mestre Supremo',
+    72→  },
+    73→  {
+    74→    user_id: 'p4',
+    75→    username: 'PhantomBR',
+    76→    avatar_url: '',
+    77→    rating: 2550,
+    78→    total_matches: 276,
+    79→    wins: 220,
+    80→    karma_points: 3980,
+    81→    reputation_title: 'Elite',
+    82→  },
+    83→  {
+    84→    user_id: 'p5',
+    85→    username: 'StormGamer',
+    86→    avatar_url: '',
+    87→    rating: 2490,
+    88→    total_matches: 265,
+    89→    wins: 210,
+    90→    karma_points: 3750,
+    91→    reputation_title: 'Elite',
+    92→  },
+    93→  {
+    94→    user_id: 'p6',
+    95→    username: 'VenomStrike',
+    96→    avatar_url: '',
+    97→    rating: 2400,
+    98→    total_matches: 251,
+    99→    wins: 198,
+   100→    karma_points: 3620,
+   101→    reputation_title: 'Veterano',
+   102→  },
+   103→  {
+   104→    user_id: 'p7',
+   105→    username: 'CyberLobo',
+   106→    avatar_url: '',
+   107→    rating: 2380,
+   108→    total_matches: 245,
+   109→    wins: 190,
+   110→    karma_points: 3480,
+   111→    reputation_title: 'Veterano',
+   112→  },
+   113→  {
+   114→    user_id: 'p8',
+   115→    username: 'TrovaoDivino',
+   116→    avatar_url: '',
+   117→    rating: 2350,
+   118→    total_matches: 240,
+   119→    wins: 185,
+   120→    karma_points: 3340,
+   121→    reputation_title: 'Veterano',
+   122→  },
+   123→  {
+   124→    user_id: 'p9',
+   125→    username: 'FerroVelho',
+   126→    avatar_url: '',
+   127→    rating: 2310,
+   128→    total_matches: 232,
+   129→    wins: 178,
+   130→    karma_points: 3200,
+   131→    reputation_title: 'Veterano',
+   132→  },
+   133→  {
+   134→    user_id: 'p10',
+   135→    username: 'MatériaEscura',
+   136→    avatar_url: '',
+   137→    rating: 2280,
+   138→    total_matches: 225,
+   139→    wins: 172,
+   140→    karma_points: 3100,
+   141→    reputation_title: 'Veterano',
+   142→  },
+   143→  {
+   144→    user_id: 'p11',
+   145→    username: 'BlazeRunner',
+   146→    avatar_url: '',
+   147→    rating: 2250,
+   148→    total_matches: 220,
+   149→    wins: 165,
+   150→    karma_points: 2980,
+   151→    reputation_title: 'Experiente',
+   152→  },
+   153→  {
+   154→    user_id: 'p12',
+   155→    username: 'GeloBit',
+   156→    avatar_url: '',
+   157→    rating: 2220,
+   158→    total_matches: 215,
+   159→    wins: 160,
+   160→    karma_points: 2890,
+   161→    reputation_title: 'Experiente',
+   162→  },
+   163→  {
+   164→    user_id: 'p13',
+   165→    username: 'NovaEstelar',
+   166→    avatar_url: '',
+   167→    rating: 2190,
+   168→    total_matches: 210,
+   169→    wins: 155,
+   170→    karma_points: 2780,
+   171→    reputation_title: 'Experiente',
+   172→  },
+   173→  {
+   174→    user_id: 'p14',
+   175→    username: 'LâminaAfiada',
+   176→    avatar_url: '',
+   177→    rating: 2160,
+   178→    total_matches: 205,
+   179→    wins: 148,
+   180→    karma_points: 2650,
+   181→    reputation_title: 'Experiente',
+   182→  },
+   183→  {
+   184→    user_id: 'p15',
+   185→    username: 'QuantumBR',
+   186→    avatar_url: '',
+   187→    rating: 2130,
+   188→    total_matches: 198,
+   189→    wins: 142,
+   190→    karma_points: 2540,
+   191→    reputation_title: 'Ascendente',
+   192→  },
+   193→];
+   194→
+   195→// ============================================================
+   196→// DADOS MOCK - EQUIPAS
+   197→// ============================================================
+   198→
+   199→const MOCK_TEAMS: EsportTeam[] = [
+   200→  {
+   201→    id: 't1',
+   202→    name: 'Legião das Sombras',
+   203→    slug: 'legiao-das-sombras',
+   204→    tag: 'LDS',
+   205→    logo_url: '',
+   206→    banner_url: '',
+   207→    description: '',
+   208→    country: 'AO',
+   209→    region: 'AO',
+   210→    discord_url: null,
+   211→    social_links: null,
+   212→    owner_id: 'o1',
+   213→    is_verified: true,
+   214→    is_public: true,
+   215→    total_wins: 89,
+   216→    total_losses: 12,
+   217→    total_tournaments: 45,
+   218→    total_earnings: 250000,
+   219→    rating: 1720,
+   220→    created_at: '',
+   221→    updated_at: '',
+   222→  },
+   223→  {
+   224→    id: 't2',
+   225→    name: 'Fénix Renascida',
+   226→    slug: 'fenix-renascida',
+   227→    tag: 'FEN',
+   228→    logo_url: '',
+   229→    banner_url: '',
+   230→    description: '',
+   231→    country: 'BR',
+   232→    region: 'BR',
+   233→    discord_url: null,
+   234→    social_links: null,
+   235→    owner_id: 'o2',
+   236→    is_verified: true,
+   237→    is_public: true,
+   238→    total_wins: 82,
+   239→    total_losses: 18,
+   240→    total_tournaments: 42,
+   241→    total_earnings: 210000,
+   242→    rating: 1680,
+   243→    created_at: '',
+   244→    updated_at: '',
+   245→  },
+   246→  {
+   247→    id: 't3',
+   248→    name: 'Lobos do Trovão',
+   249→    slug: 'lobos-do-trovao',
+   250→    tag: 'LBT',
+   251→    logo_url: '',
+   252→    banner_url: '',
+   253→    description: '',
+   254→    country: 'PT',
+   255→    region: 'EU',
+   256→    discord_url: null,
+   257→    social_links: null,
+   258→    owner_id: 'o3',
+   259→    is_verified: true,
+   260→    is_public: true,
+   261→    total_wins: 76,
+   262→    total_losses: 22,
+   263→    total_tournaments: 40,
+   264→    total_earnings: 185000,
+   265→    rating: 1640,
+   266→    created_at: '',
+   267→    updated_at: '',
+   268→  },
+   269→  {
+   270→    id: 't4',
+   271→    name: 'Vanguarda de Ferro',
+   272→    slug: 'vanguarda-de-ferro',
+   273→    tag: 'VDF',
+   274→    logo_url: '',
+   275→    banner_url: '',
+   276→    description: '',
+   277→    country: 'AO',
+   278→    region: 'AO',
+   279→    discord_url: null,
+   280→    social_links: null,
+   281→    owner_id: 'o4',
+   282→    is_verified: true,
+   283→    is_public: true,
+   284→    total_wins: 71,
+   285→    total_losses: 25,
+   286→    total_tournaments: 38,
+   287→    total_earnings: 160000,
+   288→    rating: 1590,
+   289→    created_at: '',
+   290→    updated_at: '',
+   291→  },
+   292→  {
+   293→    id: 't5',
+   294→    name: 'Neon Strikers',
+   295→    slug: 'neon-strikers',
+   296→    tag: 'NNS',
+   297→    logo_url: '',
+   298→    banner_url: '',
+   299→    description: '',
+   300→    country: 'MZ',
+   301→    region: 'AO',
+   302→    discord_url: null,
+   303→    social_links: null,
+   304→    owner_id: 'o5',
+   305→    is_verified: false,
+   306→    is_public: true,
+   307→    total_wins: 65,
+   308→    total_losses: 30,
+   309→    total_tournaments: 35,
+   310→    total_earnings: 135000,
+   311→    rating: 1520,
+   312→    created_at: '',
+   313→    updated_at: '',
+   314→  },
+   315→  {
+   316→    id: 't6',
+   317→    name: 'Maré Carmesim',
+   318→    slug: 'mare-carmesim',
+   319→    tag: 'MCR',
+   320→    logo_url: '',
+   321→    banner_url: '',
+   322→    description: '',
+   323→    country: 'AO',
+   324→    region: 'AO',
+   325→    discord_url: null,
+   326→    social_links: null,
+   327→    owner_id: 'o6',
+   328→    is_verified: true,
+   329→    is_public: true,
+   330→    total_wins: 60,
+   331→    total_losses: 28,
+   332→    total_tournaments: 33,
+   333→    total_earnings: 120000,
+   334→    rating: 1480,
+   335→    created_at: '',
+   336→    updated_at: '',
+   337→  },
+   338→  {
+   339→    id: 't7',
+   340→    name: 'Raposas Árticas',
+   341→    slug: 'raposas-articas',
+   342→    tag: 'RAX',
+   343→    logo_url: '',
+   344→    banner_url: '',
+   345→    description: '',
+   346→    country: 'BR',
+   347→    region: 'BR',
+   348→    discord_url: null,
+   349→    social_links: null,
+   350→    owner_id: 'o7',
+   351→    is_verified: false,
+   352→    is_public: true,
+   353→    total_wins: 55,
+   354→    total_losses: 32,
+   355→    total_tournaments: 30,
+   356→    total_earnings: 95000,
+   357→    rating: 1420,
+   358→    created_at: '',
+   359→    updated_at: '',
+   360→  },
+   361→  {
+   362→    id: 't8',
+   363→    name: 'Horizonte Negro',
+   364→    slug: 'horizonte-negro',
+   365→    tag: 'HRN',
+   366→    logo_url: '',
+   367→    banner_url: '',
+   368→    description: '',
+   369→    country: 'PT',
+   370→    region: 'EU',
+   371→    discord_url: null,
+   372→    social_links: null,
+   373→    owner_id: 'o8',
+   374→    is_verified: false,
+   375→    is_public: true,
+   376→    total_wins: 50,
+   377→    total_losses: 35,
+   378→    total_tournaments: 28,
+   379→    total_earnings: 80000,
+   380→    rating: 1370,
+   381→    created_at: '',
+   382→    updated_at: '',
+   383→  },
+   384→  {
+   385→    id: 't9',
+   386→    name: 'Chama Solar',
+   387→    slug: 'chama-solar',
+   388→    tag: 'CHS',
+   389→    logo_url: '',
+   390→    banner_url: '',
+   391→    description: '',
+   392→    country: 'AO',
+   393→    region: 'AO',
+   394→    discord_url: null,
+   395→    social_links: null,
+   396→    owner_id: 'o9',
+   397→    is_verified: false,
+   398→    is_public: true,
+   399→    total_wins: 45,
+   400→    total_losses: 38,
+   401→    total_tournaments: 25,
+   402→    total_earnings: 65000,
+   403→    rating: 1310,
+   404→    created_at: '',
+   405→    updated_at: '',
+   406→  },
+   407→  {
+   408→    id: 't10',
+   409→    name: 'Eclipse Lunar',
+   410→    slug: 'eclipse-lunar',
+   411→    tag: 'ECL',
+   412→    logo_url: '',
+   413→    banner_url: '',
+   414→    description: '',
+   415→    country: 'MZ',
+   416→    region: 'AO',
+   417→    discord_url: null,
+   418→    social_links: null,
+   419→    owner_id: 'o10',
+   420→    is_verified: false,
+   421→    is_public: true,
+   422→    total_wins: 40,
+   423→    total_losses: 40,
+   424→    total_tournaments: 22,
+   425→    total_earnings: 50000,
+   426→    rating: 1250,
+   427→    created_at: '',
+   428→    updated_at: '',
+   429→  },
+   430→];
+   431→
+   432→// ============================================================
+   433→// FUNÇÕES AUXILIARES
+   434→// ============================================================
+   435→
+   436→function calcularTaxaVitorias(vitorias: number, total: number): number {
+   437→  if (total === 0) return 0;
+   438→  return Math.round((vitorias / total) * 100);
+   439→}
+   440→
+   441→function obterIniciais(nome: string): string {
+   442→  return nome
+   443→    .split(' ')
+   444→    .map((palavra) => palavra[0])
+   445→    .join('')
+   446→    .toUpperCase()
+   447→    .slice(0, 2);
+   448→}
+   449→
+   450→function obterDireccaoTendencia(indice: number): 'up' | 'down' | 'stable' {
+   451→  const padroes = [0, 1, 2, 4, 6, 9, 11, 14];
+   452→  if (padroes.includes(indice % 20)) return 'up';
+   453→  if (padroes.includes((indice + 5) % 20)) return 'down';
+   454→  return 'stable';
+   455→}
+   456→
+   457→function obterCorReputacao(titulo: string): string {
+   458→  if (titulo.includes('Lenda')) return 'bg-red-500/20 text-red-400 border border-red-500/30';
+   459→  if (titulo.includes('Mestre')) return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+   460→  if (titulo.includes('Elite')) return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+   461→  if (titulo.includes('Veterano')) return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+   462→  if (titulo.includes('Experiente')) return 'bg-sky-500/20 text-sky-400 border border-sky-500/30';
+   463→  return 'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30';
+   464→}
+   465→
+   466→function obterCorGlowReputacao(titulo: string): string {
+   467→  if (titulo.includes('Lenda')) return '0 0 8px rgba(239, 68, 68, 0.4), 0 0 16px rgba(239, 68, 68, 0.2)';
+   468→  if (titulo.includes('Mestre')) return '0 0 8px rgba(168, 85, 247, 0.4), 0 0 16px rgba(168, 85, 247, 0.2)';
+   469→  if (titulo.includes('Elite')) return '0 0 8px rgba(245, 158, 11, 0.4), 0 0 16px rgba(245, 158, 11, 0.2)';
+   470→  return 'none';
+   471→}
+   472→
+   473→function obterCorBarraProgresso(taxa: number): string {
+   474→  if (taxa >= 85) return 'bg-gradient-to-r from-amber-400 to-yellow-300';
+   475→  if (taxa >= 75) return 'bg-gradient-to-r from-emerald-400 to-green-300';
+   476→  if (taxa >= 65) return 'bg-gradient-to-r from-cyan-400 to-sky-300';
+   477→  if (taxa >= 50) return 'bg-gradient-to-r from-violet-400 to-purple-300';
+   478→  return 'bg-gradient-to-r from-zinc-400 to-zinc-300';
+   479→}
+   480→
+   481→// ============================================================
+   482→// COMPONENTE: ÍCONE DE TENDÊNCIA
+   483→// ============================================================
+   484→
+   485→function IconeTendencia({ indice }: { indice: number }) {
+   486→  const direcao = obterDireccaoTendencia(indice);
+   487→
+   488→  if (direcao === 'up') {
+   489→    return (
+   490→      <span className="flex items-center text-emerald-400">
+   491→        <ChevronUp className="w-4 h-4" />
+   492→      </span>
+   493→    );
+   494→  }
+   495→
+   496→  if (direcao === 'down') {
+   497→    return (
+   498→      <span className="flex items-center text-red-400">
+   499→        <ChevronDown className="w-4 h-4" />
+   500→      </span>
+   501→    );
+   502→  }
+   503→
+   504→  return (
+   505→    <span className="flex items-center text-zinc-500">
+   506→      <Minus className="w-4 h-4" />
+   507→    </span>
+   508→  );
+   509→}
+   510→
+   511→// ============================================================
+   512→// COMPONENTE: BARRA DE TAXA DE VITÓRIAS
+   513→// ============================================================
+   514→
+   515→function BarraTaxaVitorias({ taxa }: { taxa: number }) {
+   516→  const corBarra = obterCorBarraProgresso(taxa);
+   517→
+   518→  return (
+   519→    <div className="flex items-center gap-2 w-24">
+   520→      <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+   521→        <motion.div
+   522→          className={"h-full rounded-full " + corBarra}
+   523→          initial={{ width: 0 }}
+   524→          animate={{ width: `${taxa}%` }}
+   525→          transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+   526→        />
+   527→      </div>
+   528→      <span className="text-xs text-zinc-300 font-mono w-10 text-right">{taxa}%</span>
+   529→    </div>
+   530→  );
+   531→}
+   532→
+   533→// ============================================================
+   534→// COMPONENTE: PÓDIO TOP 3 (JOGADORES)
+   535→// ============================================================
+   536→
+   537→function PodioJogadores({
+   538→  jogadores,
+   539→}: {
+   540→  jogadores: GlobalLeaderboardEntry[];
+   541→}) {
+   542→  const topo3 = jogadores.slice(0, 3);
+   543→  const primeiro = topo3[0];
+   544→  const segundo = topo3[1];
+   545→  const terceiro = topo3[2];
+   546→
+   547→  return (
+   548→    <div className="relative pt-6 pb-10">
+   549→      {/* Reflexo no chão */}
+   550→      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-transparent via-purple-500/5 to-transparent pointer-events-none" />
+   551→
+   552→      <div className="flex items-end justify-center gap-3 sm:gap-6 md:gap-10 px-4">
+   553→        {/* 2º Lugar */}
+   554→        <motion.div
+   555→          className="flex flex-col items-center"
+   556→          initial={{ opacity: 0, y: 40 }}
+   557→          animate={{ opacity: 1, y: 0 }}
+   558→          transition={{ duration: 0.6, delay: 0.2 }}
+   559→        >
+   560→          <div className="relative mb-2">
+   561→            <Avatar className="w-14 h-14 sm:w-16 sm:h-16 ring-2 ring-zinc-400/50">
+   562→              <AvatarImage src={segundo.avatar_url || ''} alt={segundo.username} />
+   563→              <AvatarFallback className="bg-zinc-700 text-zinc-200 text-sm font-bold">
+   564→                {obterIniciais(segundo.username || '?')}
+   565→              </AvatarFallback>
+   566→            </Avatar>
+   567→            <div
+   568→              className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-zinc-300 to-zinc-500 flex items-center justify-center shadow-lg"
+   569→              style={{
+   570→                boxShadow: '0 0 10px rgba(161, 161, 170, 0.5)',
+   571→              }}
+   572→            >
+   573→              <Medal className="w-4 h-4 text-zinc-900" />
+   574→            </div>
+   575→          </div>
+   576→          <span
+   577→            className="text-sm sm:text-base font-bold text-zinc-300 mb-0.5"
+   578→            style={{
+   579→              textShadow: '0 0 8px rgba(161, 161, 170, 0.3)',
+   580→            }}
+   581→          >
+   582→            {segundo.username}
+   583→          </span>
+   584→          <span className="text-xs text-zinc-500 font-mono mb-3">
+   585→            {segundo.karma_points.toLocaleString('pt-BR')} KP
+   586→          </span>
+   587→          <div
+   588→            className="w-20 sm:w-28 h-24 rounded-t-lg flex items-center justify-center"
+   589→            style={{
+   590→              background: 'linear-gradient(180deg, #a1a1aa 0%, #71717a 100%)',
+   591→            }}
+   592→          >
+   593→            <span className="text-2xl sm:text-3xl font-black text-zinc-900/80">2</span>
+   594→          </div>
+   595→          <div
+   596→            className="w-20 sm:w-28 h-6 rounded-b-sm"
+   597→            style={{
+   598→              background: 'linear-gradient(180deg, rgba(161,161,170,0.15) 0%, transparent 100%)',
+   599→              filter: 'blur(2px)',
+   600→            }}
+   601→          />
+   602→        </motion.div>
+   603→
+   604→        {/* 1º Lugar */}
+   605→        <motion.div
+   606→          className="flex flex-col items-center"
+   607→          initial={{ opacity: 0, y: 50 }}
+   608→          animate={{ opacity: 1, y: 0 }}
+   609→          transition={{ duration: 0.7, delay: 0.1 }}
+   610→        >
+   611→          <motion.div
+   612→            animate={{ y: [0, -8, 0] }}
+   613→            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+   614→            className="relative mb-2"
+   615→          >
+   616→            <Avatar className="w-18 h-18 sm:w-20 sm:h-20 ring-2 ring-amber-400/60">
+   617→              <AvatarImage src={primeiro.avatar_url || ''} alt={primeiro.username} />
+   618→              <AvatarFallback className="bg-amber-900/60 text-amber-300 text-base font-bold">
+   619→                {obterIniciais(primeiro.username || '?')}
+   620→              </AvatarFallback>
+   621→            </Avatar>
+   622→            <div
+   623→              className="absolute -top-3 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center"
+   624→              style={{
+   625→                boxShadow:
+   626→                  '0 0 12px rgba(251, 191, 36, 0.6), 0 0 24px rgba(251, 191, 36, 0.3)',
+   627→              }}
+   628→            >
+   629→              <Crown className="w-4 h-4 text-amber-900" />
+   630→            </div>
+   631→          </motion.div>
+   632→          <span
+   633→            className="text-base sm:text-lg font-black text-amber-400 mb-0.5"
+   634→            style={{
+   635→              textShadow:
+   636→                '0 0 10px rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3)',
+   637→            }}
+   638→          >
+   639→            {primeiro.username}
+   640→          </span>
+   641→          <span className="text-sm text-amber-500/80 font-mono font-bold mb-3">
+   642→            {primeiro.karma_points.toLocaleString('pt-BR')} KP
+   643→          </span>
+   644→          <div
+   645→            className="w-24 sm:w-32 h-32 rounded-t-lg flex items-center justify-center"
+   646→            style={{
+   647→              background: 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%)',
+   648→              boxShadow:
+   649→                '0 0 20px rgba(251, 191, 36, 0.3), 0 -4px 30px rgba(251, 191, 36, 0.15)',
+   650→            }}
+   651→          >
+   652→            <span className="text-3xl sm:text-4xl font-black text-amber-950/70">1</span>
+   653→          </div>
+   654→          <div
+   655→            className="w-24 sm:w-32 h-8 rounded-b-sm"
+   656→            style={{
+   657→              background:
+   658→                'linear-gradient(180deg, rgba(251,191,36,0.2) 0%, transparent 100%)',
+   659→              filter: 'blur(3px)',
+   660→            }}
+   661→          />
+   662→        </motion.div>
+   663→
+   664→        {/* 3º Lugar */}
+   665→        <motion.div
+   666→          className="flex flex-col items-center"
+   667→          initial={{ opacity: 0, y: 40 }}
+   668→          animate={{ opacity: 1, y: 0 }}
+   669→          transition={{ duration: 0.6, delay: 0.3 }}
+   670→        >
+   671→          <div className="relative mb-2">
+   672→            <Avatar className="w-14 h-14 sm:w-16 sm:h-16 ring-2 ring-orange-600/50">
+   673→              <AvatarImage src={terceiro.avatar_url || ''} alt={terceiro.username} />
+   674→              <AvatarFallback className="bg-orange-900/50 text-orange-300 text-sm font-bold">
+   675→                {obterIniciais(terceiro.username || '?')}
+   676→              </AvatarFallback>
+   677→            </Avatar>
+   678→            <div
+   679→              className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-orange-700 flex items-center justify-center shadow-lg"
+   680→              style={{
+   681→                boxShadow: '0 0 10px rgba(234, 88, 12, 0.5)',
+   682→              }}
+   683→            >
+   684→              <Medal className="w-4 h-4 text-orange-100" />
+   685→            </div>
+   686→          </div>
+   687→          <span
+   688→            className="text-sm sm:text-base font-bold text-orange-400 mb-0.5"
+   689→            style={{
+   690→              textShadow: '0 0 8px rgba(234, 88, 12, 0.3)',
+   691→            }}
+   692→          >
+   693→            {terceiro.username}
+   694→          </span>
+   695→          <span className="text-xs text-orange-500/60 font-mono mb-3">
+   696→            {terceiro.karma_points.toLocaleString('pt-BR')} KP
+   697→          </span>
+   698→          <div
+   699→            className="w-20 sm:w-28 h-24 rounded-t-lg flex items-center justify-center"
+   700→            style={{
+   701→              background: 'linear-gradient(180deg, #ea580c 0%, #92400e 100%)',
+   702→            }}
+   703→          >
+   704→            <span className="text-2xl sm:text-3xl font-black text-orange-100/70">3</span>
+   705→          </div>
+   706→          <div
+   707→            className="w-20 sm:w-28 h-6 rounded-b-sm"
+   708→            style={{
+   709→              background:
+   710→                'linear-gradient(180deg, rgba(234,88,12,0.15) 0%, transparent 100%)',
+   711→              filter: 'blur(2px)',
+   712→            }}
+   713→          />
+   714→        </motion.div>
+   715→      </div>
+   716→    </div>
+   717→  );
+   718→}
+   719→
+   720→// ============================================================
+   721→// COMPONENTE: PÓDIO TOP 3 (EQUIPAS)
+   722→// ============================================================
+   723→
+   724→function PodioEquipas({ equipas }: { equipas: EsportTeam[] }) {
+   725→  const topo3 = equipas.slice(0, 3);
+   726→  const primeira = topo3[0];
+   727→  const segunda = topo3[1];
+   728→  const terceira = topo3[2];
+   729→
+   730→  return (
+   731→    <div className="relative pt-6 pb-10">
+   732→      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-transparent via-cyan-500/5 to-transparent pointer-events-none" />
+   733→
+   734→      <div className="flex items-end justify-center gap-3 sm:gap-6 md:gap-10 px-4">
+   735→        {/* 2ª Equipa */}
+   736→        <motion.div
+   737→          className="flex flex-col items-center"
+   738→          initial={{ opacity: 0, y: 40 }}
+   739→          animate={{ opacity: 1, y: 0 }}
+   740→          transition={{ duration: 0.6, delay: 0.2 }}
+   741→        >
+   742→          <div className="relative mb-2">
+   743→            <Avatar className="w-14 h-14 sm:w-16 sm:h-16 ring-2 ring-zinc-400/50">
+   744→              <AvatarImage src={segunda.logo_url || ''} alt={segunda.name} />
+   745→              <AvatarFallback className="bg-zinc-700 text-zinc-200 text-sm font-bold">
+   746→                {obterIniciais(segunda.name)}
+   747→              </AvatarFallback>
+   748→            </Avatar>
+   749→            <div
+   750→              className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-zinc-300 to-zinc-500 flex items-center justify-center shadow-lg"
+   751→              style={{
+   752→                boxShadow: '0 0 10px rgba(161, 161, 170, 0.5)',
+   753→              }}
+   754→            >
+   755→              <Medal className="w-4 h-4 text-zinc-900" />
+   756→            </div>
+   757→          </div>
+   758→          <span
+   759→            className="text-sm sm:text-base font-bold text-zinc-300 mb-0.5"
+   760→            style={{
+   761→              textShadow: '0 0 8px rgba(161, 161, 170, 0.3)',
+   762→            }}
+   763→          >
+   764→            {segunda.tag && (
+   765→              <span className="text-zinc-500 text-xs mr-1">[{segunda.tag}]</span>
+   766→            )}
+   767→            {segunda.name}
+   768→          </span>
+   769→          <span className="text-xs text-zinc-500 font-mono mb-3">
+   770→            {segunda.rating} RTG
+   771→          </span>
+   772→          <div
+   773→            className="w-20 sm:w-28 h-24 rounded-t-lg flex items-center justify-center"
+   774→            style={{
+   775→              background: 'linear-gradient(180deg, #a1a1aa 0%, #71717a 100%)',
+   776→            }}
+   777→          >
+   778→            <span className="text-2xl sm:text-3xl font-black text-zinc-900/80">2</span>
+   779→          </div>
+   780→          <div
+   781→            className="w-20 sm:w-28 h-6 rounded-b-sm"
+   782→            style={{
+   783→              background: 'linear-gradient(180deg, rgba(161,161,170,0.15) 0%, transparent 100%)',
+   784→              filter: 'blur(2px)',
+   785→            }}
+   786→          />
+   787→        </motion.div>
+   788→
+   789→        {/* 1ª Equipa */}
+   790→        <motion.div
+   791→          className="flex flex-col items-center"
+   792→          initial={{ opacity: 0, y: 50 }}
+   793→          animate={{ opacity: 1, y: 0 }}
+   794→          transition={{ duration: 0.7, delay: 0.1 }}
+   795→        >
+   796→          <motion.div
+   797→            animate={{ y: [0, -8, 0] }}
+   798→            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+   799→            className="relative mb-2"
+   800→          >
+   801→            <Avatar className="w-18 h-18 sm:w-20 sm:h-20 ring-2 ring-amber-400/60">
+   802→              <AvatarImage src={primeira.logo_url || ''} alt={primeira.name} />
+   803→              <AvatarFallback className="bg-amber-900/60 text-amber-300 text-base font-bold">
+   804→                {obterIniciais(primeira.name)}
+   805→              </AvatarFallback>
+   806→            </Avatar>
+   807→            <div
+   808→              className="absolute -top-3 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center"
+   809→              style={{
+   810→                boxShadow:
+   811→                  '0 0 12px rgba(251, 191, 36, 0.6), 0 0 24px rgba(251, 191, 36, 0.3)',
+   812→              }}
+   813→            >
+   814→              <Crown className="w-4 h-4 text-amber-900" />
+   815→            </div>
+   816→          </motion.div>
+   817→          <span
+   818→            className="text-base sm:text-lg font-black text-amber-400 mb-0.5"
+   819→            style={{
+   820→              textShadow:
+   821→                '0 0 10px rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3)',
+   822→            }}
+   823→          >
+   824→            {primeira.tag && (
+   825→              <span className="text-amber-600/80 text-xs mr-1">[{primeira.tag}]</span>
+   826→            )}
+   827→            {primeira.name}
+   828→          </span>
+   829→          <span className="text-sm text-amber-500/80 font-mono font-bold mb-3">
+   830→            {primeira.rating} RTG
+   831→          </span>
+   832→          <div
+   833→            className="w-24 sm:w-32 h-32 rounded-t-lg flex items-center justify-center"
+   834→            style={{
+   835→              background: 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%)',
+   836→              boxShadow:
+   837→                '0 0 20px rgba(251, 191, 36, 0.3), 0 -4px 30px rgba(251, 191, 36, 0.15)',
+   838→            }}
+   839→          >
+   840→            <span className="text-3xl sm:text-4xl font-black text-amber-950/70">1</span>
+   841→          </div>
+   842→          <div
+   843→            className="w-24 sm:w-32 h-8 rounded-b-sm"
+   844→            style={{
+   845→              background:
+   846→                'linear-gradient(180deg, rgba(251,191,36,0.2) 0%, transparent 100%)',
+   847→              filter: 'blur(3px)',
+   848→            }}
+   849→          />
+   850→        </motion.div>
+   851→
+   852→        {/* 3ª Equipa */}
+   853→        <motion.div
+   854→          className="flex flex-col items-center"
+   855→          initial={{ opacity: 0, y: 40 }}
+   856→          animate={{ opacity: 1, y: 0 }}
+   857→          transition={{ duration: 0.6, delay: 0.3 }}
+   858→        >
+   859→          <div className="relative mb-2">
+   860→            <Avatar className="w-14 h-14 sm:w-16 sm:h-16 ring-2 ring-orange-600/50">
+   861→              <AvatarImage src={terceira.logo_url || ''} alt={terceira.name} />
+   862→              <AvatarFallback className="bg-orange-900/50 text-orange-300 text-sm font-bold">
+   863→                {obterIniciais(terceira.name)}
+   864→              </AvatarFallback>
+   865→            </Avatar>
+   866→            <div
+   867→              className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-orange-700 flex items-center justify-center shadow-lg"
+   868→              style={{
+   869→                boxShadow: '0 0 10px rgba(234, 88, 12, 0.5)',
+   870→              }}
+   871→            >
+   872→              <Medal className="w-4 h-4 text-orange-100" />
+   873→            </div>
+   874→          </div>
+   875→          <span
+   876→            className="text-sm sm:text-base font-bold text-orange-400 mb-0.5"
+   877→            style={{
+   878→              textShadow: '0 0 8px rgba(234, 88, 12, 0.3)',
+   879→            }}
+   880→          >
+   881→            {terceira.tag && (
+   882→              <span className="text-orange-600/80 text-xs mr-1">[{terceira.tag}]</span>
+   883→            )}
+   884→            {terceira.name}
+   885→          </span>
+   886→          <span className="text-xs text-orange-500/60 font-mono mb-3">
+   887→            {terceira.rating} RTG
+   888→          </span>
+   889→          <div
+   890→            className="w-20 sm:w-28 h-24 rounded-t-lg flex items-center justify-center"
+   891→            style={{
+   892→              background: 'linear-gradient(180deg, #ea580c 0%, #92400e 100%)',
+   893→            }}
+   894→          >
+   895→            <span className="text-2xl sm:text-3xl font-black text-orange-100/70">3</span>
+   896→          </div>
+   897→          <div
+   898→            className="w-20 sm:w-28 h-6 rounded-b-sm"
+   899→            style={{
+   900→              background:
+   901→                'linear-gradient(180deg, rgba(234,88,12,0.15) 0%, transparent 100%)',
+   902→              filter: 'blur(2px)',
+   903→            }}
+   904→          />
+   905→        </motion.div>
+   906→      </div>
+   907→    </div>
+   908→  );
+   909→}
+   910→
+   911→// ============================================================
+   912→// COMPONENTE: LINHA DA TABELA DE JOGADORES
+   913→// ============================================================
+   914→
+   915→function LinhaJogador({
+   916→  jogador,
+   917→  posicao,
+   918→  indice,
+   919→}: {
+   920→  jogador: GlobalLeaderboardEntry;
+   921→  posicao: number;
+   922→  indice: number;
+   923→}) {
+   924→  const taxa = calcularTaxaVitorias(jogador.wins, jogador.total_matches);
+   925→  const ehImpar = posicao % 2 === 1;
+   926→  const bordaEsquerda =
+   927→    posicao >= 4 && posicao <= 10
+   928→      ? 'border-l-2 border-l-emerald-600'
+   929→      : 'border-l-2 border-l-transparent';
+   930→  const corReputacao = obterCorReputacao(jogador.reputation_title);
+   931→  const glowReputacao = obterCorGlowReputacao(jogador.reputation_title);
+   932→
+   933→  return (
+   934→    <motion.div
+   935→      className={
+   936→        'flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-lg border border-white/5 transition-colors hover:bg-white/[0.04] ' +
+   937→        (ehImpar ? 'bg-white/[0.02]' : '') +
+   938→        ' ' +
+   939→        bordaEsquerda
+   940→      }
+   941→      initial={{ opacity: 0, x: -20 }}
+   942→      animate={{ opacity: 1, x: 0 }}
+   943→      transition={{ duration: 0.3, delay: indice * 0.04 }}
+   944→    >
+   945→      {/* Posição + Tendência */}
+   946→      <div className="flex items-center gap-1.5 w-10 sm:w-14 shrink-0">
+   947→        <span className="text-sm font-mono text-zinc-400 w-6 text-center">
+   948→          #{posicao}
+   949→        </span>
+   950→        <IconeTendencia indice={indice} />
+   951→      </div>
+   952→
+   953→      {/* Avatar + Nome */}
+   954→      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+   955→        <Avatar className="w-8 h-8 sm:w-9 sm:h-9 shrink-0">
+   956→          <AvatarImage src={jogador.avatar_url || ''} alt={jogador.username} />
+   957→          <AvatarFallback className="bg-zinc-800 text-zinc-300 text-xs font-semibold">
+   958→            {obterIniciais(jogador.username || '?')}
+   959→          </AvatarFallback>
+   960→        </Avatar>
+   961→        <div className="min-w-0">
+   962→          <span className="text-sm font-semibold text-white truncate block">
+   963→            {jogador.username}
+   964→          </span>
+   965→          <div className="mt-0.5">
+   966→            <span
+   967→              className={
+   968→                'inline-block text-[10px] px-1.5 py-0.5 rounded-full font-semibold ' +
+   969→                corReputacao
+   970→              }
+   971→              style={{
+   972→                boxShadow: glowReputacao,
+   973→              }}
+   974→            >
+   975→              {jogador.reputation_title}
+   976→            </span>
+   977→          </div>
+   978→        </div>
+   979→      </div>
+   980→
+   981→      {/* Karma */}
+   982→      <div className="hidden sm:flex flex-col items-end w-20 shrink-0">
+   983→        <span
+   984→          className="text-sm font-bold font-mono text-cyan-400"
+   985→          style={{
+   986→            textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
+   987→          }}
+   988→        >
+   989→          {jogador.karma_points.toLocaleString('pt-BR')}
+   990→        </span>
+   991→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+   992→          Karma
+   993→        </span>
+   994→      </div>
+   995→
+   996→      {/* Jogos */}
+   997→      <div className="hidden md:flex flex-col items-center w-14 shrink-0">
+   998→        <span className="text-sm font-mono text-zinc-300">
+   999→          {jogador.total_matches}
+  1000→        </span>
+  1001→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1002→          Jogos
+  1003→        </span>
+  1004→      </div>
+  1005→
+  1006→      {/* Vitórias */}
+  1007→      <div className="hidden md:flex flex-col items-center w-14 shrink-0">
+  1008→        <span className="text-sm font-mono text-emerald-400">
+  1009→          {jogador.wins}
+  1010→        </span>
+  1011→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1012→          Vitórias
+  1013→        </span>
+  1014→      </div>
+  1015→
+  1016→      {/* Taxa de Vitórias */}
+  1017→      <div className="hidden lg:flex shrink-0">
+  1018→        <BarraTaxaVitorias taxa={taxa} />
+  1019→      </div>
+  1020→    </motion.div>
+  1021→  );
+  1022→}
+  1023→
+  1024→// ============================================================
+  1025→// COMPONENTE: LINHA DA TABELA DE EQUIPAS
+  1026→// ============================================================
+  1027→
+  1028→function LinhaEquipa({
+  1029→  equipa,
+  1030→  posicao,
+  1031→  indice,
+  1032→}: {
+  1033→  equipa: EsportTeam;
+  1034→  posicao: number;
+  1035→  indice: number;
+  1036→}) {
+  1037→  const totalJogos = equipa.total_wins + equipa.total_losses;
+  1038→  const taxa = calcularTaxaVitorias(equipa.total_wins, totalJogos);
+  1039→  const ehImpar = posicao % 2 === 1;
+  1040→  const bordaEsquerda =
+  1041→    posicao >= 4 && posicao <= 10
+  1042→      ? 'border-l-2 border-l-emerald-600'
+  1043→      : 'border-l-2 border-l-transparent';
+  1044→
+  1045→  return (
+  1046→    <motion.div
+  1047→      className={
+  1048→        'flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-lg border border-white/5 transition-colors hover:bg-white/[0.04] ' +
+  1049→        (ehImpar ? 'bg-white/[0.02]' : '') +
+  1050→        ' ' +
+  1051→        bordaEsquerda
+  1052→      }
+  1053→      initial={{ opacity: 0, x: -20 }}
+  1054→      animate={{ opacity: 1, x: 0 }}
+  1055→      transition={{ duration: 0.3, delay: indice * 0.04 }}
+  1056→    >
+  1057→      {/* Posição + Tendência */}
+  1058→      <div className="flex items-center gap-1.5 w-10 sm:w-14 shrink-0">
+  1059→        <span className="text-sm font-mono text-zinc-400 w-6 text-center">
+  1060→          #{posicao}
+  1061→        </span>
+  1062→        <IconeTendencia indice={indice} />
+  1063→      </div>
+  1064→
+  1065→      {/* Avatar + Nome */}
+  1066→      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+  1067→        <Avatar className="w-8 h-8 sm:w-9 sm:h-9 shrink-0">
+  1068→          <AvatarImage src={equipa.logo_url || ''} alt={equipa.name} />
+  1069→          <AvatarFallback className="bg-zinc-800 text-zinc-300 text-xs font-semibold">
+  1070→            {obterIniciais(equipa.name)}
+  1071→          </AvatarFallback>
+  1072→        </Avatar>
+  1073→        <div className="min-w-0">
+  1074→          <div className="flex items-center gap-1.5">
+  1075→            {equipa.tag && (
+  1076→              <span className="text-xs text-zinc-500 font-mono shrink-0">
+  1077→                [{equipa.tag}]
+  1078→              </span>
+  1079→            )}
+  1080→            <span className="text-sm font-semibold text-white truncate">
+  1081→              {equipa.name}
+  1082→            </span>
+  1083→          </div>
+  1084→          <div className="flex items-center gap-2 mt-0.5">
+  1085→            {equipa.is_verified && (
+  1086→              <span className="inline-flex items-center gap-0.5 text-[10px] text-cyan-400">
+  1087→                <Shield className="w-3 h-3" />
+  1088→                <span>Verificada</span>
+  1089→              </span>
+  1090→            )}
+  1091→            {equipa.country && (
+  1092→              <span className="text-[10px] text-zinc-500">{equipa.country}</span>
+  1093→            )}
+  1094→          </div>
+  1095→        </div>
+  1096→      </div>
+  1097→
+  1098→      {/* Rating */}
+  1099→      <div className="hidden sm:flex flex-col items-end w-20 shrink-0">
+  1100→        <span
+  1101→          className="text-sm font-bold font-mono text-cyan-400"
+  1102→          style={{
+  1103→            textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
+  1104→          }}
+  1105→        >
+  1106→          {equipa.rating}
+  1107→        </span>
+  1108→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1109→          Rating
+  1110→        </span>
+  1111→      </div>
+  1112→
+  1113→      {/* Torneios */}
+  1114→      <div className="hidden md:flex flex-col items-center w-14 shrink-0">
+  1115→        <span className="text-sm font-mono text-zinc-300">
+  1116→          {equipa.total_tournaments}
+  1117→        </span>
+  1118→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1119→          Torneios
+  1120→        </span>
+  1121→      </div>
+  1122→
+  1123→      {/* Vitórias */}
+  1124→      <div className="hidden md:flex flex-col items-center w-14 shrink-0">
+  1125→        <span className="text-sm font-mono text-emerald-400">
+  1126→          {equipa.total_wins}
+  1127→        </span>
+  1128→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1129→          Vitórias
+  1130→        </span>
+  1131→      </div>
+  1132→
+  1133→      {/* Taxa de Vitórias */}
+  1134→      <div className="hidden lg:flex shrink-0">
+  1135→        <BarraTaxaVitorias taxa={taxa} />
+  1136→      </div>
+  1137→    </motion.div>
+  1138→  );
+  1139→}
+  1140→
+  1141→// ============================================================
+  1142→// COMPONENTE: CABEÇALHO DA TABELA
+  1143→// ============================================================
+  1144→
+  1145→function CabecalhoTabelaJogadores() {
+  1146→  return (
+  1147→    <div className="flex items-center gap-3 px-3 sm:px-4 py-2 rounded-lg bg-white/[0.03] border border-white/5 mb-1">
+  1148→      <div className="w-10 sm:w-14 shrink-0">
+  1149→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1150→          Pos
+  1151→        </span>
+  1152→      </div>
+  1153→      <div className="flex-1 min-w-0">
+  1154→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1155→          Jogador
+  1156→        </span>
+  1157→      </div>
+  1158→      <div className="hidden sm:block w-20 shrink-0 text-right">
+  1159→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1160→          Karma
+  1161→        </span>
+  1162→      </div>
+  1163→      <div className="hidden md:block w-14 shrink-0 text-center">
+  1164→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1165→          Jogos
+  1166→        </span>
+  1167→      </div>
+  1168→      <div className="hidden md:block w-14 shrink-0 text-center">
+  1169→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1170→          Vitórias
+  1171→        </span>
+  1172→      </div>
+  1173→      <div className="hidden lg:block w-24 shrink-0">
+  1174→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1175→          Taxa Vit.
+  1176→        </span>
+  1177→      </div>
+  1178→    </div>
+  1179→  );
+  1180→}
+  1181→
+  1182→function CabecalhoTabelaEquipas() {
+  1183→  return (
+  1184→    <div className="flex items-center gap-3 px-3 sm:px-4 py-2 rounded-lg bg-white/[0.03] border border-white/5 mb-1">
+  1185→      <div className="w-10 sm:w-14 shrink-0">
+  1186→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1187→          Pos
+  1188→        </span>
+  1189→      </div>
+  1190→      <div className="flex-1 min-w-0">
+  1191→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1192→          Equipa
+  1193→        </span>
+  1194→      </div>
+  1195→      <div className="hidden sm:block w-20 shrink-0 text-right">
+  1196→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1197→          Rating
+  1198→        </span>
+  1199→      </div>
+  1200→      <div className="hidden md:block w-14 shrink-0 text-center">
+  1201→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1202→          Torneios
+  1203→        </span>
+  1204→      </div>
+  1205→      <div className="hidden md:block w-14 shrink-0 text-center">
+  1206→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1207→          Vitórias
+  1208→        </span>
+  1209→      </div>
+  1210→      <div className="hidden lg:block w-24 shrink-0">
+  1211→        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1212→          Taxa Vit.
+  1213→        </span>
+  1214→      </div>
+  1215→    </div>
+  1216→  );
+  1217→}
+  1218→
+  1219→// ============================================================
+  1220→// COMPONENTE: SKELETON CARREGANDO
+  1221→// ============================================================
+  1222→
+  1223→function EsqueletoPodio() {
+  1224→  return (
+  1225→    <div className="flex items-end justify-center gap-6 pt-6 pb-10">
+  1226→      {[96, 128, 96].map((altura, i) => (
+  1227→        <div key={i} className="flex flex-col items-center gap-3">
+  1228→          <div className="w-16 h-16 rounded-full bg-white/5 animate-pulse" />
+  1229→          <div className="w-24 h-3 rounded bg-white/5 animate-pulse" />
+  1230→          <div
+  1231→            className="w-24 rounded-t-lg animate-pulse bg-white/5"
+  1232→            style={{ height: `${altura}px` }}
+  1233→          />
+  1234→        </div>
+  1235→      ))}
+  1236→    </div>
+  1237→  );
+  1238→}
+  1239→
+  1240→function EsqueletoLinha() {
+  1241→  return (
+  1242→    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-white/[0.02]">
+  1243→      <div className="w-10 h-4 rounded bg-white/5 animate-pulse" />
+  1244→      <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse" />
+  1245→      <div className="flex-1 space-y-1.5">
+  1246→        <div className="w-28 h-3 rounded bg-white/5 animate-pulse" />
+  1247→        <div className="w-16 h-2 rounded bg-white/5 animate-pulse" />
+  1248→      </div>
+  1249→      <div className="w-16 h-3 rounded bg-white/5 animate-pulse" />
+  1250→      <div className="w-12 h-3 rounded bg-white/5 animate-pulse" />
+  1251→      <div className="w-20 h-1.5 rounded-full bg-white/5 animate-pulse" />
+  1252→    </div>
+  1253→  );
+  1254→}
+  1255→
+  1256→// ============================================================
+  1257→// COMPONENTE PRINCIPAL: PÁGINA DE CLASSIFICAÇÃO
+  1258→// ============================================================
+  1259→
+  1260→export default function LeaderboardPage() {
+  1261→  const [separadorAtivo, setSeparadorAtivo] = useState<'jogadores' | 'equipas'>(
+  1262→    'jogadores'
+  1263→  );
+  1264→  const [termoPesquisa, setTermoPesquisa] = useState('');
+  1265→  const [jogadores, setJogadores] = useState<GlobalLeaderboardEntry[]>([]);
+  1266→  const [equipas, setEquipas] = useState<EsportTeam[]>([]);
+  1267→  const [aCarregar, setACarregar] = useState(true);
+  1268→
+  1269→  // Carregar dados da API
+  1270→  useEffect(() => {
+  1271→    async function carregarDados() {
+  1272→      setACarregar(true);
+  1273→      try {
+  1274→        const [dadosJogadores, dadosEquipas] = await Promise.all([
+  1275→          getPlayerLeaderboard(20),
+  1276→          getTeams({ limit: 15 }),
+  1277→        ]);
+  1278→
+  1279→        setJogadores(dadosJogadores.length > 0 ? dadosJogadores : MOCK_PLAYERS);
+  1280→        setEquipas(dadosEquipas.length > 0 ? dadosEquipas : MOCK_TEAMS);
+  1281→      } catch (erro) {
+  1282→        console.error('Erro ao carregar classificação:', erro);
+  1283→        setJogadores(MOCK_PLAYERS);
+  1284→        setEquipas(MOCK_TEAMS);
+  1285→      } finally {
+  1286→        setACarregar(false);
+  1287→      }
+  1288→    }
+  1289→    carregarDados();
+  1290→  }, []);
+  1291→
+  1292→  // Filtrar jogadores por pesquisa
+  1293→  const jogadoresFiltrados = useMemo(() => {
+  1294→    if (!termoPesquisa.trim()) return jogadores;
+  1295→    const termo = termoPesquisa.toLowerCase();
+  1296→    return jogadores.filter(
+  1297→      (j) =>
+  1298→        j.username?.toLowerCase().includes(termo) ||
+  1299→        j.reputation_title.toLowerCase().includes(termo)
+  1300→    );
+  1301→  }, [jogadores, termoPesquisa]);
+  1302→
+  1303→  // Filtrar equipas por pesquisa
+  1304→  const equipasFiltradas = useMemo(() => {
+  1305→    if (!termoPesquisa.trim()) return equipas;
+  1306→    const termo = termoPesquisa.toLowerCase();
+  1307→    return equipas.filter(
+  1308→      (e) =>
+  1309→        e.name.toLowerCase().includes(termo) ||
+  1310→        e.tag?.toLowerCase().includes(termo)
+  1311→    );
+  1312→  }, [equipas, termoPesquisa]);
+  1313→
+  1314→  // Jogadores da tabela (excluindo top 3)
+  1315→  const jogadoresTabela = jogadoresFiltrados.slice(3);
+  1316→  const equipasTabela = equipasFiltradas.slice(3);
+  1317→
+  1318→  // Estatísticas resumidas
+  1319→  const totalJogadores = jogadores.length;
+  1320→  const totalEquipas = equipas.length;
+  1321→  const mediaKarma =
+  1322→    jogadores.length > 0
+  1323→      ? Math.round(
+  1324→          jogadores.reduce((soma, j) => soma + j.karma_points, 0) /
+  1325→            jogadores.length
+  1326→        )
+  1327→      : 0;
+  1328→  const melhorTaxa =
+  1329→    jogadores.length > 0
+  1330→      ? Math.max(
+  1331→          ...jogadores.map((j) =>
+  1332→            calcularTaxaVitorias(j.wins, j.total_matches)
+  1333→          )
+  1334→        )
+  1335→      : 0;
+  1336→
+  1337→  return (
+  1338→    <div className="w-full max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+  1339→      {/* Cabeçalho */}
+  1340→      <motion.div
+  1341→        className="text-center mb-8"
+  1342→        initial={{ opacity: 0, y: -20 }}
+  1343→        animate={{ opacity: 1, y: 0 }}
+  1344→        transition={{ duration: 0.5 }}
+  1345→      >
+  1346→        <h1
+  1347→          className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white mb-2"
+  1348→          style={{
+  1349→            textShadow:
+  1350→              '0 0 10px rgba(168, 85, 247, 0.5), 0 0 30px rgba(168, 85, 247, 0.25), 0 0 10px rgba(34, 211, 238, 0.3)',
+  1351→          }}
+  1352→        >
+  1353→          RANKING GLOBAL
+  1354→        </h1>
+  1355→        <p className="text-sm sm:text-base text-zinc-400 mb-5">
+  1356→          Os melhores jogadores e equipas da plataforma
+  1357→        </p>
+  1358→
+  1359→        {/* Badges de separação custom (não usa shadcn Tabs) */}
+  1360→        <div className="flex items-center justify-center gap-2 mb-6">
+  1361→          <motion.button
+  1362→            onClick={() => setSeparadorAtivo('jogadores')}
+  1363→            className={
+  1364→              'relative px-5 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-300 ' +
+  1365→              (separadorAtivo === 'jogadores'
+  1366→                ? 'text-cyan-400'
+  1367→                : 'text-zinc-500 hover:text-zinc-300')
+  1368→            }
+  1369→            whileHover={{ scale: 1.05 }}
+  1370→            whileTap={{ scale: 0.95 }}
+  1371→          >
+  1372→            {separadorAtivo === 'jogadores' && (
+  1373→              <motion.div
+  1374→                className="absolute inset-0 rounded-full border border-cyan-400/40"
+  1375→                style={{
+  1376→                  boxShadow:
+  1377→                    '0 0 12px rgba(34, 211, 238, 0.3), inset 0 0 12px rgba(34, 211, 238, 0.1)',
+  1378→                }}
+  1379→                layoutId="separador-ativo"
+  1380→                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+  1381→              />
+  1382→            )}
+  1383→            <span className="relative z-10 flex items-center gap-1.5">
+  1384→              <Users className="w-4 h-4" />
+  1385→              Jogadores
+  1386→            </span>
+  1387→          </motion.button>
+  1388→
+  1389→          <motion.button
+  1390→            onClick={() => setSeparadorAtivo('equipas')}
+  1391→            className={
+  1392→              'relative px-5 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-300 ' +
+  1393→              (separadorAtivo === 'equipas'
+  1394→                ? 'text-cyan-400'
+  1395→                : 'text-zinc-500 hover:text-zinc-300')
+  1396→            }
+  1397→            whileHover={{ scale: 1.05 }}
+  1398→            whileTap={{ scale: 0.95 }}
+  1399→          >
+  1400→            {separadorAtivo === 'equipas' && (
+  1401→              <motion.div
+  1402→                className="absolute inset-0 rounded-full border border-cyan-400/40"
+  1403→                style={{
+  1404→                  boxShadow:
+  1405→                    '0 0 12px rgba(34, 211, 238, 0.3), inset 0 0 12px rgba(34, 211, 238, 0.1)',
+  1406→                }}
+  1407→                layoutId="separador-ativo"
+  1408→                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+  1409→              />
+  1410→            )}
+  1411→            <span className="relative z-10 flex items-center gap-1.5">
+  1412→              <Swords className="w-4 h-4" />
+  1413→              Equipas
+  1414→            </span>
+  1415→          </motion.button>
+  1416→        </div>
+  1417→
+  1418→        {/* Campo de Pesquisa */}
+  1419→        <div className="relative max-w-sm mx-auto">
+  1420→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+  1421→          <Input
+  1422→            placeholder="Pesquisar jogador ou equipa..."
+  1423→            value={termoPesquisa}
+  1424→            onChange={(e) => setTermoPesquisa(e.target.value)}
+  1425→            className="pl-9 bg-white/[0.04] border-white/10 text-white placeholder:text-zinc-500 focus:border-cyan-500/50 focus:ring-cyan-500/20 h-9 text-sm rounded-full"
+  1426→          />
+  1427→        </div>
+  1428→      </motion.div>
+  1429→
+  1430→      {/* Cartões de Estatísticas Rápidas */}
+  1431→      <motion.div
+  1432→        className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-8"
+  1433→        initial={{ opacity: 0, y: 20 }}
+  1434→        animate={{ opacity: 1, y: 0 }}
+  1435→        transition={{ duration: 0.5, delay: 0.2 }}
+  1436→      >
+  1437→        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
+  1438→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1439→            <Users className="w-3.5 h-3.5 text-cyan-400" />
+  1440→            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1441→              Jogadores
+  1442→            </span>
+  1443→          </div>
+  1444→          <span
+  1445→            className="text-xl font-black text-white font-mono"
+  1446→            style={{
+  1447→              textShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
+  1448→            }}
+  1449→          >
+  1450→            {totalJogadores}
+  1451→          </span>
+  1452→        </div>
+  1453→
+  1454→        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
+  1455→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1456→            <Swords className="w-3.5 h-3.5 text-purple-400" />
+  1457→            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1458→              Equipas
+  1459→            </span>
+  1460→          </div>
+  1461→          <span
+  1462→            className="text-xl font-black text-white font-mono"
+  1463→            style={{
+  1464→              textShadow: '0 0 10px rgba(168, 85, 247, 0.5)',
+  1465→            }}
+  1466→          >
+  1467→            {totalEquipas}
+  1468→          </span>
+  1469→        </div>
+  1470→
+  1471→        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
+  1472→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1473→            <Zap className="w-3.5 h-3.5 text-amber-400" />
+  1474→            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1475→              Karma Médio
+  1476→            </span>
+  1477→          </div>
+  1478→          <span
+  1479→            className="text-xl font-black text-white font-mono"
+  1480→            style={{
+  1481→              textShadow:
+  1482→                '0 0 10px rgba(251, 191, 36, 0.5), 0 0 20px rgba(251, 191, 36, 0.3)',
+  1483→            }}
+  1484→          >
+  1485→            {mediaKarma.toLocaleString('pt-BR')}
+  1486→          </span>
+  1487→        </div>
+  1488→
+  1489→        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
+  1490→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1491→            <Flame className="w-3.5 h-3.5 text-orange-400" />
+  1492→            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+  1493→              Melhor Taxa
+  1494→            </span>
+  1495→          </div>
+  1496→          <span
+  1497→            className="text-xl font-black text-white font-mono"
+  1498→            style={{
+  1499→              textShadow: '0 0 10px rgba(249, 115, 22, 0.5)',
+  1500→            }}
+  1501→          >
+  1502→            {melhorTaxa}%
+  1503→          </span>
+  1504→        </div>
+  1505→      </motion.div>
+  1506→
+  1507→      {/* Conteúdo Principal - Jogadores */}
+  1508→      {separadorAtivo === 'jogadores' && (
+  1509→        <motion.div
+  1510→          initial={{ opacity: 0 }}
+  1511→          animate={{ opacity: 1 }}
+  1512→          transition={{ duration: 0.4 }}
+  1513→        >
+  1514→          {/* Pódio Top 3 */}
+  1515→          {aCarregar ? (
+  1516→            <EsqueletoPodio />
+  1517→          ) : (
+  1518→            jogadoresFiltrados.length >= 3 && (
+  1519→              <PodioJogadores jogadores={jogadoresFiltrados} />
+  1520→            )
+  1521→          )}
+  1522→
+  1523→          {/* Separador */}
+  1524→          <div className="flex items-center gap-3 my-6">
+  1525→            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+  1526→            <div className="flex items-center gap-2">
+  1527→              <Trophy className="w-4 h-4 text-amber-500/60" />
+  1528→              <span className="text-xs text-zinc-500 uppercase tracking-widest font-semibold">
+  1529→                Classificação Completa
+  1530→              </span>
+  1531→              <Trophy className="w-4 h-4 text-amber-500/60" />
+  1532→            </div>
+  1533→            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+  1534→          </div>
+  1535→
+  1536→          {/* Cabeçalho da Tabela */}
+  1537→          <CabecalhoTabelaJogadores />
+  1538→
+  1539→          {/* Linhas da Tabela */}
+  1540→          <div className="space-y-0.5">
+  1541→            {aCarregar
+  1542→              ? Array.from({ length: 8 }).map((_, i) => <EsqueletoLinha key={i} />)
+  1543→              : jogadoresTabela.map((jogador, indice) => (
+  1544→                  <LinhaJogador
+  1545→                    key={jogador.user_id}
+  1546→                    jogador={jogador}
+  1547→                    posicao={indice + 4}
+  1548→                    indice={indice}
+  1549→                  />
+  1550→                ))}
+  1551→          </div>
+  1552→
+  1553→          {/* Estado vazio */}
+  1554→          {!aCarregar && jogadoresTabela.length === 0 && (
+  1555→            <motion.div
+  1556→              className="text-center py-12"
+  1557→              initial={{ opacity: 0 }}
+  1558→              animate={{ opacity: 1 }}
+  1559→            >
+  1560→              <Search className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+  1561→              <p className="text-zinc-400 text-sm">
+  1562→                Nenhum jogador encontrado para "{termoPesquisa}"
+  1563→              </p>
+  1564→            </motion.div>
+  1565→          )}
+  1566→        </motion.div>
+  1567→      )}
+  1568→
+  1569→      {/* Conteúdo Principal - Equipas */}
+  1570→      {separadorAtivo === 'equipas' && (
+  1571→        <motion.div
+  1572→          initial={{ opacity: 0 }}
+  1573→          animate={{ opacity: 1 }}
+  1574→          transition={{ duration: 0.4 }}
+  1575→        >
+  1576→          {/* Pódio Top 3 */}
+  1577→          {aCarregar ? (
+  1578→            <EsqueletoPodio />
+  1579→          ) : (
+  1580→            equipasFiltradas.length >= 3 && (
+  1581→              <PodioEquipas equipas={equipasFiltradas} />
+  1582→            )
+  1583→          )}
+  1584→
+  1585→          {/* Separador */}
+  1586→          <div className="flex items-center gap-3 my-6">
+  1587→            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+  1588→            <div className="flex items-center gap-2">
+  1589→              <Award className="w-4 h-4 text-purple-500/60" />
+  1590→              <span className="text-xs text-zinc-500 uppercase tracking-widest font-semibold">
+  1591→                Classificação Completa
+  1592→              </span>
+  1593→              <Award className="w-4 h-4 text-purple-500/60" />
+  1594→            </div>
+  1595→            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+  1596→          </div>
+  1597→
+  1598→          {/* Cabeçalho da Tabela */}
+  1599→          <CabecalhoTabelaEquipas />
+  1600→
+  1601→          {/* Linhas da Tabela */}
+  1602→          <div className="space-y-0.5">
+  1603→            {aCarregar
+  1604→              ? Array.from({ length: 8 }).map((_, i) => <EsqueletoLinha key={i} />)
+  1605→              : equipasTabela.map((equipa, indice) => (
+  1606→                  <LinhaEquipa
+  1607→                    key={equipa.id}
+  1608→                    equipa={equipa}
+  1609→                    posicao={indice + 4}
+  1610→                    indice={indice}
+  1611→                  />
+  1612→                ))}
+  1613→          </div>
+  1614→
+  1615→          {/* Estado vazio */}
+  1616→          {!aCarregar && equipasTabela.length === 0 && (
+  1617→            <motion.div
+  1618→              className="text-center py-12"
+  1619→              initial={{ opacity: 0 }}
+  1620→              animate={{ opacity: 1 }}
+  1621→            >
+  1622→              <Search className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+  1623→              <p className="text-zinc-400 text-sm">
+  1624→                Nenhuma equipa encontrada para "{termoPesquisa}"
+  1625→              </p>
+  1626→            </motion.div>
+  1627→          )}
+  1628→        </motion.div>
+  1629→      )}
+  1630→
+  1631→      {/* Rodapé informativo */}
+  1632→      <motion.div
+  1633→        className="mt-10 text-center"
+  1634→        initial={{ opacity: 0 }}
+  1635→        animate={{ opacity: 1 }}
+  1636→        transition={{ duration: 0.5, delay: 0.6 }}
+  1637→      >
+  1638→        <div className="flex items-center justify-center gap-4 flex-wrap text-[10px] text-zinc-600 uppercase tracking-wider">
+  1639→          <span className="flex items-center gap-1">
+  1640→            <Target className="w-3 h-3" />
+  1641→            Atualização em tempo real
+  1642→          </span>
+  1643→          <span className="text-zinc-700">|</span>
+  1644→          <span className="flex items-center gap-1">
+  1645→            <TrendingUp className="w-3 h-3" />
+  1646→            Baseado em Karma e Rating
+  1647→          </span>
+  1648→          <span className="text-zinc-700">|</span>
+  1649→          <span className="flex items-center gap-1">
+  1650→            <Star className="w-3 h-3" />
+  1651→            Temporada atual
+  1652→          </span>
+  1653→        </div>
+  1654→      </motion.div>
+  1655→    </div>
+  1656→  );
+  1657→}
+  1658→

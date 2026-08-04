@@ -1,0 +1,612 @@
+   616→        ))}
+   617→      </div>
+   618→    );
+   619→  };
+   620→
+   621→  // ============================================================
+   622→  // MINHAS APOSTAS
+   623→  // ============================================================
+   624→
+   625→  const renderMyBets = () => {
+   626→    if (betsLoading) {
+   627→      return (
+   628→        <div className="space-y-3">
+   629→          {Array.from({ length: 4 }).map((_, i) => (
+   630→            <Card key={i} className="bg-emerald-950/20 border border-emerald-500/10">
+   631→              <CardContent className="p-4">
+   632→                <div className="flex items-center justify-between">
+   633→                  <div className="space-y-2 flex-1">
+   634→                    <SkeletonLoader className="h-4 w-40" />
+   635→                    <SkeletonLoader className="h-3 w-28" />
+   636→                  </div>
+   637→                  <SkeletonLoader className="h-6 w-20 rounded-lg" />
+   638→                </div>
+   639→              </CardContent>
+   640→            </Card>
+   641→          ))}
+   642→        </div>
+   643→      );
+   644→    }
+   645→
+   646→    if (userBets.length === 0) {
+   647→      return (
+   648→        <motion.div
+   649→          initial={{ opacity: 0, scale: 0.95 }}
+   650→          animate={{ opacity: 1, scale: 1 }}
+   651→          className="flex flex-col items-center justify-center py-20 px-4"
+   652→        >
+   653→          <div className="h-20 w-20 rounded-2xl bg-emerald-950/30 border border-emerald-500/10 flex items-center justify-center mb-5">
+   654→            <Target className="h-10 w-10 text-emerald-500/30" />
+   655→          </div>
+   656→          <p className="text-white/60 text-lg font-semibold mb-2">Nenhuma aposta ainda</p>
+   657→          <p className="text-white/30 text-sm text-center max-w-sm leading-relaxed">
+   658→            Explore os mercados abertos e faca a tua primeira aposta!
+   659→          </p>
+   660→        </motion.div>
+   661→      );
+   662→    }
+   663→
+   664→    return (
+   665→      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+   666→        {userBets.map((bet, index) => {
+   667→          const isWon = bet.status === 'settled' && bet.is_correct;
+   668→          const isLost = bet.status === 'settled' && !bet.is_correct;
+   669→          const potentialWin = bet.amount_wagered * bet.odds;
+   670→
+   671→          const borderClass = isWon
+   672→            ? 'border-emerald-500/50 shadow-emerald-500/10 shadow-lg'
+   673→            : isLost
+   674→              ? 'border-red-500/40'
+   675→              : 'border-emerald-500/10';
+   676→
+   677→          return (
+   678→            <motion.div
+   679→              key={bet.id}
+   680→              initial={{ opacity: 0, x: -20 }}
+   681→              animate={{ opacity: 1, x: 0 }}
+   682→              transition={{ duration: 0.25, delay: index * 0.03 }}
+   683→            >
+   684→              <Card className={"bg-emerald-950/20 border hover:border-emerald-500/30 transition-all " + borderClass}>
+   685→                <CardContent className="p-4">
+   686→                  <div className="flex items-start justify-between gap-3">
+   687→                    <div className="flex-1 min-w-0">
+   688→                      <div className="flex items-center gap-2 mb-2">
+   689→                        {isWon && <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />}
+   690→                        {isLost && <XCircle className="h-4 w-4 text-red-400 shrink-0" />}
+   691→                        {!isWon && !isLost && <Clock className="h-4 w-4 text-yellow-400 shrink-0" />}
+   692→                        <span className="text-white text-sm font-medium truncate">
+   693→                          {bet.predicted_label}
+   694→                        </span>
+   695→                      </div>
+   696→
+   697→                      <div className="flex items-center gap-2 mb-2">
+   698→                        <span className="text-emerald-400 text-sm font-bold">
+   699→                          {bet.odds.toFixed(2)}x
+   700→                        </span>
+   701→                      </div>
+   702→
+   703→                      {isWon && (
+   704→                        <motion.div
+   705→                          initial={{ opacity: 0, y: 5 }}
+   706→                          animate={{ opacity: 1, y: 0 }}
+   707→                          className="flex items-center gap-1"
+   708→                        >
+   709→                          <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
+   710→                          <span className="text-sm font-bold text-emerald-400">
+   711→                            +{bet.amount_won.toLocaleString('pt-BR')} moedas
+   712→                          </span>
+   713→                        </motion.div>
+   714→                      )}
+   715→
+   716→                      {!isWon && !isLost && (
+   717→                        <div className="flex items-center gap-1 opacity-60">
+   718→                          <TrendingUp className="h-3.5 w-3.5 text-white/40" />
+   719→                          <span className="text-xs text-white/40">
+   720→                            Potencial: {potentialWin.toLocaleString('pt-BR')}
+   721→                          </span>
+   722→                        </div>
+   723→                      )}
+   724→
+   725→                      <p className="text-[10px] text-white/20 mt-2">
+   726→                        {timeAgo(bet.created_at)}
+   727→                      </p>
+   728→                    </div>
+   729→
+   730→                    <div className="text-right shrink-0 space-y-2">
+   731→                      <Badge className={"text-[10px] px-2 py-0.5 border " + getBetStatusBadgeStyle(bet)}>
+   732→                        {getBetStatusLabel(bet)}
+   733→                      </Badge>
+   734→                      <div className="text-xs text-white/40">
+   735→                        <span className="text-white/60 font-medium">
+   736→                          {bet.amount_wagered.toLocaleString('pt-BR')}
+   737→                        </span>
+   738→                        {' '}apostado
+   739→                      </div>
+   740→                    </div>
+   741→                  </div>
+   742→                </CardContent>
+   743→              </Card>
+   744→            </motion.div>
+   745→          );
+   746→        })}
+   747→      </div>
+   748→    );
+   749→  };
+   750→
+   751→  // ============================================================
+   752→  // HISTORICO DE TRANSACOES
+   753→  // ============================================================
+   754→
+   755→  const renderHistory = () => {
+   756→    if (transactionsLoading) {
+   757→      return (
+   758→        <div className="space-y-2">
+   759→          {Array.from({ length: 6 }).map((_, i) => (
+   760→            <Card key={i} className="bg-emerald-950/20 border border-emerald-500/10">
+   761→              <CardContent className="p-3">
+   762→                <div className="flex items-center gap-3">
+   763→                  <SkeletonLoader className="h-9 w-9 rounded-lg" />
+   764→                  <div className="flex-1 space-y-2">
+   765→                    <SkeletonLoader className="h-3.5 w-36" />
+   766→                    <SkeletonLoader className="h-3 w-20" />
+   767→                  </div>
+   768→                  <SkeletonLoader className="h-4 w-16" />
+   769→                </div>
+   770→              </CardContent>
+   771→            </Card>
+   772→          ))}
+   773→        </div>
+   774→      );
+   775→    }
+   776→
+   777→    if (transactions.length === 0) {
+   778→      return (
+   779→        <motion.div
+   780→          initial={{ opacity: 0, scale: 0.95 }}
+   781→          animate={{ opacity: 1, scale: 1 }}
+   782→          className="flex flex-col items-center justify-center py-20 px-4"
+   783→        >
+   784→          <div className="h-20 w-20 rounded-2xl bg-emerald-950/30 border border-emerald-500/10 flex items-center justify-center mb-5">
+   785→            <History className="h-10 w-10 text-emerald-500/30" />
+   786→          </div>
+   787→          <p className="text-white/60 text-lg font-semibold mb-2">Sem historico</p>
+   788→          <p className="text-white/30 text-sm text-center max-w-sm leading-relaxed">
+   789→            As tuas transaccoes aparecerao aqui assim que comecares a apostar.
+   790→          </p>
+   791→        </motion.div>
+   792→      );
+   793→    }
+   794→
+   795→    return (
+   796→      <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+   797→        {transactions.map((tx, index) => {
+   798→          const { icon: TxIcon, color, bgColor } = getTransactionStyle(tx.type);
+   799→          const isPositive = tx.amount > 0;
+   800→
+   801→          return (
+   802→            <motion.div
+   803→              key={tx.id}
+   804→              initial={{ opacity: 0, x: -15 }}
+   805→              animate={{ opacity: 1, x: 0 }}
+   806→              transition={{ duration: 0.2, delay: index * 0.02 }}
+   807→            >
+   808→              <Card className="bg-emerald-950/20 border border-emerald-500/10 hover:border-emerald-500/25 transition-colors">
+   809→                <CardContent className="p-3">
+   810→                  <div className="flex items-center gap-3">
+   811→                    <div className={"h-9 w-9 rounded-lg " + bgColor + " flex items-center justify-center shrink-0"}>
+   812→                      <TxIcon className={"h-4 w-4 " + color} />
+   813→                    </div>
+   814→                    <div className="flex-1 min-w-0">
+   815→                      <p className="text-sm text-white truncate">
+   816→                        {tx.description || tx.type}
+   817→                      </p>
+   818→                      <p className="text-[11px] text-white/25">
+   819→                        {timeAgo(tx.created_at)}
+   820→                      </p>
+   821→                    </div>
+   822→                    <div className="text-right shrink-0">
+   823→                      <span className={"text-sm font-bold " + (isPositive ? 'text-emerald-400' : 'text-red-400')}>
+   824→                        {isPositive ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('pt-BR')}
+   825→                      </span>
+   826→                      <p className="text-[10px] text-white/20">
+   827→                        Saldo: {tx.balance_after.toLocaleString('pt-BR')}
+   828→                      </p>
+   829→                    </div>
+   830→                  </div>
+   831→                </CardContent>
+   832→              </Card>
+   833→            </motion.div>
+   834→          );
+   835→        })}
+   836→      </div>
+   837→    );
+   838→  };
+   839→
+   840→  // ============================================================
+   841→  // DIALOGO DE APOSTA
+   842→  // ============================================================
+   843→
+   844→  const renderBetDialog = () => {
+   845→    if (!selectedMarket || !selectedOption) return null;
+   846→
+   847→    const amount = parseFloat(betAmount) || 0;
+   848→    const potentialPayout = amount * selectedOption.odds;
+   849→    const profitAmount = potentialPayout - amount;
+   850→
+   851→    return (
+   852→      <Dialog open={!!selectedMarket} onOpenChange={() => handleCloseBetDialog()}>
+   853→        <DialogContent className="bg-emerald-950/95 backdrop-blur-xl border-emerald-500/20 text-white max-w-md">
+   854→          <DialogHeader>
+   855→            <DialogTitle className="flex items-center gap-2 text-lg">
+   856→              <Target className="h-5 w-5 text-emerald-400" />
+   857→              Colocar Aposta
+   858→            </DialogTitle>
+   859→          </DialogHeader>
+   860→
+   861→          <div className="space-y-5 mt-2">
+   862→            <div className="bg-emerald-950/50 rounded-xl p-4 border border-emerald-500/15">
+   863→              <p className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mb-1.5">Mercado</p>
+   864→              <p className="text-sm font-semibold text-white mb-3">{selectedMarket.question}</p>
+   865→              <div className="flex items-center justify-between">
+   866→                <span className="text-sm text-white/50">Tua escolha:</span>
+   867→                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+   868→                  {selectedOption.label} - {selectedOption.odds.toFixed(2)}x
+   869→                </Badge>
+   870→              </div>
+   871→            </div>
+   872→
+   873→            <div>
+   874→              <label className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mb-2 block">
+   875→                Valor da aposta (min: 10)
+   876→              </label>
+   877→              <div className="relative">
+   878→                <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500/40" />
+   879→                <Input
+   880→                  type="number"
+   881→                  value={betAmount}
+   882→                  onChange={(e) => setBetAmount(e.target.value)}
+   883→                  placeholder="0"
+   884→                  min={10}
+   885→                  max={wallet?.balance || 0}
+   886→                  className="bg-black/30 border-emerald-500/20 text-white text-lg font-bold pl-10 pr-20 h-12 rounded-xl focus:border-emerald-500/50 focus:ring-emerald-500/20"
+   887→                />
+   888→                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+   889→                  {[50, 100, 250].map((preset) => (
+   890→                    <button
+   891→                      key={preset}
+   892→                      onClick={() => setBetAmount(String(preset))}
+   893→                      className="text-[10px] text-emerald-400/50 hover:text-emerald-400 bg-emerald-950/50 hover:bg-emerald-500/15 rounded-md px-1.5 py-0.5 transition-colors border border-emerald-500/10"
+   894→                    >
+   895→                      {preset}
+   896→                    </button>
+   897→                  ))}
+   898→                </div>
+   899→              </div>
+   900→            </div>
+   901→
+   902→            <div className="flex gap-2">
+   903→              {wallet && (
+   904→                <>
+   905→                  <Button
+   906→                    variant="outline"
+   907→                    size="sm"
+   908→                    onClick={() => setBetAmount(String(Math.min(50, wallet.balance)))}
+   909→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   910→                  >
+   911→                    Min (50)
+   912→                  </Button>
+   913→                  <Button
+   914→                    variant="outline"
+   915→                    size="sm"
+   916→                    onClick={() => setBetAmount(String(Math.floor(wallet.balance / 2)))}
+   917→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   918→                  >
+   919→                    50%
+   920→                  </Button>
+   921→                  <Button
+   922→                    variant="outline"
+   923→                    size="sm"
+   924→                    onClick={() => setBetAmount(String(wallet.balance))}
+   925→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   926→                  >
+   927→                    Max
+   928→                  </Button>
+   929→                </>
+   930→              )}
+   931→            </div>
+   932→
+   933→            {amount > 0 && (
+   934→              <motion.div
+   935→                initial={{ opacity: 0, height: 0 }}
+   936→                animate={{ opacity: 1, height: 'auto' }}
+   937→                className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4"
+   938→              >
+   939→                <div className="flex items-center justify-between mb-2">
+   940→                  <span className="text-xs text-white/50">Retorno Potencial</span>
+   941→                  <span className="text-lg font-bold text-emerald-400">
+   942→                    {potentialPayout.toLocaleString('pt-BR')}
+   943→                  </span>
+   944→                </div>
+   945→                <div className="flex items-center justify-between">
+   946→                  <span className="text-xs text-white/50">Lucro Potencial</span>
+   947→                  <span className="text-sm font-semibold text-emerald-300">
+   948→                    +{profitAmount.toLocaleString('pt-BR')}
+   949→                  </span>
+   950→                </div>
+   951→              </motion.div>
+   952→            )}
+   953→
+   954→            <div className="flex items-center justify-between text-xs">
+   955→              <span className="text-white/40">Saldo actual:</span>
+   956→              <span className="text-white font-medium">
+   957→                {wallet?.balance.toLocaleString('pt-BR')} moedas
+   958→              </span>
+   959→            </div>
+   960→
+   961→            {betError && (
+   962→              <motion.div
+   963→                initial={{ opacity: 0, y: -5 }}
+   964→                animate={{ opacity: 1, y: 0 }}
+   965→                className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400"
+   966→              >
+   967→                {betError}
+   968→              </motion.div>
+   969→            )}
+   970→
+   971→            <div className="flex gap-3">
+   972→              <Button
+   973→                onClick={handleCloseBetDialog}
+   974→                variant="ghost"
+   975→                className="flex-1 border border-emerald-500/20 text-white/60 hover:text-white hover:bg-emerald-500/10 rounded-xl"
+   976→              >
+   977→                Cancelar
+   978→              </Button>
+   979→              <Button
+   980→                onClick={handlePlaceBet}
+   981→                disabled={betting || !betAmount || parseFloat(betAmount) < 10}
+   982→                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/25"
+   983→              >
+   984→                {betting ? (
+   985→                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+   986→                ) : (
+   987→                  <Zap className="h-4 w-4 mr-2" />
+   988→                )}
+   989→                {betting ? 'Apostando...' : 'Confirmar Aposta'}
+   990→              </Button>
+   991→            </div>
+   992→          </div>
+   993→        </DialogContent>
+   994→      </Dialog>
+   995→    );
+   996→  };
+   997→
+   998→  // ============================================================
+   999→  // COLUNA DIREITA - ESTATISTICAS
+  1000→  // ============================================================
+  1001→
+  1002→  const renderRightColumn = () => (
+  1003→    <div className="space-y-4">
+  1004→      <Card className="bg-emerald-950/20 border border-emerald-500/10 backdrop-blur-sm">
+  1005→        <CardHeader className="pb-3">
+  1006→          <CardTitle className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+  1007→            <BarChart3 className="h-4 w-4" />
+  1008→            Estatisticas da Carteira
+  1009→          </CardTitle>
+  1010→        </CardHeader>
+  1011→        <CardContent className="space-y-4">
+  1012→          <div className="text-center pb-4 border-b border-emerald-500/10">
+  1013→            {walletLoading ? (
+  1014→              <SkeletonLoader className="h-10 w-32 mx-auto mb-1" />
+  1015→            ) : (
+  1016→              <p className="text-3xl font-bold text-white tracking-tight">
+  1017→                {wallet?.balance.toLocaleString('pt-BR')}
+  1018→              </p>
+  1019→            )}
+  1020→            <p className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mt-1">
+  1021→              Saldo Atual
+  1022→            </p>
+  1023→          </div>
+  1024→
+  1025→          <div className="space-y-3">
+  1026→            <div className="flex items-center justify-between">
+  1027→              <div className="flex items-center gap-2">
+  1028→                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+  1029→                  <Target className="h-4 w-4 text-emerald-400" />
+  1030→                </div>
+  1031→                <span className="text-xs text-white/50">Total Apostado</span>
+  1032→              </div>
+  1033→              <span className="text-sm font-semibold text-white">
+  1034→                {walletLoading ? '...' : totalWagered.toLocaleString('pt-BR')}
+  1035→              </span>
+  1036→            </div>
+  1037→
+  1038→            <div className="flex items-center justify-between">
+  1039→              <div className="flex items-center gap-2">
+  1040→                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+  1041→                  <Trophy className="h-4 w-4 text-emerald-400" />
+  1042→                </div>
+  1043→                <span className="text-xs text-white/50">Total Ganho</span>
+  1044→              </div>
+  1045→              <span className="text-sm font-semibold text-emerald-400">
+  1046→                {walletLoading ? '...' : totalWon.toLocaleString('pt-BR')}
+  1047→              </span>
+  1048→            </div>
+  1049→
+  1050→            <div className="flex items-center justify-between">
+  1051→              <div className="flex items-center gap-2">
+  1052→                <div className={"h-8 w-8 rounded-lg flex items-center justify-center " + (profit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10')}>
+  1053→                  {profit >= 0 ? (
+  1054→                    <TrendingUp className="h-4 w-4 text-emerald-400" />
+  1055→                  ) : (
+  1056→                    <TrendingDown className="h-4 w-4 text-red-400" />
+  1057→                  )}
+  1058→                </div>
+  1059→                <span className="text-xs text-white/50">Lucro/Prejuizo</span>
+  1060→              </div>
+  1061→              <span className={"text-sm font-bold " + (profit >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+  1062→                {walletLoading ? '...' : (profit >= 0 ? '+' : '') + profit.toLocaleString('pt-BR')}
+  1063→              </span>
+  1064→            </div>
+  1065→
+  1066→            <div className="pt-3 border-t border-emerald-500/10">
+  1067→              <div className="flex items-center justify-between mb-2">
+  1068→                <span className="text-xs text-white/50">Taxa de Acerto</span>
+  1069→                <span className={"text-sm font-bold " + (winRate >= 50 ? 'text-emerald-400' : 'text-white/70')}>
+  1070→                  {winRate}%
+  1071→                </span>
+  1072→              </div>
+  1073→              <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+  1074→                <motion.div
+  1075→                  initial={{ width: 0 }}
+  1076→                  animate={{ width: winRate + '%' }}
+  1077→                  transition={{ duration: 1, ease: 'easeOut' }}
+  1078→                  className={"h-full rounded-full " + (winRate >= 50 ? 'bg-emerald-500' : 'bg-emerald-700')}
+  1079→                />
+  1080→              </div>
+  1081→              <div className="flex justify-between mt-1.5 text-[10px] text-white/25">
+  1082→                <span>{wonBets.length} ganhas</span>
+  1083→                <span>{settledBets.length} resolvidas</span>
+  1084→              </div>
+  1085→            </div>
+  1086→          </div>
+  1087→        </CardContent>
+  1088→      </Card>
+  1089→
+  1090→      <Card className="bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 border border-emerald-500/25">
+  1091→        <CardContent className="p-5">
+  1092→          <div className="flex items-start gap-3 mb-4">
+  1093→            <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+  1094→              <Zap className="h-5 w-5 text-emerald-400" />
+  1095→            </div>
+  1096→            <div>
+  1097→              <p className="text-sm font-semibold text-white mb-1">Dica Rapida</p>
+  1098→              <p className="text-xs text-white/50 leading-relaxed">
+  1099→                Sabe que podes ganhar moedas com Bonus Diarios e Conquistas? Explora todas as formas de
+  1100→                ganhar moedas e maximiza o teu saldo!
+  1101→              </p>
+  1102→            </div>
+  1103→          </div>
+  1104→          <Button
+  1105→            onClick={() => window.location.href = '/esports/achievements'}
+  1106→            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-sm"
+  1107→          >
+  1108→            <Trophy className="h-4 w-4 mr-2" />
+  1109→            Ver Conquistas
+  1110→          </Button>
+  1111→        </CardContent>
+  1112→      </Card>
+  1113→
+  1114→      <Card className="bg-emerald-950/20 border border-emerald-500/10">
+  1115→        <CardHeader className="pb-3">
+  1116→          <CardTitle className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+  1117→            <CircleDollarSign className="h-4 w-4" />
+  1118→            Resumo Rapido
+  1119→          </CardTitle>
+  1120→        </CardHeader>
+  1121→        <CardContent className="space-y-3">
+  1122→          <div className="grid grid-cols-2 gap-3">
+  1123→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1124→              <p className="text-lg font-bold text-white">{userBets.length}</p>
+  1125→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Apostas</p>
+  1126→            </div>
+  1127→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1128→              <p className="text-lg font-bold text-emerald-400">{openMarkets.length}</p>
+  1129→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Mercados</p>
+  1130→            </div>
+  1131→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1132→              <p className="text-lg font-bold text-white">{transactions.length}</p>
+  1133→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Transaccoes</p>
+  1134→            </div>
+  1135→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1136→              <p className="text-lg font-bold text-emerald-400">{winRate}%</p>
+  1137→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Acerto</p>
+  1138→            </div>
+  1139→          </div>
+  1140→        </CardContent>
+  1141→      </Card>
+  1142→    </div>
+  1143→  );
+  1144→
+  1145→  // ============================================================
+  1146→  // RENDER PRINCIPAL
+  1147→  // ============================================================
+  1148→
+  1149→  return (
+  1150→    <div className="text-white">
+  1151→      {renderWalletHeader()}
+  1152→
+  1153→      <main className="max-w-6xl mx-auto px-4 py-6">
+  1154→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1155→          <div className="lg:col-span-2">
+  1156→            <Tabs defaultValue="markets" className="w-full">
+  1157→              <TabsList className="bg-emerald-950/30 border border-emerald-500/15 rounded-xl w-full h-auto p-1 mb-6">
+  1158→                <TabsTrigger
+  1159→                  value="markets"
+  1160→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1161→                >
+  1162→                  <Flame className="h-4 w-4 mr-1.5" />
+  1163→                  Mercados Abertos
+  1164→                </TabsTrigger>
+  1165→                <TabsTrigger
+  1166→                  value="bets"
+  1167→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1168→                >
+  1169→                  <Target className="h-4 w-4 mr-1.5" />
+  1170→                  Minhas Apostas
+  1171→                </TabsTrigger>
+  1172→                <TabsTrigger
+  1173→                  value="history"
+  1174→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1175→                >
+  1176→                  <History className="h-4 w-4 mr-1.5" />
+  1177→                  Historico
+  1178→                </TabsTrigger>
+  1179→              </TabsList>
+  1180→
+  1181→              <TabsContent value="markets">
+  1182→                {renderOpenMarkets()}
+  1183→              </TabsContent>
+  1184→
+  1185→              <TabsContent value="bets">
+  1186→                {renderMyBets()}
+  1187→              </TabsContent>
+  1188→
+  1189→              <TabsContent value="history">
+  1190→                {renderHistory()}
+  1191→              </TabsContent>
+  1192→            </Tabs>
+  1193→          </div>
+  1194→
+  1195→          <div className="hidden lg:block">
+  1196→            {renderRightColumn()}
+  1197→          </div>
+  1198→        </div>
+  1199→      </main>
+  1200→
+  1201→      {renderBetDialog()}
+  1202→
+  1203→      <AnimatePresence>
+  1204→        {toast && (
+  1205→          <motion.div
+  1206→            initial={{ opacity: 0, y: 50, x: '-50%' }}
+  1207→            animate={{ opacity: 1, y: 0, x: '-50%' }}
+  1208→            exit={{ opacity: 0, y: 50, x: '-50%' }}
+  1209→            className={"fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-xl shadow-2xl backdrop-blur-xl border text-sm font-medium " +
+  1210→              (toast.type === 'success'
+  1211→                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+  1212→                : 'bg-red-500/20 border-red-500/30 text-red-400')
+  1213→            }
+  1214→          >
+  1215→            {toast.type === 'success' ? (
+  1216→              <CheckCircle className="h-4 w-4 inline mr-2" />
+  1217→            ) : (
+  1218→              <XCircle className="h-4 w-4 inline mr-2" />
+  1219→            )}
+  1220→            {toast.message}
+  1221→          </motion.div>
+  1222→        )}
+  1223→      </AnimatePresence>
+  1224→    </div>
+  1225→  );
+  1226→}
+  1227→
