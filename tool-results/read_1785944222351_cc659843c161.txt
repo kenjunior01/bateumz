@@ -1,0 +1,551 @@
+     1→import { useState, useEffect } from 'react';
+     2→import { motion, AnimatePresence } from 'framer-motion';
+     3→import { Link, useNavigate } from 'react-router-dom';
+     4→import {
+     5→  Sword, Shield, Trophy, Users, Clock, Plus, ArrowRight,
+     6→  Search, Filter, Zap, Crown, X, ChevronRight, Loader2,
+     7→} from 'lucide-react';
+     8→import { useAuth } from '@/contexts/AuthContext';
+     9→import {
+    10→  BATTLE_GAMES, createBattle, getOpenBattles, getMyBattles, acceptBattle,
+    11→  type UserBattle,
+    12→} from '@/lib/battles';
+    13→import { getBalance, formatMZN } from '@/lib/wallet';
+    14→import { Button } from '@/components/ui/button';
+    15→import { Input } from '@/components/ui/input';
+    16→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    17→
+    18→interface OpenBattle extends UserBattle {
+    19→  creator: { display_name: string | null; avatar_url: string | null };
+    20→}
+    21→
+    22→type TabId = 'open' | 'mine' | 'create';
+    23→
+    24→function timeAgo(dateStr: string): string {
+    25→  const diff = Date.now() - new Date(dateStr).getTime();
+    26→  const mins = Math.floor(diff / 60000);
+    27→  if (mins < 1) return 'agora';
+    28→  if (mins < 60) return `${mins}min`;
+    29→  const hrs = Math.floor(mins / 60);
+    30→  if (hrs < 24) return `${hrs}h`;
+    31→  return `${Math.floor(hrs / 24)}d`;
+    32→}
+    33→
+    34→const statusLabels: Record<string, string> = {
+    35→  open: 'Em aberto', accepted: 'Aceita', playing: 'Em jogo',
+    36→  completed: 'Concluida', cancelled: 'Cancelada', disputed: 'Disputada',
+    37→};
+    38→
+    39→const statusColors: Record<string, string> = {
+    40→  open: 'bg-emerald-500/20 text-emerald-300', accepted: 'bg-blue-500/20 text-blue-300',
+    41→  playing: 'bg-amber-500/20 text-amber-300', completed: 'bg-gray-500/20 text-gray-300',
+    42→  cancelled: 'bg-red-500/20 text-red-300', disputed: 'bg-orange-500/20 text-orange-300',
+    43→};
+    44→
+    45→const fadeUp = {
+    46→  initial: { opacity: 0, y: 16 },
+    47→  animate: { opacity: 1, y: 0 },
+    48→  exit: { opacity: 0, y: -12 },
+    49→};
+    50→
+    51→const stagger = {
+    52→  animate: { transition: { staggerChildren: 0.06 } },
+    53→};
+    54→
+    55→const springPop = { type: 'spring' as const, stiffness: 400, damping: 25 };
+    56→
+    57→export default function Battles() {
+    58→  const { user } = useAuth();
+    59→  const navigate = useNavigate();
+    60→
+    61→  const [tab, setTab] = useState<TabId>('open');
+    62→  const [openBattles, setOpenBattles] = useState<OpenBattle[]>([]);
+    63→  const [myBattles, setMyBattles] = useState<UserBattle[]>([]);
+    64→  const [balance, setBalance] = useState(0);
+    65→  const [loading, setLoading] = useState(true);
+    66→  const [creating, setCreating] = useState(false);
+    67→  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+    68→  const [searchQuery, setSearchQuery] = useState('');
+    69→  const [selectedGame, setSelectedGame] = useState<string | null>(null);
+    70→  const [wagerAmount, setWagerAmount] = useState('');
+    71→  const [acceptTarget, setAcceptTarget] = useState<OpenBattle | null>(null);
+    72→
+    73→  useEffect(() => {
+    74→    if (!user) return;
+    75→    setLoading(true);
+    76→    Promise.all([
+    77→      getOpenBattles(),
+    78→      getMyBattles(user.id),
+    79→      getBalance(user.id),
+    80→    ])
+    81→      .then(([ob, mb, bal]) => {
+    82→        setOpenBattles(ob as OpenBattle[]);
+    83→        setMyBattles(mb);
+    84→        setBalance(bal);
+    85→      })
+    86→      .catch(() => {})
+    87→      .finally(() => setLoading(false));
+    88→  }, [user]);
+    89→
+    90→  const handleCreate = async () => {
+    91→    if (!user || !selectedGame || !wagerAmount) return;
+    92→    const game = BATTLE_GAMES.find(g => g.id === selectedGame);
+    93→    if (!game) return;
+    94→    const amount = parseFloat(wagerAmount);
+    95→    if (isNaN(amount) || amount < game.minBet) return;
+    96→    setCreating(true);
+    97→    const battle = await createBattle(user.id, game.id, game.label, amount);
+    98→    setCreating(false);
+    99→    if (battle) {
+   100→      navigate(`/lives?game=${game.id}&battle=${battle.id}`);
+   101→    }
+   102→  };
+   103→
+   104→  const handleAccept = async () => {
+   105→    if (!user || !acceptTarget) return;
+   106→    setAcceptingId(acceptTarget.id);
+   107→    const result = await acceptBattle(acceptTarget.id, user.id);
+   108→    setAcceptingId(null);
+   109→    setAcceptTarget(null);
+   110→    if (result) {
+   111→      navigate(`/lives?game=${acceptTarget.game_id}&battle=${acceptTarget.id}`);
+   112→    }
+   113→  };
+   114→
+   115→  const filteredOpen = openBattles.filter(b =>
+   116→    !searchQuery || b.game_label.toLowerCase().includes(searchQuery.toLowerCase()),
+   117→  );
+   118→
+   119→  const gameMap = new Map<string, (typeof BATTLE_GAMES)[number]>();
+   120→  BATTLE_GAMES.forEach(g => gameMap.set(g.id, g));
+   121→
+   122→  const myOpen = myBattles.filter(b => b.status === 'open');
+   123→  const myPlaying = myBattles.filter(b => b.status === 'accepted' || b.status === 'playing');
+   124→  const myCompleted = myBattles.filter(b => b.status === 'completed');
+   125→
+   126→  const getResultLabel = (b: UserBattle) => {
+   127→    if (!user || b.status !== 'completed') return '';
+   128→    if (b.winner_id === user.id) return 'Vitoria';
+   129→    if (b.winner_id) return 'Derrota';
+   130→    return 'Empate';
+   131→  };
+   132→
+   133→  const getResultColor = (b: UserBattle) => {
+   134→    if (!user || b.status !== 'completed') return '';
+   135→    if (b.winner_id === user.id) return 'text-emerald-400';
+   136→    if (b.winner_id) return 'text-red-400';
+   137→    return 'text-yellow-400';
+   138→  };
+   139→
+   140→  const tabs: { id: TabId; label: string; icon: typeof Sword }[] = [
+   141→    { id: 'open', label: 'Batalhas Abertas', icon: Sword },
+   142→    { id: 'mine', label: 'Minhas Batalhas', icon: Crown },
+   143→    { id: 'create', label: 'Criar Batalha', icon: Plus },
+   144→  ];
+   145→
+   146→  return (
+   147→    <div className="min-h-screen bg-gradient-to-b from-[#0f0a1a] via-[#1a1035] to-[#0d0820] text-white">
+   148→      {/* Hero */}
+   149→      <div className="relative overflow-hidden bg-gradient-to-r from-purple-700 via-indigo-600 to-pink-600">
+   150→        <div className="absolute inset-0 bg-black/20" />
+   151→        <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/10 blur-3xl" />
+   152→        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-pink-400/20 blur-3xl" />
+   153→        <div className="relative mx-auto max-w-4xl px-4 py-10 text-center">
+   154→          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={springPop}>
+   155→            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
+   156→              <Zap className="h-4 w-4 text-yellow-300" />
+   157→              Arena de Apostas ao Vivo
+   158→            </div>
+   159→          </motion.div>
+   160→          <motion.h1
+   161→            initial={{ y: -20, opacity: 0 }}
+   162→            animate={{ y: 0, opacity: 1 }}
+   163→            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+   164→            className="mb-3 text-3xl font-extrabold tracking-tight sm:text-4xl"
+   165→          >
+   166→            Batalhas de Apostas
+   167→          </motion.h1>
+   168→          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mx-auto max-w-md text-base text-white/80">
+   169→            Desafia outros jogadores e ganha dinheiro real
+   170→          </motion.p>
+   171→          <motion.div
+   172→            initial={{ opacity: 0, y: 10 }}
+   173→            animate={{ opacity: 1, y: 0 }}
+   174→            transition={{ delay: 0.25 }}
+   175→            className="mt-5 inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-6 py-3 backdrop-blur-md"
+   176→          >
+   177→            <Shield className="h-5 w-5 text-emerald-300" />
+   178→            <span className="text-sm text-white/70">Saldo</span>
+   179→            <span className="text-xl font-bold text-white">{formatMZN(balance)}</span>
+   180→            <Link to="/wallet" className="ml-1 text-xs text-emerald-300 underline underline-offset-2 hover:text-emerald-200">
+   181→              Carregar
+   182→            </Link>
+   183→          </motion.div>
+   184→        </div>
+   185→      </div>
+   186→
+   187→      {/* Tabs */}
+   188→      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0f0a1a]/80 backdrop-blur-xl">
+   189→        <div className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-2 py-2">
+   190→          {tabs.map(t => {
+   191→            const active = tab === t.id;
+   192→            return (
+   193→              <button
+   194→                key={t.id}
+   195→                onClick={() => setTab(t.id)}
+   196→                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+   197→                  active
+   198→                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25'
+   199→                    : 'text-white/60 hover:bg-white/5 hover:text-white/90'
+   200→                }`}
+   201→              >
+   202→                <t.icon className="h-4 w-4" />
+   203→                {t.label}
+   204→              </button>
+   205→            );
+   206→          })}
+   207→        </div>
+   208→      </div>
+   209→
+   210→      <div className="mx-auto max-w-4xl px-4 py-6">
+   211→        <AnimatePresence mode="wait">
+   212→          {/* OPEN BATTLES TAB */}
+   213→          {tab === 'open' && (
+   214→            <motion.div key="open" {...fadeUp} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
+   215→              <div className="mb-4 flex items-center gap-3">
+   216→                <div className="relative flex-1">
+   217→                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+   218→                  <Input
+   219→                    placeholder="Pesquisar jogo..."
+   220→                    value={searchQuery}
+   221→                    onChange={e => setSearchQuery(e.target.value)}
+   222→                    className="border-white/10 bg-white/5 pl-10 text-white placeholder:text-white/40 focus:border-purple-500"
+   223→                  />
+   224→                </div>
+   225→                <div className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-2 text-xs text-white/60">
+   226→                  <Users className="h-3.5 w-3.5" />
+   227→                  {filteredOpen.length} batalhas
+   228→                </div>
+   229→              </div>
+   230→
+   231→              {loading ? (
+   232→                <div className="space-y-3">
+   233→                  {Array.from({ length: 3 }).map((_, i) => (
+   234→                    <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/5" />
+   235→                  ))}
+   236→                </div>
+   237→              ) : filteredOpen.length === 0 ? (
+   238→                <motion.div {...fadeUp} className="flex flex-col items-center justify-center py-20 text-center">
+   239→                  <Sword className="mb-3 h-14 w-14 text-white/15" />
+   240→                  <p className="text-sm font-medium text-white/40">
+   241→                    {searchQuery ? 'Nenhuma batalha encontrada' : 'Nenhuma batalha aberta neste momento'}
+   242→                  </p>
+   243→                  <p className="mt-1 text-xs text-white/25">
+   244→                    {searchQuery ? 'Tenta outra pesquisa' : 'Sê o primeiro a criar uma batalha!'}
+   245→                  </p>
+   246→                  <Button
+   247→                    variant="outline"
+   248→                    onClick={() => setTab('create')}
+   249→                    className="mt-4 border-purple-500/50 text-purple-300 hover:bg-purple-500/10"
+   250→                  >
+   251→                    <Plus className="mr-1.5 h-4 w-4" /> Criar Batalha
+   252→                  </Button>
+   253→                </motion.div>
+   254→              ) : (
+   255→                <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-3">
+   256→                  {filteredOpen.map(battle => {
+   257→                    const game = gameMap.get(battle.game_id);
+   258→                    return (
+   259→                      <motion.div
+   260→                        key={battle.id}
+   261→                        variants={fadeUp}
+   262→                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm transition hover:border-purple-500/30 hover:bg-white/[0.07]"
+   263→                      >
+   264→                        <div className="flex items-center gap-4 p-4">
+   265→                          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${game?.grad ?? 'from-gray-500 to-gray-600'} text-2xl shadow-lg`}>
+   266→                            {game?.emoji ?? '🎮'}
+   267→                          </div>
+   268→                          <div className="min-w-0 flex-1">
+   269→                            <p className="truncate font-semibold text-white">{battle.game_label}</p>
+   270→                            <div className="mt-1 flex items-center gap-3 text-xs text-white/50">
+   271→                              <span className="flex items-center gap-1">
+   272→                                <Crown className="h-3 w-3 text-amber-400" />
+   273→                                {battle.creator?.display_name || 'Jogador'}
+   274→                              </span>
+   275→                              <span className="flex items-center gap-1">
+   276→                                <Clock className="h-3 w-3" />
+   277→                                {timeAgo(battle.created_at)}
+   278→                              </span>
+   279→                            </div>
+   280→                          </div>
+   281→                          <div className="text-right">
+   282→                            <p className="text-lg font-bold text-emerald-400">{formatMZN(battle.wager_amount)}</p>
+   283→                            <p className="text-[10px] text-white/40">aposta</p>
+   284→                          </div>
+   285→                          <Dialog>
+   286→                            <DialogTrigger>
+   287→                              <Button
+   288→                                size="sm"
+   289→                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
+   290→                                onClick={() => setAcceptTarget(battle)}
+   291→                              >
+   292→                                <ChevronRight className="h-4 w-4" />
+   293→                              </Button>
+   294→                            </DialogTrigger>
+   295→                            <DialogContent className="border-white/10 bg-[#1a1035] text-white sm:max-w-md">
+   296→                              <DialogHeader>
+   297→                                <DialogTitle>Aceitar Batalha?</DialogTitle>
+   298→                              </DialogHeader>
+   299→                              <div className="space-y-4 pt-2">
+   300→                                <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
+   301→                                  <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br ${game?.grad ?? 'from-gray-500 to-gray-600'} text-3xl`}>
+   302→                                    {game?.emoji ?? '🎮'}
+   303→                                  </div>
+   304→                                  <div>
+   305→                                    <p className="font-bold">{battle.game_label}</p>
+   306→                                    <p className="text-sm text-white/50">
+   307→                                      vs {battle.creator?.display_name || 'Jogador'}
+   308→                                    </p>
+   309→                                  </div>
+   310→                                </div>
+   311→                                <div className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3">
+   312→                                  <span className="text-sm text-white/60">Aposta</span>
+   313→                                  <span className="text-lg font-bold text-emerald-400">{formatMZN(battle.wager_amount)}</span>
+   314→                                </div>
+   315→                                <div className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3">
+   316→                                  <span className="text-sm text-white/60">Seu saldo</span>
+   317→                                  <span className={`font-bold ${balance >= battle.wager_amount ? 'text-emerald-400' : 'text-red-400'}`}>
+   318→                                    {formatMZN(balance)}
+   319→                                  </span>
+   320→                                </div>
+   321→                                <Button
+   322→                                  onClick={handleAccept}
+   323→                                  disabled={!user || acceptingId !== null || balance < battle.wager_amount}
+   324→                                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 py-6 text-base font-bold hover:from-emerald-500 hover:to-teal-500"
+   325→                                >
+   326→                                  {acceptingId ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sword className="mr-2 h-5 w-5" />}
+   327→                                  Aceitar Batalha
+   328→                                </Button>
+   329→                                {!user && (
+   330→                                  <p className="text-center text-xs text-white/40">
+   331→                                    <Link to="/login" className="text-purple-400 underline">Faz login</Link> para aceitar
+   332→                                  </p>
+   333→                                )}
+   334→                              </div>
+   335→                            </DialogContent>
+   336→                          </Dialog>
+   337→                        </div>
+   338→                      </motion.div>
+   339→                    );
+   340→                  })}
+   341→                </motion.div>
+   342→              )}
+   343→            </motion.div>
+   344→          )}
+   345→
+   346→          {/* MY BATTLES TAB */}
+   347→          {tab === 'mine' && (
+   348→            <motion.div key="mine" {...fadeUp} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
+   349→              {!user ? (
+   350→                <div className="flex flex-col items-center justify-center py-20 text-center">
+   351→                  <Shield className="mb-3 h-14 w-14 text-white/15" />
+   352→                  <p className="text-sm font-medium text-white/40">Faz login para ver as tuas batalhas</p>
+   353→                  <Link to="/login">
+   354→                    <Button variant="outline" className="mt-4 border-purple-500/50 text-purple-300">
+   355→                      Entrar
+   356→                    </Button>
+   357→                  </Link>
+   358→                </div>
+   359→              ) : loading ? (
+   360→                <div className="space-y-3">
+   361→                  {Array.from({ length: 3 }).map((_, i) => (
+   362→                    <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
+   363→                  ))}
+   364→                </div>
+   365→              ) : myBattles.length === 0 ? (
+   366→                <div className="flex flex-col items-center justify-center py-20 text-center">
+   367→                  <Trophy className="mb-3 h-14 w-14 text-white/15" />
+   368→                  <p className="text-sm font-medium text-white/40">Ainda nao participaste em nenhuma batalha</p>
+   369→                  <Button variant="outline" onClick={() => setTab('open')} className="mt-4 border-purple-500/50 text-purple-300">
+   370→                    <Search className="mr-1.5 h-4 w-4" /> Ver Batalhas Abertas
+   371→                  </Button>
+   372→                </div>
+   373→              ) : (
+   374→                <div className="space-y-6">
+   375→                  {[
+   376→                    { label: 'Em Aberto', battles: myOpen, icon: Clock, color: 'text-emerald-400' },
+   377→                    { label: 'Em Jogo', battles: myPlaying, icon: Zap, color: 'text-amber-400' },
+   378→                    { label: 'Concluidas', battles: myCompleted, icon: Trophy, color: 'text-gray-400' },
+   379→                  ].map(group => group.battles.length > 0 && (
+   380→                    <div key={group.label}>
+   381→                      <div className="mb-2 flex items-center gap-2">
+   382→                        <group.icon className={`h-4 w-4 ${group.color}`} />
+   383→                        <h3 className="text-sm font-semibold text-white/70">{group.label}</h3>
+   384→                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/50">
+   385→                          {group.battles.length}
+   386→                        </span>
+   387→                      </div>
+   388→                      <div className="space-y-2">
+   389→                        {group.battles.map(battle => {
+   390→                          const game = gameMap.get(battle.game_id);
+   391→                          const result = getResultLabel(battle);
+   392→                          return (
+   393→                            <motion.div
+   394→                              key={battle.id}
+   395→                              initial={{ opacity: 0, x: -8 }}
+   396→                              animate={{ opacity: 1, x: 0 }}
+   397→                              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm"
+   398→                            >
+   399→                              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${game?.grad ?? 'from-gray-500 to-gray-600'} text-lg`}>
+   400→                                {game?.emoji ?? '🎮'}
+   401→                              </div>
+   402→                              <div className="min-w-0 flex-1">
+   403→                                <p className="truncate text-sm font-semibold text-white">{battle.game_label}</p>
+   404→                                <p className="text-xs text-white/40">
+   405→                                  {battle.status === 'open'
+   406→                                    ? 'A espera de adversario...'
+   407→                                    : `Criada ${timeAgo(battle.created_at)}`}
+   408→                                </p>
+   409→                              </div>
+   410→                              <div className="text-right">
+   411→                                <p className="text-sm font-bold text-emerald-400">{formatMZN(battle.wager_amount)}</p>
+   412→                                {result && (
+   413→                                  <p className={`text-xs font-bold ${getResultColor(battle)}`}>{result}</p>
+   414→                                )}
+   415→                                <span className={`inline-block mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[battle.status] ?? ''}`}>
+   416→                                  {statusLabels[battle.status] ?? battle.status}
+   417→                                </span>
+   418→                              </div>
+   419→                              {(battle.status === 'accepted' || battle.status === 'playing') && (
+   420→                                <Button
+   421→                                  size="sm"
+   422→                                  onClick={() => navigate(`/lives?game=${battle.game_id}&battle=${battle.id}`)}
+   423→                                  className="bg-gradient-to-r from-purple-600 to-indigo-600"
+   424→                                >
+   425→                                  <ArrowRight className="h-4 w-4" />
+   426→                                </Button>
+   427→                              )}
+   428→                            </motion.div>
+   429→                          );
+   430→                        })}
+   431→                      </div>
+   432→                    </div>
+   433→                  ))}
+   434→                </div>
+   435→              )}
+   436→            </motion.div>
+   437→          )}
+   438→
+   439→          {/* CREATE BATTLE TAB */}
+   440→          {tab === 'create' && (
+   441→            <motion.div key="create" {...fadeUp} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
+   442→              {!user ? (
+   443→                <div className="flex flex-col items-center justify-center py-20 text-center">
+   444→                  <Plus className="mb-3 h-14 w-14 text-white/15" />
+   445→                  <p className="text-sm font-medium text-white/40">Faz login para criar batalhas</p>
+   446→                  <Link to="/login">
+   447→                    <Button variant="outline" className="mt-4 border-purple-500/50 text-purple-300">
+   448→                      Entrar
+   449→                    </Button>
+   450→                  </Link>
+   451→                </div>
+   452→              ) : (
+   453→                <div className="space-y-6">
+   454→                  <div>
+   455→                    <h2 className="mb-1 text-lg font-bold">Escolhe o Jogo</h2>
+   456→                    <p className="text-xs text-white/50">Selecciona o jogo para a tua batalha</p>
+   457→                  </div>
+   458→                  <motion.div variants={stagger} initial="initial" animate="animate" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+   459→                    {BATTLE_GAMES.map(game => {
+   460→                      const isSelected = selectedGame === game.id;
+   461→                      return (
+   462→                        <motion.button
+   463→                          key={game.id}
+   464→                          variants={fadeUp}
+   465→                          whileTap={{ scale: 0.97 }}
+   466→                          onClick={() => setSelectedGame(game.id)}
+   467→                          className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all ${
+   468→                            isSelected
+   469→                              ? 'border-purple-500 bg-purple-500/15 shadow-lg shadow-purple-500/20'
+   470→                              : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]'
+   471→                          }`}
+   472→                        >
+   473→                          <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br ${game.grad} text-2xl shadow-md`}>
+   474→                            {game.emoji}
+   475→                          </div>
+   476→                          <p className="text-xs font-semibold leading-tight">{game.label}</p>
+   477→                          <p className="text-[10px] text-white/40">Min. {formatMZN(game.minBet)}</p>
+   478→                          {isSelected && (
+   479→                            <motion.div layoutId="game-check" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white">
+   480→                              <Shield className="h-3 w-3" />
+   481→                            </motion.div>
+   482→                          )}
+   483→                        </motion.button>
+   484→                      );
+   485→                    })}
+   486→                  </motion.div>
+   487→
+   488→                  <AnimatePresence>
+   489→                    {selectedGame && (
+   490→                      <motion.div
+   491→                        initial={{ opacity: 0, height: 0 }}
+   492→                        animate={{ opacity: 1, height: 'auto' }}
+   493→                        exit={{ opacity: 0, height: 0 }}
+   494→                        className="overflow-hidden"
+   495→                      >
+   496→                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+   497→                          <h3 className="mb-4 text-sm font-semibold">Configurar Batalha</h3>
+   498→                          <div className="mb-4">
+   499→                            <label className="mb-1.5 block text-xs text-white/60">Valor da Aposta (MZN)</label>
+   500→                            <Input
+   501→                              type="number"
+   502→                              min={BATTLE_GAMES.find(g => g.id === selectedGame)?.minBet ?? 10}
+   503→                              placeholder="Ex: 50"
+   504→                              value={wagerAmount}
+   505→                              onChange={e => setWagerAmount(e.target.value)}
+   506→                              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-purple-500"
+   507→                            />
+   508→                            <div className="mt-2 flex gap-2">
+   509→                              {[20, 50, 100, 250].map(v => (
+   510→                                <button
+   511→                                  key={v}
+   512→                                  onClick={() => setWagerAmount(String(v))}
+   513→                                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+   514→                                >
+   515→                                  {v}
+   516→                                </button>
+   517→                              ))}
+   518→                            </div>
+   519→                          </div>
+   520→                          <div className="mb-5 rounded-xl bg-emerald-500/10 p-3">
+   521→                            <div className="flex items-center justify-between text-sm">
+   522→                              <span className="text-white/60">Seu saldo</span>
+   523→                              <span className="font-bold text-emerald-400">{formatMZN(balance)}</span>
+   524→                            </div>
+   525→                          </div>
+   526→                          <Button
+   527→                            onClick={handleCreate}
+   528→                            disabled={creating || !wagerAmount || parseFloat(wagerAmount) < (BATTLE_GAMES.find(g => g.id === selectedGame)?.minBet ?? 10)}
+   529→                            className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 py-6 text-base font-bold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 disabled:opacity-50"
+   530→                          >
+   531→                            {creating ? (
+   532→                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+   533→                            ) : (
+   534→                              <Sword className="mr-2 h-5 w-5" />
+   535→                            )}
+   536→                            Criar Batalha
+   537→                          </Button>
+   538→                        </div>
+   539→                      </motion.div>
+   540→                    )}
+   541→                  </AnimatePresence>
+   542→                </div>
+   543→              )}
+   544→            </motion.div>
+   545→          )}
+   546→        </AnimatePresence>
+   547→      </div>
+   548→    </div>
+   549→  );
+   550→}
+   551→

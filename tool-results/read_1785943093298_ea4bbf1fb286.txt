@@ -1,3 +1,196 @@
+     1→// =============================================================
+     2→// eSports Advanced Features Library
+     3→// Seasons, Betting, Anti-Cheat, Reputation, Transfers,
+     4→// Sponsors, Achievements, Stream Overlay, Match Chat
+     5→// =============================================================
+     6→
+     7→import { supabase } from '@/integrations/supabase/client';
+     8→const sb: any = supabase;
+     9→
+    10→// ============================================================
+    11→// TYPES
+    12→// ============================================================
+    13→
+    14→export type SeasonStatus = 'upcoming' | 'active' | 'paused' | 'completed' | 'cancelled';
+    15→export type BetStatus = 'open' | 'settled' | 'refunded' | 'cancelled';
+    16→export type ReportCategory = 'cheating' | 'griefing' | 'smurfing' | 'boosting' | 'disconnection' | 'bug_exploit' | 'toxicity' | 'match_fixing' | 'other';
+    17→export type EvidenceType = 'screenshot' | 'video' | 'replay' | 'stream_clip' | 'log' | 'admin_note';
+    18→export type TransferStatus = 'requested' | 'accepted' | 'rejected' | 'cancelled';
+    19→export type SponsorStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+    20→export type AchievementCategory = 'seasonal' | 'lifetime' | 'tournament' | 'streak' | 'social' | 'special';
+    21→export type PunishmentType = 'warning' | 'temporary_ban' | 'permanent_ban' | 'points_deduction' | 'match_forfeit';
+    22→export type PredictionMarketType = 'match_winner' | 'tournament_winner' | 'mvp' | 'first_blood' | 'map_winner' | 'special';
+    23→export type AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+    24→
+    25→export interface Season {
+    26→  id: string;
+    27→  name: string;
+    28→  slug: string;
+    29→  description?: string;
+    30→  game_id?: string;
+    31→  region_id?: string;
+    32→  creator_id?: string;
+    33→  business_id?: string;
+    34→  start_date: string;
+    35→  end_date: string;
+    36→  status: SeasonStatus;
+    37→  is_published: boolean;
+    38→  is_featured: boolean;
+    39→  total_rounds: number;
+    40→  matches_per_round: number;
+    41→  points_win: number;
+    42→  points_draw: number;
+    43→  points_loss: number;
+    44→  bonus_points_per_kill: number;
+    45→  max_teams: number;
+    46→  registered_teams: number;
+    47→  prize_pool: number;
+    48→  currency: string;
+    49→  prize_distribution: number[];
+    50→  prize_description?: string;
+    51→  cover_image_url?: string;
+    52→  primary_color: string;
+    53→  secondary_color: string;
+    54→  total_matches: number;
+    55→  total_viewers: number;
+    56→  created_at: string;
+    57→  updated_at: string;
+    58→}
+    59→
+    60→export interface SeasonTeam {
+    61→  id: string;
+    62→  season_id: string;
+    63→  team_id?: string;
+    64→  team_name: string;
+    65→  team_logo?: string;
+    66→  matches_played: number;
+    67→  matches_won: number;
+    68→  matches_drawn: number;
+    69→  matches_lost: number;
+    70→  points: number;
+    71→  total_kills: number;
+    72→  total_deaths: number;
+    73→  total_damage: number;
+    74→  win_streak: number;
+    75→  loss_streak: number;
+    76→  best_win_streak: number;
+    77→  final_placement?: number;
+    78→  prize_won: number;
+    79→  registered_at: string;
+    80→}
+    81→
+    82→export interface SeasonMatch {
+    83→  id: string;
+    84→  season_id: string;
+    85→  round_number: number;
+    86→  match_number: number;
+    87→  team1_id?: string;
+    88→  team2_id?: string;
+    89→  team1_name?: string;
+    90→  team2_name?: string;
+    91→  team1_logo?: string;
+    92→  team2_logo?: string;
+    93→  team1_score: number;
+    94→  team2_score: number;
+    95→  team1_kills: number;
+    96→  team2_kills: number;
+    97→  winner_id?: string;
+    98→  is_draw: boolean;
+    99→  scheduled_at?: string;
+   100→  started_at?: string;
+   101→  completed_at?: string;
+   102→  status: string;
+   103→  lobby_id?: string;
+   104→  lobby_password?: string;
+   105→  map_name?: string;
+   106→  mode_name?: string;
+   107→  viewer_count: number;
+   108→  mvp_user_id?: string;
+   109→  mvp_name?: string;
+   110→  created_at: string;
+   111→}
+   112→
+   113→export interface Bet {
+   114→  id: string;
+   115→  user_id: string;
+   116→  match_id?: string;
+   117→  championship_id?: string;
+   118→  season_match_id?: string;
+   119→  bet_type: PredictionMarketType;
+   120→  predicted_outcome: Record<string, any>;
+   121→  predicted_label: string;
+   122→  odds: number;
+   123→  amount_wagered: number;
+   124→  potential_payout: number;
+   125→  status: BetStatus;
+   126→  is_correct?: boolean;
+   127→  amount_won: number;
+   128→  settled_at?: string;
+   129→  created_at: string;
+   130→}
+   131→
+   132→export interface UserWallet {
+   133→  id: string;
+   134→  user_id: string;
+   135→  balance: number;
+   136→  total_earned: number;
+   137→  total_wagered: number;
+   138→  total_won: number;
+   139→  total_lost: number;
+   140→  created_at: string;
+   141→  updated_at: string;
+   142→}
+   143→
+   144→export interface WalletTransaction {
+   145→  id: string;
+   146→  user_id: string;
+   147→  wallet_id: string;
+   148→  type: string;
+   149→  amount: number;
+   150→  balance_after: number;
+   151→  description?: string;
+   152→  reference_id?: string;
+   153→  created_at: string;
+   154→}
+   155→
+   156→export interface Evidence {
+   157→  id: string;
+   158→  report_id?: string;
+   159→  championship_id?: string;
+   160→  match_id?: string;
+   161→  submitted_by?: string;
+   162→  target_user_id?: string;
+   163→  evidence_type: EvidenceType;
+   164→  file_url: string;
+   165→  thumbnail_url?: string;
+   166→  description?: string;
+   167→  metadata?: Record<string, any>;
+   168→  chain_index: number;
+   169→  parent_evidence_id?: string;
+   170→  is_verified: boolean;
+   171→  verified_by?: string;
+   172→  verified_at?: string;
+   173→  created_at: string;
+   174→}
+   175→
+   176→export interface Punishment {
+   177→  id: string;
+   178→  user_id: string;
+   179→  team_id?: string;
+   180→  championship_id?: string;
+   181→  punishment_type: PunishmentType;
+   182→  reason: string;
+   183→  evidence_ids: string[];
+   184→  duration_days?: number;
+   185→  starts_at: string;
+   186→  ends_at?: string;
+   187→  is_active: boolean;
+   188→  points_deducted: number;
+   189→  matches_forfeited: number;
+   190→  issued_by?: string;
+   191→  created_at: string;
+   192→}
+   193→
    194→export interface UserReputation {
    195→  id: string;
    196→  user_id: string;
