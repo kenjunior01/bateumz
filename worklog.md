@@ -30,3 +30,24 @@ Stage Summary:
 - Complete league creation system for any user
 - DB migration ready to run for leagues tables
 - Commit: 96b410d pushed to main
+
+---
+Task ID: 2
+Agent: Super Z (main)
+Task: Fix game crash errors that don't show retry UI
+
+Work Log:
+- Identified root causes: (1) 556 lines of dead code in LiveHub.tsx referencing undefined components, causing unhandled runtime crashes; (2) onScore prop in useEffect deps causing infinite re-renders in FlappyBirdGame and FruitNinjaGame; (3) SafeGameLoader not forwarding props to loaded game components
+- Fixed FlappyBirdGame.tsx: added onScoreRef pattern, removed onScore from game loop useEffect deps
+- Fixed FruitNinjaGame.tsx: added onScoreRef pattern, removed onScore from score-reporting useEffect deps
+- Removed 556 lines of dead code from LiveHub.tsx (orphaned JSX with undefined GameErrorBoundary, undefined game components, mismatched closing tags)
+- Updated SafeGameLoader to accept and forward componentProps (onScore, liveCode, prizes, branding, etc.)
+- Added game-error-select-other event listener in LiveHub for "Outro jogo" button
+- Removed 'use client' directives from 5 remaining game files (TypingRacer, Match4Grid, ChessGame, Dominoes, TowerStack)
+- Cleaned unused imports (lazy, Suspense) from SafeGameLoader
+
+Stage Summary:
+- LiveHub.tsx reduced from 1343 to 795 lines
+- All 69+ games now load through SafeGameLoader with error recovery UI (Tentar novamente + Outro jogo)
+- Build passes cleanly (15.2s, 0 errors)
+- Key files changed: FlappyBirdGame.tsx, FruitNinjaGame.tsx, SafeGameLoader.tsx, LiveHub.tsx
