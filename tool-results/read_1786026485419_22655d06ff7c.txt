@@ -1,0 +1,498 @@
+     1→   799→   799→                <motion.div key="truthordare" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+     2→   800→   800→                  <GameErrorBoundary gameName="Verdade ou Desafio">
+     3→   801→   801→                  <TruthOrDare onScore={recordScore("Verdade ou Desafio")} liveCode={liveCode} />
+     4→   802→   802→                  </GameErrorBoundary>
+     5→   803→   803→                </motion.div>
+     6→   804→   804→              )}
+     7→   805→   805→              {active === "memory" && (
+     8→   806→   806→                <motion.div key="memory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+     9→   807→   807→                  <GameErrorBoundary gameName="Jogo da Memória VS">
+    10→   808→   808→                  <MemoryChallenge onScore={recordScore("Jogo da Memória VS")} liveCode={liveCode} />
+    11→   809→   809→                  </GameErrorBoundary>
+    12→   810→   810→                </motion.div>
+    13→   811→   811→              )}
+    14→   812→   812→              {active === "punishment" && (
+    15→   813→   813→                <motion.div key="punishment" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    16→   814→   814→                  <GameErrorBoundary gameName="Roleta de Castigos">
+    17→   815→   815→                  <PunishmentWheel />
+    18→   816→   816→                  </GameErrorBoundary>
+    19→   817→   817→                </motion.div>
+    20→   818→   818→              )}
+    21→   819→   819→              {active === "boknowledge" && (
+    22→   820→   820→                <motion.div key="boknowledge" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    23→   821→   821→                  <GameErrorBoundary gameName="Batalha de Conhecimentos">
+    24→   822→   822→                  <BattleOfKnowledge onScore={recordScore("Batalha de Conhecimentos")} liveCode={liveCode} />
+    25→   823→   823→                  </GameErrorBoundary>
+    26→   824→   824→                </motion.div>
+    27→   825→   825→              )}
+    28→   826→   826→              {active === "guessEmoji" && (
+    29→   827→   827→                <motion.div key="guessEmoji" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    30→   828→   828→                  <GameErrorBoundary gameName="Adivinhe o Emoji">
+    31→   829→   829→                  <GuessTheEmoji onScore={recordScore("Adivinhe o Emoji")} liveCode={liveCode} />
+    32→   830→   830→                  </GameErrorBoundary>
+    33→   831→   831→                </motion.div>
+    34→   832→   832→              )}
+    35→   833→   833→              {active === "quickdraw" && (
+    36→   834→   834→                <motion.div key="quickdraw" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    37→   835→   835→                  <GameErrorBoundary gameName="Desenho Rápido">
+    38→   836→   836→                  <QuickDrawChallenge onScore={recordScore("Desenho Rápido")} liveCode={liveCode} />
+    39→   837→   837→                  </GameErrorBoundary>
+    40→   838→   838→                </motion.div>
+    41→   839→   839→              )}
+    42→   840→   840→              {active === "hotpotato" && (
+    43→   841→   841→                <motion.div key="hotpotato" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    44→   842→   842→                  <GameErrorBoundary gameName="Batata Quente">
+    45→   843→   843→                  <HotPotatoGame onScore={recordScore("Batata Quente")} liveCode={liveCode} />
+    46→   844→   844→                  </GameErrorBoundary>
+    47→   845→   845→                </motion.div>
+    48→   846→   846→              )}
+    49→   847→   847→              {active === "numguess" && (
+    50→   848→   848→                <motion.div key="numguess" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    51→   849→   849→                  <GameErrorBoundary gameName="Adivinha o Número VS">
+    52→   850→   850→                  <NumberGuessBattle onScore={recordScore("Adivinha o Número VS")} liveCode={liveCode} />
+    53→   851→   851→                  </GameErrorBoundary>
+    54→   852→   852→                </motion.div>
+    55→   853→   853→              )}
+    56→   854→   854→              {active === "chaos" && (
+    57→   855→   855→                <motion.div key="chaos" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    58→   856→   856→                  <GameErrorBoundary gameName="Desafio Caótico">
+    59→   857→   857→                  <ChaosChallenge onScore={recordScore("Desafio Caótico")} liveCode={liveCode} />
+    60→   858→   858→                  </GameErrorBoundary>
+    61→   859→   859→                </motion.div>
+    62→   860→   860→              )}
+    63→   861→   861→              {active === "checkers" && (
+    64→   862→   862→                <motion.div key="checkers" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    65→   863→   863→                  <GameErrorBoundary gameName="Damas">
+    66→   864→   864→                  <CheckersGame onScore={recordScore("Damas")} liveCode={liveCode} />
+    67→   865→   865→                  </GameErrorBoundary>
+    68→   866→   866→                </motion.div>
+    69→   867→   867→              )}
+    70→   868→   868→              {active === "ludo" && (
+    71→   869→   869→                <motion.div key="ludo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    72→   870→   870→                  <GameErrorBoundary gameName="Ludo">
+    73→   871→   871→                  <LudoGame onScore={recordScore("Ludo")} liveCode={liveCode} />
+    74→   872→   872→                  </GameErrorBoundary>
+    75→   873→   873→                </motion.div>
+    76→   874→   874→              )}
+    77→   875→   875→              {active === "connect4" && (
+    78→   876→   876→                <motion.div key="connect4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    79→   877→   877→                  <GameErrorBoundary gameName="Ligar 4">
+    80→   878→   878→                  <ConnectFourGame onScore={recordScore("Ligar 4")} liveCode={liveCode} />
+    81→   879→   879→                  </GameErrorBoundary>
+    82→   880→   880→                </motion.div>
+    83→   881→   881→              )}
+    84→   882→   882→              {active === "battleship" && (
+    85→   883→   883→                <motion.div key="battleship" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    86→   884→   884→                  <GameErrorBoundary gameName="Batalha Naval">
+    87→   885→   885→                  <BattleshipGame onScore={recordScore("Batalha Naval")} liveCode={liveCode} />
+    88→   886→   886→                  </GameErrorBoundary>
+    89→   887→   887→                </motion.div>
+    90→   888→   888→              )}
+    91→   889→   889→              {active === "tictactoe" && (
+    92→   890→   890→                <motion.div key="tictactoe" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    93→   891→   891→                  <GameErrorBoundary gameName="Galo VS">
+    94→   892→   892→                  <TicTacToeVS onScore={recordScore("Galo VS")} liveCode={liveCode} />
+    95→   893→   893→                  </GameErrorBoundary>
+    96→   894→   894→                </motion.div>
+    97→   895→   895→              )}
+    98→   896→   896→              {active === "uno" && (
+    99→   897→   897→                <motion.div key="uno" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   100→   898→   898→                  <GameErrorBoundary gameName="UNO Cartas">
+   101→   899→   899→                  <UnoCardGame onScore={recordScore("UNO Cartas")} liveCode={liveCode} />
+   102→   900→   900→                  </GameErrorBoundary>
+   103→   901→   901→                </motion.div>
+   104→   902→   902→              )}
+   105→   903→   903→              {active === "snakebattle" && (
+   106→   904→   904→                <motion.div key="snakebattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   107→   905→   905→                  <GameErrorBoundary gameName="Batalha de Cobras">
+   108→   906→   906→                  <SnakeBattle onScore={recordScore("Batalha de Cobras")} liveCode={liveCode} />
+   109→   907→   907→                  </GameErrorBoundary>
+   110→   908→   908→                </motion.div>
+   111→   909→   909→              )}
+   112→   910→   910→              {active === "rps" && (
+   113→   911→   911→                <motion.div key="rps" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   114→   912→   912→                  <GameErrorBoundary gameName="Pedra Papel Tesoura">
+   115→   913→   913→                  <RockPaperScissors onScore={recordScore("Pedra Papel Tesoura")} liveCode={liveCode} />
+   116→   914→   914→                  </GameErrorBoundary>
+   117→   915→   915→                </motion.div>
+   118→   916→   916→              )}
+   119→   917→   917→              {active === "colorsequence" && (
+   120→   918→   918→                <motion.div key="colorsequence" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   121→   919→   919→                  <GameErrorBoundary gameName="Sequência de Cores">
+   122→   920→   920→                  <ColorSequence onScore={recordScore("Sequência de Cores")} liveCode={liveCode} />
+   123→   921→   921→                  </GameErrorBoundary>
+   124→   922→   922→                </motion.div>
+   125→   923→   923→              )}
+   126→   924→   924→              {active === "spaceshooter" && (
+   127→   925→   925→                <motion.div key="spaceshooter" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   128→   926→   926→                  <GameErrorBoundary gameName="Nave Espacial VS">
+   129→   927→   927→                  <SpaceShooter onScore={recordScore("Nave Espacial VS")} liveCode={liveCode} />
+   130→   928→   928→                  </GameErrorBoundary>
+   131→   929→   929→                </motion.div>
+   132→   930→   930→              )}
+   133→   931→   931→              {active === "ballbreaker" && (
+   134→   932→   932→                <motion.div key="ballbreaker" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   135→   933→   933→                  <GameErrorBoundary gameName="Quebra-Bloco VS">
+   136→   934→   934→                  <BallBreaker onScore={recordScore("Quebra-Bloco VS")} liveCode={liveCode} />
+   137→   935→   935→                  </GameErrorBoundary>
+   138→   936→   936→                </motion.div>
+   139→   937→   937→              )}
+   140→   938→   938→              {active === "reactionrace" && (
+   141→   939→   939→                <motion.div key="reactionrace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   142→   940→   940→                  <GameErrorBoundary gameName="Corrida de Reação">
+   143→   941→   941→                  <ReactionRace onScore={recordScore("Corrida de Reação")} liveCode={liveCode} />
+   144→   942→   942→                  </GameErrorBoundary>
+   145→   943→   943→                </motion.div>
+   146→   944→   944→              )}
+   147→   945→   945→              {active === "quickmath" && (
+   148→   946→   946→                <motion.div key="quickmath" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   149→   947→   947→                  <GameErrorBoundary gameName="Duelo de Matemática">
+   150→   948→   948→                  <QuickMath onScore={recordScore("Duelo de Matemática")} liveCode={liveCode} />
+   151→   949→   949→                  </GameErrorBoundary>
+   152→   950→   950→                </motion.div>
+   153→   951→   951→              )}
+   154→   952→   952→              {active === "memorycards" && (
+   155→   953→   953→                <motion.div key="memorycards" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   156→   954→   954→                  <GameErrorBoundary gameName="Memória VS Cartas">
+   157→   955→   955→                  <MemoryCardsVS onScore={recordScore("Memória VS Cartas")} liveCode={liveCode} />
+   158→   956→   956→                  </GameErrorBoundary>
+   159→   957→   957→                </motion.div>
+   160→   958→   958→              )}
+   161→   959→   959→              {active === "wordscramble" && (
+   162→   960→   960→                <motion.div key="wordscramble" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   163→   961→   961→                  <GameErrorBoundary gameName="Palavras Embaralhadas">
+   164→   962→   962→                  <WordScramble onScore={recordScore("Palavras Embaralhadas")} liveCode={liveCode} />
+   165→   963→   963→                  </GameErrorBoundary>
+   166→   964→   964→                </motion.div>
+   167→   965→   965→              )}
+   168→   966→   966→              {active === "tictactoepro" && (
+   169→   967→   967→                <motion.div key="tictactoepro" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   170→   968→   968→                  <GameErrorBoundary gameName="Galo PRO">
+   171→   969→   969→                  <TicTacToePro onScore={recordScore("Galo PRO")} liveCode={liveCode} />
+   172→   970→   970→                  </GameErrorBoundary>
+   173→   971→   971→                </motion.div>
+   174→   972→   972→              )}
+   175→   973→   973→              {active === "guessnumber100" && (
+   176→   974→   974→                <motion.div key="guessnumber100" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   177→   975→   975→                  <GameErrorBoundary gameName="Adivinha 1 a 100">
+   178→   976→   976→                  <GuessNumber100 onScore={recordScore("Adivinha 1 a 100")} liveCode={liveCode} />
+   179→   977→   977→                  </GameErrorBoundary>
+   180→   978→   978→                </motion.div>
+   181→   979→   979→              )}
+   182→   980→   980→              {active === "colormatch" && (
+   183→   981→   981→                <motion.div key="colormatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   184→   982→   982→                  <GameErrorBoundary gameName="Cor versus Palavra">
+   185→   983→   983→                  <ColorMatch onScore={recordScore("Cor versus Palavra")} liveCode={liveCode} />
+   186→   984→   984→                  </GameErrorBoundary>
+   187→   985→   985→                </motion.div>
+   188→   986→   986→              )}
+   189→   987→   987→              {active === "targettap" && (
+   190→   988→   988→                <motion.div key="targettap" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   191→   989→   989→                  <GameErrorBoundary gameName="Alvo Rápido">
+   192→   990→   990→                  <TargetTap onScore={recordScore("Alvo Rápido")} liveCode={liveCode} />
+   193→   991→   991→                  </GameErrorBoundary>
+   194→   992→   992→                </motion.div>
+   195→   993→   993→              )}
+   196→   994→   994→              {active === "diceluel" && (
+   197→   995→   995→                <motion.div key="diceluel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   198→   996→   996→                  <GameErrorBoundary gameName="Duelo de Dados">
+   199→   997→   997→                  <DiceDuel onScore={recordScore("Duelo de Dados")} liveCode={liveCode} />
+   200→   998→   998→                  </GameErrorBoundary>
+   201→   999→   999→                </motion.div>
+   202→  1000→  1000→              )}
+   203→  1001→  1001→              {active === "patternmemory" && (
+   204→  1002→  1002→                <motion.div key="patternmemory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   205→  1003→  1003→                  <GameErrorBoundary gameName="Memória de Padrões">
+   206→  1004→  1004→                  <PatternMemory onScore={recordScore("Memória de Padrões")} liveCode={liveCode} />
+   207→  1005→  1005→                  </GameErrorBoundary>
+   208→  1006→  1006→                </motion.div>
+   209→  1007→  1007→              )}
+   210→  1008→  1008→              {active === "triviaflash" && (
+   211→  1009→  1009→                <motion.div key="triviaflash" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   212→  1010→  1010→                  <GameErrorBoundary gameName="Trivia Flash">
+   213→  1011→  1011→                  <TriviaFlash onScore={recordScore("Trivia Flash")} liveCode={liveCode} />
+   214→  1012→  1012→                  </GameErrorBoundary>
+   215→  1013→  1013→                </motion.div>
+   216→  1014→  1014→              )}
+   217→  1015→  1015→              {active === "dominoes" && (
+   218→  1016→  1016→                <motion.div key="dominoes" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   219→  1017→  1017→                  <GameErrorBoundary gameName="Dominó">
+   220→  1018→  1018→                  <Dominoes onScore={recordScore("Dominó")} liveCode={liveCode} />
+   221→  1019→  1019→                  </GameErrorBoundary>
+   222→  1020→  1020→                </motion.div>
+   223→  1021→  1021→              )}
+   224→  1022→  1022→              {active === "mazerace" && (
+   225→  1023→  1023→                <motion.div key="mazerace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   226→  1024→  1024→                  <GameErrorBoundary gameName="Corrida no Labirinto">
+   227→  1025→  1025→                  <MazeRace onScore={recordScore("Corrida no Labirinto")} liveCode={liveCode} />
+   228→  1026→  1026→                  </GameErrorBoundary>
+   229→  1027→  1027→                </motion.div>
+   230→  1028→  1028→              )}
+   231→  1029→  1029→              {active === "slotsvs" && (
+   232→  1030→  1030→                <motion.div key="slotsvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   233→  1031→  1031→                  <GameErrorBoundary gameName="Caça-Níqueis VS">
+   234→  1032→  1032→                  <SlotsVS onScore={recordScore("Caça-Níqueis VS")} liveCode={liveCode} />
+   235→  1033→  1033→                  </GameErrorBoundary>
+   236→  1034→  1034→                </motion.div>
+   237→  1035→  1035→              )}
+   238→  1036→  1036→              {active === "match4" && (
+   239→  1037→  1037→                <motion.div key="match4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   240→  1038→  1038→                  <GameErrorBoundary gameName="Combina 4">
+   241→  1039→  1039→                  <Match4Grid onScore={recordScore("Combina 4")} liveCode={liveCode} />
+   242→  1040→  1040→                  </GameErrorBoundary>
+   243→  1041→  1041→                </motion.div>
+   244→  1042→  1042→              )}
+   245→  1043→  1043→              {active === "towerstack" && (
+   246→  1044→  1044→                <motion.div key="towerstack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   247→  1045→  1045→                  <GameErrorBoundary gameName="Torre VS">
+   248→  1046→  1046→                  <TowerStack onScore={recordScore("Torre VS")} liveCode={liveCode} />
+   249→  1047→  1047→                  </GameErrorBoundary>
+   250→  1048→  1048→                </motion.div>
+   251→  1049→  1049→              )}
+   252→  1050→  1050→              {active === "cannonbattle" && (
+   253→  1051→  1051→                <motion.div key="cannonbattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   254→  1052→  1052→                  <GameErrorBoundary gameName="Batalha de Canhões">
+   255→  1053→  1053→                  <CannonBattle onScore={recordScore("Batalha de Canhões")} liveCode={liveCode} />
+   256→  1054→  1054→                  </GameErrorBoundary>
+   257→  1055→  1055→                </motion.div>
+   258→  1056→  1056→              )}
+   259→  1057→  1057→              {active === "spotdifference" && (
+   260→  1058→  1058→                <motion.div key="spotdifference" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   261→  1059→  1059→                  <GameErrorBoundary gameName="Encontre Diferenças">
+   262→  1060→  1060→                  <SpotDifference onScore={recordScore("Encontre Diferenças")} liveCode={liveCode} />
+   263→  1061→  1061→                  </GameErrorBoundary>
+   264→  1062→  1062→                </motion.div>
+   265→  1063→  1063→              )}
+   266→  1064→  1064→              {active === "wordchain" && (
+   267→  1065→  1065→                <motion.div key="wordchain" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   268→  1066→  1066→                  <GameErrorBoundary gameName="Corrente de Palavras">
+   269→  1067→  1067→                  <WordChain onScore={recordScore("Corrente de Palavras")} liveCode={liveCode} />
+   270→  1068→  1068→                  </GameErrorBoundary>
+   271→  1069→  1069→                </motion.div>
+   272→  1070→  1070→              )}
+   273→  1071→  1071→              {active === "numbertetris" && (
+   274→  1072→  1072→                <motion.div key="numbertetris" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   275→  1073→  1073→                  <GameErrorBoundary gameName="Números Caindo">
+   276→  1074→  1074→                  <NumberTetris onScore={recordScore("Números Caindo")} liveCode={liveCode} />
+   277→  1075→  1075→                  </GameErrorBoundary>
+   278→  1076→  1076→                </motion.div>
+   279→  1077→  1077→              )}
+   280→  1078→  1078→              {active === "pongvs" && (
+   281→  1079→  1079→                <motion.div key="pongvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   282→  1080→  1080→                  <GameErrorBoundary gameName="Pong VS">
+   283→  1081→  1081→                  <PongVS onScore={recordScore("Pong VS")} liveCode={liveCode} />
+   284→  1082→  1082→                  </GameErrorBoundary>
+   285→  1083→  1083→                </motion.div>
+   286→  1084→  1084→              )}
+   287→  1085→  1085→              {active === "whackamole" && (
+   288→  1086→  1086→                <motion.div key="whackamole" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   289→  1087→  1087→                  <GameErrorBoundary gameName="Bate o Alvo">
+   290→  1088→  1088→                  <WhackAMole onScore={recordScore("Bate o Alvo")} liveCode={liveCode} />
+   291→  1089→  1089→                  </GameErrorBoundary>
+   292→  1090→  1090→                </motion.div>
+   293→  1091→  1091→              )}
+   294→  1092→  1092→              {active === "colorcatch" && (
+   295→  1093→  1093→                <motion.div key="colorcatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   296→  1094→  1094→                  <GameErrorBoundary gameName="Pesca Cores">
+   297→  1095→  1095→                  <ColorCatch onScore={recordScore("Pesca Cores")} liveCode={liveCode} />
+   298→  1096→  1096→                  </GameErrorBoundary>
+   299→  1097→  1097→                </motion.div>
+   300→  1098→  1098→              )}
+   301→  1099→  1099→              {active === "mexerica" && (
+   302→  1100→  1100→                <motion.div key="mexerica" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   303→  1101→  1101→                  <GameErrorBoundary gameName="Mexerica">
+   304→  1102→  1102→                  <MexericaGame onScore={recordScore("Mexerica")} liveCode={liveCode} />
+   305→  1103→  1103→                  </GameErrorBoundary>
+   306→  1104→  1104→                </motion.div>
+   307→  1105→  1105→              )}
+   308→  1106→  1106→              {active === "chigogo" && (
+   309→  1107→  1107→                <motion.div key="chigogo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   310→  1108→  1108→                  <GameErrorBoundary gameName="Chigogo">
+   311→  1109→  1109→                  <ChigogoGame onScore={recordScore("Chigogo")} liveCode={liveCode} />
+   312→  1110→  1110→                  </GameErrorBoundary>
+   313→  1111→  1111→                </motion.div>
+   314→  1112→  1112→              )}
+   315→  1113→  1113→              {active === "urusse" && (
+   316→  1114→  1114→                <motion.div key="urusse" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   317→  1115→  1115→                  <GameErrorBoundary gameName="Urusse">
+   318→  1116→  1116→                  <UrusseGame onScore={recordScore("Urusse")} liveCode={liveCode} />
+   319→  1117→  1117→                  </GameErrorBoundary>
+   320→  1118→  1118→                </motion.div>
+   321→  1119→  1119→              )}
+   322→  1120→  1120→              {active === "capulanaquiz" && (
+   323→  1121→  1121→                <motion.div key="capulanaquiz" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   324→  1122→  1122→                  <GameErrorBoundary gameName="Capulana Quiz">
+   325→  1123→  1123→                  <CapulanaQuiz onScore={recordScore("Capulana Quiz")} liveCode={liveCode} />
+   326→  1124→  1124→                  </GameErrorBoundary>
+   327→  1125→  1125→                </motion.div>
+   328→  1126→  1126→              )}
+   329→  1127→  1127→              {active === "carromboard" && (
+   330→  1128→  1128→                <motion.div key="carromboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   331→  1129→  1129→                  <GameErrorBoundary gameName="Carrom">
+   332→  1130→  1130→                  <CarromBoard onScore={recordScore("Carrom")} liveCode={liveCode} />
+   333→  1131→  1131→                  </GameErrorBoundary>
+   334→  1132→  1132→                </motion.div>
+   335→  1133→  1133→              )}
+   336→  1134→  1134→              {active === "teenpatti" && (
+   337→  1135→  1135→                <motion.div key="teenpatti" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   338→  1136→  1136→                  <GameErrorBoundary gameName="Teen Patti">
+   339→  1137→  1137→                  <TeenPatti onScore={recordScore("Teen Patti")} liveCode={liveCode} />
+   340→  1138→  1138→                  </GameErrorBoundary>
+   341→  1139→  1139→                </motion.div>
+   342→  1140→  1140→              )}
+   343→  1141→  1141→              {active === "kabaddiraid" && (
+   344→  1142→  1142→                <motion.div key="kabaddiraid" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   345→  1143→  1143→                  <GameErrorBoundary gameName="Kabaddi Raid">
+   346→  1144→  1144→                  <KabaddiRaid onScore={recordScore("Kabaddi Raid")} liveCode={liveCode} />
+   347→  1145→  1145→                  </GameErrorBoundary>
+   348→  1146→  1146→                </motion.div>              )}
+   349→  1147→  1147→              {active === "rpgarena" && (
+   350→  1148→  1148→                <motion.div key="rpgarena" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   351→  1149→  1149→                  <GameErrorBoundary gameName="RPG Arena Battle">
+   352→  1150→  1150→                  <RpgArenaBattle onScore={recordScore("RPG Arena Battle")} liveCode={liveCode} />
+   353→  1151→  1151→                  </GameErrorBoundary>
+   354→  1152→  1152→                </motion.div>              )}
+   355→  1153→  1153→              {active === "battleroyale" && (
+   356→  1154→  1154→                <motion.div key="battleroyale" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   357→  1155→  1155→                  <GameErrorBoundary gameName="Battle Royale">
+   358→  1156→  1156→                  <BattleRoyaleGame onScore={recordScore("Battle Royale")} liveCode={liveCode} />
+   359→  1157→  1157→                  </GameErrorBoundary>
+   360→  1158→  1158→                </motion.div>              )}
+   361→  1159→  1159→              {active === "chess" && (
+   362→  1160→  1160→                <motion.div key="chess" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   363→  1161→  1161→                  <GameErrorBoundary gameName="Xadrez">
+   364→  1162→  1162→                  <ChessGame onScore={recordScore("Xadrez")} liveCode={liveCode} />
+   365→  1163→  1163→                  </GameErrorBoundary>
+   366→  1164→  1164→                </motion.div>              )}
+   367→  1165→  1165→              {active === "flappybird" && (
+   368→  1166→  1166→                <motion.div key="flappybird" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   369→  1167→  1167→                  <GameErrorBoundary gameName="Flappy Bird">
+   370→  1168→  1168→                  <FlappyBirdGame onScore={recordScore("Flappy Bird")} liveCode={liveCode} />
+   371→  1169→  1169→                  </GameErrorBoundary>
+   372→  1170→  1170→                </motion.div>              )}
+   373→  1171→  1171→              {active === "fruitninja" && (
+   374→  1172→  1172→                <motion.div key="fruitninja" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   375→  1173→  1173→                  <GameErrorBoundary gameName="Fruta Ninja">
+   376→  1174→  1174→                  <FruitNinjaGame onScore={recordScore("Fruta Ninja")} liveCode={liveCode} />
+   377→  1175→  1175→                  </GameErrorBoundary>
+   378→  1176→  1176→                </motion.div>              )}
+   379→  1177→  1177→              {active === "typingracer" && (
+   380→  1178→  1178→                <motion.div key="typingracer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   381→  1179→  1179→                  <GameErrorBoundary gameName="Corrida de Digitacao">
+   382→  1180→  1180→                  <TypingRacer onScore={recordScore("Corrida de Digitacao")} liveCode={liveCode} />
+   383→  1181→  1181→                  </GameErrorBoundary>
+   384→  1182→  1182→                </motion.div>              )}
+   385→  1183→  1183→              </Suspense>
+   386→  1184→  1184→            </AnimatePresence>
+   387→  1185→  1185→            </GameFullscreenWrapper>
+   388→  1186→  1186→          </div>
+   389→  1187→  1187→
+   390→  1188→  1188→          <aside className="space-y-4">
+   391→  1189→  1189→            <LevelProgressWidget />
+   392→  1190→  1190→            <LiveControlPanel
+   393→  1191→  1191→              liveCode={liveCode}
+   394→  1192→  1192→              entries={leaderboard}
+   395→  1193→  1193→              onClear={() => setLeaderboard([])}
+   396→  1194→  1194→              onResetConfig={resetConfig}
+   397→  1195→  1195→              isLive={isLive}
+   398→  1196→  1196→              elapsedSec={elapsed}
+   399→  1197→  1197→              activeGameLabel={activeMeta?.label}
+   400→  1198→  1198→              onStartLive={startLive}
+   401→  1199→  1199→              onEndLive={requestEndLive}
+   402→  1200→  1200→              onBroadcastWinner={broadcastWinner}
+   403→  1201→  1201→            />
+   404→  1202→  1202→            <LiveLeaderboard entries={leaderboard} onClear={() => setLeaderboard([])} />
+   405→  1203→  1203→            {user && (
+   406→  1204→  1204→              <AmbassadorPanel
+   407→  1205→  1205→                businessUserId={user.id}
+   408→  1206→  1206→                businessName={user.email?.split("@")[0] || "esta empresa"}
+   409→  1207→  1207→                liveCode={liveCode}
+   410→  1208→  1208→                compact
+   411→  1209→  1209→              />
+   412→  1210→  1210→            )}
+   413→  1211→  1211→
+   414→  1212→  1212→            <div className="rounded-2xl border border-border bg-card p-4">
+   415→  1213→  1213→              <div className="flex items-center gap-2 mb-2">
+   416→  1214→  1214→                <Sparkles className="h-4 w-4 text-primary" />
+   417→  1215→  1215→                <h3 className="font-display text-sm font-bold">Dicas</h3>
+   418→  1216→  1216→              </div>
+   419→  1217→  1217→              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+   420→  1218→  1218→                <li>Escolhe qualquer jogo da lista e joga imediatamente.</li>
+   421→  1219→  1219→                <li>Empresas podem iniciar uma live para envolver a audiência.</li>
+   422→  1220→  1220→                <li>O teu ranking local é guardado automaticamente.</li>
+   423→  1221→  1221→                <li>Desafia os teus amigos e supera o teu recorde!</li>
+   424→  1222→  1222→              </ul>
+   425→  1223→  1223→            </div>
+   426→  1224→  1224→
+   427→  1225→  1225→            <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+   428→  1226→  1226→              <div className="flex items-center gap-2 mb-1">
+   429→  1227→  1227→                <Users className="h-4 w-4 text-primary" />
+   430→  1228→  1228→                <h3 className="font-display text-sm font-bold">Modo Multi-jogador</h3>
+   431→  1229→  1229→              </div>
+   432→  1230→  1230→              <p className="text-xs text-muted-foreground">
+   433→  1231→  1231→                Vários jogos suportam 1v1 ou contra bot IA — perfeito para desafiar amigos. Inicia uma live para partilhar com a audiência!
+   434→  1232→  1232→              </p>
+   435→  1233→  1233→            </div>
+   436→  1234→  1234→          </aside>
+   437→  1235→  1235→        </div>
+   438→  1236→  1236→      </section>
+   439→  1237→  1237→
+   440→  1238→  1238→      <Footer />
+   441→  1239→  1239→      <BottomTabBar />
+   442→  1240→  1240→      <EngagementBar />
+   443→  1241→  1241→
+   444→  1242→  1242→      <AnimatePresence>
+   445→  1243→  1243→        {endOpen && (
+   446→  1244→  1244→          <motion.div
+   447→  1245→  1245→            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+   448→  1246→  1246→            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+   449→  1247→  1247→            onClick={() => !ending && setEndOpen(false)}
+   450→  1248→  1248→          >
+   451→  1249→  1249→            <motion.div
+   452→  1250→  1250→              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+   453→  1251→  1251→              className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
+   454→  1252→  1252→              onClick={(e) => e.stopPropagation()}
+   455→  1253→  1253→            >
+   456→  1254→  1254→              <div className="flex items-center gap-3 mb-3">
+   457→  1255→  1255→                <div className="h-12 w-12 rounded-2xl bg-destructive/15 text-destructive flex items-center justify-center">
+   458→  1256→  1256→                  <Square className="h-5 w-5 fill-current" />
+   459→  1257→  1257→                </div>
+   460→  1258→  1258→                <div>
+   461→  1259→  1259→                  <h3 className="font-display text-lg font-bold">Encerrar a Live?</h3>
+   462→  1260→  1260→                  <p className="text-xs text-muted-foreground">O código <span className="font-mono font-bold text-foreground">{liveCode}</span> será invalidado e o ranking será arquivado no histórico.</p>
+   463→  1261→  1261→                </div>
+   464→  1262→  1262→              </div>
+   465→  1263→  1263→
+   466→  1264→  1264→              <div className="rounded-2xl bg-muted/40 border border-border p-4 mb-4 text-center">
+   467→  1265→  1265→                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Confirmação disponível em</p>
+   468→  1266→  1266→                <p className={`font-mono text-3xl font-bold ${endCountdown === 0 ? "text-destructive" : "text-primary"}`}>
+   469→  1267→  1267→                  {endCountdown > 0 ? `${endCountdown}s` : "Pronto"}
+   470→  1268→  1268→                </p>
+   471→  1269→  1269→              </div>
+   472→  1270→  1270→
+   473→  1271→  1271→              <div className="flex gap-2">
+   474→  1272→  1272→                <button
+   475→  1273→  1273→                  onClick={() => !ending && setEndOpen(false)}
+   476→  1274→  1274→                  disabled={ending}
+   477→  1275→  1275→                  className="flex-1 px-4 py-2.5 rounded-full bg-secondary text-foreground text-sm font-bold disabled:opacity-50"
+   478→  1276→  1276→                >
+   479→  1277→  1277→                  Cancelar
+   480→  1278→  1278→                </button>
+   481→  1279→  1279→                <button
+   482→  1280→  1280→                  onClick={confirmEndLive}
+   483→  1281→  1281→                  disabled={endCountdown > 0 || ending}
+   484→  1282→  1282→                  className="flex-1 px-4 py-2.5 rounded-full bg-destructive text-destructive-foreground text-sm font-bold hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+   485→  1283→  1283→                >
+   486→  1284→  1284→                  {ending ? "A encerrar…" : "Encerrar Live"}
+   487→  1285→  1285→                </button>
+   488→  1286→  1286→              </div>
+   489→  1287→  1287→            </motion.div>
+   490→  1288→  1288→          </motion.div>
+   491→  1289→  1289→        )}
+   492→  1290→  1290→      </AnimatePresence>
+   493→  1291→  1291→    </div>
+   494→  1292→  1292→  );
+   495→  1293→  1293→};
+   496→  1294→  1294→
+   497→  1295→  1295→export default LiveHub;
+   498→  1296→  1296→
