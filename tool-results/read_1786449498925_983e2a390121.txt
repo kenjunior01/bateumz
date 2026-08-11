@@ -1,0 +1,559 @@
+    50→    50→}
+    51→    51→
+    52→    52→const stepVariants = {
+    53→    53→  enter: (direction: number) => ({ x: direction > 0 ? 200 : -200, opacity: 0 }),
+    54→    54→  center: { x: 0, opacity: 1 },
+    55→    55→  exit: (direction: number) => ({ x: direction > 0 ? -200 : 200, opacity: 0 }),
+    56→    56→};
+    57→    57→
+    58→    58→export default function Register() {
+    59→    59→  const { signUp } = useAuth();
+    60→    60→  const navigate = useNavigate();
+    61→    61→  const [step, setStep] = useState(0);
+    62→    62→  const [direction, setDirection] = useState(1);
+    63→    63→  const [accountType, setAccountType] = useState<"user" | "business">("user");
+    64→    64→  const [name, setName] = useState("");
+    65→    65→  const [companyName, setCompanyName] = useState("");
+    66→    66→  const [email, setEmail] = useState("");
+    67→    67→  const [password, setPassword] = useState("");
+    68→    68→  const [phone, setPhone] = useState("");
+    69→    69→  const [country, setCountry] = useState("MZ");
+    70→    70→  const [province, setProvince] = useState("");
+    71→    71→  const [city, setCity] = useState("");
+    72→    72→  const [interests, setInterests] = useState<string[]>([]);
+    73→    73→  const [error, setError] = useState("");
+    74→    74→  const [loading, setLoading] = useState(false);
+    75→    75→  const [success, setSuccess] = useState(false);
+    76→    76→  const [autoSignedIn, setAutoSignedIn] = useState(false);
+    77→    77→  const [googleLoading, setGoogleLoading] = useState(false);
+    78→    78→  const [appleLoading, setAppleLoading] = useState(false);
+    79→    79→  const [searchParams] = useSearchParams();
+    80→    80→  const refCode = searchParams.get("ref") || "";
+    81→    81→
+    82→    82→  const goNext = () => {
+    83→    83→    setDirection(1);
+    84→    84→    setStep(s => Math.min(s + 1, STEP_COUNT - 1));
+    85→    85→    playPopSound();
+    86→    86→  };
+    87→    87→  const goBack = () => {
+    88→    88→    setDirection(-1);
+    89→    89→    setStep(s => Math.max(s - 1, 0));
+    90→    90→  };
+    91→    91→
+    92→    92→  const toggleInterest = (id: string) => {
+    93→    93→    setInterests(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    94→    94→    playPopSound();
+    95→    95→  };
+    96→    96→
+    97→    97→  const passwordStrong = (pw: string) =>
+    98→    98→    pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw);
+    99→    99→
+   100→   100→  const canProceed = () => {
+   101→   101→    if (step === 0) return accountType !== null;
+   102→   102→    if (step === 1)
+   103→   103→      return (
+   104→   104→        name.length >= 2 &&
+   105→   105→        email.includes("@") &&
+   106→   106→        passwordStrong(password) &&
+   107→   107→        (accountType !== "business" || companyName.trim().length >= 2)
+   108→   108→      );
+   109→   109→    if (step === 2) return true; // optional data
+   110→   110→    if (step === 3) return true; // interests are optional
+   111→   111→    return true;
+   112→   112→  };
+   113→   113→
+   114→   114→  const friendlyAuthError = (raw: string) => describeSignUpError(raw).message;
+   115→   115→
+   116→   116→  const handleSubmit = async () => {
+   117→   117→    setError("");
+   118→   118→    if (!passwordStrong(password)) {
+   119→   119→      setError("Password needs at least 8 characters, including letters and numbers.");
+   120→   120→      setDirection(-1);
+   121→   121→      setStep(1);
+   122→   122→      return;
+   123→   123→    }
+   124→   124→    setLoading(true);
+   125→   125→    try {
+   126→   126→      const { error, session } = await signUp(email, password, {
+   127→   127→        display_name: name,
+   128→   128→        role: accountType,
+   129→   129→        company_name: accountType === "business" ? companyName : undefined,
+   130→   130→      });
+   131→   131→      setLoading(false);
+   132→   132→      if (error) {
+   133→   133→        setError(friendlyAuthError(error.message));
+   134→   134→        return;
+   135→   135→      }
+   136→   136→
+   137→   137→      // Persist extra profile data regardless of whether a session exists yet.
+   138→   138→      // AuthContext picks this up on the first authenticated load.
+   139→   139→      localStorage.setItem(
+   140→   140→        "bateu_signup_extra",
+   141→   141→        JSON.stringify({
+   142→   142→          phone,
+   143→   143→          province,
+   144→   144→          city,
+   145→   145→          interests,
+   146→   146→          company_name: accountType === "business" ? companyName : undefined,
+   147→   147→        })
+   148→   148→      );
+   149→   149→
+   150→   150→      if (refCode) {
+   151→   151→        try {
+   152→   152→          const { data: referrerProfile } = await supabase.rpc("resolve_referral_code", { _code: refCode });
+   153→   153→          if (referrerProfile) {
+   154→   154→            localStorage.setItem("sortex_ref", refCode);
+   155→   155→          }
+   156→   156→        } catch {}
+   157→   157→      }
+   158→   158→
+   159→   159→      setAutoSignedIn(!!session);
+   160→   160→      setSuccess(true);
+   161→   161→      playPopSound();
+   162→   162→    } catch (err: any) {
+   163→   163→      setLoading(false);
+   164→   164→      setError(describeSignUpError(err?.message).message);
+   165→   165→      console.error("Signup error:", err);
+   166→   166→    }
+   167→   167→  };
+   168→   168→
+   169→   169→  const handleGoogleSignUp = async () => {
+   170→   170→    setGoogleLoading(true);
+   171→   171→    const { error } = await supabase.auth.signInWithOAuth({
+   172→   172→      provider: 'google',
+   173→   173→      options: { redirectTo: window.location.origin },
+   174→   174→    });
+   175→   175→    if (error) {
+   176→   176→      setError("Could not connect with Google. Please try again.");
+   177→   177→      setGoogleLoading(false);
+   178→   178→    }
+   179→   179→  };
+   180→   180→
+   181→   181→  const handleAppleSignUp = async () => {
+   182→   182→    setAppleLoading(true);
+   183→   183→    const { error } = await supabase.auth.signInWithOAuth({
+   184→   184→      provider: 'apple',
+   185→   185→      options: { redirectTo: window.location.origin },
+   186→   186→    });
+   187→   187→    if (error) {
+   188→   188→      setError("Could not connect with Apple. Please try again.");
+   189→   189→      setAppleLoading(false);
+   190→   190→    }
+   191→   191→  };
+   192→   192→
+   193→   193→  const mascotForStep = step === 0 ? mascotHappy : step === 1 ? mascotExcited : step === 2 ? mascotHappy : mascotWinner;
+   194→   194→  const mascotMessage = step === 0
+   195→   195→    ? "Let's get started! 🎉 Pick your account type."
+   196→   196→    : step === 1
+   197→   197→    ? "Great choice! Now your details 🚀"
+   198→   198→    : step === 2
+   199→   199→    ? "Almost there! Tell us a bit about you 😊"
+   200→   200→    : "Last step! What are you into? ✨";
+   201→   201→
+   202→   202→  if (success) {
+   203→   203→    return (
+   204→   204→      <div className="min-h-screen flex items-center justify-center bg-background p-4 overflow-hidden relative">
+   205→   205→        <div className="absolute inset-0 flex justify-center">
+   206→   206→          {CONFETTI_EMOJIS.map((e, i) => (
+   207→   207→            <ConfettiParticle key={i} emoji={e} delay={i * 0.15} />
+   208→   208→          ))}
+   209→   209→          {CONFETTI_EMOJIS.map((e, i) => (
+   210→   210→            <ConfettiParticle key={`b-${i}`} emoji={e} delay={1 + i * 0.1} />
+   211→   211→          ))}
+   212→   212→        </div>
+   213→   213→
+   214→   214→        <motion.div initial={{ opacity: 0, scale: 0.8, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", damping: 12 }}
+   215→   215→          data-testid="signup-success"
+   216→   216→          data-auto-signed-in={autoSignedIn ? "true" : "false"}
+   217→   217→          className="glass rounded-3xl p-8 max-w-md text-center relative z-10">
+   218→   218→          <motion.img src={mascotWinner} alt="Bateu" className="h-24 w-24 mx-auto mb-4" width={96} height={96}
+   219→   219→            animate={{ y: [0, -15, 0], rotate: [0, 10, -10, 0] }}
+   220→   220→            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} />
+   221→   221→          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}>
+   222→   222→            <h2 className="font-display text-2xl font-bold text-foreground">Welcome to Bateu! 🎊</h2>
+   223→   223→          </motion.div>
+   224→   224→          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+   225→   225→            className="text-sm text-muted-foreground mt-3">
+   226→   226→            {autoSignedIn
+   227→   227→              ? <>Your account <strong className="text-foreground">{email}</strong> is ready.</>
+   228→   228→              : <>We sent a confirmation link to <strong className="text-foreground">{email}</strong></>}
+   229→   229→          </motion.p>
+   230→   230→          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+   231→   231→            className="mt-6 space-y-3">
+   232→   232→            <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-foreground">
+   233→   233→              <Mail className="h-5 w-5 text-primary shrink-0" />
+   234→   234→              <span>
+   235→   235→                {autoSignedIn
+   236→   236→                  ? "You're signed in — start joining raffles and winning prizes!"
+   237→   237→                  : "Check your email to activate your account and start winning prizes!"}
+   238→   238→              </span>
+   239→   239→            </div>
+   240→   240→            <Link
+   241→   241→              to={autoSignedIn ? (accountType === "business" ? "/dashboard" : "/profile") : "/login"}
+   242→   242→              className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+   243→   243→            >
+   244→   244→              {autoSignedIn ? "Go to my dashboard" : "Go to login"} <ChevronRight className="h-3 w-3" />
+   245→   245→            </Link>
+   246→   246→          </motion.div>
+   247→   247→        </motion.div>
+   248→   248→      </div>
+   249→   249→    );
+   250→   250→  }
+   251→   251→
+   252→   252→  return (
+   253→   253→    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+   254→   254→      <div className="absolute inset-0">
+   255→   255→        <motion.div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-primary/5 blur-[120px]"
+   256→   256→          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ repeat: Infinity, duration: 6 }} />
+   257→   257→        <motion.div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full bg-accent/5 blur-[120px]"
+   258→   258→          animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.3, 0.5] }} transition={{ repeat: Infinity, duration: 8 }} />
+   259→   259→      </div>
+   260→   260→
+   261→   261→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative w-full max-w-lg z-10">
+   262→   262→        <div className="mb-6 text-center">
+   263→   263→          <Link to="/" className="inline-flex items-center gap-2 mb-4">
+   264→   264→            <img src="/assets/bateu-logo.png" alt="Bateu" className="h-10 w-10 rounded-xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+   265→   265→            <span className="font-display text-2xl font-bold text-foreground">Bateu</span>
+   266→   266→          </Link>
+   267→   267→
+   268→   268→          <div className="flex items-center justify-center gap-3 mb-2">
+   269→   269→            <motion.img src={mascotForStep} alt="Bateu" className="h-16 w-16" width={64} height={64}
+   270→   270→              key={step}
+   271→   271→              initial={{ scale: 0, rotate: -30 }}
+   272→   272→              animate={{ scale: 1, rotate: 0, y: [0, -8, 0] }}
+   273→   273→              transition={{ type: "spring", damping: 10, y: { repeat: Infinity, duration: 2 } }} />
+   274→   274→            <motion.div key={`msg-${step}`} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+   275→   275→              className="rounded-2xl bg-card border border-border px-4 py-2 text-xs text-foreground max-w-[200px] relative">
+   276→   276→              {mascotMessage}
+   277→   277→              <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 rotate-45 bg-card border-l border-b border-border" />
+   278→   278→            </motion.div>
+   279→   279→          </div>
+   280→   280→        </div>
+   281→   281→
+   282→   282→        <div className="flex gap-2 mb-6 px-4">
+   283→   283→          {Array.from({ length: STEP_COUNT }).map((_, i) => (
+   284→   284→            <motion.div key={i} className="h-1.5 flex-1 rounded-full overflow-hidden bg-secondary">
+   285→   285→              <motion.div
+   286→   286→                className="h-full bg-primary rounded-full"
+   287→   287→                initial={{ width: "0%" }}
+   288→   288→                animate={{ width: i <= step ? "100%" : "0%" }}
+   289→   289→                transition={{ duration: 0.4, delay: i * 0.05 }}
+   290→   290→              />
+   291→   291→            </motion.div>
+   292→   292→          ))}
+   293→   293→        </div>
+   294→   294→
+   295→   295→        <div className="glass rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+   296→   296→          <div className="flex items-center justify-between mb-5">
+   297→   297→            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+   298→   298→              Step {step + 1} of {STEP_COUNT}
+   299→   299→            </span>
+   300→   300→            {step > 0 && (
+   301→   301→              <button onClick={goBack} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+   302→   302→                <ChevronLeft className="h-3 w-3" /> Back
+   303→   303→              </button>
+   304→   304→            )}
+   305→   305→          </div>
+   306→   306→
+   307→   307→          <AnimatePresence mode="wait" custom={direction}>
+   308→   308→            {step === 0 && (
+   309→   309→              <motion.div key="step0" custom={direction} variants={stepVariants}
+   310→   310→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   311→   311→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Who are you? 🤔</h2>
+   312→   312→                <p className="text-sm text-muted-foreground mb-6">Choose the account type that fits you best</p>
+   313→   313→
+   314→   314→                <div className="grid gap-3">
+   315→   315→                  <motion.button onClick={() => { setAccountType("user"); playPopSound(); }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+   316→   316→                    className={`flex items-start gap-4 rounded-2xl p-5 text-left transition-all border-2 ${
+   317→   317→                      accountType === "user" ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+   318→   318→                    }`}>
+   319→   319→                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl shrink-0 ${accountType === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+   320→   320→                      <User className="h-6 w-6" />
+   321→   321→                    </div>
+   322→   322→                    <div>
+   323→   323→                      <p className="font-bold text-foreground text-sm">🎯 Participant</p>
+   324→   324→                      <p className="text-xs text-muted-foreground mt-0.5">I want to join raffles, win prizes and earn points!</p>
+   325→   325→                      {accountType === "user" && (
+   326→   326→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1 mt-2 text-primary text-[10px] font-medium">
+   327→   327→                          <Check className="h-3 w-3" /> Selected
+   328→   328→                        </motion.div>
+   329→   329→                      )}
+   330→   330→                    </div>
+   331→   331→                  </motion.button>
+   332→   332→
+   333→   333→                  <motion.button onClick={() => { setAccountType("business"); playPopSound(); }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+   334→   334→                    className={`flex items-start gap-4 rounded-2xl p-5 text-left transition-all border-2 ${
+   335→   335→                      accountType === "business" ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
+   336→   336→                    }`}>
+   337→   337→                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl shrink-0 ${accountType === "business" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+   338→   338→                      <Building2 className="h-6 w-6" />
+   339→   339→                    </div>
+   340→   340→                    <div>
+   341→   341→                      <p className="font-bold text-foreground text-sm">🏢 Business</p>
+   342→   342→                      <p className="text-xs text-muted-foreground mt-0.5">I want to run raffles to promote my business and engage customers!</p>
+   343→   343→                      {accountType === "business" && (
+   344→   344→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1 mt-2 text-primary text-[10px] font-medium">
+   345→   345→                          <Check className="h-3 w-3" /> Selected
+   346→   346→                        </motion.div>
+   347→   347→                      )}
+   348→   348→                    </div>
+   349→   349→                  </motion.button>
+   350→   350→                </div>
+   351→   351→
+   352→   352→                <div className="mt-5 space-y-2">
+   353→   353→                  <div className="text-center mb-2">
+   354→   354→                    <p className="text-sm font-semibold text-foreground">Quick sign up</p>
+   355→   355→                    <p className="text-xs text-muted-foreground mt-0.5">Use your Google or Apple account</p>
+   356→   356→                  </div>
+   357→   357→                  <Button variant="outline" className="w-full h-10 gap-3 border-border hover:bg-secondary rounded-xl"
+   358→   358→                    onClick={handleGoogleSignUp} disabled={googleLoading}>
+   359→   359→                    <svg className="h-4 w-4" viewBox="0 0 24 24">
+   360→   360→                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+   361→   361→                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+   362→   362→                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+   363→   363→                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+   364→   364→                    </svg>
+   365→   365→                    {googleLoading ? "Connecting..." : "Continue with Google"}
+   366→   366→                  </Button>
+   367→   367→                  <Button
+   368→   368→                    variant="outline"
+   369→   369→                    className="w-full h-10 gap-3 rounded-xl bg-black text-white border-black hover:bg-neutral-800 dark:bg-card dark:text-foreground dark:border-border dark:hover:bg-secondary"
+   370→   370→                    onClick={handleAppleSignUp} disabled={appleLoading}>
+   371→   371→                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+   372→   372→                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+   373→   373→                    </svg>
+   374→   374→                    {appleLoading ? "Connecting..." : "Continue with Apple"}
+   375→   375→                  </Button>
+   376→   376→                </div>
+   377→   377→              </motion.div>
+   378→   378→            )}
+   379→   379→
+   380→   380→            {step === 1 && (
+   381→   381→              <motion.div key="step1" custom={direction} variants={stepVariants}
+   382→   382→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   383→   383→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Your details 📝</h2>
+   384→   384→                <p className="text-sm text-muted-foreground mb-5">Essential information for your account</p>
+   385→   385→
+   386→   386→                <div className="space-y-4">
+   387→   387→                  <div>
+   388→   388→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Full name</label>
+   389→   389→                    <div className="relative">
+   390→   390→                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   391→   391→                      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="What should we call you?" required
+   392→   392→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   393→   393→                    </div>
+   394→   394→                  </div>
+   395→   395→
+   396→   396→                  {accountType === "business" && (
+   397→   397→                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+   398→   398→                      <label className="mb-1.5 block text-xs font-medium text-foreground">Business name</label>
+   399→   399→                      <div className="relative">
+   400→   400→                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   401→   401→                        <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Your business name" required
+   402→   402→                          className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   403→   403→                      </div>
+   404→   404→                    </motion.div>
+   405→   405→                  )}
+   406→   406→
+   407→   407→                  <div>
+   408→   408→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Email</label>
+   409→   409→                    <div className="relative">
+   410→   410→                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   411→   411→                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required
+   412→   412→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   413→   413→                    </div>
+   414→   414→                  </div>
+   415→   415→
+   416→   416→                  <div>
+   417→   417→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Password</label>
+   418→   418→                    <div className="relative">
+   419→   419→                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   420→   420→                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 8 characters, letters and numbers" required
+   421→   421→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   422→   422→                    </div>
+   423→   423→                    {password.length > 0 && (
+   424→   424→                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 space-y-1">
+   425→   425→                        <div className="flex gap-1">
+   426→   426→                          {[1, 2, 3, 4].map(i => (
+   427→   427→                            <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
+   428→   428→                              password.length >= i * 3 ? (passwordStrong(password) && password.length >= 12 ? "bg-primary" : passwordStrong(password) ? "bg-accent" : "bg-destructive") : "bg-secondary"
+   429→   429→                            }`} />
+   430→   430→                          ))}
+   431→   431→                        </div>
+   432→   432→                        <p className="text-[10px] text-muted-foreground">
+   433→   433→                          {passwordStrong(password)
+   434→   434→                            ? "Nice! Avoid obvious passwords like name+year or \"password123\"."
+   435→   435→                            : "Use letters + numbers and at least 8 characters. Common passwords are rejected for security."}
+   436→   436→                        </p>
+   437→   437→                      </motion.div>
+   438→   438→                    )}
+   439→   439→                  </div>
+   440→   440→                </div>
+   441→   441→              </motion.div>
+   442→   442→            )}
+   443→   443→
+   444→   444→            {step === 2 && (
+   445→   445→              <motion.div key="step2" custom={direction} variants={stepVariants}
+   446→   446→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   447→   447→                <h2 className="font-display text-xl font-bold text-foreground mb-1">Where are you? 📍</h2>
+   448→   448→                <p className="text-sm text-muted-foreground mb-5">Help us show raffles near you <span className="text-[10px]">(opcional)</span></p>
+   449→   449→
+   450→   450→                <div className="space-y-4">
+   451→   451→                  <div>
+   452→   452→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Phone</label>
+   453→   453→                    <div className="relative">
+   454→   454→                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   455→   455→                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+258 84 XXX XXXX"
+   456→   456→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+   457→   457→                    </div>
+   458→   458→                  </div>
+   459→   459→
+   460→   460→                  <div>
+   461→   461→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Country</label>
+   462→   462→                    <div className="relative">
+   463→   463→                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   464→   464→                      <select value={country} onChange={(e) => { setCountry(e.target.value); setProvince(""); setCity(""); }}
+   465→   465→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   466→   466→                        {COUNTRIES.map((c) => (
+   467→   467→                          <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
+   468→   468→                        ))}
+   469→   469→                      </select>
+   470→   470→                    </div>
+   471→   471→                  </div>
+   472→   472→
+   473→   473→                  <div>
+   474→   474→                    <label className="mb-1.5 block text-xs font-medium text-foreground">Region / State</label>
+   475→   475→                    <div className="relative">
+   476→   476→                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   477→   477→                      <select value={province} onChange={(e) => { setProvince(e.target.value); setCity(""); }}
+   478→   478→                        className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   479→   479→                        <option value="">Selecione...</option>
+   480→   480→                        {getRegions(country).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+   481→   481→                      </select>
+   482→   482→                    </div>
+   483→   483→                  </div>
+   484→   484→
+   485→   485→                  {province && country === "MZ" && CITIES_BY_PROVINCE[province] && (
+   486→   486→                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+   487→   487→                      <label className="mb-1.5 block text-xs font-medium text-foreground">City</label>
+   488→   488→                      <div className="relative">
+   489→   489→                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   490→   490→                        <select value={city} onChange={(e) => setCity(e.target.value)}
+   491→   491→                          className="h-11 w-full rounded-xl border border-border bg-secondary/50 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none">
+   492→   492→                          <option value="">Selecione...</option>
+   493→   493→                          {CITIES_BY_PROVINCE[province].map(c => <option key={c} value={c}>{c}</option>)}
+   494→   494→                        </select>
+   495→   495→                      </div>
+   496→   496→                    </motion.div>
+   497→   497→                  )}
+   498→   498→
+   499→   499→                  {refCode && (
+   500→   500→                    <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5">
+   501→   501→                      <Gift className="h-4 w-4 text-primary shrink-0" />
+   502→   502→                      <p className="text-xs text-foreground">Friend invite! You both earn <span className="font-bold text-primary">50 points</span> 🎁</p>
+   503→   503→                    </div>
+   504→   504→                  )}
+   505→   505→                </div>
+   506→   506→              </motion.div>
+   507→   507→            )}
+   508→   508→
+   509→   509→            {step === 3 && (
+   510→   510→              <motion.div key="step3" custom={direction} variants={stepVariants}
+   511→   511→                initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+   512→   512→                <h2 className="font-display text-xl font-bold text-foreground mb-1">What are you into? ✨</h2>
+   513→   513→                <p className="text-sm text-muted-foreground mb-5">We'll personalize raffles for you <span className="text-[10px]">(opcional)</span></p>
+   514→   514→
+   515→   515→                <div className="grid grid-cols-3 gap-2">
+   516→   516→                  {INTERESTS.map((item, i) => (
+   517→   517→                    <motion.button
+   518→   518→                      key={item.id}
+   519→   519→                      initial={{ opacity: 0, scale: 0.8 }}
+   520→   520→                      animate={{ opacity: 1, scale: 1 }}
+   521→   521→                      transition={{ delay: i * 0.04 }}
+   522→   522→                      onClick={() => toggleInterest(item.id)}
+   523→   523→                      className={`flex flex-col items-center gap-1 rounded-xl p-3 text-[11px] font-medium transition-all border-2 ${
+   524→   524→                        interests.includes(item.id)
+   525→   525→                          ? "border-primary bg-primary/10 text-foreground scale-105"
+   526→   526→                          : "border-border bg-card text-muted-foreground hover:border-primary/30"
+   527→   527→                      }`}
+   528→   528→                    >
+   529→   529→                      <span className="text-lg">{item.emoji}</span>
+   530→   530→                      <span>{item.label.split(" ").slice(1).join(" ")}</span>
+   531→   531→                      {interests.includes(item.id) && (
+   532→   532→                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+   533→   533→                          <Heart className="h-3 w-3 text-primary fill-primary" />
+   534→   534→                        </motion.div>
+   535→   535→                      )}
+   536→   536→                    </motion.button>
+   537→   537→                  ))}
+   538→   538→                </div>
+   539→   539→
+   540→   540→                {interests.length > 0 && (
+   541→   541→                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-[10px] text-muted-foreground mt-3">
+   542→   542→                    {interests.length} {interests.length === 1 ? "interest" : "interests"} selected 💖
+   543→   543→                  </motion.p>
+   544→   544→                )}
+   545→   545→              </motion.div>
+   546→   546→            )}
+   547→   547→          </AnimatePresence>
+   548→   548→
+   549→   549→          {error && (
+   550→   550→            <motion.p role="alert" data-testid="signup-error" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+   551→   551→              className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2 mt-4">{error}</motion.p>
+   552→   552→          )}
+   553→   553→
+   554→   554→
+   555→   555→          <div className="mt-6 flex gap-3">
+   556→   556→            {step < STEP_COUNT - 1 ? (
+   557→   557→              <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+   558→   558→                onClick={goNext} disabled={!canProceed()} data-testid="step-continue"
+   559→   559→                className="w-full h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground glow-primary disabled:opacity-40 flex items-center justify-center gap-2">
+   560→   560→                Continue <ChevronRight className="h-4 w-4" />
+   561→   561→              </motion.button>
+   562→   562→            ) : (
+   563→   563→              <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+   564→   564→                onClick={handleSubmit} disabled={loading || !canProceed()} data-testid="submit-signup"
+   565→   565→                className="w-full h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground glow-primary disabled:opacity-40 flex items-center justify-center gap-2">
+   566→   566→                {loading ? (
+   567→   567→                  <>
+   568→   568→                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+   569→   569→                      <Sparkles className="h-4 w-4" />
+   570→   570→                    </motion.div>
+   571→   571→                    Creating account...
+   572→   572→                  </>
+   573→   573→                ) : (
+   574→   574→                  <>
+   575→   575→                    <Rocket className="h-4 w-4" /> Create account!
+   576→   576→                  </>
+   577→   577→                )}
+   578→   578→              </motion.button>
+   579→   579→            )}
+   580→   580→          </div>
+   581→   581→
+   582→   582→          {step >= 2 && step < STEP_COUNT - 1 && (
+   583→   583→            <button onClick={goNext} className="w-full text-center text-xs text-muted-foreground mt-3 hover:text-foreground transition-colors">
+   584→   584→              Pular este passo →
+   585→   585→            </button>
+   586→   586→          )}
+   587→   587→          {step === STEP_COUNT - 1 && (
+   588→   588→            <button onClick={handleSubmit} disabled={loading}
+   589→   589→              className="w-full text-center text-xs text-muted-foreground mt-3 hover:text-foreground transition-colors">
+   590→   590→              Pular e criar conta →
+   591→   591→            </button>
+   592→   592→          )}
+   593→   593→        </div>
+   594→   594→
+   595→   595→        <div className="mt-5 text-center space-y-2">
+   596→   596→          <p className="text-sm text-muted-foreground">
+   597→   597→            Already have an account?{" "}
+   598→   598→            <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+   599→   599→          </p>
+   600→   600→          <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+   601→   601→            <ArrowLeft className="h-3 w-3" /> Back to site
+   602→   602→          </Link>
+   603→   603→        </div>
+   604→   604→      </motion.div>
+   605→   605→    </div>
+   606→   606→  );
+   607→   607→}
+   608→   608→

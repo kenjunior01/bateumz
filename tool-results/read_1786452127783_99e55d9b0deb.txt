@@ -1,0 +1,683 @@
+     1→import os, sys
+     2→from reportlab.lib.pagesizes import A4
+     3→from reportlab.lib.units import mm, cm
+     4→from reportlab.lib import colors
+     5→from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+     6→from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+     7→                                 TableStyle, PageBreak, KeepTogether, HRFlowable,
+     8→                                 ListFlowable, ListItem)
+     9→from reportlab.platypus.tableofcontents import TableOfContents
+    10→from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY, TA_RIGHT
+    11→from reportlab.pdfbase import pdfmetrics
+    12→from reportlab.pdfbase.ttfonts import TTFont
+    13→from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    14→from reportlab.pdfgen import canvas
+    15→from pypdf import PdfReader, PdfWriter
+    16→
+    17→# ============================================================
+    18→# FONTS
+    19→# ============================================================
+    20→FONT_DIR = '/usr/share/fonts'
+    21→pdfmetrics.registerFont(TTFont('NotoSerifSC', f'{FONT_DIR}/truetype/noto-serif-sc/NotoSerifSC-Regular.ttf'))
+    22→pdfmetrics.registerFont(TTFont('NotoSerifSC-Bold', f'{FONT_DIR}/truetype/noto-serif-sc/NotoSerifSC-Bold.ttf'))
+    23→registerFontFamily('NotoSerifSC', normal='NotoSerifSC', bold='NotoSerifSC-Bold')
+    24→
+    25→pdfmetrics.registerFont(TTFont('NotoSansSC', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Regular.ttf'))
+    26→pdfmetrics.registerFont(TTFont('NotoSansSC-Bold', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Bold.ttf'))
+    27→registerFontFamily('NotoSansSC', normal='NotoSansSC', bold='NotoSansSC-Bold')
+    28→
+    29→pdfmetrics.registerFont(TTFont('DejaVuSans', f'{FONT_DIR}/truetype/dejavu/DejaVuSans.ttf'))
+    30→pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', f'{FONT_DIR}/truetype/dejavu/DejaVuSans-Bold.ttf'))
+    31→pdfmetrics.registerFont(TTFont('DejaVuSans-Oblique', f'{FONT_DIR}/truetype/dejavu/DejaVuSans-Oblique.ttf'))
+    32→registerFontFamily('DejaVuSans', normal='DejaVuSans', bold='DejaVuSans-Bold', italic='DejaVuSans-Oblique')
+    33→
+    34→# ============================================================
+    35→# PALETTE (Cascade - Warm Olive)
+    36→# ============================================================
+    37→PAGE_BG       = colors.HexColor('#f7f7f6')
+    38→SECTION_BG    = colors.HexColor('#eeedeb')
+    39→CARD_BG       = colors.HexColor('#ededea')
+    40→TABLE_STRIPE  = colors.HexColor('#f4f3f1')
+    41→HEADER_FILL   = colors.HexColor('#5c5339')
+    42→COVER_BLOCK   = colors.HexColor('#6d6344')
+    43→BORDER        = colors.HexColor('#c2baa3')
+    44→ICON          = colors.HexColor('#85723b')
+    45→ACCENT        = colors.HexColor('#a68932')
+    46→ACCENT_2      = colors.HexColor('#5c43a7')
+    47→TEXT_PRIMARY   = colors.HexColor('#252421')
+    48→TEXT_MUTED     = colors.HexColor('#7e7b74')
+    49→SEM_SUCCESS   = colors.HexColor('#4d8961')
+    50→SEM_WARNING   = colors.HexColor('#b48f45')
+    51→SEM_ERROR     = colors.HexColor('#a74d45')
+    52→SEM_INFO      = colors.HexColor('#4d6c8a')
+    53→
+    54→# ============================================================
+    55→# STYLES
+    56→# ============================================================
+    57→W, H = A4
+    58→LEFT_M = 22*mm
+    59→RIGHT_M = 22*mm
+    60→TOP_M = 25*mm
+    61→BOT_M = 25*mm
+    62→CONTENT_W = W - LEFT_M - RIGHT_M
+    63→
+    64→styles = getSampleStyleSheet()
+    65→
+    66→styles.add(ParagraphStyle(
+    67→    'CoverTitle', fontName='DejaVuSans-Bold', fontSize=28, leading=34,
+    68→    textColor=colors.white, alignment=TA_LEFT, spaceAfter=6*mm
+    69→))
+    70→styles.add(ParagraphStyle(
+    71→    'CoverSubtitle', fontName='DejaVuSans', fontSize=14, leading=20,
+    72→    textColor=colors.HexColor('#d4d0c8'), alignment=TA_LEFT, spaceAfter=4*mm
+    73→))
+    74→styles.add(ParagraphStyle(
+    75→    'CoverMeta', fontName='DejaVuSans', fontSize=10, leading=14,
+    76→    textColor=colors.HexColor('#b0a890'), alignment=TA_LEFT
+    77→))
+    78→styles.add(ParagraphStyle(
+    79→    'H1', fontName='DejaVuSans-Bold', fontSize=20, leading=26,
+    80→    textColor=HEADER_FILL, spaceBefore=10*mm, spaceAfter=5*mm
+    81→))
+    82→styles.add(ParagraphStyle(
+    83→    'H2', fontName='DejaVuSans-Bold', fontSize=14, leading=19,
+    84→    textColor=ACCENT, spaceBefore=7*mm, spaceAfter=3*mm
+    85→))
+    86→styles.add(ParagraphStyle(
+    87→    'H3', fontName='DejaVuSans-Bold', fontSize=11, leading=15,
+    88→    textColor=ICON, spaceBefore=5*mm, spaceAfter=2*mm
+    89→))
+    90→styles.add(ParagraphStyle(
+    91→    'Body', fontName='DejaVuSans', fontSize=9.5, leading=14.5,
+    92→    textColor=TEXT_PRIMARY, alignment=TA_JUSTIFY, spaceAfter=3*mm
+    93→))
+    94→styles.add(ParagraphStyle(
+    95→    'BodyIndent', fontName='DejaVuSans', fontSize=9.5, leading=14.5,
+    96→    textColor=TEXT_PRIMARY, alignment=TA_JUSTIFY, spaceAfter=2*mm,
+    97→    leftIndent=8*mm
+    98→))
+    99→styles.add(ParagraphStyle(
+   100→    'BulletItem', fontName='DejaVuSans', fontSize=9.5, leading=14,
+   101→    textColor=TEXT_PRIMARY, alignment=TA_LEFT, spaceAfter=1.5*mm,
+   102→    leftIndent=12*mm, bulletIndent=6*mm, bulletFontSize=9
+   103→))
+   104→styles.add(ParagraphStyle(
+   105→    'CriticalLabel', fontName='DejaVuSans-Bold', fontSize=9.5, leading=14,
+   106→    textColor=SEM_ERROR, spaceAfter=1*mm
+   107→))
+   108→styles.add(ParagraphStyle(
+   109→    'WarningLabel', fontName='DejaVuSans-Bold', fontSize=9.5, leading=14,
+   110→    textColor=SEM_WARNING, spaceAfter=1*mm
+   111→))
+   112→styles.add(ParagraphStyle(
+   113→    'SuccessLabel', fontName='DejaVuSans-Bold', fontSize=9.5, leading=14,
+   114→    textColor=SEM_SUCCESS, spaceAfter=1*mm
+   115→))
+   116→styles.add(ParagraphStyle(
+   117→    'TableHeader', fontName='DejaVuSans-Bold', fontSize=8.5, leading=11,
+   118→    textColor=colors.white, alignment=TA_CENTER
+   119→))
+   120→styles.add(ParagraphStyle(
+   121→    'TableCell', fontName='DejaVuSans', fontSize=8, leading=11,
+   122→    textColor=TEXT_PRIMARY, alignment=TA_LEFT
+   123→))
+   124→styles.add(ParagraphStyle(
+   125→    'TableCellCenter', fontName='DejaVuSans', fontSize=8, leading=11,
+   126→    textColor=TEXT_PRIMARY, alignment=TA_CENTER
+   127→))
+   128→styles.add(ParagraphStyle(
+   129→    'Footer', fontName='DejaVuSans', fontSize=7.5, leading=10,
+   130→    textColor=TEXT_MUTED, alignment=TA_CENTER
+   131→))
+   132→styles.add(ParagraphStyle(
+   133→    'TOCEntry', fontName='DejaVuSans', fontSize=10, leading=18,
+   134→    textColor=TEXT_PRIMARY, leftIndent=0
+   135→))
+   136→styles.add(ParagraphStyle(
+   137→    'TOCEntry2', fontName='DejaVuSans', fontSize=9, leading=16,
+   138→    textColor=TEXT_MUTED, leftIndent=12*mm
+   139→))
+   140→
+   141→# ============================================================
+   142→# HELPERS
+   143→# ============================================================
+   144→def P(text, style='Body'):
+   145→    return Paragraph(text, styles[style])
+   146→
+   147→def bullet(text):
+   148→    return Paragraph(f"\u2022  {text}", styles['BulletItem'])
+   149→
+   150→def make_table(headers, rows, col_widths=None):
+   151→    cw = col_widths or [CONTENT_W / len(headers)] * len(headers)
+   152→    header_row = [P(h, 'TableHeader') for h in headers]
+   153→    data = [header_row]
+   154→    for row in rows:
+   155→        data.append([P(str(c), 'TableCell') for c in row])
+   156→    t = Table(data, colWidths=cw, repeatRows=1)
+   157→    style_cmds = [
+   158→        ('BACKGROUND', (0, 0), (-1, 0), HEADER_FILL),
+   159→        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+   160→        ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
+   161→        ('FONTSIZE', (0, 0), (-1, 0), 8.5),
+   162→        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+   163→        ('TOPPADDING', (0, 0), (-1, 0), 6),
+   164→        ('GRID', (0, 0), (-1, -1), 0.5, BORDER),
+   165→        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+   166→        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+   167→        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+   168→        ('TOPPADDING', (0, 1), (-1, -1), 4),
+   169→        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+   170→    ]
+   171→    for i in range(1, len(data)):
+   172→        if i % 2 == 0:
+   173→            style_cmds.append(('BACKGROUND', (0, i), (-1, i), TABLE_STRIPE))
+   174→    t.setStyle(TableStyle(style_cmds))
+   175→    return t
+   176→
+   177→def section_line():
+   178→    return HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=4*mm, spaceBefore=2*mm)
+   179→
+   180→def score_bar(label, score, max_score=10):
+   181→    pct = score / max_score
+   182→    bar_w = 60 * mm
+   183→    filled = bar_w * pct
+   184→    empty = bar_w - filled
+   185→    tbl = Table(
+   186→        [[P(label, 'Body'), P(f'<font color="{SEM_SUCCESS.hexval() if pct >= 0.7 else SEM_WARNING.hexval() if pct >= 0.5 else SEM_ERROR.hexval()}">{score}/{max_score}</font>', 'TableCell')]],
+   187→        colWidths=[CONTENT_W - 70*mm, 70*mm]
+   188→    )
+   189→    tbl.setStyle(TableStyle([
+   190→        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+   191→        ('LEFTPADDING', (0,0), (-1,-1), 0),
+   192→        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+   193→        ('TOPPADDING', (0,0), (-1,-1), 1),
+   194→        ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+   195→    ]))
+   196→    return tbl
+   197→
+   198→# ============================================================
+   199→# PAGE DECORATORS
+   200→# ============================================================
+   201→def page_footer(canvas_obj, doc):
+   202→    canvas_obj.saveState()
+   203→    canvas_obj.setFont('DejaVuSans', 7.5)
+   204→    canvas_obj.setFillColor(TEXT_MUTED)
+   205→    canvas_obj.drawCentredString(W / 2, 12*mm, f"Relatorio de Analise - bateu.online  |  Pagina {doc.page}")
+   206→    canvas_obj.restoreState()
+   207→
+   208→def first_page(canvas_obj, doc):
+   209→    pass
+   210→
+   211→# ============================================================
+   212→# CONTENT
+   213→# ============================================================
+   214→story = []
+   215→
+   216→# --- CHAPTER 1: RESUMO EXECUTIVO ---
+   217→story.append(P("1. Resumo Executivo", 'H1'))
+   218→story.append(section_line())
+   219→story.append(P(
+   220→    "Este relatorio apresenta uma analise abrangente da plataforma bateu.online, "
+   221→    "um sistema web de rifas, jogos ao vivo e entretenimento interactivo "
+   222→    "voltado para o mercado mocambicano e africano. A analise abrange a revisao "
+   223→    "completa do codigo-fonte (React + TypeScript + Supabase), o teste do site "
+   224→    "em producao, a avaliacao de todos os 68 jogos disponiveis, os fluxos de "
+   225→    "registo para diferentes tipos de utilizadores, e a identificacao de "
+   226→    "vulnerabilidades de seguranca, problemas de arquitectura e oportunidades "
+   227→    "de melhoria. O projecto demonstra ambicao tecnica impressionante com uma "
+   228→    "quantidade significativa de funcionalidades, mas enfrenta desafios criticos "
+   229→    "em seguranca, consistencia de dados e maturidade do backend que precisam "
+   230→    "de ser enderecados antes de uma operacao em escala comercial."
+   231→))
+   232→
+   233→story.append(P("1.1 Metodologia de Analise", 'H2'))
+   234→story.append(P(
+   235→    "A analise foi conduzida em tres frentes paralelas: (1) revisao exaustiva do codigo-fonte, "
+   236→    "abrangendo todos os ficheiros em src/pages/, src/components/, src/contexts/, src/lib/ e "
+   237→    "src/integrations/, num total de mais de 200 ficheiros analisados; (2) teste do site em "
+   238→    "producao (bateu.online) em 7 paginas distintas, verificando carregamento, funcionalidades, "
+   239→    "SEO, responsividade mobile e erros de consola; (3) analise detalhada de 17 componentes "
+   240→    "de jogos representativos dos 68 jogos disponiveis na plataforma, avaliando logica de "
+   241→    "jogo, qualidade de IA, seguranca e padroes de codigo. Cada jogo foi classificado em "
+   242→    "termos de qualidade de IA, funcionalidade multiplayer e conformidade com boas praticas."
+   243→))
+   244→
+   245→story.append(P("1.2 Visao Geral da Plataforma", 'H2'))
+   246→story.append(P(
+   247→    "A plataforma bateu.online e uma aplicacao SPA (Single Page Application) construida com "
+   248→    "Vite, React 18, TypeScript, TailwindCSS e shadcn/ui, utilizando Supabase como backend "
+   249→    "e provedor de autenticacao. O site esta deployed e acessivel em https://bateu.online com "
+   250→    "certificado SSL valido, PWA (Progressive Web App) configurada, e tempo de carregamento "
+   251→    "inferior a 500ms. A plataforma suporta 6 idiomas (ingles, portugues, portugues-brasileiro, "
+   252→    "espanhol, frances e hindi) e opera em 7 paises (Mocambique, Angola, Portugal, Brasil, "
+   253→    "Estados Unidos, Canada e India). O sistema de autenticacao suporta 5 perfis de "
+   254→    "utilizador: user, business, admin, superadmin e regional_manager, cada um com "
+   255→    "funcionalidades e painéis dedicados."
+   256→))
+   257→
+   258→story.append(P("1.3 Classificacao Global", 'H2'))
+   259→story.append(P(
+   260→    "A tabela seguinte apresenta a classificacao global da plataforma nas principais "
+   261→    "dimensoes avaliadas. Estas pontuacoes reflectem o estado actual do codigo "
+   262→    "em producao e do site ao vivo, considerando factores como seguranca, "
+   263→    "performance, qualidade de codigo, experiencia do utilizador e maturidade "
+   264→    "do produto. A pontuacao global ponderada de 5.6/10 indica que a plataforma "
+   265→    "esta num estado funcional mas requer trabalho significativo antes de estar "
+   266→    "pronta para operacao comercial em grande escala."
+   267→))
+   268→
+   269→classification_data = [
+   270→    ['Seguranca', '3.0/10', 'Critica - Logica de jogo no cliente, RBAC apenas no frontend'],
+   271→    ['Performance', '8.5/10', 'Excelente - <500ms carregamento, PWA configurada'],
+   272→    ['Qualidade de Codigo', '5.5/10', 'Media - God-components, `as any` pervasivo, sem testes'],
+   273→    ['UX / Design', '7.5/10', 'Bom - UI polida com Framer Motion, dark mode, responsivo'],
+   274→    ['Arquitectura', '5.0/10', 'Media - Monolito SPA, sem separacao de concerns nos jogos'],
+   275→    ['Backend / API', '4.0/10', 'Fraco - Tabelas em falta, erros 404, dados estaticos'],
+   276→    ['SEO', '3.5/10', 'Fraco - Meta tags identicas, sem dados estruturados'],
+   277→    ['i18n', '5.0/10', 'Media - 6 idiomas mas mistura EN/PT inconsistente'],
+   278→    ['Testes', '0.5/10', 'Critico - Zero testes de jogo, apenas 1 teste de exemplo'],
+   279→    ['Maturidade do Produto', '5.0/10', 'Media - Muitas funcionalidades, poucas operacionais'],
+   280→]
+   281→story.append(make_table(
+   282→    ['Dimensao', 'Pontuacao', 'Observacao'],
+   283→    classification_data,
+   284→    [35*mm, 22*mm, CONTENT_W - 57*mm]
+   285→))
+   286→story.append(Spacer(1, 4*mm))
+   287→story.append(P(
+   288→    "<b>Pontuacao Global Ponderada: 5.6 / 10</b> - A plataforma demonstra potencial "
+   289→    "significativo e ambicao tecnica, mas enfrenta problemas criticos de seguranca e "
+   290→    "maturidade de backend que precisam de ser priorizados. A experiencia visual e de "
+   291→    "navegacao e notavelmente polida para o estagio actual de desenvolvimento, sugerindo "
+   292→    "um investimento forte em design frontend. No entanto, a ausencia de validacao "
+   293→    "server-side para operacoes criticas como sorteios e pontuacao de jogos representa "
+   294→    "um risco operativo inaceitavel para uma plataforma que envolve transaccoes "
+   295→    "financeiras e premios reais."
+   296→))
+   297→
+   298→# --- CHAPTER 2: ARQUITECTURA TECNICA ---
+   299→story.append(PageBreak())
+   300→story.append(P("2. Arquitectura Tecnica", 'H1'))
+   301→story.append(section_line())
+   302→
+   303→story.append(P("2.1 Stack Tecnologico", 'H2'))
+   304→story.append(P(
+   305→    "A plataforma bateu.online utiliza um stack moderno e coerente para uma aplicacao "
+   306→    "SPA. O frontend e construido com Vite 5.4 como bundler, React 18.3 com TypeScript "
+   307→    "5.7 para a camada de UI, TailwindCSS 3.4 com shadcn/ui para estilizacao, e "
+   308→    "Framer Motion 12.35 para animacoes. O backend e inteiramente suportado pelo "
+   309→    "Supabase (v2.99), que fornece autenticacao, base de dados PostgreSQL, "
+   310→    "armazenamento de ficheiros e (teoricamente) funcionalidades realtime. A gestao "
+   311→    "de estado e feita atraves de React Context para temas, idioma, autenticacao e "
+   312→    "configuracao regional, complementada por TanStack React Query para cache "
+   313→    "de dados. O projecto inclui integracoes com PayPal, Stripe, Google Analytics e "
+   314→    "suporte a PWA via vite-plugin-pwa."
+   315→))
+   316→
+   317→tech_data = [
+   318→    ['Vite', '5.4.19', 'Bundler / Dev Server', 'Producao'],
+   319→    ['React', '18.3.1', 'UI Framework', 'Producao'],
+   320→    ['TypeScript', '5.7.3', 'Type Safety', 'Producao'],
+   321→    ['TailwindCSS', '3.4.17', 'Utility-first CSS', 'Producao'],
+   322→    ['shadcn/ui', 'N/A', 'Component Library', 'Producao'],
+   323→    ['Supabase', '2.99.0', 'Backend / Auth / DB', 'Producao'],
+   324→    ['Framer Motion', '12.35.2', 'Animations', 'Producao'],
+   325→    ['React Router', '6.30.1', 'Client Routing', 'Producao'],
+   326→    ['TanStack Query', '5.83.0', 'Data Cache', 'Producao'],
+   327→    ['PayPal SDK', '9.2.0', 'Payments', 'Producao'],
+   328→    ['Stripe.js', '9.12.0', 'Payments', 'Producao'],
+   329→    ['Recharts', '2.15.4', 'Charts', 'Producao'],
+   330→    ['react-helmet-async', '3.0.0', 'SEO Meta Tags', 'Producao'],
+   331→    ['vite-plugin-pwa', '1.2.0', 'PWA Support', 'Producao'],
+   332→    ['Vitest', '3.2.4', 'Testing', 'DevDependencies'],
+   333→]
+   334→story.append(make_table(
+   335→    ['Tecnologia', 'Versao', 'Funcao', 'Status'],
+   336→    tech_data,
+   337→    [35*mm, 22*mm, 45*mm, CONTENT_W - 102*mm]
+   338→))
+   339→
+   340→story.append(P("2.2 Estrutura de Directories", 'H2'))
+   341→story.append(P(
+   342→    "O projecto segue uma estrutura de directories tipica de aplicacoes React "
+   343→    "de media-grande porte, com separacao clara entre paginas, componentes, "
+   344→    "contextos, hooks, layouts e bibliotecas utilitarias. O directorio src/ "
+   345→    "contem aproximadamente 270 ficheiros TSX/TS organizados nas seguintes "
+   346→    "categorias principais: 50+ paginas em src/pages/ (incluindo subdirectorios "
+   347→    "para admin, dashboard, esports, tournaments, leagues e games), 80+ componentes "
+   348→    "de jogos em src/components/livegames/, 30+ componentes de UI genericos em "
+   349→    "src/components/ui/ (gerados pelo shadcn/ui), 7 contextos React em "
+   350→    "src/contexts/, 7 hooks personalizados em src/hooks/, e 20+ modulos "
+   351→    "utilitarios em src/lib/. A profundidade maxima da arvore de directorios e de "
+   352→    "4 niveis, o que e razoavel para o tamanho do projecto, embora a ausencia "
+   353→    "de agrupamento por dominio de negocio torne a navegacao menos intuitiva."
+   354→))
+   355→
+   356→story.append(P("2.3 Sistema de Roteamento", 'H2'))
+   357→story.append(P(
+   358→    "A aplicacao define aproximadamente 80 rotas no componente App.tsx, organizadas "
+   359→    "em tres grupos principais: rotas publicas (homepage, login, registo, marketplace, "
+   360→    "jogos, blog, FAQ, etc.), rotas protegidas para utilizadores autenticados "
+   361→    "(/profile, /my-tickets, /wallet), rotas de dashboard para empresas "
+   362→    "(/dashboard/* com 25+ sub-rotas), e rotas de administracao (/admin/* com "
+   363→    "21+ sub-rotas). O sistema de proteccao de rotas e implementado pelo componente "
+   364→    "ProtectedRoute, que verifica o papel do utilizador no AuthContext e redireciona "
+   365→    "conforme necessario. As rotas de esports sao aninhadas sob /esports com "
+   366→    "sub-rotas proprias. Todas as rotas sao envolvidas por AnimatePresence do "
+   367→    "Framer Motion para transicoes de pagina suaves, e o conteudo e renderizado "
+   368→    "dentro de PageTransition para animacoes de entrada e saida."
+   369→))
+   370→
+   371→story.append(P("2.4 Sistema de Autenticacao e RBAC", 'H2'))
+   372→story.append(P(
+   373→    "O sistema de autenticacao e gerido pelo AuthContext, que utiliza o Supabase Auth "
+   374→    "para gestao de sessoes e autenticacao OAuth (Google e Apple). O contexto "
+   375→    "expoe o utilizador actual, sessao, perfil, papel (role) e paises de administracao. "
+   376→    "O sistema de papeis (RBAC) suporta 5 niveis: superadmin (acesso total), admin "
+   377→    "(gestao da plataforma), regional_manager (gestao regional), business (empresas "
+   378→    "com sorteios proprios) e user (participante comum). A resolucao de papeis segue "
+   379→    "uma hierarquia de prioridade: superadmin > admin > regional_manager > business > user. "
+   380→    "O perfil do utilizador e armazenado na tabela profiles, enquanto os papeis sao "
+   381→    "geridos na tabela user_roles (relacao many-to-many). Um ponto importante e "
+   382→    "que o registo de contas OAuth (Google/Apple) cria automaticamente um perfil basico "
+   383→    "quando o utilizador nao passa pelo fluxo de registo tradicional, garantindo que "
+   384→    "todos os utilizadores autenticados tem um perfil associado."
+   385→))
+   386→
+   387→rbac_data = [
+   388→    ['superadmin', 'Acesso total a plataforma', '/admin/*', 'Gerir regioes, co-fundadores, configuracao global'],
+   389→    ['admin', 'Gestao da plataforma', '/admin/*', 'Utilizadores, rifas, pagamentos, auditoria'],
+   390→    ['regional_manager', 'Gestao regional', '/regional-panel', 'Branding, definicoes, anuncios regionais'],
+   391→    ['business', 'Painel de empresa', '/dashboard/*', 'Criar rifas, analytics, lives, jogos'],
+   392→    ['user', 'Participante', '/profile, /jogos', 'Comprar bilhetes, jogar, ver resultados'],
+   393→]
+   394→story.append(make_table(
+   395→    ['Papel', 'Descricao', 'Rotas', 'Funcionalidades Principais'],
+   396→    rbac_data,
+   397→    [28*mm, 30*mm, 30*mm, CONTENT_W - 88*mm]
+   398→))
+   399→
+   400→# --- CHAPTER 3: ANALISE DOS JOGOS ---
+   401→story.append(PageBreak())
+   402→story.append(P("3. Analise do Catalogo de Jogos", 'H1'))
+   403→story.append(section_line())
+   404→
+   405→story.append(P("3.1 Visao Geral do Catalogo", 'H2'))
+   406→story.append(P(
+   407→    "A plataforma bateu.online possui um catalogo impressionante de 68 jogos, "
+   408→    "organizados em 17 categorias que incluem Estrategia (9 jogos), Arcade (8), "
+   409→    "Puzzle (10), Reflexo (6), Quiz (6), Sorte (6), Social (8), Palavras (2), "
+   410→    "Cartas (1), e categorias regionais como Mocambicano (4) e Indiano (3). "
+   411→    "Os jogos cobrem uma diversidade notavel de generos: desde jogos classicos como "
+   412→    "Xadrez, Damas, Dominos e Ludo, ate jogos culturais mocambicanos como "
+   413→    "Chigogo, Mexerica e Capulana Quiz, passando por jogos indianos como Teen Patti "
+   414→    "e Kabaddi Raid. A maioria dos jogos (22) suporta modo Bot IA com 3 niveis "
+   415→    "de dificuldade, enquanto outros oferecem modos 1v1 local, solo, ou multiplayer."
+   416→))
+   417→
+   418→category_data = [
+   419→    ['Estrategia', '9', 'TicTacToe PRO, Ligar 4, Xadrez, Damas, Dominos, Ludo, Carrom, Uno, Match 4'],
+   420→    ['Arcade', '8', 'Cobra, Flappy Bird, Fruta Ninja, Space Shooter, Tower Stack, Ball Breaker, Cannon Battle, Pong VS'],
+   421→    ['Puzzle', '10', 'Memoria VS, Memoria de Padroes, 2048, Palavras Embaralhadas, Sequencia de Cores, Word Chain, Spot Difference, Kahoot, Target Tap, Color Catch'],
+   422→    ['Reflexo', '6', 'Pedra Papel Tesoura, Corrida de Reaccao, Velocidade de Reaccao, Tap Battle, Color Match, Speed Reaction'],
+   423→    ['Quiz', '6', 'Quem Quer Ser Milionario, Trivia Flash, Quiz Battle, Batalha de Conhecimento, Capulana Quiz, Quick Math'],
+   424→    ['Sorte', '6', 'Roda da Fortuna, Slots VS, Caca-Niqueis VS, Mystery Box, Challenge Roulette, Punishment Wheel'],
+   425→    ['Social', '8', 'Verdade ou Desafio, Hot Potato, Never Have I Ever, Hot Seat, Emoji Battle, Guess the Emoji, Talent Battle, Chaos Challenge'],
+   426→    ['Mocambicano', '4', 'Chigogo, Mexerica, Uri, Djikota'],
+   427→    ['Indiano', '3', 'Teen Patti, Kabaddi Raid, Carrom'],
+   428→]
+   429→story.append(make_table(
+   430→    ['Categoria', 'Qtd', 'Jogos'],
+   431→    category_data,
+   432→    [25*mm, 12*mm, CONTENT_W - 37*mm]
+   433→))
+   434→
+   435→story.append(P("3.2 Qualidade da IA (Bot)", 'H2'))
+   436→story.append(P(
+   437→    "A qualidade da inteligencia artificial nos jogos varia drasticamente entre titulos. "
+   438→    "A analise detalhada de 17 componentes de jogos revelou uma classificacao em "
+   439→    "tres niveis de qualidade. No topo estao jogos com IA forte que implementam "
+   440→    "algoritmos proprios de busca e avaliacao: Connect Four utiliza minimax com poda "
+   441→    "alpha-beta a profundidade 6 no modo dificil, sendo a melhor IA da plataforma; "
+   442→    "Xadrez implementa minimax com avaliacao posicional completa incluindo "
+   443→    "roque, en passant e promocao de peoes; Snake Battle usa BFS (busca em largura) "
+   444→    "para encontrar caminho ate a comida com variantes que evitam zonas de perigo; "
+   445→    "e Batalha Naval utiliza um mapa de densidade de probabilidade para escolher "
+   446→    "os melhores alvos. No nivel medio estao jogos como Damas (avaliacao heuristica "
+   447→    "com lookahead de 1 ply) e Carrom (fisica com offsets aleatorios). No nivel "
+   448→    "mais fraco estao jogos como Dominos (joga a peca de maior valor, sem estrategia), "
+   449→    "Teen Patti (decisoes puramente aleatorias) e UnoCardGame (joga a primeira carta "
+   450→    "valida encontrada). O Ludo nao possui modo bot, sendo apenas hot-seat local."
+   451→))
+   452→
+   453→ai_data = [
+   454→    ['Connect Four', '5/5', 'Minimax + alpha-beta, profundidade 6, avaliacao posicional completa'],
+   455→    ['Xadrez', '4/5', 'Minimax + alpha-beta, 2 ply, roque, en passant, promocao'],
+   456→    ['Snake Battle', '4/5', 'BFS pathfinding, evita perigo, configuravel por dificuldade'],
+   457→    ['Batalha Naval', '4/5', 'Mapa de probabilidade, boost em celulas adjacentes a acertos'],
+   458→    ['Damas', '3/5', 'Avaliacao heuristica, 1 ply lookahead no modo dificil'],
+   459→    ['Carrom', '3/5', 'Fisica com offsets aleatorios para simular erro humano'],
+   460→    ['Dominos', '2/5', 'Joga peca de maior valor, sem estrategia avancada'],
+   461→    ['Teen Patti', '2/5', 'Decisoes aleatorias com thresholds por ronda'],
+   462→    ['Uno', '2/5', 'Primeira carta valida, sem estrategia visivel'],
+   463→    ['Ludo', 'N/A', 'Sem modo bot - apenas multiplayer local (hot-seat)'],
+   464→]
+   465→story.append(make_table(
+   466→    ['Jogo', 'Qualidade', 'Tecnica de IA'],
+   467→    ai_data,
+   468→    [28*mm, 18*mm, CONTENT_W - 46*mm]
+   469→))
+   470→
+   471→story.append(P("3.3 Arquitectura Multiplayer", 'H2'))
+   472→story.append(P(
+   473→    "Apesar do directorio dos jogos se chamar 'livegames', a realidade e que "
+   474→    "aproximadamente 95% dos jogos funcionam exclusivamente em modo local "
+   475→    "(single-player contra bot ou multiplayer hot-seat no mesmo dispositivo). "
+   476→    "Apenas dois jogos implementam verdadeiro multiplayer em tempo real atraves "
+   477→    "do Supabase Realtime: o LiveBingo (com subscrições a canais do Supabase para "
+   478→    "criar sala, marcar numeros e verificar bingo) e o KahootMultiplayerQuiz "
+   479→    "(com RPCs para criar quiz, submeter respostas e obter leaderboard). Todos os "
+   480→    "demais jogos aceitam uma propriedade liveCode que teoricamente identificadoria "
+   481→    "uma sessao multiplayer, mas esta propriedade e recebida e nunca utilizada "
+   482→    "na maioria dos componentes, sendo essencialmente um prop morto. Os resultados "
+   483→    "dos jogos sao comunicados ao componente pai atraves de um callback onScore(name, score), "
+   484→    "mas apenas 3 jogos (SpinWheel, Millionaire e Bingo) persistem resultados "
+   485→    "directamente no Supabase. Os restantes jogos tem pontuacao efemera que se perde "
+   486→    "ao recarregar a pagina, tornando impossivel manter rankings ou historico "
+   487→    "significativo."
+   488→))
+   489→
+   490→story.append(P("3.4 Problemas de Codigo nos Jogos", 'H2'))
+   491→story.append(P(
+   492→    "A analise de codigo revelou varios problemas recorrentes nos componentes de jogos. "
+   493→    "Em termos de arquitectura, os ficheiros sao excessivamente grandes (800-1140 linhas) "
+   494→    "com logica de jogo e renderizacao misturadas no mesmo componente, sem custom hooks "
+   495→    "ou separacao de concerns. Componentes como UnoCardGame acumulam 14+ variaveis de "
+   496→    "estado useState sem usar useReducer, e nao existe nenhum teste unitario para "
+   497→    "logica de jogo em todo o directorio. Um bug critico foi encontrado no "
+   498→    "GameHistoryPanel onde a contagem de vitorias esta incorrecta: a condicao utiliza "
+   499→    "OR (||) em vez de AND, fazendo com que praticamente todos os resultados "
+   500→    "sejam contados como vitorias. Jogos de fisica como CarromBoard e LudoGame usam "
+   501→    "dimensoes fixas em pixels que nao sao responsivas, causando overflow em ecras "
+   502→    "moveis. O CarromBoard actualiza estado React a 60fps via requestAnimationFrame, "
+   503→    "causando re-renderizacoes massivas que podem degradar a performance em "
+   504→    "dispositivos mais lentos. A pontuacao nao e normalizada entre jogos (alguns "
+   505→    "atribuem 50 pontos por vitoria, outros 100 ou 200), tornando comparacoes de "
+   506→    "leaderboard semanticamente meaningless."
+   507→))
+   508→
+   509→# --- CHAPTER 4: SEGURANCA ---
+   510→story.append(PageBreak())
+   511→story.append(P("4. Analise de Seguranca", 'H1'))
+   512→story.append(section_line())
+   513→
+   514→story.append(P("4.1 Vulnerabilidades Criticas", 'H2'))
+   515→story.append(P("<b>[CRITICO] Sorteio no Cliente - DashboardRaffles.tsx</b>", 'CriticalLabel'))
+   516→story.append(P(
+   517→    "O sorteio de rifas e executado inteiramente no lado do cliente usando Math.random(). "
+   518→    "O componente DashboardRaffles.handleDraw selecciona o vencedor no navegador do "
+   519→    "utilizador, sem qualquer validacao server-side. Isto significa que um administrador "
+   520→    "mal-intencionado (ou um atacante que comprometa a conta) pode manipular o resultado "
+   521→    "do sorteio atraves do DevTools do browser, alterando o estado do React antes "
+   522→    "da selecao. Para uma plataforma que envolve dinheiro real e premios fisicos, "
+   523→    "esta e uma vulnerabilidade inaceitavel. O sorteio deveria ser executado por uma "
+   524→    "funcao SQL do Supabase ou por uma Edge Function que garanta a aleatoriedade "
+   525→    "e a impossibilidade de manipulacao. Apenas assim os participantes poderiam "
+   526→    "confiar na integridade dos resultados."
+   527→))
+   528→
+   529→story.append(P("<b>[CRITICO] Validacao de Pontuacao no Cliente - Todos os Jogos</b>", 'CriticalLabel'))
+   530→story.append(P(
+   531→    "Todos os 68 jogos comunicam os resultados atraves do callback onScore(name, score), "
+   532→    "que e aceite pelo componente pai sem qualquer validacao. Um utilizador pode "
+   533→    "abrir a consola do browser e invocar directivamente onScore com uma pontuacao "
+   534→    "arbitraria, como onScore('hacker', 999999). Nao existe nenhuma validacao "
+   535→    "server-side que verifique se a pontuacao reportada corresponde ao resultado "
+   536→    "real do jogo. Para jogos que envolvem apostas ou ranking competitivo, isto "
+   537→    "representa um vector de trapaça trivialmente exploravel. A solucao seria "
+   538→    "implementar logica de jogo server-side (pelo menos para validacao de "
+   539→    "resultados) e usar assinaturas criptograficas para garantir que os resultados "
+   540→    "nao foram alterados em transito."
+   541→))
+   542→
+   543→story.append(P("<b>[CRITICO] RBAC Apenas no Frontend</b>", 'CriticalLabel'))
+   544→story.append(P(
+   545→    "Todo o sistema de controlo de acesso baseado em papeis (RBAC) e implementado "
+   546→    "exclusivamente no frontend React. O componente ProtectedRoute verifica o papel "
+   547→    "do utilizador no AuthContext e redireciona conforme necessario, mas nao existe "
+   548→    "nenhuma verificacao server-side. Se as politicas RLS (Row Level Security) do "
+   549→    "Supabase nao estiverem correctamente configuradas para cada tabela, qualquer "
+   550→    "utilizador autenticado pode aceder directamente aos dados atraves do cliente "
+   551→    "Supabase, contornando completamente as proteccoes do frontend. A unica defesa "
+   552→    "real contra acesso nao autorizado sao as politicas RLS, e uma auditoria completa "
+   553→    "dessas politicas e urgentemente necessaria para verificar se todas as tabelas "
+   554→    "sensíveis (pagamentos, utilizadores, auditoria) estao devidamente protegidas."
+   555→))
+   556→
+   557→story.append(P("4.2 Vulnerabilidades de Media-Alta Prioridade", 'H2'))
+   558→story.append(P("<b>[ALTO] Vazamento de Dados em Paginas Superadmin</b>", 'WarningLabel'))
+   559→story.append(P(
+   560→    "As paginas AdminCoFounders, AdminRegionalRevenue e AdminSuperDashboard carregam "
+   561→    "todos os seus dados do Supabase antes de verificar se o utilizador tem o papel "
+   562→    "de superadmin. A verificacao de papel e feita num useEffect apos os dados "
+   563→    "terem sido ja buscados, o que significa que um admin que aceda directamente "
+   564→    "a URL /admin/co-founders tera todos os dados de co-fundadores carregados na "
+   565→    "memoria JavaScript antes de ser redirecionado. Embora os dados nao sejam "
+   566→    "renderizados, permanecem acessiveis na memoria do browser. A solucao e "
+   567→    "verificar o papel antes de qualquer chamada a dados, idealmente no nivel do "
+   568→    "ProtectedRoute com um requiredRole especifico para superadmin."
+   569→))
+   570→
+   571→story.append(P("<b>[ALTO] Embaralhamento de Cartas com Math.random()</b>", 'WarningLabel'))
+   572→story.append(P(
+   573→    "Todos os jogos de cartas (Uno, Teen Patti, Dominos) utilizam Math.random() para "
+   574→    "embaralhar as cartas. Este metodo nao e criptograficamente seguro e pode ser "
+   575→    "teoricamente previsto por um atacante sofisticado que conheca a semente. Para "
+   576→    "jogos que envolvem dinheiro real, deveria ser utilizado crypto.getRandomValues() "
+   577→    "ou um PRNG criptograficamente seguro fornecido pelo Supabase. Embora a "
+   578→    "exploracao pratica seja dificil, o principio de utilizar geradores aleatorios "
+   579→    "seguros e fundamental em plataformas de jogos com apostas."
+   580→))
+   581→
+   582→story.append(P("<b>[MEDIO] Tabuleiro do Adversario Visivel - Batalha Naval</b>", 'WarningLabel'))
+   583→story.append(P(
+   584→    "No BattleshipGame, o estado p2Board (tabuleiro do jogador 2) existe inteiramente "
+   585→    "no lado do cliente, incluindo as posicoes de todos os navios inimigos. Um "
+   586→    "jogador pode abrir o React DevTools e ler o tabuleiro completo do adversario, "
+   587→    "revelando a posicao de cada navio. Este problema e inerente a qualquer jogo "
+   588→    "que execute logica de ambos os jogadores no mesmo browser, e so pode ser "
+   589→    "resolvido com uma arquitectura verdadeiramente server-side onde cada jogador "
+   590→    "apenas recebe informacao sobre o seu proprio tabuleiro e os ataques "
+   591→    "recebidos."
+   592→))
+   593→
+   594→story.append(P("4.3 Outras Questoes de Seguranca", 'H2'))
+   595→security_extra = [
+   596→    ['Conteudo XSS em Quiz', 'MEDIO', 'O KahootMultiplayerQuiz aceita perguntas de utilizadores que sao inseridas sem sanitizacao. Se renderizadas noutro componente sem escape, podem causar XSS.'],
+   597→    ['liveCode Cosmetico', 'BAIXO', 'A propriedade liveCode e aceite por todos os jogos mas nunca validada server-side. Funciona apenas como identificador visual.'],
+   598→    ['API Keys em Plain Text', 'MEDIO', 'O AdminSettings guarda chaves de API de pagamento (PayPal, Stripe) como texto JSON na tabela platform_settings, sem indicador de encriptacao.'],
+   599→    ['Sem 2FA para Admins', 'ALTO', 'Contas de admin e superadmin nao requerem autenticacao de dois factores, apesar de terem acesso a dados financeiros e operacoes criticas.'],
+   600→    ['Sem Rate Limiting', 'MEDIO', 'Nao existe rate limiting visivel em accoes de admin como alteracoes de papel, aprovacao de pagamentos ou eliminacao de rifas.'],
+   601→]
+   602→story.append(make_table(
+   603→    ['Questao', 'Severidade', 'Descricao'],
+   604→    security_extra,
+   605→    [35*mm, 20*mm, CONTENT_W - 55*mm]
+   606→))
+   607→
+   608→# --- CHAPTER 5: ANALISE DO SITE AO VIVO ---
+   609→story.append(PageBreak())
+   610→story.append(P("5. Analise do Site em Producao", 'H1'))
+   611→story.append(section_line())
+   612→
+   613→story.append(P("5.1 Performance e Infraestrutura", 'H2'))
+   614→story.append(P(
+   615→    "O site bateu.online demonstra excelente performance em producao. O tempo "
+   616→    "medio de carregamento e de aproximadamente 400ms (DOM Content Loaded: 397ms, "
+   617→    "Full Load: 427ms), o que esta bem dentro dos limites recomendados para "
+   618→    "experiencia de utilizador. A aplicacao esta correctamente servida sobre "
+   619→    "HTTPS com certificado SSL valido, e o bundle JavaScript principal "
+   620→    "(index-CVnr2fpu.js) e gerado pelo Vite com optimizacoes de producao. A "
+   621→    "plataforma esta configurada como PWA (Progressive Web App) com manifesto "
+   622→    "completo, service worker registado, icones de 192x192 e 512x512 pixels, "
+   623→    "e meta tag de exibicao em modo standalone com orientacao portrait. A PWA "
+   624→    "esta pronta para instalacao em dispositivos moveis, o que e um ponto "
+   625→    "positivo significativo para o mercado africano onde muitos utilizadores "
+   626→    "accedem a internet primariamente por telemovel."
+   627→))
+   628→
+   629→perf_data = [
+   630→    ['DOM Content Loaded', '397 ms', 'Excelente - abaixo do limiar de 500ms'],
+   631→    ['Full Page Load', '427 ms', 'Excelente - abaixo do limiar de 1000ms'],
+   632→    ['SSL/HTTPS', 'Activo', 'Certificado SSL valido em todas as paginas'],
+   633→    ['PWA Manifest', 'Completo', '3 icones, display standalone, portrait'],
+   634→    ['Service Worker', 'Registado', 'vite-plugin-pwa com estrategia de cache'],
+   635→    ['Viewport Meta', 'Configurado', 'width=device-width, initial-scale=1.0'],
+   636→    ['Bundle JS', '1 ficheiro', 'Vite-built, optimizado para producao'],
+   637→    ['CSS', '1 ficheiro', 'TailwindCSS compilado, purged'],
+   638→    ['Console Errors (JS)', '0 erros', 'Nenhum erro JavaScript em nenhuma pagina testada'],
+   639→]
+   640→story.append(make_table(
+   641→    ['Metrica', 'Valor', 'Avaliacao'],
+   642→    perf_data,
+   643→    [40*mm, 30*mm, CONTENT_W - 70*mm]
+   644→))
+   645→
+   646→story.append(P("5.2 Problemas do Backend / API", 'H2'))
+   647→story.append(P("<b>[CRITICO] Tabelas do Supabase em Falta (404)</b>", 'CriticalLabel'))
+   648→story.append(P(
+   649→    "Todas as paginas testadas no site ao vivo geram erros 404 do Supabase ao tentar "
+   650→    "aceder as tabelas 'lives' e 'live_sessions'. Estas tabelas nao existem na base "
+   651→    "de dados, o que significa que toda a funcionalidade de streaming ao vivo esta "
+   652→    "completamente inoperacional ao nivel do backend. O contador na barra de "
+   653→    "navegacao mostra '0 Live' consistentemente, e todas as secsoes relacionadas com "
+   654→    "lives exibem mensagens de 'em breve' ou 'os primeiros sorteios estao a caminho'. "
+   655→    "Isto afecta directamente uma das funcionalidades principais da plataforma "
+   656→    "(rifas ao vivo com transmissao de video) e explica porque o marketplace so "
+   657→    "tem 1 raffle listado e a seccao de vencedores verificados esta vazia. A criacao "
+   658→    "destas tabelas e a implementacao das Edge Functions ou triggers necessarios "
+   659→    "e uma dependencia critica para que a plataforma possa funcionar como "
+   660→    "pretendido."
+   661→))
+   662→
+   663→story.append(P("5.3 Problemas de SEO", 'H2'))
+   664→story.append(P(
+   665→    "A analise SEO revelou problemas significativos que afectam a visibilidade "
+   666→    "da plataforma nos motores de busca. Todas as paginas do site partilham "
+   667→    "exactamente o mesmo title tag ('Bateu - Raffles, Live Games and Verified Winners'), "
+   668→    "a mesma meta description, e os mesmos Open Graph tags. Isto significa que "
+   669→    "os motores de busca nao conseguem distinguir entre a homepage, a pagina de "
+   670→    "jogos, o FAQ ou qualquer outra rota. A imagem OG/Twitter aponta para um URL "
+   671→    "no Cloudflare R2 que esta bloqueado por CORS, tornando-a inacessivel para "
+   672→    "previews em redes sociais. Nao existem tags canonical, dados estruturados "
+   673→    "(schema.org), ou sitemap.xml verificado. O atributo lang do HTML e "
+   674→    "inconsistente: a homepage usa 'en' enquanto outras paginas usam 'pt'. "
+   675→    "Apesar de a biblioteca react-helmet-async estar instalada, ela parece nao "
+   676→    "ser utilizada de forma efectiva para definir meta tags unicas por pagina."
+   677→))
+   678→
+   679→seo_data = [
+   680→    ['Title Tag', 'CRITICO', 'Identico em todas as paginas - sem diferenciacao por conteudo'],
+   681→    ['Meta Description', 'CRITICO', 'Identica em todas as paginas'],
+   682→    ['OG Image', 'ALTO', 'URL do Cloudflare R2 bloqueado por CORS - inacessivel'],
+   683→    ['lang Attribute', 'MEDIO', 'Inconsistente: homepage usa 
