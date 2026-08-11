@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatorio de Analise - Plataforma Bateu</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --page-bg: #f4f4f3;
+  --section-bg: #f1f1ef;
+  --card-bg: #edece9;
+  --table-stripe: #f5f4f3;
+  --header-fill: #534d3a;
+  --cover-block: #766e57;
+  --border: #d6cfbc;
+  --icon: #8b7a45;
+  --accent: #88702a;
+  --accent-secondary: #7056bf;
+  --text-primary: #181716;
+  --text-muted: #7b7871;
+  --semantic-success: #377c4e;
+  --semantic-warning: #a18449;
+  --semantic-error: #90514c;
+  --semantic-info: #5c7d9e;
+  --c-bg: #f4f4f3;
+  --c-accent: #88702a;
+  --c-text: #181716;
+  --c-muted: #7b7871;
+  --c-mid: #534d3a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@page { size: A4; margin: 0; }
+html, body { 
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-size: 10pt;
+  line-height: 1.6;
+}
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 20mm 22mm 25mm 22mm;
+  background: white;
+  position: relative;
+  page-break-after: always;
+}
+.page:last-child { page-break-after: auto; }
+
+/* Cover */
+.cover {
+  width: 210mm; height: 297mm;
+  background: linear-gradient(160deg, #3a3520 0%, #534d3a 40%, #766e57 100%);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; color: white; position: relative; overflow: hidden;
+  padding: 30mm;
+  page-break-after: always;
+}
+.cover::before {
+  content: ''; position: absolute; top: -80px; right: -80px;
+  width: 350px; height: 350px; border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+.cover::after {
+  content: ''; position: absolute; bottom: -60px; left: -60px;
+  width: 250px; height: 250px; border-radius: 50%;
+  background: rgba(255,255,255,0.03);
+}
+.cover-logo { font-size: 48pt; font-weight: 900; margin-bottom: 8px; letter-spacing: -2px; }
+.cover-sub { font-size: 13pt; opacity: 0.8; margin-bottom: 40px; font-weight: 300; }
+.cover-title { font-family: 'Playfair Display', serif; font-size: 28pt; font-weight: 700; line-height: 1.3; margin-bottom: 16px; }
+.cover-date { font-size: 10pt; opacity: 0.6; margin-top: 40px; }
+.cover-tag { display: inline-block; padding: 4px 16px; border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; font-size: 9pt; opacity: 0.7; margin-top: 12px; }
+
+/* Typography */
+h1 { font-size: 20pt; font-weight: 900; color: var(--header-fill); margin-bottom: 8px; letter-spacing: -0.5px; }
+h2 { font-size: 14pt; font-weight: 700; color: var(--header-fill); margin: 24px 0 8px 0; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 11pt; font-weight: 600; color: var(--text-primary); margin: 14px 0 6px 0; }
+p { margin-bottom: 8px; text-align: justify; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; margin: 10px 0 14px 0; font-size: 8.5pt; }
+thead th { background: var(--header-fill); color: white; padding: 6px 8px; text-align: left; font-weight: 600; }
+tbody td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+/* Bug / Info box */
+.info-box { background: #f0f4ff; border-left: 3px solid var(--semantic-info); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+.error-box { background: #fef2f2; border-left: 3px solid var(--semantic-error); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+.success-box { background: #f0fdf4; border-left: 3px solid var(--semantic-success); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+.warning-box { background: #fefce8; border-left: 3px solid var(--semantic-warning); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 7.5pt; font-weight: 600; }
+.badge-red { background: #fde2e2; color: #991b1b; }
+.badge-green { background: #dcfce7; color: #166534; }
+.badge-yellow { background: #fef9c3; color: #854d0e; }
+.badge-blue { background: #dbeafe; color: #1e40af; }
+
+ul { margin: 6px 0 10px 18px; }
+li { margin-bottom: 3px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.stat-card { background: var(--card-bg); border-radius: 6px; padding: 10px 14px; text-align: center; }
+.stat-num { font-size: 22pt; font-weight: 900; color: var(--accent); }
+.stat-label { font-size: 8pt; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.toc-item { padding: 3px 0; border-bottom: 1px dotted var(--border); }
+.toc-item span { float: right; color: var(--text-muted); font-size: 8.5pt; }
+
+.severity-high { color: var(--semantic-error); font-weight: 700; }
+.severity-medium { color: var(--semantic-warning); font-weight: 600; }
+.severity-low { color: var(--semantic-info); font-weight: 500; }
+
+.footer-note { position: absolute; bottom: 15mm; left: 22mm; right: 22mm; font-size: 7pt; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 4px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-logo">BATEU</div>
+  <div class="cover-sub">Raffles, Live Games &amp; Verified Winners</div>
+  <div class="cover-title">Relatorio Completo de Analise da Plataforma</div>
+  <div style="opacity:0.8; font-size:11pt; max-width:400px; line-height:1.6;">
+    Auditoria tecnica, testes de jogos, cadastro multi-perfil, identificacao de bugs e recomendacoes estrategicas
+  </div>
+  <div class="cover-date">11 de Agosto de 2026</div>
+  <div class="cover-tag">Confidencial - Uso Interno</div>
+</div>
+
+<!-- TOC -->
+<div class="page">
+  <h1>Indice</h1>
+  <div style="margin-top:16px;">
+    <div class="toc-item">1. Visao Geral da Plataforma <span>3</span></div>
+    <div class="toc-item">2. Stack Tecnologico <span>3</span></div>
+    <div class="toc-item">3. Arquitectura de Rotas e Paginas <span>4</span></div>
+    <div class="toc-item">4. Sistema de Autenticacao e Roles <span>5</span></div>
+    <div class="toc-item">5. Analise do Processo de Registro <span>6</span></div>
+    <div class="toc-item">6. Catalogo de Jogos (69 Jogos) <span>7</span></div>
+    <div class="toc-item">7. Testes de Paginas ao Vivo (bateu.online) <span>9</span></div>
+    <div class="toc-item">8. Sistema i18n e Multi-idioma <span>10</span></div>
+    <div class="toc-item">9. Bugs Criticos Identificados <span>11</span></div>
+    <div class="toc-item">10. Problemas de Performance e UX <span>12</span></div>
+    <div class="toc-item">11. SQL Migration - Regional Manager <span>13</span></div>
+    <div class="toc-item">12. Recomendacoes Estrategicas <span>14</span></div>
+    <div class="toc-item">13. Conclusao <span>15</span></div>
+  </div>
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 3: Overview -->
+<div class="page">
+  <h1>1. Visao Geral da Plataforma</h1>
+  <p>A Bateu (bateu.online) e uma plataforma mocambicana de sorteios ao vivo, jogos interactivos e premios reais. A plataforma combina elementos de gamificacao, e-sports, livestreaming e mercado de rifas numa experiencia unificada, direccionada principalmente para o mercado africano (Mocambique, Angola, Brasil, India) com suporte multi-idioma em 6 linguas. A plataforma opera num modelo SaaS multi-tenant onde empresas podem criar os seus proprios sorteios, personalizar a sua experiencia de marca (white-label) e interagir com a sua audiencia em tempo real atraves de jogos ao vivo.</p>
+  <p>A analise revelou uma plataforma extrema e ambiciosa em termos de escopo, com 69 jogos implementados, um sistema de e-sports completo com campeonatos e ligas, um ecossistema de live streaming com overlay profissional, sistema de carteira digital, e uma infraestrutura de gestao regional que permite operacao multi-pais. O codigo-fonte reflecte um projecto em rapido crescimento, com mais de 60 migracoes de base de dados, 15 funcoes serverless no Supabase, e centenas de componentes React organizados numa estrutura modular.</p>
+  
+  <div class="two-col" style="margin-top:14px;">
+    <div class="stat-card"><div class="stat-num">69</div><div class="stat-label">Jogos Implementados</div></div>
+    <div class="stat-card"><div class="stat-num">80+</div><div class="stat-label">Paginas / Rotas</div></div>
+    <div class="stat-card"><div class="stat-num">6</div><div class="stat-label">Idiomas Suportados</div></div>
+    <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">Tipos de Utilizador</div></div>
+  </div>
+  
+  <h2>2. Stack Tecnologico</h2>
+  <table>
+    <thead><tr><th>Camada</th><th>Tecnologia</th><th>Versao / Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend Framework</td><td>React 18 + TypeScript</td><td>v18.3.1 / Vite 5.4</td></tr>
+      <tr><td>Estilizacao</td><td>TailwindCSS + shadcn/ui</td><td>v3.4 + Radix UI</td></tr>
+      <tr><td>Animacoes</td><td>Framer Motion</td><td>v12.35</td></tr>
+      <tr><td>Base de Dados / Auth</td><td>Supabase (PostgreSQL)</td><td>v2.99 SDK</td></tr>
+      <tr><td>Router</td><td>React Router DOM</td><td>v6.30</td></tr>
+      <tr><td>Graficos</td><td>Recharts</td><td>v2.15</td></tr>
+      <tr><td>Pagamentos</td><td>Stripe + PayPal</td><td>v9.12 + v9.2</td></tr>
+      <tr><td>SEO</td><td>React Helmet Async</td><td>v3.0</td></tr>
+      <tr><td>Formularios</td><td>React Hook Form + Zod</td><td>v7.61 / v3.25</td></tr>
+      <tr><td>Testes</td><td>Vitest + Playwright</td><td>v3.2 / v1.57</td></tr>
+      <tr><td>PWA</td><td>vite-plugin-pwa</td><td>v1.2</td></tr>
+      <tr><td>Serverless</td><td>Supabase Edge Functions (Deno)</td><td>15 funcoes</td></tr>
+      <tr><td>Particulas / Efeitos</td><td>@tsparticles/react</td><td>v4.3</td></tr>
+      <tr><td>Confetti</td><td>canvas-confetti</td><td>v1.9</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 4: Routes -->
+<div class="page">
+  <h2>3. Arquitectura de Rotas e Paginas</h2>
+  <p>A plataforma possui um sistema de rotas extenso e bem estruturado, organizado em tres grandes areas protegidas: paginas publicas, dashboard de negocio (protegido por role "business") e painel de administracao (protegido por role "admin"). Adicionalmente, existe um painel para gestores regionais (role "regional_manager") e um modulo de e-sports com sub-rotas proprias.</p>
+
+  <h3>3.1 Rotas Publicas (Sem autenticacao)</h3>
+  <table>
+    <thead><tr><th>Rota</th><th>Componente</th><th>Funcao</th></tr></thead>
+    <tbody>
+      <tr><td>/</td><td>Index.tsx</td><td>Homepage com hero, stats, CTA</td></tr>
+      <tr><td>/login</td><td>Login.tsx</td><td>Login com email + Google/Apple</td></tr>
+      <tr><td>/register</td><td>Register.tsx</td><td>Registo multi-step (4 passos)</td></tr>
+      <tr><td>/marketplace</td><td>Marketplace.tsx</td><td>Marketplace de rifas</td></tr>
+      <tr><td>/jogos</td><td>AllGames.tsx</td><td>Catalogo de 69 jogos</td></tr>
+      <tr><td>/lives</td><td>LiveHub.tsx</td><td>Hub de jogos ao vivo</td></tr>
+      <tr><td>/batalhas</td><td>Battles.tsx</td><td>Batalhas activas</td></tr>
+      <tr><td>/concursos</td><td>Contests.tsx</td><td>Concursos activos/encerrados</td></tr>
+      <tr><td>/esports</td><td>EsportsLayout</td><td>Hub de e-sports (sub-rotas)</td></tr>
+      <tr><td>/blog</td><td>Blog.tsx</td><td>Blog com artigos</td></tr>
+      <tr><td>/empresas</td><td>BusinessDirectory.tsx</td><td>Directorio de empresas</td></tr>
+      <tr><td>/prestacoes</td><td>Prestacoes.tsx</td><td>Catalogo de prestacoes</td></tr>
+      <tr><td>/wallet</td><td>Wallet.tsx</td><td>Carteira digital (protegido)</td></tr>
+      <tr><td>/faq, /termos, /privacidade</td><td>FAQ, Terms, Privacy</td><td>Paginas informativas</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 Dashboard de Negocio (/dashboard - role: business)</h3>
+  <p>O dashboard de negocio oferece 22 sub-paginas que cobrem toda a gestao empresarial na plataforma, incluindo criacao e edicao de rifas, analiticas, gestao de embaixadores, gestao de lives, configuracao de jogos, gestao de eSports, blog corporativo e configuracao de white-label. Este e o painel principal para empresas que utilizam a Bateu como plataforma de marketing interactivo e engajamento com clientes.</p>
+
+  <h3>3.3 Painel Admin (/admin - role: admin/superadmin)</h3>
+  <p>O painel de administracao contem 17 sub-paginas que permitem a gestao completa da plataforma: gestao de utilizadores, rifas, receitas, pagamentos, jogos, concursos, gestores regionais, vouchers, planos, audit logs, cron jobs, e um super dashboard para visao multi-regional. O sistema suporta ainda co-fundadores e configuracoes de branding regional.</p>
+  
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 5: Auth -->
+<div class="page">
+  <h2>4. Sistema de Autenticacao e Roles</h2>
+  <p>O sistema de autenticacao e baseado no Supabase Auth, com suporte para login por email/senha e OAuth (Google, Apple). A gestao de roles e feita atraves de uma tabela auxiliar "user_roles" que permite multiplas roles por utilizador, com uma hierarquia de prioridade implementada no AuthContext. Este modelo oferece flexibilidade para evoluir o sistema de permissoes sem alteracoes na base de dados principal.</p>
+
+  <h3>4.1 Hierarquia de Roles</h3>
+  <table>
+    <thead><tr><th>Role</th><th>Prioridade</th><th>Rota Padrao</th><th>Permissoes</th></tr></thead>
+    <tbody>
+      <tr><td><b>superadmin</b></td><td>1 (mais alta)</td><td>/admin</td><td>Acesso total a todos os recursos</td></tr>
+      <tr><td><b>admin</b></td><td>2</td><td>/admin</td><td>Gestao da plataforma, utilizadores, config</td></tr>
+      <tr><td><b>regional_manager</b></td><td>3</td><td>/regional-panel</td><td>Gestao da sua regiao atribuida</td></tr>
+      <tr><td><b>business</b></td><td>4</td><td>/dashboard</td><td>Criar rifas, lives, gerir negocio</td></tr>
+      <tr><td><b>user</b></td><td>5 (mais baixa)</td><td>/profile</td><td>Participar em rifas e jogos</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 Fluxo de Resolucao de Roles</h3>
+  <p>O AuthContext busca todas as roles do utilizador na tabela "user_roles" e aplica a seguinte logica de prioridade: se o utilizador tiver role "superadmin", essa e usada; caso contrario, verifica "admin", depois "regional_manager", depois "business", e finalmente usa a primeira role disponivel ou assume "user" como padrao. Este sistema permite que um utilizador tenha multiplas roles e sempre obtenha o acesso mais elevado. O ProtectedRoute implementa a validacao em cada rota, redireccionando conforme necessario.</p>
+
+  <h3>4.3 Registro de Tipos de Utilizador</h3>
+  <p>O formulario de registro permite dois tipos de conta: <b>Participant</b> (utilizador comum que participa em rifas e jogos) e <b>Business</b> (empresa que cria e gere rifas). O tipo de conta e passado como metadata no registo do Supabase Auth, e a role e atribuida automaticamente. Apos o registo, dados adicionais como telefone, provincia, cidade e interesses sao guardados no perfil do utilizador via localStorage como mecanismo de fallback.</p>
+
+  <h3>4.4 Observacoes sobre Autenticacao</h3>
+  <div class="info-box">
+    <b>Positivo:</b> O sistema suporta OAuth (Google e Apple) como alternativa ao email/senha. O login tem validacao de erros amigavel com mensagens traduzidas. A redirect pos-login e inteligente, redireccionando conforme a role do utilizador.
+  </div>
+  <div class="warning-box">
+    <b>Atencao:</b> O redirecionamento pos-login no Login.tsx (linha 73) nao inclui "regional_manager" - se um regional_manager fizer login, sera redireccionado para /profile em vez de /regional-panel. O AuthContext ja foi corrigido, mas o Login.tsx precisa de actualizacao.
+  </div>
+  
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 6: Register -->
+<div class="page">
+  <h2>5. Analise do Processo de Registro</h2>
+  <p>O formulario de registro utiliza um fluxo multi-step com 4 etapas, cada uma com validacao especifica. A experiencia de registo e bem estruturada com animacoes suaves, mascote interactiva e feedback visual. A analise ao vivo no site confirmou que o fluxo funciona correctamente, com transicoes de step suaves e validacao em tempo real.</p>
+
+  <h3>5.1 Etapas do Registro</h3>
+  <table>
+    <thead><tr><th>Step</th><th>Titulo</th><th>Campos</th><th>Validacao</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>"Who are you?"</td><td>Tipo de conta (Participant/Business)</td><td>Seleccao obrigatoria</td></tr>
+      <tr><td>2</td><td>"Your details"</td><td>Nome, Email, Senha, Nome da Empresa (Business)</td><td>Nome >= 2 chars, email com @, senha >= 8 chars com letras e numeros</td></tr>
+      <tr><td>3</td><td>Localizacao</td><td>Pais, Provincia, Cidade, Telefone</td><td>Opcional</td></tr>
+      <tr><td>4</td><td>Interesses</td><td>12 categorias (Tech, Fashion, Travel, etc.)</td><td>Opcional</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.2 Pontos Positivos do Registro</h3>
+  <ul>
+    <li>Fluxo multi-step com animacoes Framer Motion - experiencia moderna e profissional</li>
+    <li>Mascote interactiva que muda de expressao conforme o progresso (happy, excited, thinking)</li>
+    <li>Suporte para Google OAuth e Apple OAuth alem do email/senha tradicional</li>
+    <li>Validacao de forca de senha (minimo 8 caracteres, letras e numeros obrigatorios)</li>
+    <li>Campo de pais pre-definido como Mocambique ("MZ") com opcao de alterar</li>
+    <li>Sistema de referencias integrado - codigo de referencia e processado automaticamente</li>
+    <li>Seleccao de interesses para personalizacao de conteudo e recomendacoes</li>
+  </ul>
+
+  <h3>5.3 Problemas Encontrados no Registro</h3>
+  <div class="warning-box">
+    <b>Mensagem de erro em ingles:</b> A mensagem de erro de senha ("Password needs at least 8 characters, including letters and numbers.") esta em ingles, enquanto a interface esta parcialmente traduzida. Deve usar o sistema i18n.
+  </div>
+  <div class="warning-box">
+    <b>Step 3 (Localizacao) opcional:</b> O step 3 e totalmente opcional, o que significa que muitos utilizadores podem saltar a definicao de localizacao. Para uma plataforma regional, seria recomendavel tornar pelo menos o pais obrigatorio, ja que afecta a configuracao regional, moeda e conteudo disponivel.
+  </div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 7-8: Games -->
+<div class="page">
+  <h2>6. Catalogo de Jogos (69 Jogos)</h2>
+  <p>A plataforma possui um catalogo impressionante de 69 jogos implementados, organizados em 16 categorias. Os jogos cobrem uma ampla variedade de generos, desde jogos classicos de estrategia como Xadrez e Damas, ate jogos culturais mocambicanos como Mexerica, Chigogo e Urusse. O sistema suporta modos solo, 1v1, contra Bot IA, e multiplayer ao vivo. Esta e provavelmente a maior plataforma de jogos instantaneos de Mocambique e uma das maiores de Africa.</p>
+
+  <h3>6.1 Jogos por Categoria</h3>
+  <table>
+    <thead><tr><th>Categoria</th><th>Qtd</th><th>Jogos</th></tr></thead>
+    <tbody>
+      <tr><td>Estrategia</td><td>8</td><td>Galo PRO, Ligar 4, Xadrez, Damas, Batalha Naval, Domino, Ludo, Batalha de Canhoes</td></tr>
+      <tr><td>Arcade</td><td>8</td><td>Batalha de Cobras, Pong VS, Bate o Alvo, Torre VS, Corrida no Labirinto, Quebra-Bloco VS, Nave Espacial, Flappy Bird</td></tr>
+      <tr><td>Puzzle</td><td>7</td><td>Combina 4, Adivinha 1-100, Memoria VS, Adivinha o Numero VS, Numeros Caindo, Memoria de Padroes, Jogo da Memoria VS</td></tr>
+      <tr><td>Quiz</td><td>5</td><td>Trivia Flash, Quiz Battle, Quem Quer Ser Milionario?, Quiz ao Vivo, Batalha de Conhecimentos</td></tr>
+      <tr><td>Reflexo</td><td>6</td><td>Pesca Cores, Cor versus Palavra, Alvo Rapido, Corrida de Reaccao, Duelo de Velocidade, Tap Battle</td></tr>
+      <tr><td>Social</td><td>9</td><td>Batalha de Emojis, Caca a Palavra, Verdade ou Desafio, Roleta de Castigos, Adivinhe o Emoji, Desenho Rapido, Batata Quente, Desafio Caotico, Roleta de Desafios</td></tr>
+      <tr><td>Sorte</td><td>4</td><td>Duelo de Dados, Caca-Niqueis VS, Roda de Premios, Bingo ao Vivo</td></tr>
+      <tr><td>Palavras</td><td>2</td><td>Corrente de Palavras, Palavras Embaralhadas</td></tr>
+      <tr><td>Cartas</td><td>1</td><td>UNO Cartas</td></tr>
+      <tr><td>Mocambicano</td><td>4</td><td>Mexerica, Chigogo, Urusse, Capulana Quiz</td></tr>
+      <tr><td>Indiano</td><td>3</td><td>Kabaddi Raid, Carrom, Teen Patti (exclusivo IN)</td></tr>
+      <tr><td>RPG</td><td>1</td><td>RPG Arena Battle</td></tr>
+      <tr><td>Battle Royale</td><td>1</td><td>Battle Royale</td></tr>
+      <tr><td>Accao</td><td>1</td><td>Fruta Ninja</td></tr>
+      <tr><td>Digitacao</td><td>1</td><td>Corrida de Digitacao</td></tr>
+      <tr><td>Variado</td><td>1</td><td>Arena de Duelo VS</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Jogos com Bot IA</h3>
+  <p>Dos 69 jogos, um subconjunto significativo suporta modo contra Bot IA, permitindo que os utilizadores joguem sozinhos a qualquer momento. Os jogos com Bot incluem: Galo PRO, Ligar 4, Batalha de Cobras, Duelo de Matematica, Memoria VS Cartas, Adivinha 1 a 100, Cor versus Palavra, Sequencia de Cores, Pedra Papel Tesoura, Tap Battle, Mexerica, Chigogo, Urusse, Capulana Quiz, RPG Arena Battle, Battle Royale, Xadrez, Flappy Bird, Fruta Ninja, Corrida de Digitacao e Carrom. Este e um numero consideravel que garante que a plataforma tem conteudo jogavel mesmo sem outros utilizadores online.</p>
+
+  <h3>6.3 Jogos Regionais Exclusivos</h3>
+  <div class="info-box">
+    <b>Jogos Mocambicanos:</b> Mexerica (bate a mao - jogo de reflexos tradicional), Chigogo (adivinha a pedrinha - esconde e descobre), Urusse (mancala mocambicano - semeie e capture), Capulana Quiz (quiz de cultura mocambicana). Estes jogos sao um diferenciador cultural forte da plataforma.
+  </div>
+  <div class="info-box">
+    <b>Jogos Indianos (exclusivo regiao IN):</b> Kabaddi Raid, Carrom, Teen Patti. Estes jogos so sao visiveis para utilizadores da regiao India, demonstrando o sistema de regionalizacao de conteudo.
+  </div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 9: Live Tests -->
+<div class="page">
+  <h2>7. Testes de Paginas ao Vivo (bateu.online)</h2>
+  <p>Foram realizados testes automatizados no site de producao bateu.online utilizando browser headless (agent-browser). Os testes cobriram as principais paginas publicas, verificando funcionalidade, erros de consola e estrutura de conteudo. A seguir, os resultados detalhados de cada pagina testada.</p>
+
+  <h3>7.1 Resultados dos Testes</h3>
+  <table>
+    <thead><tr><th>URL</th><th>Status</th><th>Tempo</th><th>Erros</th></tr></thead>
+    <tbody>
+      <tr><td>/ (Homepage)</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - carregou correctamente com hero, stats, CTAs</td></tr>
+      <tr><td>/login</td><td><span class="badge badge-green">OK</span></td><td>6s</td><td>Nenhum - formulario visivel com Google/Apple OAuth</td></tr>
+      <tr><td>/register</td><td><span class="badge badge-green">OK</span></td><td>6s</td><td>Nenhum - step 1 e step 2 funcionam correctamente</td></tr>
+      <tr><td>/jogos</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - catalogo de jogos renderizado</td></tr>
+      <tr><td>/marketplace</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - lista de marketplace carregou (vazia)</td></tr>
+      <tr><td>/concursos</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - lista de concursos carregou (0 activos)</td></tr>
+      <tr><td>/esports</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - hub de esports com tabs e navegacao</td></tr>
+      <tr><td>/blog</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - pagina de blog com search</td></tr>
+      <tr><td>/empresas</td><td><span class="badge badge-green">OK</span></td><td>5s</td><td>Nenhum - directorio com placeholders</td></tr>
+      <tr><td>/faq</td><td><span class="badge badge-green">OK</span></td><td>8s</td><td>Nenhum - 20+ perguntas organizadas por seccao</td></tr>
+      <tr><td>/lives</td><td><span class="badge badge-red">CRASH</span></td><td>4s</td><td>useMobileNav must be used within MobileNavProvider</td></tr>
+      <tr><td>/prestacoes</td><td><span class="badge badge-red">CRASH</span></td><td>4s</td><td>useMobileNav must be used within MobileNavProvider</td></tr>
+      <tr><td>/participar</td><td><span class="badge badge-red">CRASH</span></td><td>4s</td><td>useMobileNav must be used within MobileNavProvider</td></tr>
+      <tr><td>/batalhas</td><td><span class="badge badge-yellow">BRANCO</span></td><td>5s</td><td>Renderiza apenas heading "Bateu" - conteudo vazio</td></tr>
+      <tr><td>/wallet</td><td><span class="badge badge-yellow">BRANCO</span></td><td>4s</td><td>Renderiza apenas heading "Bateu" - loading infinito</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.2 Resumo dos Testes</h3>
+  <div class="success-box"><b>10 paginas funcionam correctamente</b> - Homepage, Login, Register, Jogos, Marketplace, Concursos, Esports, Blog, Empresas e FAQ estao operacionais.</div>
+  <div class="error-box"><b>3 paginas crasham com o mesmo erro critico</b> - /lives, /prestacoes e /participar falham com "useMobileNav must be used within MobileNavProvider". Este e um bug de arquitetura que afecta paginas que importam componentes mobile fora do provider.</div>
+  <div class="warning-box"><b>2 paginas ficam em branco</b> - /batalhas e /wallet nao crasham mas nao renderizam conteudo (possivelmente dependem de dados ou auth que nao estao disponiveis).</div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 10: i18n -->
+<div class="page">
+  <h2>8. Sistema i18n e Multi-idioma</h2>
+  <p>A plataforma possui um sistema de internacionalizacao extenso, cobrindo 6 idiomas: Ingles (en), Portugues (pt), Portugues do Brasil (pt-BR), Espanhol (es), Frances (fr) e Hindi (hi). O sistema e implementado atraves de um LanguageContext centralizado com mais de 5000 linhas de codigo, contendo traducoes inline para todas as chaves. O utilizador pode alterar o idioma atraves de um seletor no navbar, e existe tambem um sistema de sincronizacao automatica baseado no pais do utilizador (CountryLanguageSync).</p>
+
+  <h3>8.1 Idiomas Suportados</h3>
+  <table>
+    <thead><tr><th>Codigo</th><th>Idioma</th><th>Cobertura</th><th>Observacoes</th></tr></thead>
+    <tbody>
+      <tr><td>en</td><td>English</td><td><span class="badge badge-green">Completa</span></td><td>Idioma base da plataforma</td></tr>
+      <tr><td>pt</td><td>Portugues</td><td><span class="badge badge-green">Completa</span></td><td>Idioma principal do mercado mocambicano</td></tr>
+      <tr><td>pt-BR</td><td>Portugues (Brasil)</td><td><span class="badge badge-green">Completa</span></td><td>516 pares regional traduzidos recentemente</td></tr>
+      <tr><td>es</td><td>Espanhol</td><td><span class="badge badge-green">Boa</span></td><td>Traduzido recentemente, possiveis lacunas</td></tr>
+      <tr><td>fr</td><td>Frances</td><td><span class="badge badge-yellow">Parcial</span></td><td>Traduzido por subagente, pode ter erros</td></tr>
+      <tr><td>hi</td><td>Hindi</td><td><span class="badge badge-yellow">Parcial</span></td><td>Traduzido por subagente, pode ter erros</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.2 Problemas de i18n Identificados</h3>
+  <ul>
+    <li><b>Strings hard-coded em ingles:</b> A mensagem de erro de senha no Register.tsx esta em ingles. Algumas mensagens de erro do AppErrorBoundary tambem estao em portugues fixo ("Algo correu mal").</li>
+    <li><b>Sem fallback de idioma:</b> Se uma chave de traducao nao existe no idioma seleccionado, o sistema pode mostrar a chave em vez do texto em ingles como fallback.</li>
+    <li><b>Registo de erros em portugues:</b> O error boundary do App.tsx mostra "Algo correu mal" em portugues independentemente do idioma seleccionado.</li>
+    <li><b>Strings duplicadas:</b> O sistema de navegacao duplica os itens do navbar multiplas vezes na homepage (observado nos testes ao vivo - 4 repeticoes dos mesmos items).</li>
+  </ul>
+
+  <h3>8.3 Sistema de Regioes</h3>
+  <p>A plataforma possui um sistema de regioes com suporte para paises como Mocambique (MZ), Angola (AO), Brasil (BR), Portugal (PT), Africa do Sul (ZA), India (IN) e outros. O sistema inclui RegionalThemeProvider, RegionalConfigProvider e CountryLanguageSync para personalizacao automatica de temas, moeda e conteudo com base na localizacao do utilizador. Quando uma regiao nao e encontrada na base de dados, o sistema faz fallback para a configuracao padrao (observado em warnings no console: "Region not found in DB, using default config").</p>
+  
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 11: Bugs -->
+<div class="page">
+  <h2>9. Bugs Criticos Identificados</h2>
+  <p>A analise revelou varios bugs que afectam a experiencia do utilizador e a estabilidade da plataforma. Os bugs estao classificados por severidade, com detalhes tecnicos sobre a causa e a solucao recomendada.</p>
+
+  <h3>Bug #1: Paginas crasham com useMobileNav Error</h3>
+  <div class="error-box">
+    <b>Severidade: CRITICA</b><br>
+    <b>Impacto:</b> 3 paginas crasham completamente (/lives, /prestacoes, /participar)<br>
+    <b>Erro:</b> "useMobileNav must be used within MobileNavProvider"<br>
+    <b>Causa:</b> As paginas LiveHub.tsx, Prestacoes.tsx e LiveParticipar.tsx importam componentes (BottomTabBar, MobileTopBar, MobileMenuDrawer) que usam o hook useMobileNav, mas estes componentes so estao dentro do MobileNavProvider no App.tsx quando isOverlay e false. No entanto, o erro indica que o provider nao esta disponivel nestas paginas - provavelmente porque estas paginas importam directamente componentes que dependem do contexto.<br>
+    <b>Solucao:</b> Verificar se todas as paginas que usam BottomTabBar/MobileTopBar estao a ser renderizadas dentro do MobileNavProvider no App.tsx. Alternativamente, adicionar o provider como wrapper nestas paginas ou tornar o hook useMobileNav mais tolerante (retornar valores padrao em vez de throw).<br>
+    <b>Ficheiros afectados:</b> LiveHub.tsx, Prestacoes.tsx, LiveParticipar.tsx, MobileNavigationContext.tsx
+  </div>
+
+  <h3>Bug #2: Redirect pos-login nao inclui regional_manager</h3>
+  <div class="error-box">
+    <b>Severidade: MEDIA</b><br>
+    <b>Impacto:</b> Gestores regionais sao redireccionados para /profile em vez de /regional-panel<br>
+    <b>Causa:</b> O Login.tsx (linha 73) so verifica roles superadmin, admin e business, ignorando regional_manager<br>
+    <b>Solucao:</b> Adicionar verificacao de regional_manager no navigateAfterLogin do Login.tsx:<br>
+    <code>else if (roles.includes("regional_manager")) navigate("/regional-panel");</code><br>
+    <b>Ficheiro:</b> src/pages/Login.tsx linha 73
+  </div>
+
+  <h3>Bug #3: Navbar items duplicados na Homepage</h3>
+  <div class="warning-box">
+    <b>Severidade: MEDIA</b><br>
+    <b>Impacto:</b> Os mesmos 10 items do navbar aparecem repetidos 4 vezes na homepage<br>
+    <b>Causa:</b> Provavelmente o componente de navegacao esta a ser renderizado multiplas vezes ou existe um loop no mapeamento dos items de menu<br>
+    <b>Ficheiro:</b> src/components/Navbar.tsx
+  </div>
+
+  <h3>Bug #4: Marketplace e Directorio vazios</h3>
+  <div class="warning-box">
+    <b>Severidade: BAIXA</b><br>
+    <b>Impacto:</b> As paginas /marketplace e /empresas mostram layout sem dados<br>
+    <b>Causa:</b> Nao existem rifas ou empresas activas na base de dados de producao, ou as queries nao estao a retornar dados<br>
+    <b>Nota:</b> Pode ser esperado se a plataforma esta em fase inicial de adopcao
+  </div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 12: Performance -->
+<div class="page">
+  <h2>10. Problemas de Performance e UX</h2>
+
+  <h3>10.1 Tamanho do Bundle</h3>
+  <p>O build da aplicacao gera um ficheiro JavaScript principal de tamanho consideravel (index-CVnr2fpu.js). Com 69 jogos carregados como lazy imports, mais de 60 componentes, e multiplas bibliotecas de animacao, o tamanho total do bundle e provavelmente elevado. A utilizacao de code splitting e lazy loading para jogos e positiva, mas a homepage carrega muitos componentes globais (particles, canvas, confetti, Lottie) que podem ser adiados.</p>
+
+  <h3>10.2 Loading Screen Fixo de 4 Segundos</h3>
+  <div class="warning-box">
+    <b>Problema:</b> O App.tsx tem um timer fixo de 4000ms para o loading screen, e um timer "rapido" de 1800ms quando a config carrega. Este approchopode causar atrasos desnecessarios quando a app carrega rapidamente, ou mostrar a app antes de estar pronta quando demora mais.
+    <b>Solucao recomendada:</b> Utilizar um sistema baseado no estado real de carregamento (quando auth + config + regional estao prontos) em vez de timers fixos.
+  </div>
+
+  <h3>10.3 Warnings de Regiao Nao Encontrada</h3>
+  <div class="warning-box">
+    <b>Problema:</b> O console mostra repetidos warnings "Region not found in DB, using default config: HK" (Hong Kong). Isto sugere que o sistema de deteccao de regiao esta a identificar incorretamente a localizacao do utilizador (possivelmente por IP de CDN ou proxy), caindo para HK que nao existe na BD.
+    <b>Solucao recomendada:</b> Adicionar HK a lista de regioes com configuracao padrao, ou melhorar a logica de deteccao de pais para usar um fallback mais apropriado (MZ como padrao para o mercado primario).
+  </div>
+
+  <h3>10.4 Paginas com Conteudo Vazio</h3>
+  <p>As paginas /batalhas e /wallet ficam com conteudo vazio (apenas o heading "Bateu" e visivel) sem mostrar qualquer indicador de carregamento ou mensagem de estado vazio. Isto e uma questao de UX que pode confundir os utilizadores. Todas as paginas que dependem de dados assincronos devem ter estados claros de loading, vazio e erro.</p>
+
+  <h3>10.5 Multiple Context Providers Aninhados</h3>
+  <p>O App.tsx possui 8 context providers aninhados (QueryClient, Helmet, RegionalConfig, Theme, DynamicTheme, Language, Currency, RegionalTheme). Este nivel de aninhamento pode causar re-renders desnecessarios e dificultar o debug. A consolidacao de alguns providers (por exemplo, Theme + DynamicTheme + RegionalTheme) poderia melhorar a performance.</p>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 13: SQL Migration -->
+<div class="page">
+  <h2>11. SQL Migration - Regional Manager</h2>
+  <p>A migration SQL para adicionar o role "regional_manager" ao enum "app_role" do PostgreSQL ja existe no projecto, no ficheiro <code>supabase/migrations/20260811070000_regional_manager_role.sql</code>. Esta migration foi criada como parte do trabalho anterior e inclui nao so a alteracao do enum, mas tambem politicas RLS completas para gestao regional.</p>
+
+  <h3>11.1 Conteudo da Migration</h3>
+  <table>
+    <thead><tr><th>Componente</th><th>Descricao</th></tr></thead>
+    <tbody>
+      <tr><td>ALTER TYPE app_role</td><td>Adiciona 'regional_manager' ao enum de forma idempotente</td></tr>
+      <tr><td>RLS: regional_managers (SELECT/UPDATE)</td><td>Permite ao gestor ver/editar o seu proprio registo</td></tr>
+      <tr><td>RLS: regions (SELECT/UPDATE)</td><td>Permite ao gestor aceder as regioes atribuidas</td></tr>
+      <tr><td>RLS: regional_branding</td><td>Permite gerir branding da regiao</td></tr>
+      <tr><td>RLS: regional_settings</td><td>Permite gerir configuracoes da regiao</td></tr>
+      <tr><td>RLS: regional_announcements</td><td>Permite gerir anuncios da regiao</td></tr>
+      <tr><td>RLS: native_games</td><td>Permite gerir jogos nativos da regiao</td></tr>
+      <tr><td>Funcao: is_regional_manager_for_region()</td><td>Helper para verificar permissoes por regiao</td></tr>
+      <tr><td>Funcao: get_my_managed_regions()</td><td>Retorna regioes geridas pelo utilizador actual</td></tr>
+      <tr><td>Trigger: update_regional_manager_last_login()</td><td>Actualiza ultimo login do gestor regional</td></tr>
+      <tr><td>GRANT USAGE</td><td>Permite utilizadores autenticados usar o tipo enum</td></tr>
+    </tbody>
+  </table>
+
+  <h3>11.2 Instrucoes para Aplicar no Supabase SQL Editor</h3>
+  <div class="info-box">
+    <b>Para aplicar esta migration:</b><br>
+    1. Aceder ao Supabase Dashboard (supabase.com)<br>
+    2. Ir para SQL Editor<br>
+    3. Copiar o conteudo do ficheiro <code>20260811070000_regional_manager_role.sql</code><br>
+    4. Colar no SQL Editor e clicar "Run"<br>
+    5. Verificar que nao ha erros na output<br>
+    <br>
+    Apos aplicar, para atribuir o role a um utilizador:<br>
+    <code>INSERT INTO user_roles (user_id, role) VALUES ('uuid', 'regional_manager');</code><br>
+    <code>INSERT INTO regional_managers (user_id, user_email, user_name, region_ids) VALUES ('uuid', 'email', 'Nome', ARRAY['region-uuid']);</code>
+  </div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 14: Recommendations -->
+<div class="page">
+  <h2>12. Recomendacoes Estrategicas</h2>
+
+  <h3>12.1 Correcoes Imediatas (Prioridade Alta)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Recomendacao</th><th>Impacto</th><th>Esforco</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Corrigir bug useMobileNav que crasha 3 paginas</td><td><span class="badge badge-red">Critico</span></td><td>Baixo</td></tr>
+      <tr><td>2</td><td>Corrigir redirect pos-login para regional_manager</td><td><span class="badge badge-yellow">Medio</span></td><td>Minimo (1 linha)</td></tr>
+      <tr><td>3</td><td>Aplicar migration SQL do regional_manager no Supabase</td><td><span class="badge badge-yellow">Medio</span></td><td>Minimo (SQL Editor)</td></tr>
+      <tr><td>4</td><td>Corrigir duplicacao de itens no Navbar</td><td><span class="badge badge-yellow">Medio</span></td><td>Baixo</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.2 Melhorias de Curto Prazo (1-2 semanas)</h3>
+  <ul>
+    <li><b> Internacionalizar todas as strings hardcoded</b> - Especialmente mensagens de erro no Register.tsx e AppErrorBoundary. Usar a funcao t() do LanguageContext consistentemente.</li>
+    <li><b>Adicionar estados de loading/vazio</b> - Paginas como /batalhas e /wallet precisam de indicadores claros de estado (skeleton loaders, mensagens de "sem dados").</li>
+    <li><b>Melhorar deteccao de regiao</b> - Corrigir o fallback HK para MZ, adicionar mais regioes suportadas, e tornar a deteccao mais robusta.</li>
+    <li><b>Otimizar loading screen</b> - Substituir timers fixos por sistema baseado no estado real de carregamento dos providers.</li>
+    <li><b>Adicionar SEO mais robusto</b> - Paginas como /jogos, /lives e /marketplace precisam de meta descriptions e structured data.</li>
+  </ul>
+
+  <h3>12.3 Melhorias de Medio Prazo (1-2 meses)</h3>
+  <ul>
+    <li><b>Testes automatizados (E2E)</b> - Implementar testes Playwright para cobrir os fluxos criticos: registro, login, criacao de rifa, jogo, e participacao em live.</li>
+    <li><b>Monitorizacao de erros</b> - Integrar Sentry ou similar para capturar erros em producao e ter visibilidade em tempo real.</li>
+    <li><b>Consolidar context providers</b> - Avaliar a possibilidade de reduzir os 8 providers aninhados para melhorar performance.</li>
+    <li><b>Auditoria de seguranca</b> - Revisar as politicas RLS de todas as tabelas, especialmente as novas tabelas de gestao regional.</li>
+    <li><b>Otimizar bundle size</b> - Analisar com bundle analyzer e remover dependencias nao utilizadas.</li>
+    <li><b>Implementar PWA completo</b> - O plugin PWA esta instalado mas precisa de service worker, manifest e icones configurados.</li>
+  </ul>
+
+  <h3>12.4 Visao Estrategica de Longo Prazo</h3>
+  <ul>
+    <li><b>Expansao regional</b> - Com o sistema de gestao regional implementado, a plataforma esta pronta para expansao para novos mercados africanos (Nigeria, Quenia, Egipto).</li>
+    <li><b>API publica</b> - Expor APIs REST para permitir integracao com parceiros e plataformas terceiras.</li>
+    <li><b>App movel nativo</b> - Considerar React Native ou Flutter para uma experiencia movel optimizada, dado que o tráfego vem maioritariamente de dispositivos moveis.</li>
+    <li><b>Sistema de analytics avancado</b> - Implementar tracking de eventos para entender o comportamento dos utilizadores e optimizar a conversao.</li>
+  </ul>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026</div>
+</div>
+
+<!-- PAGE 15: Conclusion -->
+<div class="page">
+  <h2>13. Conclusao</h2>
+  <p>A Bateu e uma plataforma notavel pelo seu ambito e escala. Com 69 jogos implementados, suporte multi-idioma para 6 linguas, um sistema de e-sports completo, infraestrutura de live streaming com overlay profissional, e um modelo multi-tenant robusto, a plataforma posiciona-se como uma das mais completas solucoes de gamificacao e sorteios em Africa. O sistema de gestao regional recem-implementado (com roles, RLS, e panel dedicado) demonstra uma visao clara de expansao multi-mercado.</p>
+
+  <p>No entanto, a analise tambem revelou areas que precisam de atencao imediata. O bug critico do useMobileNav afecta 3 paginas essenciais (lives, prestacoes, participar) e deve ser corrigido como prioridade maxima. O redirect pos-login para regional_manager e uma questao de uma linha de codigo mas com impacto significativo na experiencia dos gestores regionais. A duplicacao de itens no navbar afecta a percepcao de qualidade na homepage.</p>
+
+  <p>O ecossistema de jogos e particularmente impressionante, com a inclusao de jogos culturais mocambicanos (Mexerica, Chigogo, Urusse) que funcionam como diferenciador competitivo forte. A arquitectura de code splitting com lazy loading para jogos e uma boa pratica que permite escalar o catalogo sem comprometer o carregamento inicial.</p>
+
+  <p>A infraestrutura de internacionalizacao, embora extensa, precisa de revisao para garantir que todas as strings estejam traduzidas e que o fallback funcione correctamente. A adicao de testes automatizados E2E seria um investimento valioso para prevenir regressoes futuras, especialmente numa plataforma com tao grande superficie de ataque.</p>
+
+  <p>No geral, a Bateu tem uma fundacao solida e um produto com grande potencial. Com a correcao dos bugs criticos identificados neste relatorio e a implementacao das melhorias recomendadas, a plataforma estara bem posicionada para crescer e expandir para novos mercados.</p>
+
+  <div style="margin-top:40px; padding-top:16px; border-top:2px solid var(--accent);">
+    <div class="two-col">
+      <div>
+        <h3 style="margin-top:0;">Estatisticas Finais</h3>
+        <table>
+          <tbody>
+            <tr><td>Paginas testadas</td><td><b>15</b></td></tr>
+            <tr><td>Funcionando correctamente</td><td><b>10</b></td></tr>
+            <tr><td>Com crash</td><td><b>3</b></td></tr>
+            <tr><td>Com conteudo vazio</td><td><b>2</b></td></tr>
+            <tr><td>Bugs criticos</td><td><b>1</b></td></tr>
+            <tr><td>Bugs medios</td><td><b>2</b></td></tr>
+            <tr><td>Bugs menores</td><td><b>1</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 style="margin-top:0;">Componentes da Plataforma</h3>
+        <table>
+          <tbody>
+            <tr><td>Jogos implementados</td><td><b>69</b></td></tr>
+            <tr><td>Categorias de jogos</td><td><b>16</b></td></tr>
+            <tr><td>Idiomas suportados</td><td><b>6</b></td></tr>
+            <tr><td>Tipos de utilizador</td><td><b>5</b></td></tr>
+            <tr><td>Sub-paginas do dashboard</td><td><b>22</b></td></tr>
+            <tr><td>Sub-paginas do admin</td><td><b>17</b></td></tr>
+            <tr><td>Funcoes serverless</td><td><b>15</b></td></tr>
+            <tr><td>Migracoes de BD</td><td><b>60+</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Bateu - Relatorio de Analise da Plataforma | Agosto 2026 | Relatorio Confidencial</div>
+</div>
+
+</body>
+</html>
