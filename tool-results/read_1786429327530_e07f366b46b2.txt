@@ -1,3 +1,54 @@
+    43→
+    44→interface ManagerStats {
+    45→  total_users: number;
+    46→  total_revenue: number;
+    47→  active_lives: number;
+    48→  total_games: number;
+    49→}
+    50→
+    51→interface Region {
+    52→  id: string;
+    53→  name: string;
+    54→  country_code: string;
+    55→  country_name: string;
+    56→  description?: string;
+    57→  language_code: string;
+    58→  currency_code: string;
+    59→  timezone: string;
+    60→  is_active: boolean;
+    61→  manager_id?: string;
+    62→  user_count?: number;
+    63→  created_at: string;
+    64→}
+    65→
+    66→const LANGUAGES = [
+    67→  { code: "en", label: "English" },
+    68→  { code: "pt", label: "Português (PT)" },
+    69→  { code: "pt-BR", label: "Português (BR)" },
+    70→  { code: "es", label: "Español" },
+    71→  { code: "fr", label: "Français" },
+    72→  { code: "hi", label: "हिन्दी (Hindi)" },
+    73→];
+    74→
+    75→const CURRENCIES = [
+    76→  { code: "USD", label: "USD ($)", symbol: "$" },
+    77→  { code: "EUR", label: "EUR (€)", symbol: "€" },
+    78→  { code: "BRL", label: "BRL (R$)", symbol: "R$" },
+    79→  { code: "MZN", label: "MZN (MT)", symbol: "MT" },
+    80→  { code: "AOA", label: "AOA (Kz)", symbol: "Kz" },
+    81→  { code: "CAD", label: "CAD (C$)", symbol: "C$" },
+    82→];
+    83→
+    84→export default function AdminRegionalManagers() {
+    85→  const { t } = useLanguage();
+    86→  const { user, role } = useAuth();
+    87→  const [activeTab, setActiveTab] = useState("managers");
+    88→  const [managers, setManagers] = useState<RegionalManager[]>([]);
+    89→  const [regions, setRegions] = useState<Region[]>([]);
+    90→  const [loading, setLoading] = useState(true);
+    91→  const [searchQuery, setSearchQuery] = useState("");
+    92→  const [expandedManager, setExpandedManager] = useState<string | null>(null);
+    93→
     94→  // Manager dialog
     95→  const [managerDialogOpen, setManagerDialogOpen] = useState(false);
     96→  const [editingManager, setEditingManager] = useState<RegionalManager | null>(null);

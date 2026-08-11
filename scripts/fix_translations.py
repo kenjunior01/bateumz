@@ -1,734 +1,256 @@
 #!/usr/bin/env python3
-"""Fix all missing translations in LanguageContext.tsx"""
-import re
+"""Fix the corrupted LanguageContext.tsx: remove misplaced ES keys from PT block,
+add PT-BR regional keys, add ES keys to ES block."""
 
 FILE = '/home/z/my-project/bateumz-cb2c44d1/src/contexts/LanguageContext.tsx'
+
+with open(FILE, 'r') as f:
+    lines = f.readlines()
+
+# 1. Remove the misplaced ES block from PT (lines 1550-1607, 0-indexed 1549-1606)
+# Lines 1550-1607 contain ES translations starting with 'Panel del Gestor Regional'
+misplaced_start = None
+misplaced_end = None
+for i, line in enumerate(lines):
+    if '"regional.panel.title": "Panel del Gestor Regional"' in line:
+        misplaced_start = i
+    if misplaced_start is not None and '"regional.panel.createdOn": "Creado en",' in line:
+        misplaced_end = i
+        break
+
+if misplaced_start and misplaced_end:
+    del lines[misplaced_start:misplaced_end + 1]
+    print(f"Removed misplaced ES keys from PT block: lines {misplaced_start+1}-{misplaced_end+1}")
+else:
+    print(f"Could not find misplaced ES keys: start={misplaced_start}, end={misplaced_end}")
+    exit(1)
+
+# Recalculate block boundaries after deletion
+# Find block starts
+blocks = {}
+for i, line in enumerate(lines):
+    for lang in ['en', 'pt', 'pt-BR', 'es', 'fr', 'hi']:
+        if f'  {lang}: {{' in line or f'  "{lang}": {{' in line:
+            blocks[lang] = i
+
+print(f"Block starts: {blocks}")
+
+# 2. Find PT-BR block end (before es: {)
+ptbr_start = blocks.get('pt-BR')
+es_start = blocks.get('es')
+
+# 3. Find the closing brace of PT-BR block (last line before es: block that starts with '  },')
+ptbr_end = es_start - 1
+while ptbr_end > ptbr_start and lines[ptbr_end].strip() not in ['},', '},']:
+    ptbr_end -= 1
+
+print(f"PT-BR block ends at line {ptbr_end + 1}: {lines[ptbr_end].strip()}")
+
+# 4. Prepare PT-BR keys to insert
+ptbr_keys = [
+    '',
+    '    // ===== Regional Manager =====',
+    '    "regional.title": "Gestor Regional",',
+    '    "regional.dashboard": "Painel Regional",',
+    '    "regional.managers": "Gestores",',
+    '    "regional.addManager": "Adicionar Gestor",',
+    '    "regional.removeManager": "Remover Gestor",',
+    '    "regional.regions": "Regi\u00f5es",',
+    '    "regional.regionsList": "Lista de Regi\u00f5es",',
+    '    "regional.editRegion": "Editar Regi\u00e3o",',
+    '    "regional.createRegion": "Criar Regi\u00e3o",',
+    '    "regional.stats": "Estat\u00edsticas",',
+    '    "regional.revenue": "Receita",',
+    '    "regional.users": "Usu\u00e1rios",',
+    '    "regional.activeLives": "Lives Ativas",',
+    '    "regional.totalGames": "Total de Jogos",',
+    '    "regional.performance": "Desempenho",',
+    '    "regional.topRegions": "Top Regi\u00f5es",',
+    '    "regional.managerName": "Nome do Gestor",',
+    '    "regional.managerEmail": "Email do Gestor",',
+    '    "regional.assignedRegions": "Regi\u00f5es Atribu\u00eddas",',
+    '    "regional.noManagers": "Nenhum gestor ainda",',
+    '    "regional.confirmRemove": "Tem certeza de que deseja remover este gestor?",',
+    '    "regional.save": "Salvar",',
+    '    "regional.cancel": "Cancelar",',
+    '    "regional.name": "Nome",',
+    '    "regional.description": "Descri\u00e7\u00e3o",',
+    '    "regional.country": "Pa\u00eds",',
+    '    "regional.currency": "Moeda",',
+    '    "regional.language": "Idioma",',
+    '    "regional.panel.title": "Painel do Gestor Regional",',
+    '    "regional.panel.manageIndependently": "Gerencie sua regi\u00e3o de forma independente",',
+    '    "regional.panel.seniorManager": "Gestor S\u00eanior",',
+    '    "regional.panel.regionalManager": "Gestor Regional",',
+    '    "regional.panel.regionCount": "{count} regi\u00e3o(\u00f5es)",',
+    '    "regional.panel.refresh": "Atualizar",',
+    '    "regional.panel.branding": "Branding",',
+    '    "regional.panel.settings": "Configura\u00e7\u00f5es",',
+    '    "regional.panel.nativeGames": "Jogos Nativos",',
+    '    "regional.panel.announcements": "Comunicados",',
+    '    "regional.panel.visualIdentity": "Identidade Visual da Regi\u00e3o",',
+    '    "regional.panel.primaryColor": "Cor Prim\u00e1ria",',
+    '    "regional.panel.secondaryColor": "Cor Secund\u00e1ria",',
+    '    "regional.panel.accentColor": "Cor de Destaque",',
+    '    "regional.panel.themeName": "Nome do Tema",',
+    '    "regional.panel.logoUrl": "URL do Logo",',
+    '    "regional.panel.bannerUrl": "URL do Banner",',
+    '    "regional.panel.saveBranding": "Salvar Branding",',
+    '    "regional.panel.saving": "Salvando...",',
+    '    "regional.panel.brandingSaved": "Branding atualizado com sucesso!",',
+    '    "regional.panel.brandingError": "Erro ao salvar branding",',
+    '    "regional.panel.regionSettings": "Configura\u00e7\u00f5es da Regi\u00e3o",',
+    '    "regional.panel.spinWheel": "Roleta de Pr\u00eamios",',
+    '    "regional.panel.spinWheelDesc": "Permitir roleta de pr\u00eamios personalizada",',
+    '    "regional.panel.millionaire": "Quem Quer Ser Milion\u00e1rio",',
+    '    "regional.panel.millionaireDesc": "Jogo de perguntas com pr\u00eamios",',
+    '    "regional.panel.challengeGames": "Jogos de Desafio",',
+    '    "regional.panel.challengeGamesDesc": "Desafios entre usu\u00e1rios",',
+    '    "regional.panel.liveGames": "Jogos ao Vivo",',
+    '    "regional.panel.liveGamesDesc": "Lives interativas com jogos",',
+    '    "regional.panel.maintenanceMode": "Modo de Manuten\u00e7\u00e3o",',
+    '    "regional.panel.maintenanceDesc": "Desativar temporariamente a regi\u00e3o para usu\u00e1rios",',
+    '    "regional.panel.saveSettings": "Salvar Configura\u00e7\u00f5es",',
+    '    "regional.panel.settingsSaved": "Configura\u00e7\u00f5es salvas!",',
+    '    "regional.panel.settingsError": "Erro ao salvar configura\u00e7\u00f5es",',
+    '    "regional.panel.nativeGamesTitle": "Jogos Nativos da Regi\u00e3o",',
+    '    "regional.panel.nativeGamesDesc": "Crie e gerencie jogos exclusivos para sua regi\u00e3o",',
+    '    "regional.panel.createGame": "Criar Jogo",',
+    '    "regional.panel.gameCreated": "Jogo criado! Configure abaixo.",',
+    '    "regional.panel.gameCreateError": "Erro ao criar jogo",',
+    '    "regional.panel.noGames": "Nenhum jogo nativo criado ainda.",',
+    '    "regional.panel.noGamesHint": "Clique em Criar Jogo para come\u00e7ar.",',
+    '    "regional.panel.active": "Ativo",',
+    '    "regional.panel.inactive": "Inativo",',
+    '    "regional.panel.configure": "Configurar",',
+    '    "regional.panel.editorDev": "Editor de jogo em desenvolvimento",',
+    '    "regional.panel.previewDev": "Visualiza\u00e7\u00e3o em desenvolvimento",',
+    '    "regional.panel.newGame": "Novo Jogo {count}",',
+    '    "regional.panel.announcementTitle": "Comunicado Regional",',
+    '    "regional.panel.announcementActive": "Comunicado ativo",',
+    '    "regional.panel.announcementActiveDesc": "Mostrar banner de comunicado no topo da p\u00e1gina",',
+    '    "regional.panel.announcementText": "Texto do Comunicado",',
+    '    "regional.panel.announcementSaved": "Comunicado atualizado!",',
+    '    "regional.panel.announcementError": "Erro ao salvar comunicado",',
+    '    "regional.panel.ctaLabel": "Texto do Bot\u00e3o CTA",',
+    '    "regional.panel.ctaUrl": "URL do CTA",',
+    '    "regional.panel.saveAnnouncement": "Salvar Comunicado",',
+    '    "regional.panel.createdOn": "Criado em",',
+]
+
+# Insert PT-BR keys before the closing brace
+for i, key_line in enumerate(ptbr_keys):
+    lines.insert(ptbr_end + i, key_line + '\n')
+print(f"Inserted {len(ptbr_keys)} PT-BR regional keys before line {ptbr_end + 1}")
+
+# Recalculate es_start after insertion
+es_start_new = es_start + len(ptbr_keys)
+
+# 5. Find the last regional.language line in ES block and insert ES panel keys after it
+es_lang_line = None
+for i in range(es_start_new, len(lines)):
+    if '"regional.language": "Idioma"' in lines[i]:
+        es_lang_line = i
+        break
+
+if es_lang_line:
+    es_panel_keys = [
+        '    "regional.panel.title": "Panel del Gestor Regional",',
+        '    "regional.panel.manageIndependently": "Gestiona tu regi\u00f3n de forma independiente",',
+        '    "regional.panel.seniorManager": "Gestor Senior",',
+        '    "regional.panel.regionalManager": "Gestor Regional",',
+        '    "regional.panel.regionCount": "{count} regi\u00f3n(es)",',
+        '    "regional.panel.refresh": "Actualizar",',
+        '    "regional.panel.branding": "Branding",',
+        '    "regional.panel.settings": "Configuraci\u00f3n",',
+        '    "regional.panel.nativeGames": "Juegos Nativos",',
+        '    "regional.panel.announcements": "Anuncios",',
+        '    "regional.panel.visualIdentity": "Identidad Visual de la Regi\u00f3n",',
+        '    "regional.panel.primaryColor": "Color Primario",',
+        '    "regional.panel.secondaryColor": "Color Secundario",',
+        '    "regional.panel.accentColor": "Color de Acento",',
+        '    "regional.panel.themeName": "Nombre del Tema",',
+        '    "regional.panel.logoUrl": "URL del Logo",',
+        '    "regional.panel.bannerUrl": "URL del Banner",',
+        '    "regional.panel.saveBranding": "Guardar Branding",',
+        '    "regional.panel.saving": "Guardando...",',
+        '    "regional.panel.brandingSaved": "Branding actualizado con \u00e9xito!",',
+        '    "regional.panel.brandingError": "Error al guardar branding",',
+        '    "regional.panel.regionSettings": "Configuraci\u00f3n de la Regi\u00f3n",',
+        '    "regional.panel.spinWheel": "Rueda de Premios",',
+        '    "regional.panel.spinWheelDesc": "Permitir ruleta de premios personalizada",',
+        '    "regional.panel.millionaire": "Qui\u00e9n Quiere Ser Millonario?",',
+        '    "regional.panel.millionaireDesc": "Juego de preguntas con premios",',
+        '    "regional.panel.challengeGames": "Juegos de Desaf\u00edo",',
+        '    "regional.panel.challengeGamesDesc": "Desaf\u00edos entre usuarios",',
+        '    "regional.panel.liveGames": "Juegos en Vivo",',
+        '    "regional.panel.liveGamesDesc": "Lives interactivas con juegos",',
+        '    "regional.panel.maintenanceMode": "Modo de Mantenimiento",',
+        '    "regional.panel.maintenanceDesc": "Desactivar temporalmente la regi\u00f3n para usuarios",',
+        '    "regional.panel.saveSettings": "Guardar Configuraci\u00f3n",',
+        '    "regional.panel.settingsSaved": "Configuraci\u00f3n guardada!",',
+        '    "regional.panel.settingsError": "Error al guardar configuraci\u00f3n",',
+        '    "regional.panel.nativeGamesTitle": "Juegos Nativos de la Regi\u00f3n",',
+        '    "regional.panel.nativeGamesDesc": "Crea y gestiona juegos exclusivos para tu regi\u00f3n",',
+        '    "regional.panel.createGame": "Crear Juego",',
+        '    "regional.panel.gameCreated": "Juego creado! Configura abajo.",',
+        '    "regional.panel.gameCreateError": "Error al crear juego",',
+        '    "regional.panel.noGames": "Ning\u00fan juego nativo creado a\u00fan.",',
+        '    "regional.panel.noGamesHint": "Haz clic en Crear Juego para empezar.",',
+        '    "regional.panel.active": "Activo",',
+        '    "regional.panel.inactive": "Inactivo",',
+        '    "regional.panel.configure": "Configurar",',
+        '    "regional.panel.editorDev": "Editor de juego en desarrollo",',
+        '    "regional.panel.previewDev": "Vista previa en desarrollo",',
+        '    "regional.panel.newGame": "Nuevo Juego {count}",',
+        '    "regional.panel.announcementTitle": "Anuncio Regional",',
+        '    "regional.panel.announcementActive": "Anuncio activo",',
+        '    "regional.panel.announcementActiveDesc": "Mostrar banner de anuncio en la parte superior",',
+        '    "regional.panel.announcementText": "Texto del Anuncio",',
+        '    "regional.panel.announcementSaved": "Anuncio actualizado!",',
+        '    "regional.panel.announcementError": "Error al guardar anuncio",',
+        '    "regional.panel.ctaLabel": "Texto del Bot\u00f3n CTA",',
+        '    "regional.panel.ctaUrl": "URL del CTA",',
+        '    "regional.panel.saveAnnouncement": "Guardar Anuncio",',
+        '    "regional.panel.createdOn": "Creado en",',
+    ]
+    for j, key_line in enumerate(es_panel_keys):
+        lines.insert(es_lang_line + 1 + j, key_line + '\n')
+    print(f"Inserted {len(es_panel_keys)} ES regional.panel keys after line {es_lang_line + 1}")
+else:
+    print("ES regional.language anchor not found!")
+
+with open(FILE, 'w') as f:
+    f.writelines(lines)
+
+# Verify
+import re
 with open(FILE, 'r') as f:
     content = f.read()
 
-# ============================================================
-# 1. Fix Portuguese strings in EN locale (lines ~527-567)
-# ============================================================
-en_pt_fixes = {
-    'wheel.customize': 'Personalize Wheel',
-    'wheel.removePrize': 'Remove Prize',
-    'wheel.backgroundColor': 'Background Color',
-    'wheel.background': 'Background Image',
-    'wheel.duration': 'Spin Duration',
-    'wheel.save': 'Save Settings',
-    'challenge.title': 'World Cup Challenges',
-    'challenge.predictions': 'Predictions',
-    'challenge.trivia': 'Trivia',
-    'challenge.statistics': 'Statistics',
-    'challenge.easy': 'Easy',
-    'challenge.medium': 'Medium',
-    'challenge.hard': 'Hard',
-    'challenge.correct': 'Correct!',
-    'challenge.incorrect': 'Incorrect',
-    'challenge.nextChallenge': 'Next Challenge',
-    'millionaire.call': 'Phone a Friend',
-    'millionaire.prizeStructure': 'Prize Pyramid',
-    'business.customUrl': 'Custom URL',
-    'business.urlExample': 'example-company',
-    'business.urlDescription': 'Create a friendly URL for your company',
-}
+langs = ['en', 'pt', 'pt-BR', 'es', 'fr', 'hi']
+keys_by_lang = {l: set() for l in langs}
+file_lines = content.split('\n')
+current_lang = None
 
-for key, val in en_pt_fixes.items():
-    # Match "key": "old_value" and replace value
-    pattern = rf'("{key}"")\s*:\s*"[^"]*"'
-    content = re.sub(pattern, f'\\1: "{val}"', content)
+for line in file_lines:
+    for lang in langs:
+        if f'{lang}: {{' in line or f'{lang}:{{' in line:
+            current_lang = lang
+            break
+    if current_lang and 'regional.' in line and '"' in line:
+        key_match = re.search(r'"(regional\.[^"]+)"', line)
+        if key_match:
+            keys_by_lang[current_lang].add(key_match.group(1))
 
-# ============================================================
-# 2. Add missing keys to PT locale (before the closing of pt block)
-# ============================================================
-pt_missing = '''
-    // ===== Action Buttons =====
-    "action.playAgain": "Jogar novamente",
-    "action.rematch": "Revanche",
-    "action.exit": "Sair",
-    "action.newGame": "Novo Jogo",
-    "action.buyCard": "Comprar Cartão",
-    "action.participate": "Participar",
-    "action.vote": "Votar",
-    "action.viewRaffle": "Ver Sorteio",
-    "action.viewContest": "Ver Concurso",
-    "action.enterGame": "Entrar no Jogo",
-    "action.buyTicket": "Comprar Bilhete",
-    "action.buyTickets": "Comprar Bilhetes",
-    "action.loginToPay": "Inicie sessão para pagar",
-    "action.loginToParticipate": "Inicie sessão para participar",
-    "action.contactSeller": "Inicie sessão para contactar vendedor",
-    "action.loginAndContact": "Iniciar sessão e Contactar",
-    "action.createFreeAccount": "Criar conta gratuita",
-    "action.viewMore": "Ver mais",
-    "action.openRaffles": "Ver sorteios abertos",
-    "action.enterLive": "Entrar na Live",
-    "action.openLivePage": "Abrir página da live",
-    "action.copyProfileLink": "Link do perfil copiado!",
-    "action.uploadFile": "Enviar ficheiro",
-    "action.sendEntry": "Submeter Participação",
-    "action.shareLive": "Junta-te a mim na live do Bateu!",
-    "enter": "Entrar",
-    "voted": "Votado",
-
-    // ===== Chat =====
-    "chat.sendMessage": "Enviar mensagem...",
-    "chat.joinToChat": "Junta-te à live para conversar",
-    "chat.firstMessage": "Sê o primeiro a enviar uma mensagem!",
-
-    // ===== Status =====
-    "status.sending": "A enviar...",
-    "status.loading": "A carregar...",
-    "status.loadingQuestions": "A carregar perguntas...",
-    "status.loadingStripe": "A carregar Stripe",
-    "status.botThinking": "O bot está a pensar...",
-
-    // ===== Error Messages =====
-    "error.sendFailed": "Falha ao enviar.",
-    "error.sendParticipationFailed": "Não foi possível submeter a participação.",
-    "error.sendMessageFailed": "Falha ao enviar mensagem.",
-    "error.sendGiftFailed": "Falha ao enviar presente.",
-    "error.createPollFailed": "Falha ao criar sondagem.",
-    "error.uploadFileFailed": "Erro ao enviar ficheiro. Tente novamente.",
-    "error.uploadImageFailed": "Erro ao enviar imagem: ",
-    "error.unknown": "desconhecido",
-    "error.sendReceiptFailed": "Erro ao enviar comprovativo: ",
-    "error.registerParticipationFailed": "Erro ao registar participação: ",
-    "error.updateFailed": "Erro ao atualizar: ",
-    "error.loadPostsFailed": "Não foi possível carregar publicações. Tente novamente.",
-    "error.submitFailed": "Submissão falhou",
-
-    // ===== Empty States =====
-    "empty.noRaffles": "Nenhum sorteio nesta categoria",
-    "empty.noActiveRaffles": "Nenhum sorteio ativo neste momento",
-    "empty.noRafflesInState": "Nenhum sorteio neste estado.",
-    "empty.noContestsInState": "Nenhum concurso neste estado.",
-    "empty.noGamesConfigured": "Nenhum jogo configurado ainda",
-    "empty.noResults": "Sem resultados para os filtros selecionados.",
-    "empty.noContestActive": "Nenhum concurso ativo neste momento.",
-    "empty.noContestClosed": "Nenhum concurso encerrado.",
-    "empty.noContestFound": "Nenhum concurso encontrado",
-    "empty.noTicketFound": "Nenhum bilhete encontrado",
-    "empty.noTicketInState": "Nenhum bilhete com este estado.",
-    "empty.noGameFound": "Nenhum jogo encontrado",
-    "empty.noParticipants": "Nenhum participante ativo neste sorteio.",
-    "empty.noLiveActive": "Nenhuma live em curso",
-    "empty.noLiveScheduled": "Nenhuma live agendada",
-    "empty.noCreatorFound": "Nenhum criador encontrado",
-    "empty.noClipAvailable": "Nenhum clip disponível",
-    "empty.noPlayerRanking": "Nenhum jogador no ranking ainda",
-    "empty.noWinnerFound": "Nenhum vencedor encontrado",
-    "empty.noBusinessFound": "Nenhuma empresa encontrada",
-    "empty.noActiveRafflesWidget": "Nenhum sorteio ativo",
-    "empty.noTransactions": "Nenhuma transação encontrada",
-    "empty.noRewardsAvailable": "Nenhuma recompensa disponível neste momento.",
-    "empty.noPointsHistory": "Sem histórico de pontos.",
-    "empty.noRedeemedRewards": "Nenhuma recompensa resgatada.",
-    "empty.noGameRegistered": "Nenhum jogo registado ainda",
-    "empty.noChallengeCreated": "Nenhum desafio criado ainda.",
-    "empty.noMessages": "Ainda sem mensagens. Sê o primeiro!",
-    "empty.beFirstToParticipate": "Sê o primeiro a participar!",
-    "empty.noSavedCard": "Sem dados de cartão guardados",
-    "empty.noLivePerformed": "Nenhuma live realizada ainda",
-    "empty.noVotesYet": "Ainda sem votos",
-    "empty.noAttemptsYet": "Ainda sem tentativas",
-    "empty.selectGift": "Seleciona um presente para enviar",
-'''
-
-# Find the end of pt locale (before es:) and insert before it
-# The pt locale ends right before '  "pt-BR":' 
-pt_end_pattern = r'(  "error\.gameCrashDesc": "Tente selecionar outro jogo",
-  },)'
-pt_replacement = r'\1' + pt_missing.rstrip() + '\n  },'
-# Actually let me find a better anchor - the last line of pt before closing brace
-# The pt block ends with: "error.gameCrashDesc": "Tente selecionar outro jogo",
-# So I'll insert before the closing },
-
-# Find the specific location
-pt_close = content.find('  },\n  "pt-BR":')
-if pt_close == -1:
-    print("ERROR: Could not find pt-BR anchor")
-else:
-    content = content[:pt_close] + pt_missing.rstrip() + '\n' + content[pt_close:]
-
-# ============================================================
-# 3. Add missing keys to ES locale
-# ============================================================
-es_missing = '''
-    // ===== Contest Types Showcase =====
-    "contest.showcase.title": "Tipos de Concursos",
-    "contest.showcase.subtitle": "Muestra tu talento y gana premios",
-    "contest.showcase.seeAll": "Ver todos",
-    "contest.showcase.suggest": "Tienes una idea de concurso? Sugierela a la comunidad",
-    "contest.cooking.title": "Cocina",
-    "contest.cooking.desc": "Recetas, platos exclusivos y creaciones gastronomicas",
-    "contest.cooking.example": "Ej: Mejor hamburguesa artesanal",
-    "contest.music.title": "Musica y Baile",
-    "contest.music.desc": "Actuaciones en vivo, coreografias y puro talento",
-    "contest.music.example": "Ej: Mejor cancion original",
-    "contest.photography.title": "Fotografia",
-    "contest.photography.desc": "Captura momentos, paisajes y belleza",
-    "contest.photography.example": "Ej: Mejor foto de atardecer",
-    "contest.viralVideo.title": "Video Viral",
-    "contest.viralVideo.desc": "Videos cortos, creativos y divertidos",
-    "contest.viralVideo.example": "Ej: El video mas gracioso de la semana",
-    "contest.art.title": "Arte y Diseno",
-    "contest.art.desc": "Pinturas, ilustraciones, diseno grafico y manualidades",
-    "contest.art.example": "Ej: Mejor logo de marca local",
-    "contest.comedy.title": "Comedia y Stand-up",
-    "contest.comedy.desc": "Haz reir a todos con tu talento",
-    "contest.comedy.example": "Ej: Mejor chiste de 60 segundos",
-    "contest.fashion.title": "Moda y Estilo",
-    "contest.fashion.desc": "Outfits, streetwear y tendencias",
-    "contest.fashion.example": "Ej: Mejor estilo urbano",
-    "contest.sports.title": "Deporte y Fitness",
-    "contest.sports.desc": "Desafios fisicos, jugadas y habilidades",
-    "contest.sports.example": "Ej: Mejor truco aficionado",
-    "contest.innovation.title": "Innovacion y Negocios",
-    "contest.innovation.desc": "Ideas emprendedoras y proyectos comunitarios",
-    "contest.innovation.example": "Ej: Mejor pitch de startup",
-    "contest.kids.title": "Ninos y Familia",
-    "contest.kids.desc": "Talentos infantiles, dibujos y momentos en familia",
-    "contest.kids.example": "Ej: Dibujo mas creativo",
-    "challenge.title": "Desafios de la Copa",
-
-    // ===== Action Buttons =====
-    "action.playAgain": "Jugar de nuevo",
-    "action.rematch": "Revancha",
-    "action.exit": "Salir",
-    "action.newGame": "Nuevo Juego",
-    "action.buyCard": "Comprar Carta",
-    "action.participate": "Participar",
-    "action.vote": "Votar",
-    "action.viewRaffle": "Ver Sorteo",
-    "action.viewContest": "Ver Concurso",
-    "action.enterGame": "Entrar al Juego",
-    "action.buyTicket": "Comprar Boleto",
-    "action.buyTickets": "Comprar Boletos",
-    "action.loginToPay": "Inicia sesion para pagar",
-    "action.loginToParticipate": "Inicia sesion para participar",
-    "action.contactSeller": "Inicia sesion para contactar vendedor",
-    "action.loginAndContact": "Iniciar sesion y Contactar",
-    "action.createFreeAccount": "Crear cuenta gratis",
-    "action.viewMore": "Ver mas",
-    "action.openRaffles": "Ver sorteos abiertos",
-    "action.enterLive": "Entrar a la Live",
-    "action.openLivePage": "Abrir pagina de la live",
-    "action.copyProfileLink": "Link de perfil copiado!",
-    "action.uploadFile": "Subir archivo",
-    "action.sendEntry": "Enviar Participacion",
-    "action.shareLive": "Unete a mi live en Bateu!",
-    "enter": "Entrar",
-    "voted": "Votado",
-
-    // ===== Chat =====
-    "chat.sendMessage": "Enviar mensaje...",
-    "chat.joinToChat": "Unete a la live para chatear",
-    "chat.firstMessage": "Sé el primero en enviar un mensaje!",
-
-    // ===== Status =====
-    "status.sending": "Enviando...",
-    "status.loading": "Cargando...",
-    "status.loadingQuestions": "Cargando preguntas...",
-    "status.loadingStripe": "Cargando Stripe",
-    "status.botThinking": "El bot esta pensando...",
-
-    // ===== Error Messages =====
-    "error.sendFailed": "Error al enviar.",
-    "error.sendParticipationFailed": "No se pudo enviar la participacion.",
-    "error.sendMessageFailed": "Error al enviar mensaje.",
-    "error.sendGiftFailed": "Error al enviar regalo.",
-    "error.createPollFailed": "Error al crear encuesta.",
-    "error.uploadFileFailed": "Error al subir archivo. Intenta de nuevo.",
-    "error.uploadImageFailed": "Error al enviar imagen: ",
-    "error.unknown": "desconocido",
-    "error.sendReceiptFailed": "Error al enviar comprobante: ",
-    "error.registerParticipationFailed": "Error al registrar participacion: ",
-    "error.updateFailed": "Error al actualizar: ",
-    "error.loadPostsFailed": "No se pudieron cargar las publicaciones. Intenta mas tarde.",
-    "error.submitFailed": "Envio fallido",
-
-    // ===== Empty States =====
-    "empty.noRaffles": "Ningun sorteo en esta categoria",
-    "empty.noActiveRaffles": "Ningun sorteo activo en este momento",
-    "empty.noRafflesInState": "Ningun sorteo en este estado.",
-    "empty.noContestsInState": "Ningun concurso en este estado.",
-    "empty.noGamesConfigured": "Ningun juego configurado aun",
-    "empty.noResults": "Sin resultados para los filtros seleccionados.",
-    "empty.noContestActive": "Ningun concurso activo en este momento.",
-    "empty.noContestClosed": "Ningun concurso cerrado.",
-    "empty.noContestFound": "Ningun concurso encontrado",
-    "empty.noTicketFound": "Ningun boleto encontrado",
-    "empty.noTicketInState": "Ningun boleto con este estado.",
-    "empty.noGameFound": "Ningun juego encontrado",
-    "empty.noParticipants": "Ningun participante activo en este sorteo.",
-    "empty.noLiveActive": "Ninguna live en curso",
-    "empty.noLiveScheduled": "Ninguna live programada",
-    "empty.noCreatorFound": "Ningun creador encontrado",
-    "empty.noClipAvailable": "Ningun clip disponible",
-    "empty.noPlayerRanking": "Ningun jugador en la clasificacion aun",
-    "empty.noWinnerFound": "Ningun ganador encontrado",
-    "empty.noBusinessFound": "Ninguna empresa encontrada",
-    "empty.noActiveRafflesWidget": "Ningun sorteo activo",
-    "empty.noTransactions": "Ninguna transaccion encontrada",
-    "empty.noRewardsAvailable": "Ninguna recompensa disponible en este momento.",
-    "empty.noPointsHistory": "Sin historial de puntos.",
-    "empty.noRedeemedRewards": "Ninguna recompensa canjeada.",
-    "empty.noGameRegistered": "Ningun juego registrado aun",
-    "empty.noChallengeCreated": "Ningun desafio creado aun.",
-    "empty.noMessages": "Aun sin mensajes. Se el primero!",
-    "empty.beFirstToParticipate": "Se el primero en participar!",
-    "empty.noSavedCard": "Sin datos de tarjeta guardados",
-    "empty.noLivePerformed": "Ninguna live realizada aun",
-    "empty.noVotesYet": "Aun sin votos",
-    "empty.noAttemptsYet": "Aun sin intentos",
-    "empty.selectGift": "Selecciona un regalo para enviar",
-
-    // ===== StatsBar CTA Footer =====
-    "stats.badge": "Numeros en vivo",
-    "stats.title": "Plataforma real, impacto real",
-    "stats.subtitle": "Metricas en vivo del ecosistema Bateu — actualizadas continuamente.",
-    "stats.prizesDelivered": "Premios entregados",
-    "stats.activeParticipants": "Participantes activos",
-    "stats.verifiableResults": "Resultados verificables",
-    "stats.completedRaffles": "Sorteos finalizados",
-    "stats.comingSoon": "Proximamente",
-    "stats.live": "En vivo",
-    "stats.cta.eyebrow": "Listo para jugar?",
-    "stats.cta.title": "Tu proxima gran victoria comienza aqui",
-    "stats.cta.subtitle": "Unete a miles de jugadores en juegos en vivo y sorteos verificados y transparentes.",
-    "stats.cta.primary": "Explorar sorteos",
-    "stats.cta.secondary": "Como funciona",
-    "stats.cta.tertiary": "Ver lives",
-    "stats.cta.liveNow": "En vivo ahora",
-    "stats.cta.playersOnline": "{count} jugando ahora",
-    "stats.cta.trust.verified": "Sorteos verificados",
-    "stats.cta.trust.secure": "Pago seguro",
-    "stats.cta.trust.transparent": "Resultados transparentes",
-    "stats.cta.trust.support": "Soporte 24/7",
-    "stats.cta.guarantee": "Sin tarifas ocultas - Cancela cuando quieras - Soporte 24/7",
-    "stats.cta.nextDraw": "Proximo sorteo en vivo",
-    "stats.cta.startsIn": "Comienza en",
-    "stats.cta.jackpot": "Jackpot en vivo",
-    "stats.cta.reviews": "{count} resenas",
-    "stats.cta.mascotQuote": "A jugar!",
-    "stats.cta.streamersLive": "{count} en vivo ahora",
-    "stats.cta.featuredPrize": "Premio destacado",
-'''
-
-# Fix the Portuguese live.* and games.* strings in ES locale first
-es_pt_fixes = {
-    'live.title': 'Juegos para tu Live',
-    'live.subtitle': 'Plataforma dedicada para empresas animar lives con juegos interactivos.',
-    'live.start': 'Iniciar Live',
-    'live.end': 'Cerrar Live',
-    'live.code': 'Codigo',
-    'live.noCode': 'Sin codigo activo',
-    'live.activeGame': 'Juego activo en el panel',
-    'live.transmitting': 'transmitiendo',
-    'live.waiting': 'en espera',
-    'live.noScoreWarning': 'Puntuaciones y ganadores solo se registran despues de iniciar la live.',
-    'live.createLinked': 'Crear Sorteo Vinculado',
-    'live.createEditGame': 'Crear/Editar Juego',
-    'live.gamesTitle': 'Juegos de la Live',
-    'live.searchGame': 'Buscar juego...',
-    'games.title': 'Todos los Juegos',
-    'games.available': 'JUEGOS DISPONIBLES',
-    'games.withBot': 'juegos con Bot IA',
-    'games.instant': 'Juego instantaneo',
-    'games.liveMode': 'Modo Live',
-    'games.search': 'Buscar juego...',
-    'games.sortName': 'Nombre',
-    'games.sortCategory': 'Categoria',
-    'games.sortBy': 'Ordenar:',
-    'games.notFound': 'Ningun juego encontrado',
-    'games.notFoundDesc': 'Prueba otro termino de busqueda o categoria',
-    'games.vsBot': 'Juega contra la Computadora',
-    'games.more': '+{count} mas',
-    'error.somethingWrong': 'Algo salio mal',
-    'error.unexpected': 'Ocurrio un error inesperado. Intenta recargar la pagina.',
-    'error.reload': 'Recargar Pagina',
-    'error.retry': 'Intentar de nuevo',
-    'error.gameCrash': 'Error al cargar {game}',
-    'error.gameCrashDesc': 'Intenta seleccionar otro juego',
-}
-
-# Replace Portuguese strings in es locale
-es_start = content.find('  es: {')
-es_end = content.find('  },\n  fr: {')
-if es_start != -1 and es_end != -1:
-    es_block = content[es_start:es_end]
-    for key, val in es_pt_fixes.items():
-        pattern = rf'("{key}"")\s*:\s*"[^"]*"'
-        es_block = re.sub(pattern, f'\\1: "{val}"', es_block)
-    content = content[:es_start] + es_block + content[es_end:]
-
-# Insert missing es keys before closing of es block
-es_close = content.find('  },\n  fr: {')
-if es_close == -1:
-    print("ERROR: Could not find fr anchor for es")
-else:
-    content = content[:es_close] + es_missing.rstrip() + '\n' + content[es_close:]
-
-# ============================================================
-# 4. Add missing keys to FR locale
-# ============================================================
-fr_missing = '''
-    // ===== Contest Types Showcase =====
-    "contest.showcase.title": "Types de Concours",
-    "contest.showcase.subtitle": "Montrez votre talent et gagnez des prix",
-    "contest.showcase.seeAll": "Voir tous",
-    "contest.showcase.suggest": "Vous avez une idee de concours? Sugerez-la a la communaute",
-    "contest.cooking.title": "Cuisine",
-    "contest.cooking.desc": "Recettes, plats signatures et creations gastronomiques",
-    "contest.cooking.example": "Ex: Meilleur burger artisanal",
-    "contest.music.title": "Musique et Danse",
-    "contest.music.desc": "Performances en direct, choreographies et pur talent",
-    "contest.music.example": "Ex: Meilleure chanson originale",
-    "contest.photography.title": "Photographie",
-    "contest.photography.desc": "Capturez des moments, paysages et beaute",
-    "contest.photography.example": "Ex: Meilleure photo de coucher de soleil",
-    "contest.viralVideo.title": "Video Virale",
-    "contest.viralVideo.desc": "Videos courtes, creatives et hilarantes",
-    "contest.viralVideo.example": "Ex: La video la plus drôle de la semaine",
-    "contest.art.title": "Art et Design",
-    "contest.art.desc": "Peintures, illustrations, design graphique et artisanat",
-    "contest.art.example": "Ex: Meilleur logo de marque locale",
-    "contest.comedy.title": "Comedie et Stand-up",
-    "contest.comedy.desc": "Faites rire tout le monde avec votre talent",
-    "contest.comedy.example": "Ex: Meilleur sketch de 60 secondes",
-    "contest.fashion.title": "Mode et Style",
-    "contest.fashion.desc": "Tenues, streetwear et tendances",
-    "contest.fashion.example": "Ex: Meilleur style urbain",
-    "contest.sports.title": "Sport et Fitness",
-    "contest.sports.desc": "Defis physiques, jeux et competences",
-    "contest.sports.example": "Ex: Meilleur trick amateur",
-    "contest.innovation.title": "Innovation et Affaires",
-    "contest.innovation.desc": "Idees entrepreneuriales et projets communautaires",
-    "contest.innovation.example": "Ex: Meilleur pitch de startup",
-    "contest.kids.title": "Enfants et Famille",
-    "contest.kids.desc": "Talents d'enfants, dessins et moments en famille",
-    "contest.kids.example": "Ex: Dessin le plus creatif",
-
-    // ===== Live Engagement =====
-    "live.badge": "LIVE ENGAGEMENT",
-    "live.title": "Jeux pour votre Live",
-    "live.subtitle": "Plateforme dediee aux entreprises pour animer des lives avec des jeux interactifs.",
-    "live.start": "Demarrer le Live",
-    "live.end": "Terminer le Live",
-    "live.code": "Code",
-    "live.noCode": "Aucun code actif",
-    "live.activeGame": "Jeu actif sur le panneau",
-    "live.transmitting": "en direct",
-    "live.waiting": "en attente",
-    "live.noScoreWarning": "Les scores et gagnants ne sont enregistres qu'apres le debut du live.",
-    "live.createLinked": "Creer un Tirage Lie",
-    "live.createEditGame": "Creer/Modifier un Jeu",
-    "live.gamesTitle": "Jeux du Live",
-    "live.searchGame": "Rechercher un jeu...",
-
-    // ===== Games =====
-    "games.title": "Tous les Jeux",
-    "games.available": "JEUX DISPONIBLES",
-    "games.withBot": "jeux avec Bot IA",
-    "games.instant": "Jeu instantane",
-    "games.liveMode": "Mode Live",
-    "games.search": "Rechercher un jeu...",
-    "games.sortName": "Nom",
-    "games.sortCategory": "Categorie",
-    "games.sortBy": "Trier par:",
-    "games.notFound": "Aucun jeu trouve",
-    "games.notFoundDesc": "Essayez un autre terme de recherche ou categorie",
-    "games.vsBot": "Jouez contre l'Ordinateur",
-    "games.more": "+{count} autres",
-
-    // ===== Action Buttons =====
-    "action.playAgain": "Rejouer",
-    "action.rematch": "Revanche",
-    "action.exit": "Quitter",
-    "action.newGame": "Nouveau Jeu",
-    "action.buyCard": "Acheter une Carte",
-    "action.participate": "Participer",
-    "action.vote": "Voter",
-    "action.viewRaffle": "Voir le Tirage",
-    "action.viewContest": "Voir le Concours",
-    "action.enterGame": "Rejoindre le Jeu",
-    "action.buyTicket": "Acheter un Billet",
-    "action.buyTickets": "Acheter des Billets",
-    "action.loginToPay": "Connectez-vous pour payer",
-    "action.loginToParticipate": "Connectez-vous pour participer",
-    "action.contactSeller": "Connectez-vous pour contacter le vendeur",
-    "action.loginAndContact": "Se connecter et Contacter",
-    "action.createFreeAccount": "Creer un compte gratuit",
-    "action.viewMore": "Voir plus",
-    "action.openRaffles": "Voir les tirages ouverts",
-    "action.enterLive": "Entrer en Live",
-    "action.openLivePage": "Ouvrir la page du live",
-    "action.copyProfileLink": "Lien de profil copie!",
-    "action.uploadFile": "Telecharger un fichier",
-    "action.sendEntry": "Soumettre une participation",
-    "action.shareLive": "Rejoignez-moi en live sur Bateu!",
-    "enter": "Entrer",
-    "voted": "Vote",
-
-    // ===== Chat =====
-    "chat.sendMessage": "Envoyer un message...",
-    "chat.joinToChat": "Rejoignez le live pour discuter",
-    "chat.firstMessage": "Soyez le premier a envoyer un message!",
-
-    // ===== Status =====
-    "status.sending": "Envoi en cours...",
-    "status.loading": "Chargement...",
-    "status.loadingQuestions": "Chargement des questions...",
-    "status.loadingStripe": "Chargement de Stripe",
-    "status.botThinking": "Le bot reflechit...",
-
-    // ===== Error Messages =====
-    "error.somethingWrong": "Une erreur est survenue",
-    "error.unexpected": "Une erreur inattendue s'est produite. Essayez de recharger la page.",
-    "error.reload": "Recharger la page",
-    "error.retry": "Reessayer",
-    "error.gameCrash": "Erreur lors du chargement de {game}",
-    "error.gameCrashDesc": "Essayez de selectionner un autre jeu",
-    "error.sendFailed": "Echec de l'envoi.",
-    "error.sendParticipationFailed": "Impossible de soumettre la participation.",
-    "error.sendMessageFailed": "Echec de l'envoi du message.",
-    "error.sendGiftFailed": "Echec de l'envoi du cadeau.",
-    "error.createPollFailed": "Echec de la creation du sondage.",
-    "error.uploadFileFailed": "Erreur lors du telechargement du fichier. Reessayez.",
-    "error.uploadImageFailed": "Erreur d'envoi d'image: ",
-    "error.unknown": "inconnu",
-    "error.sendReceiptFailed": "Erreur d'envoi du recu: ",
-    "error.registerParticipationFailed": "Erreur d'enregistrement de la participation: ",
-    "error.updateFailed": "Erreur de mise a jour: ",
-    "error.loadPostsFailed": "Impossible de charger les publications. Reessayez plus tard.",
-    "error.submitFailed": "Soumission echouee",
-
-    // ===== Empty States =====
-    "empty.noRaffles": "Aucun tirage dans cette categorie",
-    "empty.noActiveRaffles": "Aucun tirage actif pour le moment",
-    "empty.noRafflesInState": "Aucun tirage dans cet etat.",
-    "empty.noContestsInState": "Aucun concours dans cet etat.",
-    "empty.noGamesConfigured": "Aucun jeu configure",
-    "empty.noResults": "Aucun resultat pour les filtres selectionnes.",
-    "empty.noContestActive": "Aucun concours actif pour le moment.",
-    "empty.noContestClosed": "Aucun concours termine.",
-    "empty.noContestFound": "Aucun concours trouve",
-    "empty.noTicketFound": "Aucun billet trouve",
-    "empty.noTicketInState": "Aucun billet dans cet etat.",
-    "empty.noGameFound": "Aucun jeu trouve",
-    "empty.noParticipants": "Aucun participant actif dans ce tirage.",
-    "empty.noLiveActive": "Aucune live en cours",
-    "empty.noLiveScheduled": "Aucune live programmee",
-    "empty.noCreatorFound": "Aucun createur trouve",
-    "empty.noClipAvailable": "Aucun clip disponible",
-    "empty.noPlayerRanking": "Aucun joueur au classement",
-    "empty.noWinnerFound": "Aucun gagnant trouve",
-    "empty.noBusinessFound": "Aucune entreprise trouvee",
-    "empty.noActiveRafflesWidget": "Aucun tirage actif",
-    "empty.noTransactions": "Aucune transaction trouvee",
-    "empty.noRewardsAvailable": "Aucune recompense disponible pour le moment.",
-    "empty.noPointsHistory": "Aucun historique de points.",
-    "empty.noRedeemedRewards": "Aucune recompense echangee.",
-    "empty.noGameRegistered": "Aucun jeu enregistre",
-    "empty.noChallengeCreated": "Aucun defi cree.",
-    "empty.noMessages": "Pas encore de messages. Soyez le premier!",
-    "empty.beFirstToParticipate": "Soyez le premier a participer!",
-    "empty.noSavedCard": "Aucune carte enregistree",
-    "empty.noLivePerformed": "Aucune live realisee",
-    "empty.noVotesYet": "Pas encore de votes",
-    "empty.noAttemptsYet": "Pas encore de tentatives",
-    "empty.selectGift": "Selectionnez un cadeau a envoyer",
-
-    // ===== StatsBar CTA Footer =====
-    "stats.badge": "Chiffres en direct",
-    "stats.title": "Plateforme reelle, impact reel",
-    "stats.subtitle": "Metriques en direct de l'ecosysteme Bateu — mises a jour en continu.",
-    "stats.prizesDelivered": "Prix distribues",
-    "stats.activeParticipants": "Participants actifs",
-    "stats.verifiableResults": "Resultats verificables",
-    "stats.completedRaffles": "Tirages termines",
-    "stats.comingSoon": "Bientot",
-    "stats.live": "En direct",
-    "stats.cta.eyebrow": "Pret a jouer?",
-    "stats.cta.title": "Votre prochaine grande victoire commence ici",
-    "stats.cta.subtitle": "Rejoignez des milliers de joueurs dans des jeux en direct et des tirages verifies et transparents.",
-    "stats.cta.primary": "Explorer les tirages",
-    "stats.cta.secondary": "Comment ca marche",
-    "stats.cta.tertiary": "Voir les lives",
-    "stats.cta.liveNow": "En direct maintenant",
-    "stats.cta.playersOnline": "{count} en train de jouer",
-    "stats.cta.trust.verified": "Tirages verifies",
-    "stats.cta.trust.secure": "Paiement securise",
-    "stats.cta.trust.transparent": "Resultats transparents",
-    "stats.cta.trust.support": "Support 24/7",
-    "stats.cta.guarantee": "Sans frais caches - Annulez quand vous voulez - Support 24/7",
-    "stats.cta.nextDraw": "Prochain tirage en direct",
-    "stats.cta.startsIn": "Commence dans",
-    "stats.cta.jackpot": "Jackpot en direct",
-    "stats.cta.reviews": "{count} avis",
-    "stats.cta.mascotQuote": "Jouons!",
-    "stats.cta.streamersLive": "{count} en direct maintenant",
-    "stats.cta.featuredPrize": "Prix en vedette",
-'''
-
-fr_close = content.find('  },\n  hi: {')
-if fr_close == -1:
-    print("ERROR: Could not find hi anchor for fr")
-else:
-    content = content[:fr_close] + fr_missing.rstrip() + '\n' + content[fr_close:]
-
-# ============================================================
-# 5. Add missing keys to HI locale
-# ============================================================
-hi_missing = '''
-    // ===== Business Directory =====
-    "biz.title1": "व्यवसाय",
-    "biz.title2": "डायरेक्टरी",
-    "biz.subtitle": "लॉटरी, प्रतियोगिताओं, लाइव गेम्स और बहुत कुछ के साथ अद्भुत अनुभव बनाने वाले व्यवसायों की खोज करें",
-    "biz.search_placeholder": "नाम से व्यवसाय खोजें...",
-    "biz.search_btn": "खोजें",
-    "biz.platform_badge": "गेम्स और प्रतियोगिता प्लेटफॉर्म",
-    "biz.stat.businesses": "व्यवसाय",
-    "biz.stat.verified": "सत्यापित",
-    "biz.stat.raffles": "लॉटरी",
-    "biz.stat.contests": "प्रतियोगिताएं",
-    "biz.filter.all": "सभी",
-    "biz.filter.verified": "सत्यापित",
-    "biz.filter.active": "सक्रिय",
-    "biz.card.verified": "सत्यापित",
-    "biz.card.business": "व्यवसाय",
-    "biz.activity_one": "गतिविधि",
-    "biz.activity_many": "गतिविधियां",
-    "biz.card.view_profile": "प्रोफ़ाइल देखें",
-    "biz.card.verified_status": "सत्यापित: {status}",
-    "biz.card.yes": "हां",
-    "biz.card.no": "नहीं",
-    "biz.card.contests_label": "प्रतियोगिताएं",
-    "biz.card.raffles_label": "लॉटरी",
-    "biz.pagination.previous": "पिछला",
-    "biz.pagination.next": "अगला",
-    "biz.pagination.page": "पृष्ठ {current} / {total}",
-    "biz.pagination.business_one": "व्यवसाय",
-    "biz.pagination.business_many": "व्यवसाय",
-    "biz.empty.title": "कोई व्यवसाय नहीं मिला",
-    "biz.empty.desc": "अलग खोज या फ़िल्टर आज़माएं",
-    "biz.cta.title": "आपका व्यवसाय अभी तक यहां नहीं है?",
-    "biz.cta.desc": "हजारों प्रतिभागियों तक पहुंचने के लिए प्रतियोगिताओं का आयोजन करने वाले सैकड़ों व्यवसायों से जुड़ें। आपकी पहली प्रतियोगिता पूरी तरह मुफ़्त है।",
-    "biz.cta.btn": "अभी शुरू करें",
-    "biz.cta.hero_btn": "मुफ़्त में अपनी पहली लॉटरी बनाएं",
-    "biz.filter.country": "सभी देश",
-    "biz.filter.region": "सभी क्षेत्र",
-    "biz.mobile.search_placeholder": "व्यवसाय खोजें...",
-    "biz.seo.title": "व्यवसाय डायरेक्टरी — बातेउ पर सत्यापित व्यवसाय",
-    "biz.seo.desc": "बातेउ पर लॉटरी, प्रतियोगिताएं और लाइव गेम्स आयोजित करने वाले सत्यापित व्यवसायों को ब्राउज़ करें। देश और क्षेत्र के अनुसार फ़िल्टर करें।",
-    "biz.seo.og_desc": "बातेउ पर लॉटरी, प्रतियोगिताएं और लाइव गेम्स बनाने वाले सत्यापित व्यवसायों की खोज करें।",
-    "biz.seo.ld_desc": "बातेउ पर लॉटरी, प्रतियोगिताएं और लाइव गेम्स आयोजित करने वाले सत्यापित व्यवसाय।",
-    "nav.announcement.text": "लाइव अभी चल रहे हैं — शामिल हों और रियल टाइम पुरस्कार जीतें!",
-    "nav.announcement.cta": "अभी शामिल हों",
-    "nav.raffles": "लॉटरी",
-
-    // ===== Action Buttons =====
-    "action.playAgain": "फिर से खेलें",
-    "action.rematch": "रीमैच",
-    "action.exit": "बाहर जाएं",
-    "action.newGame": "नया गेम",
-    "action.buyCard": "कार्ड खरीदें",
-    "action.participate": "भाग लें",
-    "action.vote": "वोट करें",
-    "action.viewRaffle": "लॉटरी देखें",
-    "action.viewContest": "प्रतियोगिता देखें",
-    "action.enterGame": "गेम में शामिल हों",
-    "action.buyTicket": "टिकट खरीदें",
-    "action.buyTickets": "टिकट खरीदें",
-    "action.loginToPay": "भुगतान के लिए लॉग इन करें",
-    "action.loginToParticipate": "भाग लेने के लिए लॉग इन करें",
-    "action.contactSeller": "विक्रेता से संपर्क करने के लिए लॉग इन करें",
-    "action.loginAndContact": "लॉग इन और संपर्क करें",
-    "action.createFreeAccount": "मुफ़्त खाता बनाएं",
-    "action.viewMore": "और देखें",
-    "action.openRaffles": "खुली लॉटरी देखें",
-    "action.enterLive": "लाइव में शामिल हों",
-    "action.openLivePage": "लाइव पेज खोलें",
-    "action.copyProfileLink": "प्रोफ़ाइल लिंक कॉपी हो गया!",
-    "action.uploadFile": "फ़ाइल अपलोड करें",
-    "action.sendEntry": "प्रविष्टि भेजें",
-    "action.shareLive": "बातेउ पर मेरे लाइव में शामिल हों!",
-    "enter": "दर्ज करें",
-    "voted": "वोट किया",
-
-    // ===== Chat =====
-    "chat.sendMessage": "संदेश भेजें...",
-    "chat.joinToChat": "चैट करने के लिए लाइव से जुड़ें",
-    "chat.firstMessage": "संदेश भेजने वाले पहले व्यक्ति बनें!",
-
-    // ===== Status =====
-    "status.sending": "भेज रहा है...",
-    "status.loading": "लोड हो रहा है...",
-    "status.loadingQuestions": "प्रश्न लोड हो रहे हैं...",
-    "status.loadingStripe": "Stripe लोड हो रहा है",
-    "status.botThinking": "बॉट सोच रहा है...",
-
-    // ===== Error Messages =====
-    "error.sendFailed": "भेजने में विफल।",
-    "error.sendParticipationFailed": "प्रविष्टि भेजने में असमर्थ।",
-    "error.sendMessageFailed": "संदेश भेजने में विफल।",
-    "error.sendGiftFailed": "उपहार भेजने में विफल।",
-    "error.createPollFailed": "पोल बनाने में विफल।",
-    "error.uploadFileFailed": "फ़ाइल अपलोड में त्रुटि। पुनः प्रयास करें।",
-    "error.uploadImageFailed": "इमेज भेजने में त्रुटि: ",
-    "error.unknown": "अज्ञात",
-    "error.sendReceiptFailed": "रसीद भेजने में त्रुटि: ",
-    "error.registerParticipationFailed": "भागीदारी दर्ज करने में त्रुटि: ",
-    "error.updateFailed": "अपडेट करने में त्रुटि: ",
-    "error.loadPostsFailed": "पोस्ट लोड करने में असमर्थ। बाद में पुनः प्रयास करें।",
-    "error.submitFailed": "जमा करना विफल",
-
-    // ===== Empty States =====
-    "empty.noRaffles": "इस श्रेणी में कोई लॉटरी नहीं",
-    "empty.noActiveRaffles": "इस समय कोई सक्रिय लॉटरी नहीं",
-    "empty.noRafflesInState": "इस स्थिति में कोई लॉटरी नहीं।",
-    "empty.noContestsInState": "इस स्थिति में कोई प्रतियोगिता नहीं।",
-    "empty.noGamesConfigured": "अभी कोई गेम कॉन्फ़िगर नहीं किया गया",
-    "empty.noResults": "चयनित फ़िल्टर के लिए कोई परिणाम नहीं।",
-    "empty.noContestActive": "इस समय कोई सक्रिय प्रतियोगिता नहीं।",
-    "empty.noContestClosed": "कोई बंद प्रतियोगिता नहीं।",
-    "empty.noContestFound": "कोई प्रतियोगिता नहीं मिली",
-    "empty.noTicketFound": "कोई टिकट नहीं मिला",
-    "empty.noTicketInState": "इस स्थिति में कोई टिकट नहीं।",
-    "empty.noGameFound": "कोई गेम नहीं मिला",
-    "empty.noParticipants": "इस लॉटरी में कोई सक्रिय प्रतिभागी नहीं।",
-    "empty.noLiveActive": "कोई लाइव सक्रिय नहीं",
-    "empty.noLiveScheduled": "कोई लाइव निर्धारित नहीं",
-    "empty.noCreatorFound": "कोई क्रिएटर नहीं मिला",
-    "empty.noClipAvailable": "कोई क्लिप उपलब्ध नहीं",
-    "empty.noPlayerRanking": "अभी रैंकिंग में कोई खिलाड़ी नहीं",
-    "empty.noWinnerFound": "कोई विजेता नहीं मिला",
-    "empty.noBusinessFound": "कोई व्यवसाय नहीं मिला",
-    "empty.noActiveRafflesWidget": "कोई सक्रिय लॉटरी नहीं",
-    "empty.noTransactions": "कोई लेनदेन नहीं मिला",
-    "empty.noRewardsAvailable": "इस समय कोई इनाम उपलब्ध नहीं।",
-    "empty.noPointsHistory": "कोई अंक इतिहास नहीं।",
-    "empty.noRedeemedRewards": "कोई रिडीम किया गया इनाम नहीं।",
-    "empty.noGameRegistered": "अभी कोई गेम दर्ज नहीं",
-    "empty.noChallengeCreated": "अभी कोई चुनौती नहीं बनाई गई।",
-    "empty.noMessages": "अभी कोई संदेश नहीं। पहले बनें!",
-    "empty.beFirstToParticipate": "भाग लेने वाले पहले व्यक्ति बनें!",
-    "empty.noSavedCard": "कोई सहेजी गई कार्ड डेटा नहीं",
-    "empty.noLivePerformed": "अभी कोई लाइव नहीं की गई",
-    "empty.noVotesYet": "अभी कोई वोट नहीं",
-    "empty.noAttemptsYet": "अभी कोई प्रयास नहीं",
-    "empty.selectGift": "भेजने के लिए उपहार चुनें",
-'''
-
-hi_close = content.rfind('  },\n};')
-if hi_close == -1:
-    print("ERROR: Could not find end of hi locale")
-else:
-    content = content[:hi_close] + hi_missing.rstrip() + '\n' + content[hi_close:]
-
-# Write the result
-with open(FILE, 'w') as f:
-    f.write(content)
-
-print("Done! All translations added.")
+en_keys = keys_by_lang['en']
+print(f'\nVerification:')
+print(f'EN regional keys: {len(en_keys)}')
+for lang in langs[1:]:
+    missing = en_keys - keys_by_lang[lang]
+    print(f'{lang}: {len(keys_by_lang[lang])} keys, missing {len(missing)}')
+    if missing:
+        for k in sorted(missing)[:5]:
+            print(f'  - {k}')
+        if len(missing) > 5:
+            print(f'  ... and {len(missing)-5} more')
