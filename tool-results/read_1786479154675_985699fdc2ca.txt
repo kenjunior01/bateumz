@@ -1,0 +1,648 @@
+     1→import { useMemo, useState } from "react";
+     2→import { motion } from "framer-motion";
+     3→import {
+     4→  Calendar,
+     5→  Car,
+     6→  Home,
+     7→  Smartphone,
+     8→  Sparkles,
+     9→  Building2,
+    10→  ArrowRight,
+    11→  Calculator,
+    12→  CheckCircle2,
+    13→  Loader2,
+    14→  MessageCircle,
+    15→  ShieldCheck,
+    16→  Wallet,
+    17→} from "lucide-react";
+    18→import Navbar from "@/components/Navbar";
+    19→import Footer from "@/components/Footer";
+    20→import BottomTabBar from "@/components/BottomTabBar";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Input } from "@/components/ui/input";
+    23→import { Label } from "@/components/ui/label";
+    24→import { Textarea } from "@/components/ui/textarea";
+    25→import { Slider } from "@/components/ui/slider";
+    26→import {
+    27→  Select,
+    28→  SelectContent,
+    29→  SelectItem,
+    30→  SelectTrigger,
+    31→  SelectValue,
+    32→} from "@/components/ui/select";
+    33→import { useToast } from "@/hooks/use-toast";
+    34→import { formatMZN } from "@/lib/currency";
+    35→import { supabase } from "@/integrations/supabase/client";
+    36→
+    37→type CategoryId = "viaturas" | "imoveis" | "eletronicos" | "equipamentos";
+    38→
+    39→const categories: {
+    40→  id: CategoryId;
+    41→  icon: typeof Car;
+    42→  label: string;
+    43→  desc: string;
+    44→  color: string;
+    45→  // indicative annual rate range (used by tiers)
+    46→  baseRate: number; // % year for "small" amount
+    47→  bestRate: number; // % year for "large" amount
+    48→  maxMonths: number;
+    49→  defaultValue: number;
+    50→  defaultDownPct: number;
+    51→}[] = [
+    52→  {
+    53→    id: "viaturas",
+    54→    icon: Car,
+    55→    label: "Viaturas",
+    56→    desc: "Carros novos e seminovos com plano flexível",
+    57→    color: "from-primary/30 to-primary/5",
+    58→    baseRate: 0.18,
+    59→    bestRate: 0.13,
+    60→    maxMonths: 60,
+    61→    defaultValue: 800_000,
+    62→    defaultDownPct: 0.2,
+    63→  },
+    64→  {
+    65→    id: "imoveis",
+    66→    icon: Home,
+    67→    label: "Imóveis",
+    68→    desc: "Apartamentos, casas e terrenos",
+    69→    color: "from-accent/30 to-accent/5",
+    70→    baseRate: 0.12,
+    71→    bestRate: 0.09,
+    72→    maxMonths: 60,
+    73→    defaultValue: 3_000_000,
+    74→    defaultDownPct: 0.25,
+    75→  },
+    76→  {
+    77→    id: "eletronicos",
+    78→    icon: Smartphone,
+    79→    label: "Eletrónicos",
+    80→    desc: "Smartphones, TVs, computadores",
+    81→    color: "from-secondary/40 to-secondary/5",
+    82→    baseRate: 0.24,
+    83→    bestRate: 0.18,
+    84→    maxMonths: 24,
+    85→    defaultValue: 60_000,
+    86→    defaultDownPct: 0.2,
+    87→  },
+    88→  {
+    89→    id: "equipamentos",
+    90→    icon: Building2,
+    91→    label: "Equipamentos",
+    92→    desc: "Para empresas e profissionais",
+    93→    color: "from-primary/30 to-accent/5",
+    94→    baseRate: 0.2,
+    95→    bestRate: 0.15,
+    96→    maxMonths: 48,
+    97→    defaultValue: 250_000,
+    98→    defaultDownPct: 0.2,
+    99→  },
+   100→];
+   101→
+   102→const sections = [
+   103→  { id: "categorias", label: "Categorias" },
+   104→  { id: "simulador", label: "Simulador" },
+   105→  { id: "como-funciona", label: "Como funciona" },
+   106→  { id: "interesse", label: "Lista de espera" },
+   107→];
+   108→
+   109→function scrollToId(id: string) {
+   110→  const el = document.getElementById(id);
+   111→  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+   112→}
+   113→
+   114→function getCategory(id: string) {
+   115→  return categories.find((c) => c.id === id) ?? categories[0];
+   116→}
+   117→
+   118→// Per-category indicative annual rate that decreases with amount
+   119→function annualRateFor(categoryId: string, amount: number) {
+   120→  const cat = getCategory(categoryId);
+   121→  // anchor amount where the "best" rate is reached
+   122→  const anchor =
+   123→    cat.id === "imoveis"
+   124→      ? 5_000_000
+   125→      : cat.id === "viaturas"
+   126→        ? 2_000_000
+   127→        : cat.id === "equipamentos"
+   128→          ? 1_000_000
+   129→          : 200_000; // eletrónicos
+   130→  const t = Math.min(1, Math.max(0, amount / anchor));
+   131→  // linear interpolation base → best rate
+   132→  return cat.baseRate + (cat.bestRate - cat.baseRate) * t;
+   133→}
+   134→
+   135→function simulate(categoryId: string, value: number, downPayment: number, months: number) {
+   136→  const principal = Math.max(0, value - downPayment);
+   137→  const annualRate = annualRateFor(categoryId, value);
+   138→  const monthlyRate = annualRate / 12;
+   139→  const monthly =
+   140→    monthlyRate === 0 || months === 0
+   141→      ? principal / Math.max(1, months)
+   142→      : (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
+   143→  const total = monthly * months + downPayment;
+   144→  const interest = total - value;
+   145→  return { principal, monthly, total, interest, annualRate };
+   146→}
+   147→
+   148→export default function Prestacoes() {
+   149→  const { toast } = useToast();
+   150→
+   151→  // Simulator state
+   152→  const [productType, setProductType] = useState<CategoryId>("viaturas");
+   153→  const [value, setValue] = useState<number>(800_000);
+   154→  const [downPayment, setDownPayment] = useState<number>(160_000);
+   155→  const [months, setMonths] = useState<number>(24);
+   156→
+   157→  // Switch defaults when category changes
+   158→  const handleCategoryChange = (id: string) => {
+   159→    const cat = getCategory(id);
+   160→    setProductType(cat.id);
+   161→    setValue(cat.defaultValue);
+   162→    setDownPayment(Math.round(cat.defaultValue * cat.defaultDownPct));
+   163→    if (months > cat.maxMonths) setMonths(cat.maxMonths);
+   164→  };
+   165→
+   166→  const currentCat = getCategory(productType);
+   167→  const sim = useMemo(
+   168→    () => simulate(productType, value, Math.min(downPayment, value), months),
+   169→    [productType, value, downPayment, months],
+   170→  );
+   171→
+   172→  // Lead form state
+   173→  const [name, setName] = useState("");
+   174→  const [whatsapp, setWhatsapp] = useState("");
+   175→  const [notes, setNotes] = useState("");
+   176→  const [submitting, setSubmitting] = useState(false);
+   177→  const [submitted, setSubmitted] = useState(false);
+   178→
+   179→  const buildShareMessage = () =>
+   180→    [
+   181→      `Olá! Estou interessado/a em comprar a prestações via Bateu:`,
+   182→      ``,
+   183→      `📦 Categoria: ${currentCat.label}`,
+   184→      `💰 Valor do bem: ${formatMZN(value)}`,
+   185→      `💵 Entrada: ${formatMZN(Math.min(downPayment, value))}`,
+   186→      `📅 Prazo: ${months} meses`,
+   187→      `📈 Mensalidade estimada: ${formatMZN(sim.monthly)}`,
+   188→      `   (taxa indicativa ${(sim.annualRate * 100).toFixed(1)}%/ano)`,
+   189→      ``,
+   190→      name ? `Sou ${name}.` : `Gostaria de mais informações.`,
+   191→      notes ? `\nNotas: ${notes}` : "",
+   192→    ]
+   193→      .filter(Boolean)
+   194→      .join("\n");
+   195→
+   196→  const openWhatsAppShare = () => {
+   197→    const url = `https://wa.me/?text=${encodeURIComponent(buildShareMessage())}`;
+   198→    window.open(url, "_blank", "noopener,noreferrer");
+   199→  };
+   200→
+   201→  const handleSubmit = async (e: React.FormEvent) => {
+   202→    e.preventDefault();
+   203→    if (!name.trim() || name.trim().length < 2) {
+   204→      toast({ title: "Nome inválido", description: "Indique o seu nome completo.", variant: "destructive" });
+   205→      return;
+   206→    }
+   207→    const phoneDigits = whatsapp.replace(/\D/g, "");
+   208→    if (phoneDigits.length < 9) {
+   209→      toast({ title: "WhatsApp inválido", description: "Indique um número válido (mínimo 9 dígitos).", variant: "destructive" });
+   210→      return;
+   211→    }
+   212→    setSubmitting(true);
+   213→    const principal = Math.max(0, value - Math.min(downPayment, value));
+   214→    const { error } = await supabase.from("prestacao_product_leads").insert({
+   215→      product_id: null,
+   216→      business_user_id: null,
+   217→      visitor_name: name.trim().slice(0, 120),
+   218→      visitor_whatsapp: phoneDigits.slice(0, 20),
+   219→      total_price: value,
+   220→      down_payment: Math.min(downPayment, value),
+   221→      months,
+   222→      monthly_estimate: sim.monthly,
+   223→      source: "waitlist",
+   224→      category: productType,
+   225→      notes: notes.trim().slice(0, 500) || null,
+   226→      user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 200) : null,
+   227→    });
+   228→    void principal;
+   229→    setSubmitting(false);
+   230→    if (error) {
+   231→      toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
+   232→      return;
+   233→    }
+   234→    setSubmitted(true);
+   235→    toast({ title: "Inscrição registada!", description: "A nossa equipa entra em contacto em breve." });
+   236→  };
+   237→
+   238→
+   239→  const resetForm = () => {
+   240→    setSubmitted(false);
+   241→    setName("");
+   242→    setWhatsapp("");
+   243→    setNotes("");
+   244→  };
+   245→
+   246→  return (
+   247→    <div className="min-h-screen bg-background">
+   248→      <Navbar />
+   249→      <main className="container mx-auto px-3 sm:px-4 pt-4 lg:pt-24 pb-24 lg:pb-16">
+   250→        <motion.section
+   251→          initial={{ opacity: 0, y: 20 }}
+   252→          animate={{ opacity: 1, y: 0 }}
+   253→          className="mx-auto max-w-3xl text-center"
+   254→        >
+   255→          <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] sm:text-xs font-semibold text-accent">
+   256→            <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> EM BREVE • LISTA DE ESPERA ABERTA
+   257→          </div>
+   258→          <h1 className="mt-3 sm:mt-6 font-display text-2xl sm:text-4xl font-bold text-foreground md:text-6xl leading-tight">
+   259→            Vendas a <span className="text-accent">Prestações</span>
+   260→          </h1>
+   261→          <p className="mt-2 sm:mt-4 text-sm sm:text-base md:text-lg text-muted-foreground px-2">
+   262→            Compre viaturas, imóveis e eletrónicos em até 60 prestações,
+   263→            das melhores empresas de Moçambique.
+   264→          </p>
+   265→
+   266→          <div className="mt-5 grid grid-cols-2 gap-2 sm:hidden">
+   267→            <a href="/prestacoes/catalogo">
+   268→              <Button className="w-full gap-1 h-11 text-sm">
+   269→                Ver catálogo <ArrowRight className="h-3.5 w-3.5" />
+   270→              </Button>
+   271→            </a>
+   272→            <Button variant="outline" onClick={() => scrollToId("simulador")} className="w-full gap-1 h-11 text-sm">
+   273→              <Calculator className="h-3.5 w-3.5" /> Simular
+   274→            </Button>
+   275→          </div>
+   276→
+   277→          <div className="mt-6 hidden sm:flex flex-wrap justify-center gap-2">
+   278→            {sections.map((s) => (
+   279→              <button
+   280→                key={s.id}
+   281→                onClick={() => scrollToId(s.id)}
+   282→                className="rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10"
+   283→              >
+   284→                {s.label}
+   285→              </button>
+   286→            ))}
+   287→          </div>
+   288→
+   289→          <div className="mt-4 sm:mt-6 hidden sm:flex flex-wrap justify-center gap-3">
+   290→            <a href="/prestacoes/catalogo">
+   291→              <Button className="gap-2">
+   292→                Ver catálogo de produtos <ArrowRight className="h-4 w-4" />
+   293→              </Button>
+   294→            </a>
+   295→            <Button variant="outline" onClick={() => scrollToId("simulador")} className="gap-2">
+   296→              <Calculator className="h-4 w-4" /> Abrir simulador
+   297→            </Button>
+   298→            <Button variant="ghost" onClick={() => scrollToId("interesse")} className="gap-2">
+   299→              Entrar na lista
+   300→            </Button>
+   301→          </div>
+   302→        </motion.section>
+   303→
+   304→        <section id="categorias" className="mt-8 sm:mt-16 scroll-mt-24">
+   305→          <div className="mb-3 sm:mb-6 flex items-end justify-between">
+   306→            <h2 className="font-display text-lg sm:text-2xl font-bold text-foreground md:text-3xl">Categorias</h2>
+   307→            <button
+   308→              onClick={() => scrollToId("simulador")}
+   309→              className="text-xs sm:text-sm font-medium text-primary hover:underline"
+   310→            >
+   311→              Simular →
+   312→            </button>
+   313→          </div>
+   314→          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4">
+   315→            {categories.map((cat, i) => (
+   316→              <motion.button
+   317→                key={cat.id}
+   318→                initial={{ opacity: 0, y: 20 }}
+   319→                whileInView={{ opacity: 1, y: 0 }}
+   320→                viewport={{ once: true }}
+   321→                transition={{ delay: i * 0.06 }}
+   322→                onClick={() => {
+   323→                  handleCategoryChange(cat.id);
+   324→                  scrollToId("simulador");
+   325→                }}
+   326→                className={`group relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br ${cat.color} p-3 sm:p-6 text-left transition-all hover:scale-[1.02] hover:border-primary/50`}
+   327→              >
+   328→                <cat.icon className="h-7 w-7 sm:h-10 sm:w-10 text-foreground" />
+   329→                <p className="mt-2 sm:mt-3 font-display text-sm sm:text-lg font-semibold text-foreground">{cat.label}</p>
+   330→                <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted-foreground line-clamp-2">{cat.desc}</p>
+   331→                <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] font-medium text-primary">
+   332→                  {(cat.bestRate * 100).toFixed(1)}–{(cat.baseRate * 100).toFixed(1)}%/ano · {cat.maxMonths}m
+   333→                </p>
+   334→              </motion.button>
+   335→            ))}
+   336→          </div>
+   337→        </section>
+   338→
+   339→        <section id="simulador" className="mt-16 scroll-mt-24">
+   340→          <div className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-10">
+   341→            <div className="flex items-center gap-3">
+   342→              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+   343→                <Calculator className="h-6 w-6" />
+   344→              </div>
+   345→              <div>
+   346→                <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Simulador de Prestações</h2>
+   347→                <p className="text-sm text-muted-foreground">Estimativa indicativa — taxas reais serão confirmadas pela empresa parceira.</p>
+   348→              </div>
+   349→            </div>
+   350→
+   351→            <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_1fr]">
+   352→              <div className="space-y-6">
+   353→                <div className="space-y-2">
+   354→                  <Label>Tipo de produto</Label>
+   355→                  <Select value={productType} onValueChange={handleCategoryChange}>
+   356→                    <SelectTrigger><SelectValue /></SelectTrigger>
+   357→                    <SelectContent>
+   358→                      {categories.map((c) => (
+   359→                        <SelectItem key={c.id} value={c.id}>
+   360→                          {c.label} — {(c.bestRate * 100).toFixed(1)}–{(c.baseRate * 100).toFixed(1)}%/ano
+   361→                        </SelectItem>
+   362→                      ))}
+   363→                    </SelectContent>
+   364→                  </Select>
+   365→                </div>
+   366→
+   367→                <div className="space-y-2">
+   368→                  <div className="flex items-baseline justify-between">
+   369→                    <Label>Valor do bem</Label>
+   370→                    <span className="text-sm font-semibold text-foreground">{formatMZN(value)}</span>
+   371→                  </div>
+   372→                  <Slider
+   373→                    value={[value]}
+   374→                    min={20_000}
+   375→                    max={5_000_000}
+   376→                    step={10_000}
+   377→                    onValueChange={(v) => {
+   378→                      const nv = v[0];
+   379→                      setValue(nv);
+   380→                      if (downPayment > nv) setDownPayment(Math.floor(nv * 0.2));
+   381→                    }}
+   382→                  />
+   383→                  <Input
+   384→                    type="number"
+   385→                    min={20_000}
+   386→                    value={value}
+   387→                    onChange={(e) => setValue(Math.max(0, Number(e.target.value) || 0))}
+   388→                    className="mt-2"
+   389→                  />
+   390→                </div>
+   391→
+   392→                <div className="space-y-2">
+   393→                  <div className="flex items-baseline justify-between">
+   394→                    <Label>Entrada</Label>
+   395→                    <span className="text-sm font-semibold text-foreground">
+   396→                      {formatMZN(Math.min(downPayment, value))}
+   397→                      <span className="ml-1 text-xs text-muted-foreground">
+   398→                        ({value > 0 ? Math.round((Math.min(downPayment, value) / value) * 100) : 0}%)
+   399→                      </span>
+   400→                    </span>
+   401→                  </div>
+   402→                  <Slider
+   403→                    value={[Math.min(downPayment, value)]}
+   404→                    min={0}
+   405→                    max={value}
+   406→                    step={5_000}
+   407→                    onValueChange={(v) => setDownPayment(v[0])}
+   408→                  />
+   409→                </div>
+   410→
+   411→                <div className="space-y-2">
+   412→                  <div className="flex items-baseline justify-between">
+   413→                    <Label>Prazo</Label>
+   414→                    <span className="text-sm font-semibold text-foreground">{months} meses</span>
+   415→                  </div>
+   416→                  <Slider
+   417→                    value={[months]}
+   418→                    min={3}
+   419→                    max={currentCat.maxMonths}
+   420→                    step={1}
+   421→                    onValueChange={(v) => setMonths(v[0])}
+   422→                  />
+   423→                  <div className="flex flex-wrap gap-2 pt-1">
+   424→                    {[6, 12, 24, 36, 48, 60]
+   425→                      .filter((m) => m <= currentCat.maxMonths)
+   426→                      .map((m) => (
+   427→                        <button
+   428→                          key={m}
+   429→                          type="button"
+   430→                          onClick={() => setMonths(m)}
+   431→                          className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+   432→                            months === m
+   433→                              ? "border-primary bg-primary/15 text-primary"
+   434→                              : "border-border text-muted-foreground hover:border-primary/40"
+   435→                          }`}
+   436→                        >
+   437→                          {m}m
+   438→                        </button>
+   439→                      ))}
+   440→                  </div>
+   441→                </div>
+   442→              </div>
+   443→
+   444→              <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-accent/10 p-6">
+   445→                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prestação mensal estimada</p>
+   446→                <p className="mt-2 font-display text-4xl font-bold text-foreground">{formatMZN(sim.monthly)}</p>
+   447→                <p className="mt-1 text-xs text-muted-foreground">
+   448→                  {currentCat.label} · taxa indicativa {(sim.annualRate * 100).toFixed(1)}% / ano
+   449→                </p>
+   450→
+   451→                <div className="mt-6 space-y-3 text-sm">
+   452→                  <Row label="Valor financiado" value={formatMZN(sim.principal)} />
+   453→                  <Row label="Juros totais" value={formatMZN(sim.interest)} muted />
+   454→                  <Row label="Total a pagar" value={formatMZN(sim.total)} bold />
+   455→                  <Row label="Prazo" value={`${months} meses`} muted />
+   456→                </div>
+   457→
+   458→                <Button className="mt-6 w-full gap-2" onClick={() => scrollToId("interesse")}>
+   459→                  <ArrowRight className="h-4 w-4" /> Quero esta proposta
+   460→                </Button>
+   461→                <a href={`/prestacoes/catalogo?category=${productType}`} className="mt-3 block">
+   462→                  <Button variant="outline" className="w-full gap-2">
+   463→                    Ver {currentCat.label.toLowerCase()} disponíveis
+   464→                  </Button>
+   465→                </a>
+   466→                <Button
+   467→                  variant="ghost"
+   468→                  className="mt-2 w-full gap-2 text-[hsl(142_70%_45%)] hover:text-[hsl(142_70%_40%)]"
+   469→                  onClick={openWhatsAppShare}
+   470→                >
+   471→                  <MessageCircle className="h-4 w-4" /> Partilhar no WhatsApp
+   472→                </Button>
+   473→                <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+   474→                  Valores meramente indicativos. A proposta final depende de análise de crédito e
+   475→                  condições da empresa parceira.
+   476→                </p>
+   477→              </div>
+   478→            </div>
+   479→          </div>
+   480→        </section>
+   481→
+   482→        <section id="como-funciona" className="mt-16 scroll-mt-24">
+   483→          <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Como vai funcionar</h2>
+   484→          <div className="mt-6 grid gap-4 md:grid-cols-3">
+   485→            {[
+   486→              { icon: Calculator, title: "1. Simule", desc: "Use o simulador para escolher valor, entrada e prazo." },
+   487→              { icon: ShieldCheck, title: "2. Candidate-se", desc: "Submeta o pedido. As nossas empresas verificadas analisam." },
+   488→              { icon: Wallet, title: "3. Pague mês a mês", desc: "M-Pesa, e-Mola ou Multicaixa, com acompanhamento no seu painel." },
+   489→            ].map((s, i) => (
+   490→              <motion.div
+   491→                key={s.title}
+   492→                initial={{ opacity: 0, y: 20 }}
+   493→                whileInView={{ opacity: 1, y: 0 }}
+   494→                viewport={{ once: true }}
+   495→                transition={{ delay: i * 0.1 }}
+   496→                className="rounded-2xl border border-border bg-card p-6"
+   497→              >
+   498→                <s.icon className="h-8 w-8 text-primary" />
+   499→                <h3 className="mt-4 font-display text-lg font-semibold text-foreground">{s.title}</h3>
+   500→                <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
+   501→              </motion.div>
+   502→            ))}
+   503→          </div>
+   504→          <p className="mt-4 text-xs text-muted-foreground">
+   505→            Quando o catálogo abrir, cada empresa terá o seu próprio número de WhatsApp e receberá
+   506→            os pedidos diretamente.
+   507→          </p>
+   508→        </section>
+   509→
+   510→        <section id="interesse" className="mt-16 scroll-mt-24">
+   511→          <motion.div
+   512→            initial={{ opacity: 0 }}
+   513→            whileInView={{ opacity: 1 }}
+   514→            viewport={{ once: true }}
+   515→            className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-10"
+   516→          >
+   517→            <div className="grid gap-8 md:grid-cols-2 md:items-start">
+   518→              <div>
+   519→                <Calendar className="h-12 w-12 text-primary" />
+   520→                <h2 className="mt-4 font-display text-2xl font-bold text-foreground md:text-3xl">
+   521→                  Entre na lista de espera
+   522→                </h2>
+   523→                <p className="mt-3 text-muted-foreground">
+   524→                  Preencha o formulário e seja dos primeiros a aceder ao serviço de Vendas a
+   525→                  Prestações. A nossa equipa entra em contacto via WhatsApp.
+   526→                </p>
+   527→                <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+   528→                  {[
+   529→                    "Simulador com taxas por categoria",
+   530→                    "Candidatura 100% online",
+   531→                    "Pagamentos via M-Pesa, e-Mola e Multicaixa",
+   532→                    "Acompanhamento em painel pessoal",
+   533→                    "Empresas verificadas e em conformidade",
+   534→                  ].map((f) => (
+   535→                    <li key={f} className="flex items-start gap-2">
+   536→                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+   537→                      {f}
+   538→                    </li>
+   539→                  ))}
+   540→                </ul>
+   541→              </div>
+   542→
+   543→              {submitted ? (
+   544→                <div className="flex flex-col items-center justify-center rounded-2xl border border-accent/40 bg-accent/5 p-8 text-center">
+   545→                  <CheckCircle2 className="h-12 w-12 text-accent" />
+   546→                  <h3 className="mt-4 font-display text-xl font-semibold text-foreground">Inscrição registada!</h3>
+   547→                  <p className="mt-2 text-sm text-muted-foreground">
+   548→                    A nossa equipa entrará em contacto em breve. Pode também partilhar a simulação
+   549→                    diretamente por WhatsApp ou explorar produtos já disponíveis no catálogo.
+   550→                  </p>
+   551→                  <Button
+   552→                    onClick={openWhatsAppShare}
+   553→                    className="mt-6 w-full gap-2 bg-[hsl(142_70%_45%)] text-white hover:bg-[hsl(142_70%_40%)]"
+   554→                  >
+   555→                    <MessageCircle className="h-4 w-4" /> Partilhar simulação no WhatsApp
+   556→                  </Button>
+   557→                  <a href={`/prestacoes/catalogo?category=${productType}`} className="mt-3 w-full">
+   558→                    <Button variant="outline" className="w-full gap-2">
+   559→                      Ver {currentCat.label.toLowerCase()} no catálogo <ArrowRight className="h-4 w-4" />
+   560→                    </Button>
+   561→                  </a>
+   562→                  <button
+   563→                    type="button"
+   564→                    className="mt-3 text-xs text-muted-foreground hover:text-foreground"
+   565→                    onClick={resetForm}
+   566→                  >
+   567→                    Submeter outro pedido
+   568→                  </button>
+   569→                </div>
+   570→              ) : (
+   571→                <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border bg-background/40 p-6">
+   572→                  <div className="space-y-2">
+   573→                    <Label htmlFor="lead-name">Nome completo *</Label>
+   574→                    <Input
+   575→                      id="lead-name"
+   576→                      value={name}
+   577→                      onChange={(e) => setName(e.target.value)}
+   578→                      placeholder="O seu nome"
+   579→                      maxLength={120}
+   580→                      required
+   581→                    />
+   582→                  </div>
+   583→                  <div className="space-y-2">
+   584→                    <Label htmlFor="lead-whatsapp">WhatsApp *</Label>
+   585→                    <Input
+   586→                      id="lead-whatsapp"
+   587→                      type="tel"
+   588→                      value={whatsapp}
+   589→                      onChange={(e) => setWhatsapp(e.target.value)}
+   590→                      placeholder="+258 84 000 0000"
+   591→                      maxLength={20}
+   592→                      required
+   593→                    />
+   594→                  </div>
+   595→                  <div className="space-y-2">
+   596→                    <Label htmlFor="lead-product">Tipo de produto *</Label>
+   597→                    <Select value={productType} onValueChange={handleCategoryChange}>
+   598→                      <SelectTrigger id="lead-product"><SelectValue /></SelectTrigger>
+   599→                      <SelectContent>
+   600→                        {categories.map((c) => (
+   601→                          <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+   602→                        ))}
+   603→                      </SelectContent>
+   604→                    </Select>
+   605→                  </div>
+   606→                  <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+   607→                    Da simulação: <strong className="text-foreground">{formatMZN(value)}</strong> em{" "}
+   608→                    <strong className="text-foreground">{months}m</strong> →{" "}
+   609→                    <strong className="text-foreground">{formatMZN(sim.monthly)}</strong>/mês
+   610→                  </div>
+   611→                  <div className="space-y-2">
+   612→                    <Label htmlFor="lead-notes">Notas (opcional)</Label>
+   613→                    <Textarea
+   614→                      id="lead-notes"
+   615→                      value={notes}
+   616→                      onChange={(e) => setNotes(e.target.value)}
+   617→                      placeholder="Conte-nos o que procura..."
+   618→                      maxLength={500}
+   619→                      rows={3}
+   620→                    />
+   621→                  </div>
+   622→                  <Button type="submit" disabled={submitting} className="w-full gap-2">
+   623→                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+   624→                    {submitting ? "A enviar..." : "Entrar na lista de espera"}
+   625→                  </Button>
+   626→                </form>
+   627→              )}
+   628→            </div>
+   629→          </motion.div>
+   630→        </section>
+   631→      </main>
+   632→      <Footer />
+   633→      <BottomTabBar />
+   634→    </div>
+   635→  );
+   636→}
+   637→
+   638→function Row({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+   639→  return (
+   640→    <div className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0">
+   641→      <span className="text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
+   642→      <span className={`${bold ? "font-display text-lg font-bold text-foreground" : muted ? "text-muted-foreground" : "text-foreground"}`}>
+   643→        {value}
+   644→      </span>
+   645→    </div>
+   646→  );
+   647→}
+   648→

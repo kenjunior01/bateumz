@@ -1,0 +1,2002 @@
+   101→        Row: {
+   102→          action: string
+   103→          created_at: string
+   104→          details: Json | null
+   105→          entity_id: string | null
+   106→          entity_type: string
+   107→          id: string
+   108→          ip_address: string | null
+   109→          user_id: string
+   110→        }
+   111→        Insert: {
+   112→          action: string
+   113→          created_at?: string
+   114→          details?: Json | null
+   115→          entity_id?: string | null
+   116→          entity_type: string
+   117→          id?: string
+   118→          ip_address?: string | null
+   119→          user_id: string
+   120→        }
+   121→        Update: {
+   122→          action?: string
+   123→          created_at?: string
+   124→          details?: Json | null
+   125→          entity_id?: string | null
+   126→          entity_type?: string
+   127→          id?: string
+   128→          ip_address?: string | null
+   129→          user_id?: string
+   130→        }
+   131→        Relationships: []
+   132→      }
+   133→      blockchain_verifications: {
+   134→        Row: {
+   135→          block_number: number
+   136→          id: string
+   137→          network: string
+   138→          raffle_id: string
+   139→          seed_data: Json | null
+   140→          tx_hash: string
+   141→          verified_at: string
+   142→          winner_ticket_number: number | null
+   143→        }
+   144→        Insert: {
+   145→          block_number: number
+   146→          id?: string
+   147→          network?: string
+   148→          raffle_id: string
+   149→          seed_data?: Json | null
+   150→          tx_hash: string
+   151→          verified_at?: string
+   152→          winner_ticket_number?: number | null
+   153→        }
+   154→        Update: {
+   155→          block_number?: number
+   156→          id?: string
+   157→          network?: string
+   158→          raffle_id?: string
+   159→          seed_data?: Json | null
+   160→          tx_hash?: string
+   161→          verified_at?: string
+   162→          winner_ticket_number?: number | null
+   163→        }
+   164→        Relationships: [
+   165→          {
+   166→            foreignKeyName: "blockchain_verifications_raffle_id_fkey"
+   167→            columns: ["raffle_id"]
+   168→            isOneToOne: true
+   169→            referencedRelation: "raffles"
+   170→            referencedColumns: ["id"]
+   171→          },
+   172→        ]
+   173→      }
+   174→      blog_categories: {
+   175→        Row: {
+   176→          color: string | null
+   177→          created_at: string
+   178→          description: string | null
+   179→          icon: string | null
+   180→          id: string
+   181→          name: string
+   182→          post_count: number | null
+   183→          slug: string
+   184→        }
+   185→        Insert: {
+   186→          color?: string | null
+   187→          created_at?: string
+   188→          description?: string | null
+   189→          icon?: string | null
+   190→          id?: string
+   191→          name: string
+   192→          post_count?: number | null
+   193→          slug: string
+   194→        }
+   195→        Update: {
+   196→          color?: string | null
+   197→          created_at?: string
+   198→          description?: string | null
+   199→          icon?: string | null
+   200→          id?: string
+   201→          name?: string
+   202→          post_count?: number | null
+   203→          slug?: string
+   204→        }
+   205→        Relationships: []
+   206→      }
+   207→      blog_likes: {
+   208→        Row: {
+   209→          created_at: string
+   210→          post_slug: string
+   211→          user_id: string
+   212→        }
+   213→        Insert: {
+   214→          created_at?: string
+   215→          post_slug: string
+   216→          user_id: string
+   217→        }
+   218→        Update: {
+   219→          created_at?: string
+   220→          post_slug?: string
+   221→          user_id?: string
+   222→        }
+   223→        Relationships: []
+   224→      }
+   225→      blog_posts: {
+   226→        Row: {
+   227→          author_id: string | null
+   228→          author_name: string | null
+   229→          category_id: string | null
+   230→          content: string
+   231→          created_at: string
+   232→          id: string
+   233→          image_url: string | null
+   234→          is_featured: boolean | null
+   235→          is_trending: boolean | null
+   236→          like_count: number | null
+   237→          published: boolean | null
+   238→          published_at: string | null
+   239→          reading_time_min: number | null
+   240→          region_id: string | null
+   241→          seo_description: string | null
+   242→          seo_keywords: string[] | null
+   243→          seo_title: string | null
+   244→          share_count: number | null
+   245→          slug: string
+   246→          source_url: string | null
+   247→          summary: string | null
+   248→          title: string
+   249→          trending_score: number | null
+   250→          updated_at: string
+   251→          view_count: number | null
+   252→        }
+   253→        Insert: {
+   254→          author_id?: string | null
+   255→          author_name?: string | null
+   256→          category_id?: string | null
+   257→          content?: string
+   258→          created_at?: string
+   259→          id?: string
+   260→          image_url?: string | null
+   261→          is_featured?: boolean | null
+   262→          is_trending?: boolean | null
+   263→          like_count?: number | null
+   264→          published?: boolean | null
+   265→          published_at?: string | null
+   266→          reading_time_min?: number | null
+   267→          region_id?: string | null
+   268→          seo_description?: string | null
+   269→          seo_keywords?: string[] | null
+   270→          seo_title?: string | null
+   271→          share_count?: number | null
+   272→          slug: string
+   273→          source_url?: string | null
+   274→          summary?: string | null
+   275→          title: string
+   276→          trending_score?: number | null
+   277→          updated_at?: string
+   278→          view_count?: number | null
+   279→        }
+   280→        Update: {
+   281→          author_id?: string | null
+   282→          author_name?: string | null
+   283→          category_id?: string | null
+   284→          content?: string
+   285→          created_at?: string
+   286→          id?: string
+   287→          image_url?: string | null
+   288→          is_featured?: boolean | null
+   289→          is_trending?: boolean | null
+   290→          like_count?: number | null
+   291→          published?: boolean | null
+   292→          published_at?: string | null
+   293→          reading_time_min?: number | null
+   294→          region_id?: string | null
+   295→          seo_description?: string | null
+   296→          seo_keywords?: string[] | null
+   297→          seo_title?: string | null
+   298→          share_count?: number | null
+   299→          slug?: string
+   300→          source_url?: string | null
+   301→          summary?: string | null
+   302→          title?: string
+   303→          trending_score?: number | null
+   304→          updated_at?: string
+   305→          view_count?: number | null
+   306→        }
+   307→        Relationships: [
+   308→          {
+   309→            foreignKeyName: "blog_posts_category_id_fkey"
+   310→            columns: ["category_id"]
+   311→            isOneToOne: false
+   312→            referencedRelation: "blog_categories"
+   313→            referencedColumns: ["id"]
+   314→          },
+   315→        ]
+   316→      }
+   317→      bolao_members: {
+   318→        Row: {
+   319→          bolao_id: string
+   320→          id: string
+   321→          joined_at: string
+   322→          tickets_contributed: number
+   323→          user_id: string
+   324→        }
+   325→        Insert: {
+   326→          bolao_id: string
+   327→          id?: string
+   328→          joined_at?: string
+   329→          tickets_contributed?: number
+   330→          user_id: string
+   331→        }
+   332→        Update: {
+   333→          bolao_id?: string
+   334→          id?: string
+   335→          joined_at?: string
+   336→          tickets_contributed?: number
+   337→          user_id?: string
+   338→        }
+   339→        Relationships: [
+   340→          {
+   341→            foreignKeyName: "bolao_members_bolao_id_fkey"
+   342→            columns: ["bolao_id"]
+   343→            isOneToOne: false
+   344→            referencedRelation: "boloes"
+   345→            referencedColumns: ["id"]
+   346→          },
+   347→        ]
+   348→      }
+   349→      boloes: {
+   350→        Row: {
+   351→          created_at: string
+   352→          creator_id: string
+   353→          id: string
+   354→          invite_code: string
+   355→          max_members: number
+   356→          name: string
+   357→          raffle_id: string
+   358→          status: string
+   359→        }
+   360→        Insert: {
+   361→          created_at?: string
+   362→          creator_id: string
+   363→          id?: string
+   364→          invite_code?: string
+   365→          max_members?: number
+   366→          name?: string
+   367→          raffle_id: string
+   368→          status?: string
+   369→        }
+   370→        Update: {
+   371→          created_at?: string
+   372→          creator_id?: string
+   373→          id?: string
+   374→          invite_code?: string
+   375→          max_members?: number
+   376→          name?: string
+   377→          raffle_id?: string
+   378→          status?: string
+   379→        }
+   380→        Relationships: [
+   381→          {
+   382→            foreignKeyName: "boloes_raffle_id_fkey"
+   383→            columns: ["raffle_id"]
+   384→            isOneToOne: false
+   385→            referencedRelation: "raffles"
+   386→            referencedColumns: ["id"]
+   387→          },
+   388→        ]
+   389→      }
+   390→      community_messages: {
+   391→        Row: {
+   392→          content: string
+   393→          created_at: string
+   394→          id: string
+   395→          likes_count: number
+   396→          message_type: string
+   397→          parent_id: string | null
+   398→          raffle_id: string | null
+   399→          scheduled_live_id: string | null
+   400→          user_id: string
+   401→        }
+   402→        Insert: {
+   403→          content: string
+   404→          created_at?: string
+   405→          id?: string
+   406→          likes_count?: number
+   407→          message_type?: string
+   408→          parent_id?: string | null
+   409→          raffle_id?: string | null
+   410→          scheduled_live_id?: string | null
+   411→          user_id: string
+   412→        }
+   413→        Update: {
+   414→          content?: string
+   415→          created_at?: string
+   416→          id?: string
+   417→          likes_count?: number
+   418→          message_type?: string
+   419→          parent_id?: string | null
+   420→          raffle_id?: string | null
+   421→          scheduled_live_id?: string | null
+   422→          user_id?: string
+   423→        }
+   424→        Relationships: [
+   425→          {
+   426→            foreignKeyName: "community_messages_parent_id_fkey"
+   427→            columns: ["parent_id"]
+   428→            isOneToOne: false
+   429→            referencedRelation: "community_messages"
+   430→            referencedColumns: ["id"]
+   431→          },
+   432→          {
+   433→            foreignKeyName: "community_messages_raffle_id_fkey"
+   434→            columns: ["raffle_id"]
+   435→            isOneToOne: false
+   436→            referencedRelation: "raffles"
+   437→            referencedColumns: ["id"]
+   438→          },
+   439→          {
+   440→            foreignKeyName: "community_messages_scheduled_live_id_fkey"
+   441→            columns: ["scheduled_live_id"]
+   442→            isOneToOne: false
+   443→            referencedRelation: "scheduled_lives"
+   444→            referencedColumns: ["id"]
+   445→          },
+   446→        ]
+   447→      }
+   448→      company_branding: {
+   449→        Row: {
+   450→          accent_color: string | null
+   451→          background_color: string | null
+   452→          background_image_url: string | null
+   453→          company_logo_url: string | null
+   454→          company_name: string | null
+   455→          company_slogan: string | null
+   456→          created_at: string | null
+   457→          enabled: boolean | null
+   458→          font_family: string | null
+   459→          id: string
+   460→          overlay_style: string | null
+   461→          primary_color: string | null
+   462→          secondary_color: string | null
+   463→          text_color: string | null
+   464→          updated_at: string | null
+   465→          user_id: string
+   466→        }
+   467→        Insert: {
+   468→          accent_color?: string | null
+   469→          background_color?: string | null
+   470→          background_image_url?: string | null
+   471→          company_logo_url?: string | null
+   472→          company_name?: string | null
+   473→          company_slogan?: string | null
+   474→          created_at?: string | null
+   475→          enabled?: boolean | null
+   476→          font_family?: string | null
+   477→          id?: string
+   478→          overlay_style?: string | null
+   479→          primary_color?: string | null
+   480→          secondary_color?: string | null
+   481→          text_color?: string | null
+   482→          updated_at?: string | null
+   483→          user_id: string
+   484→        }
+   485→        Update: {
+   486→          accent_color?: string | null
+   487→          background_color?: string | null
+   488→          background_image_url?: string | null
+   489→          company_logo_url?: string | null
+   490→          company_name?: string | null
+   491→          company_slogan?: string | null
+   492→          created_at?: string | null
+   493→          enabled?: boolean | null
+   494→          font_family?: string | null
+   495→          id?: string
+   496→          overlay_style?: string | null
+   497→          primary_color?: string | null
+   498→          secondary_color?: string | null
+   499→          text_color?: string | null
+   500→          updated_at?: string | null
+   501→          user_id?: string
+   502→        }
+   503→        Relationships: []
+   504→      }
+   505→      company_game_configs: {
+   506→        Row: {
+   507→          company_id: string
+   508→          created_at: string
+   509→          game_id: string
+   510→          game_label: string
+   511→          id: string
+   512→          is_enabled: boolean
+   513→          is_published: boolean
+   514→          play_count: number
+   515→          settings: Json
+   516→          total_prizes_awarded: number
+   517→          updated_at: string
+   518→        }
+   519→        Insert: {
+   520→          company_id: string
+   521→          created_at?: string
+   522→          game_id: string
+   523→          game_label: string
+   524→          id?: string
+   525→          is_enabled?: boolean
+   526→          is_published?: boolean
+   527→          play_count?: number
+   528→          settings?: Json
+   529→          total_prizes_awarded?: number
+   530→          updated_at?: string
+   531→        }
+   532→        Update: {
+   533→          company_id?: string
+   534→          created_at?: string
+   535→          game_id?: string
+   536→          game_label?: string
+   537→          id?: string
+   538→          is_enabled?: boolean
+   539→          is_published?: boolean
+   540→          play_count?: number
+   541→          settings?: Json
+   542→          total_prizes_awarded?: number
+   543→          updated_at?: string
+   544→        }
+   545→        Relationships: []
+   546→      }
+   547→      contest_submissions: {
+   548→        Row: {
+   549→          contest_id: string
+   550→          created_at: string
+   551→          description: string | null
+   552→          extra_fields: Json
+   553→          id: string
+   554→          is_winner: boolean
+   555→          participant_name: string
+   556→          photo_url: string | null
+   557→          status: string
+   558→          updated_at: string
+   559→          user_id: string
+   560→          video_url: string | null
+   561→          views_count: number
+   562→          votes_count: number
+   563→        }
+   564→        Insert: {
+   565→          contest_id: string
+   566→          created_at?: string
+   567→          description?: string | null
+   568→          extra_fields?: Json
+   569→          id?: string
+   570→          is_winner?: boolean
+   571→          participant_name: string
+   572→          photo_url?: string | null
+   573→          status?: string
+   574→          updated_at?: string
+   575→          user_id: string
+   576→          video_url?: string | null
+   577→          views_count?: number
+   578→          votes_count?: number
+   579→        }
+   580→        Update: {
+   581→          contest_id?: string
+   582→          created_at?: string
+   583→          description?: string | null
+   584→          extra_fields?: Json
+   585→          id?: string
+   586→          is_winner?: boolean
+   587→          participant_name?: string
+   588→          photo_url?: string | null
+   589→          status?: string
+   590→          updated_at?: string
+   591→          user_id?: string
+   592→          video_url?: string | null
+   593→          views_count?: number
+   594→          votes_count?: number
+   595→        }
+   596→        Relationships: [
+   597→          {
+   598→            foreignKeyName: "contest_submissions_contest_id_fkey"
+   599→            columns: ["contest_id"]
+   600→            isOneToOne: false
+   601→            referencedRelation: "contests"
+   602→            referencedColumns: ["id"]
+   603→          },
+   604→        ]
+   605→      }
+   606→      contest_votes: {
+   607→        Row: {
+   608→          created_at: string
+   609→          id: string
+   610→          submission_id: string
+   611→          user_id: string
+   612→        }
+   613→        Insert: {
+   614→          created_at?: string
+   615→          id?: string
+   616→          submission_id: string
+   617→          user_id: string
+   618→        }
+   619→        Update: {
+   620→          created_at?: string
+   621→          id?: string
+   622→          submission_id?: string
+   623→          user_id?: string
+   624→        }
+   625→        Relationships: [
+   626→          {
+   627→            foreignKeyName: "contest_votes_submission_id_fkey"
+   628→            columns: ["submission_id"]
+   629→            isOneToOne: false
+   630→            referencedRelation: "contest_submissions"
+   631→            referencedColumns: ["id"]
+   632→          },
+   633→        ]
+   634→      }
+   635→      contests: {
+   636→        Row: {
+   637→          category: string
+   638→          contest_mode: string
+   639→          country: string | null
+   640→          created_at: string
+   641→          created_by: string
+   642→          current_phase: number
+   643→          description: string | null
+   644→          end_date: string | null
+   645→          entry_fee: number
+   646→          evaluation_type: string
+   647→          featured: boolean
+   648→          hashtag: string | null
+   649→          id: string
+   650→          image_url: string | null
+   651→          max_participants: number | null
+   652→          max_submissions_per_user: number
+   653→          min_age: number | null
+   654→          phases: Json
+   655→          prize_description: string | null
+   656→          requires_photo: boolean
+   657→          requires_video: boolean
+   658→          rules: Json
+   659→          sponsor_logo_url: string | null
+   660→          sponsor_name: string | null
+   661→          start_date: string | null
+   662→          status: string
+   663→          submission_fields: Json
+   664→          title: string
+   665→          updated_at: string
+   666→          winner_submission_id: string | null
+   667→        }
+   668→        Insert: {
+   669→          category?: string
+   670→          contest_mode?: string
+   671→          country?: string | null
+   672→          created_at?: string
+   673→          created_by: string
+   674→          current_phase?: number
+   675→          description?: string | null
+   676→          end_date?: string | null
+   677→          entry_fee?: number
+   678→          evaluation_type?: string
+   679→          featured?: boolean
+   680→          hashtag?: string | null
+   681→          id?: string
+   682→          image_url?: string | null
+   683→          max_participants?: number | null
+   684→          max_submissions_per_user?: number
+   685→          min_age?: number | null
+   686→          phases?: Json
+   687→          prize_description?: string | null
+   688→          requires_photo?: boolean
+   689→          requires_video?: boolean
+   690→          rules?: Json
+   691→          sponsor_logo_url?: string | null
+   692→          sponsor_name?: string | null
+   693→          start_date?: string | null
+   694→          status?: string
+   695→          submission_fields?: Json
+   696→          title: string
+   697→          updated_at?: string
+   698→          winner_submission_id?: string | null
+   699→        }
+   700→        Update: {
+   701→          category?: string
+   702→          contest_mode?: string
+   703→          country?: string | null
+   704→          created_at?: string
+   705→          created_by?: string
+   706→          current_phase?: number
+   707→          description?: string | null
+   708→          end_date?: string | null
+   709→          entry_fee?: number
+   710→          evaluation_type?: string
+   711→          featured?: boolean
+   712→          hashtag?: string | null
+   713→          id?: string
+   714→          image_url?: string | null
+   715→          max_participants?: number | null
+   716→          max_submissions_per_user?: number
+   717→          min_age?: number | null
+   718→          phases?: Json
+   719→          prize_description?: string | null
+   720→          requires_photo?: boolean
+   721→          requires_video?: boolean
+   722→          rules?: Json
+   723→          sponsor_logo_url?: string | null
+   724→          sponsor_name?: string | null
+   725→          start_date?: string | null
+   726→          status?: string
+   727→          submission_fields?: Json
+   728→          title?: string
+   729→          updated_at?: string
+   730→          winner_submission_id?: string | null
+   731→        }
+   732→        Relationships: []
+   733→      }
+   734→      email_send_log: {
+   735→        Row: {
+   736→          created_at: string
+   737→          error_message: string | null
+   738→          id: string
+   739→          message_id: string | null
+   740→          metadata: Json | null
+   741→          recipient_email: string
+   742→          status: string
+   743→          template_name: string
+   744→        }
+   745→        Insert: {
+   746→          created_at?: string
+   747→          error_message?: string | null
+   748→          id?: string
+   749→          message_id?: string | null
+   750→          metadata?: Json | null
+   751→          recipient_email: string
+   752→          status: string
+   753→          template_name: string
+   754→        }
+   755→        Update: {
+   756→          created_at?: string
+   757→          error_message?: string | null
+   758→          id?: string
+   759→          message_id?: string | null
+   760→          metadata?: Json | null
+   761→          recipient_email?: string
+   762→          status?: string
+   763→          template_name?: string
+   764→        }
+   765→        Relationships: []
+   766→      }
+   767→      email_send_state: {
+   768→        Row: {
+   769→          auth_email_ttl_minutes: number
+   770→          batch_size: number
+   771→          id: number
+   772→          retry_after_until: string | null
+   773→          send_delay_ms: number
+   774→          transactional_email_ttl_minutes: number
+   775→          updated_at: string
+   776→        }
+   777→        Insert: {
+   778→          auth_email_ttl_minutes?: number
+   779→          batch_size?: number
+   780→          id?: number
+   781→          retry_after_until?: string | null
+   782→          send_delay_ms?: number
+   783→          transactional_email_ttl_minutes?: number
+   784→          updated_at?: string
+   785→        }
+   786→        Update: {
+   787→          auth_email_ttl_minutes?: number
+   788→          batch_size?: number
+   789→          id?: number
+   790→          retry_after_until?: string | null
+   791→          send_delay_ms?: number
+   792→          transactional_email_ttl_minutes?: number
+   793→          updated_at?: string
+   794→        }
+   795→        Relationships: []
+   796→      }
+   797→      email_unsubscribe_tokens: {
+   798→        Row: {
+   799→          created_at: string
+   800→          email: string
+   801→          id: string
+   802→          token: string
+   803→          used_at: string | null
+   804→        }
+   805→        Insert: {
+   806→          created_at?: string
+   807→          email: string
+   808→          id?: string
+   809→          token: string
+   810→          used_at?: string | null
+   811→        }
+   812→        Update: {
+   813→          created_at?: string
+   814→          email?: string
+   815→          id?: string
+   816→          token?: string
+   817→          used_at?: string | null
+   818→        }
+   819→        Relationships: []
+   820→      }
+   821→      game_sessions: {
+   822→        Row: {
+   823→          business_user_id: string | null
+   824→          created_at: string | null
+   825→          duration_seconds: number | null
+   826→          game_id: string | null
+   827→          game_name: string
+   828→          game_type: string
+   829→          id: string
+   830→          is_winner: boolean | null
+   831→          live_code: string | null
+   832→          metadata: Json | null
+   833→          player_count: number | null
+   834→          player_name: string | null
+   835→          prize: string | null
+   836→          prize_value: number | null
+   837→          score: number | null
+   838→        }
+   839→        Insert: {
+   840→          business_user_id?: string | null
+   841→          created_at?: string | null
+   842→          duration_seconds?: number | null
+   843→          game_id?: string | null
+   844→          game_name: string
+   845→          game_type: string
+   846→          id?: string
+   847→          is_winner?: boolean | null
+   848→          live_code?: string | null
+   849→          metadata?: Json | null
+   850→          player_count?: number | null
+   851→          player_name?: string | null
+   852→          prize?: string | null
+   853→          prize_value?: number | null
+   854→          score?: number | null
+   855→        }
+   856→        Update: {
+   857→          business_user_id?: string | null
+   858→          created_at?: string | null
+   859→          duration_seconds?: number | null
+   860→          game_id?: string | null
+   861→          game_name?: string
+   862→          game_type?: string
+   863→          id?: string
+   864→          is_winner?: boolean | null
+   865→          live_code?: string | null
+   866→          metadata?: Json | null
+   867→          player_count?: number | null
+   868→          player_name?: string | null
+   869→          prize?: string | null
+   870→          prize_value?: number | null
+   871→          score?: number | null
+   872→        }
+   873→        Relationships: []
+   874→      }
+   875→      live_ambassador_prizes: {
+   876→        Row: {
+   877→          award_mode: string | null
+   878→          awarded_at: string | null
+   879→          business_user_id: string
+   880→          created_at: string
+   881→          description: string | null
+   882→          id: string
+   883→          live_code: string | null
+   884→          notified_at: string | null
+   885→          position: number
+   886→          scheduled_live_id: string | null
+   887→          scope: string
+   888→          title: string
+   889→          updated_at: string
+   890→          winner_user_id: string | null
+   891→        }
+   892→        Insert: {
+   893→          award_mode?: string | null
+   894→          awarded_at?: string | null
+   895→          business_user_id: string
+   896→          created_at?: string
+   897→          description?: string | null
+   898→          id?: string
+   899→          live_code?: string | null
+   900→          notified_at?: string | null
+   901→          position?: number
+   902→          scheduled_live_id?: string | null
+   903→          scope?: string
+   904→          title: string
+   905→          updated_at?: string
+   906→          winner_user_id?: string | null
+   907→        }
+   908→        Update: {
+   909→          award_mode?: string | null
+   910→          awarded_at?: string | null
+   911→          business_user_id?: string
+   912→          created_at?: string
+   913→          description?: string | null
+   914→          id?: string
+   915→          live_code?: string | null
+   916→          notified_at?: string | null
+   917→          position?: number
+   918→          scheduled_live_id?: string | null
+   919→          scope?: string
+   920→          title?: string
+   921→          updated_at?: string
+   922→          winner_user_id?: string | null
+   923→        }
+   924→        Relationships: []
+   925→      }
+   926→      live_ambassador_visits: {
+   927→        Row: {
+   928→          ambassador_id: string
+   929→          attended_at: string | null
+   930→          business_user_id: string
+   931→          created_at: string
+   932→          id: string
+   933→          live_code: string
+   934→          referrer: string | null
+   935→          scheduled_live_id: string | null
+   936→          user_agent: string | null
+   937→          visitor_hash: string
+   938→        }
+   939→        Insert: {
+   940→          ambassador_id: string
+   941→          attended_at?: string | null
+   942→          business_user_id: string
+   943→          created_at?: string
+   944→          id?: string
+   945→          live_code?: string
+   946→          referrer?: string | null
+   947→          scheduled_live_id?: string | null
+   948→          user_agent?: string | null
+   949→          visitor_hash: string
+   950→        }
+   951→        Update: {
+   952→          ambassador_id?: string
+   953→          attended_at?: string | null
+   954→          business_user_id?: string
+   955→          created_at?: string
+   956→          id?: string
+   957→          live_code?: string
+   958→          referrer?: string | null
+   959→          scheduled_live_id?: string | null
+   960→          user_agent?: string | null
+   961→          visitor_hash?: string
+   962→        }
+   963→        Relationships: [
+   964→          {
+   965→            foreignKeyName: "live_ambassador_visits_ambassador_id_fkey"
+   966→            columns: ["ambassador_id"]
+   967→            isOneToOne: false
+   968→            referencedRelation: "live_ambassadors"
+   969→            referencedColumns: ["id"]
+   970→          },
+   971→        ]
+   972→      }
+   973→      live_ambassadors: {
+   974→        Row: {
+   975→          business_user_id: string
+   976→          created_at: string
+   977→          display_name: string | null
+   978→          id: string
+   979→          is_active: boolean
+   980→          ref_code: string
+   981→          total_visits: number
+   982→          updated_at: string
+   983→          user_id: string
+   984→        }
+   985→        Insert: {
+   986→          business_user_id: string
+   987→          created_at?: string
+   988→          display_name?: string | null
+   989→          id?: string
+   990→          is_active?: boolean
+   991→          ref_code: string
+   992→          total_visits?: number
+   993→          updated_at?: string
+   994→          user_id: string
+   995→        }
+   996→        Update: {
+   997→          business_user_id?: string
+   998→          created_at?: string
+   999→          display_name?: string | null
+  1000→          id?: string
+  1001→          is_active?: boolean
+  1002→          ref_code?: string
+  1003→          total_visits?: number
+  1004→          updated_at?: string
+  1005→          user_id?: string
+  1006→        }
+  1007→        Relationships: []
+  1008→      }
+  1009→      live_announcements: {
+  1010→        Row: {
+  1011→          created_at: string
+  1012→          id: string
+  1013→          kind: string
+  1014→          message: string
+  1015→          scheduled_live_id: string
+  1016→        }
+  1017→        Insert: {
+  1018→          created_at?: string
+  1019→          id?: string
+  1020→          kind?: string
+  1021→          message: string
+  1022→          scheduled_live_id: string
+  1023→        }
+  1024→        Update: {
+  1025→          created_at?: string
+  1026→          id?: string
+  1027→          kind?: string
+  1028→          message?: string
+  1029→          scheduled_live_id?: string
+  1030→        }
+  1031→        Relationships: [
+  1032→          {
+  1033→            foreignKeyName: "live_announcements_scheduled_live_id_fkey"
+  1034→            columns: ["scheduled_live_id"]
+  1035→            isOneToOne: false
+  1036→            referencedRelation: "scheduled_lives"
+  1037→            referencedColumns: ["id"]
+  1038→          },
+  1039→        ]
+  1040→      }
+  1041→      live_poll_votes: {
+  1042→        Row: {
+  1043→          created_at: string
+  1044→          id: string
+  1045→          option_index: number
+  1046→          poll_id: string
+  1047→          user_id: string | null
+  1048→          voter_hash: string
+  1049→        }
+  1050→        Insert: {
+  1051→          created_at?: string
+  1052→          id?: string
+  1053→          option_index: number
+  1054→          poll_id: string
+  1055→          user_id?: string | null
+  1056→          voter_hash: string
+  1057→        }
+  1058→        Update: {
+  1059→          created_at?: string
+  1060→          id?: string
+  1061→          option_index?: number
+  1062→          poll_id?: string
+  1063→          user_id?: string | null
+  1064→          voter_hash?: string
+  1065→        }
+  1066→        Relationships: [
+  1067→          {
+  1068→            foreignKeyName: "live_poll_votes_poll_id_fkey"
+  1069→            columns: ["poll_id"]
+  1070→            isOneToOne: false
+  1071→            referencedRelation: "live_polls"
+  1072→            referencedColumns: ["id"]
+  1073→          },
+  1074→        ]
+  1075→      }
+  1076→      live_polls: {
+  1077→        Row: {
+  1078→          closed_at: string | null
+  1079→          created_at: string
+  1080→          id: string
+  1081→          is_open: boolean
+  1082→          options: Json
+  1083→          question: string
+  1084→          scheduled_live_id: string
+  1085→        }
+  1086→        Insert: {
+  1087→          closed_at?: string | null
+  1088→          created_at?: string
+  1089→          id?: string
+  1090→          is_open?: boolean
+  1091→          options?: Json
+  1092→          question: string
+  1093→          scheduled_live_id: string
+  1094→        }
+  1095→        Update: {
+  1096→          closed_at?: string | null
+  1097→          created_at?: string
+  1098→          id?: string
+  1099→          is_open?: boolean
+  1100→          options?: Json
+  1101→          question?: string
+  1102→          scheduled_live_id?: string
+  1103→        }
+  1104→        Relationships: [
+  1105→          {
+  1106→            foreignKeyName: "live_polls_scheduled_live_id_fkey"
+  1107→            columns: ["scheduled_live_id"]
+  1108→            isOneToOne: false
+  1109→            referencedRelation: "scheduled_lives"
+  1110→            referencedColumns: ["id"]
+  1111→          },
+  1112→        ]
+  1113→      }
+  1114→      live_studio_checklist: {
+  1115→        Row: {
+  1116→          done: boolean
+  1117→          id: string
+  1118→          item_key: string
+  1119→          scheduled_live_id: string
+  1120→          updated_at: string
+  1121→        }
+  1122→        Insert: {
+  1123→          done?: boolean
+  1124→          id?: string
+  1125→          item_key: string
+  1126→          scheduled_live_id: string
+  1127→          updated_at?: string
+  1128→        }
+  1129→        Update: {
+  1130→          done?: boolean
+  1131→          id?: string
+  1132→          item_key?: string
+  1133→          scheduled_live_id?: string
+  1134→          updated_at?: string
+  1135→        }
+  1136→        Relationships: [
+  1137→          {
+  1138→            foreignKeyName: "live_studio_checklist_scheduled_live_id_fkey"
+  1139→            columns: ["scheduled_live_id"]
+  1140→            isOneToOne: false
+  1141→            referencedRelation: "scheduled_lives"
+  1142→            referencedColumns: ["id"]
+  1143→          },
+  1144→        ]
+  1145→      }
+  1146→      live_templates: {
+  1147→        Row: {
+  1148→          branding: Json
+  1149→          challenges: Json
+  1150→          created_at: string
+  1151→          description: string | null
+  1152→          game_ids: Json
+  1153→          id: string
+  1154→          is_active: boolean
+  1155→          name: string
+  1156→          rules: Json
+  1157→          updated_at: string
+  1158→          user_id: string
+  1159→        }
+  1160→        Insert: {
+  1161→          branding?: Json
+  1162→          challenges?: Json
+  1163→          created_at?: string
+  1164→          description?: string | null
+  1165→          game_ids?: Json
+  1166→          id?: string
+  1167→          is_active?: boolean
+  1168→          name: string
+  1169→          rules?: Json
+  1170→          updated_at?: string
+  1171→          user_id: string
+  1172→        }
+  1173→        Update: {
+  1174→          branding?: Json
+  1175→          challenges?: Json
+  1176→          created_at?: string
+  1177→          description?: string | null
+  1178→          game_ids?: Json
+  1179→          id?: string
+  1180→          is_active?: boolean
+  1181→          name?: string
+  1182→          rules?: Json
+  1183→          updated_at?: string
+  1184→          user_id?: string
+  1185→        }
+  1186→        Relationships: []
+  1187→      }
+  1188→      luck_points: {
+  1189→        Row: {
+  1190→          action: string
+  1191→          created_at: string
+  1192→          description: string | null
+  1193→          id: string
+  1194→          points: number
+  1195→          raffle_id: string | null
+  1196→          user_id: string
+  1197→        }
+  1198→        Insert: {
+  1199→          action: string
+  1200→          created_at?: string
+  1201→          description?: string | null
+  1202→          id?: string
+  1203→          points?: number
+  1204→          raffle_id?: string | null
+  1205→          user_id: string
+  1206→        }
+  1207→        Update: {
+  1208→          action?: string
+  1209→          created_at?: string
+  1210→          description?: string | null
+  1211→          id?: string
+  1212→          points?: number
+  1213→          raffle_id?: string | null
+  1214→          user_id?: string
+  1215→        }
+  1216→        Relationships: [
+  1217→          {
+  1218→            foreignKeyName: "luck_points_raffle_id_fkey"
+  1219→            columns: ["raffle_id"]
+  1220→            isOneToOne: false
+  1221→            referencedRelation: "raffles"
+  1222→            referencedColumns: ["id"]
+  1223→          },
+  1224→        ]
+  1225→      }
+  1226→      message_likes: {
+  1227→        Row: {
+  1228→          created_at: string
+  1229→          id: string
+  1230→          message_id: string
+  1231→          user_id: string
+  1232→        }
+  1233→        Insert: {
+  1234→          created_at?: string
+  1235→          id?: string
+  1236→          message_id: string
+  1237→          user_id: string
+  1238→        }
+  1239→        Update: {
+  1240→          created_at?: string
+  1241→          id?: string
+  1242→          message_id?: string
+  1243→          user_id?: string
+  1244→        }
+  1245→        Relationships: [
+  1246→          {
+  1247→            foreignKeyName: "message_likes_message_id_fkey"
+  1248→            columns: ["message_id"]
+  1249→            isOneToOne: false
+  1250→            referencedRelation: "community_messages"
+  1251→            referencedColumns: ["id"]
+  1252→          },
+  1253→        ]
+  1254→      }
+  1255→      millionaire_games: {
+  1256→        Row: {
+  1257→          background_color: string | null
+  1258→          background_image_url: string | null
+  1259→          business_user_id: string | null
+  1260→          company_logo_url: string | null
+  1261→          company_slogan: string | null
+  1262→          created_at: string | null
+  1263→          created_by: string | null
+  1264→          description: string | null
+  1265→          id: string
+  1266→          is_active: boolean | null
+  1267→          is_published: boolean | null
+  1268→          lifelines: Json | null
+  1269→          name: string
+  1270→          primary_color: string | null
+  1271→          prize_structure: Json | null
+  1272→          region_id: string
+  1273→          time_per_question: number | null
+  1274→          total_questions: number | null
+  1275→          updated_at: string | null
+  1276→        }
+  1277→        Insert: {
+  1278→          background_color?: string | null
+  1279→          background_image_url?: string | null
+  1280→          business_user_id?: string | null
+  1281→          company_logo_url?: string | null
+  1282→          company_slogan?: string | null
+  1283→          created_at?: string | null
+  1284→          created_by?: string | null
+  1285→          description?: string | null
+  1286→          id?: string
+  1287→          is_active?: boolean | null
+  1288→          is_published?: boolean | null
+  1289→          lifelines?: Json | null
+  1290→          name: string
+  1291→          primary_color?: string | null
+  1292→          prize_structure?: Json | null
+  1293→          region_id: string
+  1294→          time_per_question?: number | null
+  1295→          total_questions?: number | null
+  1296→          updated_at?: string | null
+  1297→        }
+  1298→        Update: {
+  1299→          background_color?: string | null
+  1300→          background_image_url?: string | null
+  1301→          business_user_id?: string | null
+  1302→          company_logo_url?: string | null
+  1303→          company_slogan?: string | null
+  1304→          created_at?: string | null
+  1305→          created_by?: string | null
+  1306→          description?: string | null
+  1307→          id?: string
+  1308→          is_active?: boolean | null
+  1309→          is_published?: boolean | null
+  1310→          lifelines?: Json | null
+  1311→          name?: string
+  1312→          primary_color?: string | null
+  1313→          prize_structure?: Json | null
+  1314→          region_id?: string
+  1315→          time_per_question?: number | null
+  1316→          total_questions?: number | null
+  1317→          updated_at?: string | null
+  1318→        }
+  1319→        Relationships: [
+  1320→          {
+  1321→            foreignKeyName: "millionaire_games_region_id_fkey"
+  1322→            columns: ["region_id"]
+  1323→            isOneToOne: false
+  1324→            referencedRelation: "regions"
+  1325→            referencedColumns: ["id"]
+  1326→          },
+  1327→        ]
+  1328→      }
+  1329→      millionaire_leaderboard: {
+  1330→        Row: {
+  1331→          created_at: string
+  1332→          game_id: string
+  1333→          highest_level: number
+  1334→          highest_prize: number
+  1335→          id: string
+  1336→          total_plays: number
+  1337→          updated_at: string
+  1338→          user_id: string
+  1339→        }
+  1340→        Insert: {
+  1341→          created_at?: string
+  1342→          game_id: string
+  1343→          highest_level?: number
+  1344→          highest_prize?: number
+  1345→          id?: string
+  1346→          total_plays?: number
+  1347→          updated_at?: string
+  1348→          user_id: string
+  1349→        }
+  1350→        Update: {
+  1351→          created_at?: string
+  1352→          game_id?: string
+  1353→          highest_level?: number
+  1354→          highest_prize?: number
+  1355→          id?: string
+  1356→          total_plays?: number
+  1357→          updated_at?: string
+  1358→          user_id?: string
+  1359→        }
+  1360→        Relationships: [
+  1361→          {
+  1362→            foreignKeyName: "millionaire_leaderboard_user_id_fkey"
+  1363→            columns: ["user_id"]
+  1364→            isOneToOne: false
+  1365→            referencedRelation: "profiles"
+  1366→            referencedColumns: ["user_id"]
+  1367→          },
+  1368→          {
+  1369→            foreignKeyName: "millionaire_leaderboard_user_id_fkey"
+  1370→            columns: ["user_id"]
+  1371→            isOneToOne: false
+  1372→            referencedRelation: "profiles_public"
+  1373→            referencedColumns: ["user_id"]
+  1374→          },
+  1375→        ]
+  1376→      }
+  1377→      millionaire_questions: {
+  1378→        Row: {
+  1379→          correct_answer: string
+  1380→          created_at: string | null
+  1381→          difficulty: string | null
+  1382→          explanation: string | null
+  1383→          game_id: string | null
+  1384→          id: string
+  1385→          option_a: string
+  1386→          option_b: string
+  1387→          option_c: string
+  1388→          option_d: string
+  1389→          points: number | null
+  1390→          question_number: number
+  1391→          question_text: string
+  1392→        }
+  1393→        Insert: {
+  1394→          correct_answer: string
+  1395→          created_at?: string | null
+  1396→          difficulty?: string | null
+  1397→          explanation?: string | null
+  1398→          game_id?: string | null
+  1399→          id?: string
+  1400→          option_a: string
+  1401→          option_b: string
+  1402→          option_c: string
+  1403→          option_d: string
+  1404→          points?: number | null
+  1405→          question_number: number
+  1406→          question_text: string
+  1407→        }
+  1408→        Update: {
+  1409→          correct_answer?: string
+  1410→          created_at?: string | null
+  1411→          difficulty?: string | null
+  1412→          explanation?: string | null
+  1413→          game_id?: string | null
+  1414→          id?: string
+  1415→          option_a?: string
+  1416→          option_b?: string
+  1417→          option_c?: string
+  1418→          option_d?: string
+  1419→          points?: number | null
+  1420→          question_number?: number
+  1421→          question_text?: string
+  1422→        }
+  1423→        Relationships: [
+  1424→          {
+  1425→            foreignKeyName: "millionaire_questions_game_id_fkey"
+  1426→            columns: ["game_id"]
+  1427→            isOneToOne: false
+  1428→            referencedRelation: "millionaire_games"
+  1429→            referencedColumns: ["id"]
+  1430→          },
+  1431→        ]
+  1432→      }
+  1433→      millionaire_sessions: {
+  1434→        Row: {
+  1435→          created_at: string | null
+  1436→          current_level: number | null
+  1437→          game_id: string | null
+  1438→          id: string
+  1439→          prize_won: number | null
+  1440→          region_id: string | null
+  1441→          status: string | null
+  1442→          user_id: string | null
+  1443→        }
+  1444→        Insert: {
+  1445→          created_at?: string | null
+  1446→          current_level?: number | null
+  1447→          game_id?: string | null
+  1448→          id?: string
+  1449→          prize_won?: number | null
+  1450→          region_id?: string | null
+  1451→          status?: string | null
+  1452→          user_id?: string | null
+  1453→        }
+  1454→        Update: {
+  1455→          created_at?: string | null
+  1456→          current_level?: number | null
+  1457→          game_id?: string | null
+  1458→          id?: string
+  1459→          prize_won?: number | null
+  1460→          region_id?: string | null
+  1461→          status?: string | null
+  1462→          user_id?: string | null
+  1463→        }
+  1464→        Relationships: [
+  1465→          {
+  1466→            foreignKeyName: "millionaire_sessions_game_id_fkey"
+  1467→            columns: ["game_id"]
+  1468→            isOneToOne: false
+  1469→            referencedRelation: "millionaire_games"
+  1470→            referencedColumns: ["id"]
+  1471→          },
+  1472→          {
+  1473→            foreignKeyName: "millionaire_sessions_region_id_fkey"
+  1474→            columns: ["region_id"]
+  1475→            isOneToOne: false
+  1476→            referencedRelation: "regions"
+  1477→            referencedColumns: ["id"]
+  1478→          },
+  1479→        ]
+  1480→      }
+  1481→      newsletter_signups: {
+  1482→        Row: {
+  1483→          country: string | null
+  1484→          created_at: string
+  1485→          email: string
+  1486→          id: string
+  1487→          source: string
+  1488→        }
+  1489→        Insert: {
+  1490→          country?: string | null
+  1491→          created_at?: string
+  1492→          email: string
+  1493→          id?: string
+  1494→          source?: string
+  1495→        }
+  1496→        Update: {
+  1497→          country?: string | null
+  1498→          created_at?: string
+  1499→          email?: string
+  1500→          id?: string
+  1501→          source?: string
+  1502→        }
+  1503→        Relationships: []
+  1504→      }
+  1505→      notifications: {
+  1506→        Row: {
+  1507→          created_at: string
+  1508→          id: string
+  1509→          message: string
+  1510→          metadata: Json | null
+  1511→          raffle_id: string | null
+  1512→          read: boolean
+  1513→          title: string
+  1514→          type: string
+  1515→          user_id: string
+  1516→        }
+  1517→        Insert: {
+  1518→          created_at?: string
+  1519→          id?: string
+  1520→          message: string
+  1521→          metadata?: Json | null
+  1522→          raffle_id?: string | null
+  1523→          read?: boolean
+  1524→          title: string
+  1525→          type?: string
+  1526→          user_id: string
+  1527→        }
+  1528→        Update: {
+  1529→          created_at?: string
+  1530→          id?: string
+  1531→          message?: string
+  1532→          metadata?: Json | null
+  1533→          raffle_id?: string | null
+  1534→          read?: boolean
+  1535→          title?: string
+  1536→          type?: string
+  1537→          user_id?: string
+  1538→        }
+  1539→        Relationships: [
+  1540→          {
+  1541→            foreignKeyName: "notifications_raffle_id_fkey"
+  1542→            columns: ["raffle_id"]
+  1543→            isOneToOne: false
+  1544→            referencedRelation: "raffles"
+  1545→            referencedColumns: ["id"]
+  1546→          },
+  1547→        ]
+  1548→      }
+  1549→      overlay_configs: {
+  1550→        Row: {
+  1551→          animation_intensity: string | null
+  1552→          border_radius: number | null
+  1553→          created_at: string | null
+  1554→          custom_css: string | null
+  1555→          id: string
+  1556→          is_default: boolean | null
+  1557→          layout: string | null
+  1558→          name: string | null
+  1559→          opacity: number | null
+  1560→          position: string | null
+  1561→          show_branding: boolean | null
+  1562→          show_confetti: boolean | null
+  1563→          show_player_count: boolean | null
+  1564→          show_score: boolean | null
+  1565→          show_sound_effects: boolean | null
+  1566→          show_timer: boolean | null
+  1567→          updated_at: string | null
+  1568→          user_id: string
+  1569→        }
+  1570→        Insert: {
+  1571→          animation_intensity?: string | null
+  1572→          border_radius?: number | null
+  1573→          created_at?: string | null
+  1574→          custom_css?: string | null
+  1575→          id?: string
+  1576→          is_default?: boolean | null
+  1577→          layout?: string | null
+  1578→          name?: string | null
+  1579→          opacity?: number | null
+  1580→          position?: string | null
+  1581→          show_branding?: boolean | null
+  1582→          show_confetti?: boolean | null
+  1583→          show_player_count?: boolean | null
+  1584→          show_score?: boolean | null
+  1585→          show_sound_effects?: boolean | null
+  1586→          show_timer?: boolean | null
+  1587→          updated_at?: string | null
+  1588→          user_id: string
+  1589→        }
+  1590→        Update: {
+  1591→          animation_intensity?: string | null
+  1592→          border_radius?: number | null
+  1593→          created_at?: string | null
+  1594→          custom_css?: string | null
+  1595→          id?: string
+  1596→          is_default?: boolean | null
+  1597→          layout?: string | null
+  1598→          name?: string | null
+  1599→          opacity?: number | null
+  1600→          position?: string | null
+  1601→          show_branding?: boolean | null
+  1602→          show_confetti?: boolean | null
+  1603→          show_player_count?: boolean | null
+  1604→          show_score?: boolean | null
+  1605→          show_sound_effects?: boolean | null
+  1606→          show_timer?: boolean | null
+  1607→          updated_at?: string | null
+  1608→          user_id?: string
+  1609→        }
+  1610→        Relationships: []
+  1611→      }
+  1612→      participants: {
+  1613→        Row: {
+  1614→          created_at: string
+  1615→          currency: string
+  1616→          id: string
+  1617→          payment_method: string | null
+  1618→          payment_status: string
+  1619→          paypal_capture_id: string | null
+  1620→          paypal_order_id: string | null
+  1621→          raffle_id: string
+  1622→          receipt_url: string | null
+  1623→          status: string
+  1624→          ticket_number: number
+  1625→          user_id: string
+  1626→        }
+  1627→        Insert: {
+  1628→          created_at?: string
+  1629→          currency?: string
+  1630→          id?: string
+  1631→          payment_method?: string | null
+  1632→          payment_status?: string
+  1633→          paypal_capture_id?: string | null
+  1634→          paypal_order_id?: string | null
+  1635→          raffle_id: string
+  1636→          receipt_url?: string | null
+  1637→          status?: string
+  1638→          ticket_number: number
+  1639→          user_id: string
+  1640→        }
+  1641→        Update: {
+  1642→          created_at?: string
+  1643→          currency?: string
+  1644→          id?: string
+  1645→          payment_method?: string | null
+  1646→          payment_status?: string
+  1647→          paypal_capture_id?: string | null
+  1648→          paypal_order_id?: string | null
+  1649→          raffle_id?: string
+  1650→          receipt_url?: string | null
+  1651→          status?: string
+  1652→          ticket_number?: number
+  1653→          user_id?: string
+  1654→        }
+  1655→        Relationships: [
+  1656→          {
+  1657→            foreignKeyName: "participants_raffle_id_fkey"
+  1658→            columns: ["raffle_id"]
+  1659→            isOneToOne: false
+  1660→            referencedRelation: "raffles"
+  1661→            referencedColumns: ["id"]
+  1662→          },
+  1663→        ]
+  1664→      }
+  1665→      password_reset_events: {
+  1666→        Row: {
+  1667→          created_at: string
+  1668→          email: string | null
+  1669→          error_message: string | null
+  1670→          id: string
+  1671→          ip_hint: string | null
+  1672→          link_type: string | null
+  1673→          metadata: Json
+  1674→          reason: string | null
+  1675→          stage: string
+  1676→          user_agent: string | null
+  1677→        }
+  1678→        Insert: {
+  1679→          created_at?: string
+  1680→          email?: string | null
+  1681→          error_message?: string | null
+  1682→          id?: string
+  1683→          ip_hint?: string | null
+  1684→          link_type?: string | null
+  1685→          metadata?: Json
+  1686→          reason?: string | null
+  1687→          stage: string
+  1688→          user_agent?: string | null
+  1689→        }
+  1690→        Update: {
+  1691→          created_at?: string
+  1692→          email?: string | null
+  1693→          error_message?: string | null
+  1694→          id?: string
+  1695→          ip_hint?: string | null
+  1696→          link_type?: string | null
+  1697→          metadata?: Json
+  1698→          reason?: string | null
+  1699→          stage?: string
+  1700→          user_agent?: string | null
+  1701→        }
+  1702→        Relationships: []
+  1703→      }
+  1704→      platform_settings: {
+  1705→        Row: {
+  1706→          id: string
+  1707→          key: string
+  1708→          updated_at: string
+  1709→          value: Json
+  1710→        }
+  1711→        Insert: {
+  1712→          id?: string
+  1713→          key: string
+  1714→          updated_at?: string
+  1715→          value?: Json
+  1716→        }
+  1717→        Update: {
+  1718→          id?: string
+  1719→          key?: string
+  1720→          updated_at?: string
+  1721→          value?: Json
+  1722→        }
+  1723→        Relationships: []
+  1724→      }
+  1725→      prestacao_product_leads: {
+  1726→        Row: {
+  1727→          business_user_id: string | null
+  1728→          category: string | null
+  1729→          created_at: string
+  1730→          down_payment: number
+  1731→          id: string
+  1732→          monthly_estimate: number
+  1733→          months: number
+  1734→          notes: string | null
+  1735→          product_id: string | null
+  1736→          source: string
+  1737→          status: string
+  1738→          total_price: number
+  1739→          user_agent: string | null
+  1740→          visitor_name: string | null
+  1741→          visitor_user_id: string | null
+  1742→          visitor_whatsapp: string | null
+  1743→        }
+  1744→        Insert: {
+  1745→          business_user_id?: string | null
+  1746→          category?: string | null
+  1747→          created_at?: string
+  1748→          down_payment?: number
+  1749→          id?: string
+  1750→          monthly_estimate?: number
+  1751→          months?: number
+  1752→          notes?: string | null
+  1753→          product_id?: string | null
+  1754→          source?: string
+  1755→          status?: string
+  1756→          total_price?: number
+  1757→          user_agent?: string | null
+  1758→          visitor_name?: string | null
+  1759→          visitor_user_id?: string | null
+  1760→          visitor_whatsapp?: string | null
+  1761→        }
+  1762→        Update: {
+  1763→          business_user_id?: string | null
+  1764→          category?: string | null
+  1765→          created_at?: string
+  1766→          down_payment?: number
+  1767→          id?: string
+  1768→          monthly_estimate?: number
+  1769→          months?: number
+  1770→          notes?: string | null
+  1771→          product_id?: string | null
+  1772→          source?: string
+  1773→          status?: string
+  1774→          total_price?: number
+  1775→          user_agent?: string | null
+  1776→          visitor_name?: string | null
+  1777→          visitor_user_id?: string | null
+  1778→          visitor_whatsapp?: string | null
+  1779→        }
+  1780→        Relationships: [
+  1781→          {
+  1782→            foreignKeyName: "prestacao_product_leads_product_id_fkey"
+  1783→            columns: ["product_id"]
+  1784→            isOneToOne: false
+  1785→            referencedRelation: "prestacao_products"
+  1786→            referencedColumns: ["id"]
+  1787→          },
+  1788→          {
+  1789→            foreignKeyName: "prestacao_product_leads_product_id_fkey"
+  1790→            columns: ["product_id"]
+  1791→            isOneToOne: false
+  1792→            referencedRelation: "prestacao_products_public"
+  1793→            referencedColumns: ["id"]
+  1794→          },
+  1795→        ]
+  1796→      }
+  1797→      prestacao_products: {
+  1798→        Row: {
+  1799→          annual_rate: number
+  1800→          brand: string | null
+  1801→          business_user_id: string
+  1802→          category: string
+  1803→          city: string | null
+  1804→          created_at: string
+  1805→          currency: string
+  1806→          description: string | null
+  1807→          featured: boolean
+  1808→          id: string
+  1809→          images: Json
+  1810→          max_months: number
+  1811→          min_down_payment: number
+  1812→          model: string | null
+  1813→          province: string | null
+  1814→          status: string
+  1815→          stock: number
+  1816→          title: string
+  1817→          total_price: number
+  1818→          updated_at: string
+  1819→          views_count: number
+  1820→          whatsapp: string
+  1821→          year: number | null
+  1822→        }
+  1823→        Insert: {
+  1824→          annual_rate?: number
+  1825→          brand?: string | null
+  1826→          business_user_id: string
+  1827→          category?: string
+  1828→          city?: string | null
+  1829→          created_at?: string
+  1830→          currency?: string
+  1831→          description?: string | null
+  1832→          featured?: boolean
+  1833→          id?: string
+  1834→          images?: Json
+  1835→          max_months?: number
+  1836→          min_down_payment?: number
+  1837→          model?: string | null
+  1838→          province?: string | null
+  1839→          status?: string
+  1840→          stock?: number
+  1841→          title: string
+  1842→          total_price?: number
+  1843→          updated_at?: string
+  1844→          views_count?: number
+  1845→          whatsapp: string
+  1846→          year?: number | null
+  1847→        }
+  1848→        Update: {
+  1849→          annual_rate?: number
+  1850→          brand?: string | null
+  1851→          business_user_id?: string
+  1852→          category?: string
+  1853→          city?: string | null
+  1854→          created_at?: string
+  1855→          currency?: string
+  1856→          description?: string | null
+  1857→          featured?: boolean
+  1858→          id?: string
+  1859→          images?: Json
+  1860→          max_months?: number
+  1861→          min_down_payment?: number
+  1862→          model?: string | null
+  1863→          province?: string | null
+  1864→          status?: string
+  1865→          stock?: number
+  1866→          title?: string
+  1867→          total_price?: number
+  1868→          updated_at?: string
+  1869→          views_count?: number
+  1870→          whatsapp?: string
+  1871→          year?: number | null
+  1872→        }
+  1873→        Relationships: []
+  1874→      }
+  1875→      profiles: {
+  1876→        Row: {
+  1877→          avatar_url: string | null
+  1878→          city: string | null
+  1879→          company_name: string | null
+  1880→          created_at: string
+  1881→          display_name: string | null
+  1882→          id: string
+  1883→          interests: string[] | null
+  1884→          is_verified: boolean | null
+  1885→          phone: string | null
+  1886→          province: string | null
+  1887→          referral_code: string | null
+  1888→          slug: string | null
+  1889→          updated_at: string
+  1890→          user_id: string
+  1891→        }
+  1892→        Insert: {
+  1893→          avatar_url?: string | null
+  1894→          city?: string | null
+  1895→          company_name?: string | null
+  1896→          created_at?: string
+  1897→          display_name?: string | null
+  1898→          id?: string
+  1899→          interests?: string[] | null
+  1900→          is_verified?: boolean | null
+  1901→          phone?: string | null
+  1902→          province?: string | null
+  1903→          referral_code?: string | null
+  1904→          slug?: string | null
+  1905→          updated_at?: string
+  1906→          user_id: string
+  1907→        }
+  1908→        Update: {
+  1909→          avatar_url?: string | null
+  1910→          city?: string | null
+  1911→          company_name?: string | null
+  1912→          created_at?: string
+  1913→          display_name?: string | null
+  1914→          id?: string
+  1915→          interests?: string[] | null
+  1916→          is_verified?: boolean | null
+  1917→          phone?: string | null
+  1918→          province?: string | null
+  1919→          referral_code?: string | null
+  1920→          slug?: string | null
+  1921→          updated_at?: string
+  1922→          user_id?: string
+  1923→        }
+  1924→        Relationships: []
+  1925→      }
+  1926→      raffles: {
+  1927→        Row: {
+  1928→          activation_fee_paid: boolean | null
+  1929→          activation_fee_percentage: number | null
+  1930→          auto_draw_days: number | null
+  1931→          auto_draw_scheduled_at: string | null
+  1932→          business_user_id: string
+  1933→          category: string | null
+  1934→          city: string | null
+  1935→          country: string
+  1936→          created_at: string
+  1937→          currency: string
+  1938→          description: string | null
+  1939→          draw_mode: string
+  1940→          end_date: string | null
+  1941→          hide_prize_value: boolean
+  1942→          id: string
+  1943→          image_url: string | null
+  1944→          max_tickets_per_user: number | null
+  1945→          max_winners: number
+  1946→          points_cost: number
+  1947→          prize_title: string
+  1948→          prize_value: number
+  1949→          province: string | null
+  1950→          raffle_type: string
+  1951→          rejection_reason: string | null
+  1952→          slug: string | null
+  1953→          social_actions: Json | null
+  1954→          sold_tickets: number
+  1955→          start_date: string | null
+  1956→          status: string
+  1957→          ticket_price: number
+  1958→          tickets_threshold: number | null
+  1959→          title: string
+  1960→          total_tickets: number
+  1961→          updated_at: string
+  1962→        }
+  1963→        Insert: {
+  1964→          activation_fee_paid?: boolean | null
+  1965→          activation_fee_percentage?: number | null
+  1966→          auto_draw_days?: number | null
+  1967→          auto_draw_scheduled_at?: string | null
+  1968→          business_user_id: string
+  1969→          category?: string | null
+  1970→          city?: string | null
+  1971→          country?: string
+  1972→          created_at?: string
+  1973→          currency?: string
+  1974→          description?: string | null
+  1975→          draw_mode?: string
+  1976→          end_date?: string | null
+  1977→          hide_prize_value?: boolean
+  1978→          id?: string
+  1979→          image_url?: string | null
+  1980→          max_tickets_per_user?: number | null
+  1981→          max_winners?: number
+  1982→          points_cost?: number
+  1983→          prize_title: string
+  1984→          prize_value?: number
+  1985→          province?: string | null
+  1986→          raffle_type?: string
+  1987→          rejection_reason?: string | null
+  1988→          slug?: string | null
+  1989→          social_actions?: Json | null
+  1990→          sold_tickets?: number
+  1991→          start_date?: string | null
+  1992→          status?: string
+  1993→          ticket_price?: number
+  1994→          tickets_threshold?: number | null
+  1995→          title: string
+  1996→          total_tickets?: number
+  1997→          updated_at?: string
+  1998→        }
+  1999→        Update: {
+  2000→          activation_fee_paid?: boolean | null
+  2001→          activation_fee_percentage?: number | null
+  2002→          auto_draw_days?: number | null
+  2003→          auto_draw_scheduled_at?: string | null
+  2004→          business_user_id?: string
+  2005→          category?: string | null
+  2006→          city?: string | null
+  2007→          country?: string
+  2008→          created_at?: string
+  2009→          currency?: string
+  2010→          description?: string | null
+  2011→          draw_mode?: string
+  2012→          end_date?: string | null
+  2013→          hide_prize_value?: boolean
+  2014→          id?: string
+  2015→          image_url?: string | null
+  2016→          max_tickets_per_user?: number | null
+  2017→          max_winners?: number
+  2018→          points_cost?: number
+  2019→          prize_title?: string
+  2020→          prize_value?: number
+  2021→          province?: string | null
+  2022→          raffle_type?: string
+  2023→          rejection_reason?: string | null
+  2024→          slug?: string | null
+  2025→          social_actions?: Json | null
+  2026→          sold_tickets?: number
+  2027→          start_date?: string | null
+  2028→          status?: string
+  2029→          ticket_price?: number
+  2030→          tickets_threshold?: number | null
+  2031→          title?: string
+  2032→          total_tickets?: number
+  2033→          updated_at?: string
+  2034→        }
+  2035→        Relationships: []
+  2036→      }
+  2037→      redeemed_rewards: {
+  2038→        Row: {
+  2039→          id: string
+  2040→          points_spent: number
+  2041→          redeemed_at: string
+  2042→          reward_id: string
+  2043→          status: string
+  2044→          user_id: string
+  2045→        }
+  2046→        Insert: {
+  2047→          id?: string
+  2048→          points_spent: number
+  2049→          redeemed_at?: string
+  2050→          reward_id: string
+  2051→          status?: string
+  2052→          user_id: string
+  2053→        }
+  2054→        Update: {
+  2055→          id?: string
+  2056→          points_spent?: number
+  2057→          redeemed_at?: string
+  2058→          reward_id?: string
+  2059→          status?: string
+  2060→          user_id?: string
+  2061→        }
+  2062→        Relationships: [
+  2063→          {
+  2064→            foreignKeyName: "redeemed_rewards_reward_id_fkey"
+  2065→            columns: ["reward_id"]
+  2066→            isOneToOne: false
+  2067→            referencedRelation: "rewards"
+  2068→            referencedColumns: ["id"]
+  2069→          },
+  2070→        ]
+  2071→      }
+  2072→      referrals: {
+  2073→        Row: {
+  2074→          created_at: string
+  2075→          first_purchase_bonus_at: string | null
+  2076→          first_purchase_bonus_points: number
+  2077→          id: string
+  2078→          points_awarded: number
+  2079→          referral_code: string
+  2080→          referred_id: string
+  2081→          referrer_id: string
+  2082→          status: string
+  2083→        }
+  2084→        Insert: {
+  2085→          created_at?: string
+  2086→          first_purchase_bonus_at?: string | null
+  2087→          first_purchase_bonus_points?: number
+  2088→          id?: string
+  2089→          points_awarded?: number
+  2090→          referral_code: string
+  2091→          referred_id: string
+  2092→          referrer_id: string
+  2093→          status?: string
+  2094→        }
+  2095→        Update: {
+  2096→          created_at?: string
+  2097→          first_purchase_bonus_at?: string | null
+  2098→          first_purchase_bonus_points?: number
+  2099→          id?: string
+  2100→          points_awarded?: number
+
+[showing lines 101-2100 of 3446; use offset=2101 with limit to continue reading]

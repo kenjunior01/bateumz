@@ -152,3 +152,33 @@ Stage Summary:
 - 10/15 paginas ao vivo funcionam, 3 crasham, 2 ficam em branco
 - 69 jogos catalogados em 16 categorias
 - SQL migration regional_manager confirmada pronta
+
+---
+Task ID: 6
+Agent: Super Z (main)
+Task: Code audit - critical bug fixes, i18n hardcoding, duplicate components
+
+Work Log:
+- Audited 10 core files: LiveHub, Prestacoes, LiveParticipar, Login, Register, App.tsx, RegionalCEODashboard, BottomTabBar, MobileTopBar, MobileMenuDrawer
+- Fixed LiveHub.tsx line 525: `t("livehub.title")` rendered as literal text (missing {} wrapper)
+- Removed duplicate BottomTabBar from 10 pages (LiveHub, Prestacoes, LiveParticipar, Privacy, Terms, Transparency, LivesAgora, PrestacoesProduto, PrestacoesCatalogo, ScheduledLivePage) - App.tsx renders it globally
+- Fixed App.tsx: consolidated duplicate `useParams` import, replaced wasteful `setInterval(300ms)` overlay detection with `useLocation()`
+- Fixed App.tsx AppErrorBoundary: 4 hardcoded Portuguese strings replaced with English
+- Fixed ErrorBoundary.tsx: 3 hardcoded Portuguese strings replaced with English
+- Fixed Login.tsx: 4 Portuguese strings mixed with English replaced ("ou"->"or", "A entrar..."->"Signing in...", "Esqueceu a senha?"->"Forgot password?", "Voltar ao site"->"Back to site")
+- Fixed MobileTopBar.tsx: replaced `window.location.href` with `navigate()`, added try/catch around live count query, replaced hardcoded "New notification" with `t("nav.notifications")`
+- Fixed Navbar.tsx: 3 instances of hardcoded "AO VIVO" replaced with `{t("nav.live")}`, 2 instances of "Trending" replaced with `{t("nav.trending")}`
+- Fixed HeroSection.tsx: moved ROTATING_WORDS from module-level hardcoded Portuguese to component-level `t()` calls (hero.rotating.* keys)
+- Fixed HeroSection.tsx: STATS_CONFIG labels changed from Portuguese fallbacks to English
+- Added 12 new translation keys to LanguageContext.tsx: nav.trending (EN, PT, PT-BR), hero.rotating.{live,raffles,prizes,lives} (EN, PT), hero.stat.{participants,prizes,games,countries} (EN, PT)
+- Build verified: 0 TypeScript errors, Vite build clean (17.65s)
+
+Stage Summary:
+- 16 files modified, 25+ individual fixes applied
+- 10 pages no longer render duplicate BottomTabBar on mobile
+- All error boundary strings now in English (consistent with rest of untranslated pages)
+- Login.tsx is now consistently English
+- Navbar properly translates AO VIVO and Trending badges
+- HeroSection rotating words and stats labels are now i18n-ready
+- Build: 0 errors, 17.65s
+- Remaining known issues: Prestacoes.tsx (647 lines, 0% i18n), LiveParticipar.tsx (627 lines, 0% i18n), RegionalCEODashboard.tsx (379 lines, 0% i18n), CSS injection risk in RegionalCEODashboard custom_css field

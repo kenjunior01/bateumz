@@ -1,0 +1,628 @@
+     1→import { useEffect, useState, useCallback, useRef } from "react";
+     2→import { useParams, useSearchParams, Link } from "react-router-dom";
+     3→import { motion, AnimatePresence } from "framer-motion";
+     4→import {
+     5→  Radio, Users, Trophy, Gamepad2, Zap, Heart, Gift,
+     6→  ChevronLeft, Send, Check, Clock, Star, X, ArrowRight,
+     7→  Crown, Flame, Lock, Volume2, VolumeX, Share2, Bell, Eye,
+     8→} from "lucide-react";
+     9→import { Button } from "@/components/ui/button";
+    10→import { Badge } from "@/components/ui/badge";
+    11→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    12→import { Input } from "@/components/ui/input";
+    13→import { Progress } from "@/components/ui/progress";
+    14→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    15→import {
+    16→  subscribeChat, sendChatMessage, fetchChatHistory,
+    17→  sendReaction, updatePresence, subscribeViewerCount, getLiveViewerCount,
+    18→  toggleFollow, isFollowing, getCreatorStats, subscribeTips,
+    19→  createBingoGame, joinBingo, drawBingoNumber, markBingoNumber, checkBingo,
+    20→  subscribeBingo, type ChatMessage, type BingoGame, type BingoCard,
+    21→  type LiveTip, type CreatorStat,
+    22→} from "@/lib/livePlatform";
+    23→import FloatingReactions from "@/components/live/FloatingReactions";
+    24→import LiveChat from "@/components/live/LiveChat";
+    25→import { useAuth } from "@/contexts/AuthContext";
+    26→import Navbar from "@/components/Navbar";
+    27→import BottomTabBar from "@/components/BottomTabBar";
+    28→import { cn } from "@/lib/utils";
+    29→import confetti from "canvas-confetti";
+    30→import { toast } from "sonner";
+    31→
+    32→const EMOJI_QUICK = ["\u2764\uFE0F", "\u{1F525}", "\u{1F389}", "\u{1F4AF}", "\u{1F602}", "\u{1F44F}", "\u{1F618}", "\u{1F4A5}"];
+    33→
+    34→const QUICK_GAMES = [
+    35→  { emoji: "\u{1F3B2}", label: "Roleta", id: "roulette" },
+    36→  { emoji: "\u26BD", label: "P\u00EAnaltis", id: "penalties" },
+    37→  { emoji: "\u{1F381}", label: "Caixa", id: "mystery" },
+    38→  { emoji: "\u{1F3AF}", label: "Quiz", id: "quiz" },
+    39→  { emoji: "\u{1F3B0}", label: "Bingo", id: "bingo" },
+    40→  { emoji: "\u{1F4AA}", label: "Tap", id: "tap" },
+    41→];
+    42→
+    43→// ==================== BINGO SPECTATOR VIEW ====================
+    44→const SpectatorBingo = ({ scheduledLiveId, liveCode }: { scheduledLiveId?: string; liveCode?: string }) => {
+    45→  const { user } = useAuth();
+    46→  const [game, setGame] = useState<BingoGame | null>(null);
+    47→  const [card, setCard] = useState<BingoCard | null>(null);
+    48→  const [loading, setLoading] = useState(true);
+    49→  const [marked, setMarked] = useState<Set<number>>(new Set());
+    50→
+    51→  const BINGO_HEADER = ["B", "I", "N", "G", "O"];
+    52→
+    53→  const handleJoin = async () => {
+    54→    if (!game) return;
+    55→    const { data, error } = await joinBingo(game.id);
+    56→    if (error) { toast.error("Erro ao entrar no bingo"); return; }
+    57→    setCard(data as BingoCard);
+    58→    toast.success("Cart\u00F3ria gerada! Boa sorte!");
+    59→  };
+    60→
+    61→  const handleMark = async (num: number) => {
+    62→    if (!card || !game) return;
+    63→    if (!game.drawn_numbers?.includes(num)) return;
+    64→    await markBingoNumber(card.id, num);
+    65→    const newMarked = new Set(marked);
+    66→    newMarked.add(num);
+    67→    setMarked(newMarked);
+    68→  };
+    69→
+    70→  const handleBingo = () => {
+    71→    if (!card || !game) return;
+    72→    const won = checkBingo(card, game.drawn_numbers || [], game.pattern_type);
+    73→    if (won) {
+    74→      toast.success("\u{1F389} BINGO! Voc\u00EA ganhou!");
+    75→    } else {
+    76→      toast.error("Ainda n\u00E3o completou o padr\u00E3o!");
+    77→    }
+    78→  };
+    79→
+    80→  return (
+    81→    <div className="space-y-3">
+    82→      <div className="flex items-center justify-between">
+    83→        <div className="flex items-center gap-2">
+    84→          <Trophy className="h-5 w-5 text-emerald-500" />
+    85→          <h3 className="font-bold text-base">Bingo ao Vivo</h3>
+    86→        </div>
+    87→        {game && (
+    88→          <Badge variant="outline" className="text-[10px]">
+    89→            {game.drawn_numbers?.length || 0} sorteados
+    90→          </Badge>
+    91→        )}
+    92→      </div>
+    93→
+    94→      {!card ? (
+    95→        <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+    96→          <div className="text-4xl mb-3">🃏</div>
+    97→          <p className="text-sm text-muted-foreground mb-4">
+    98→            {game
+    99→              ? "Gere sua cart\u00F3ria e jogue em tempo real!"
+   100→              : "Aguardando o in\u00EDcio do bingo..."}
+   101→          </p>
+   102→          {game ? (
+   103→            <Button onClick={handleJoin} className="bg-emerald-500 hover:bg-emerald-600">
+   104→              Gerar Cart\u00F3ria
+   105→            </Button>
+   106→          ) : null}
+   107→        </div>
+   108→      ) : (
+   109→        <div className="space-y-3">
+   110→          {game.drawn_numbers && game.drawn_numbers.length > 0 && (
+   111→            <div className="flex flex-wrap gap-1">
+   112→              {game.drawn_numbers.slice(-12).map((n) => (
+   113→                <span key={n} className="h-7 w-7 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+   114→                  {n}
+   115→                </span>
+   116→              ))}
+   117→            </div>
+   118→          )}
+   119→
+   120→          <div className="grid grid-cols-5 gap-1">
+   121→            {BINGO_HEADER.map((h, i) => (
+   122→              <div key={h} className="h-7 rounded-lg bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+   123→                {h}
+   124→              </div>
+   125→            ))}
+   126→            {card.numbers.map((num, i) => {
+   127→              const isMarked = marked.has(num) || num === 0;
+   128→              const isDrawn = game?.drawn_numbers?.includes(num) || num === 0;
+   129→              return (
+   130→                <button
+   131→                  key={i}
+   132→                  onClick={() => handleMark(num)}
+   133→                  disabled={!isDrawn || num === 0}
+   134→                  className={cn(
+   135→                    "h-10 rounded-lg text-xs font-bold transition-all",
+   136→                    num === 0
+   137→                      ? "bg-emerald-500/20 text-emerald-500"
+   138→                      : isMarked
+   139→                        ? "bg-primary text-primary-foreground scale-95"
+   140→                        : isDrawn
+   141→                          ? "bg-amber-500/20 text-amber-600 hover:bg-amber-500/40 cursor-pointer"
+   142→                          : "bg-muted/50 text-muted-foreground"
+   143→                  )}
+   144→                >
+   145→                  {num === 0 ? "\u2605" : num}
+   146→                </button>
+   147→              );
+   148→            })}
+   149→          </div>
+   150→
+   151→          <Button
+   152→            onClick={handleBingo}
+   153→            className="w-full py-3 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl"
+   154→          >
+   155→            GRITAR BINGO!
+   156→          </Button>
+   157→        </div>
+   158→      )}
+   159→    </div>
+   160→  );
+   161→};
+   162→
+   163→// ==================== TAP BATTLE SPECTATOR ====================
+   164→const SpectatorTapBattle = ({ liveCode }: { liveCode?: string }) => {
+   165→  const { user } = useAuth();
+   166→  const [taps, setTaps] = useState(0);
+   167→  const [timeLeft, setTimeLeft] = useState(10);
+   168→  const [active, setActive] = useState(false);
+   169→  const [bestScore, setBestScore] = useState(0);
+   170→  const [tapParticles, setTapParticles] = useState<{id: number; x: number; y: number; color: string}[]>([]);
+   171→  const [shakeKey, setShakeKey] = useState(0);
+   172→  const [flashClass, setFlashClass] = useState("");
+   173→  const [gameEnded, setGameEnded] = useState(false);
+   174→  const tapRef = useRef<HTMLDivElement>(null);
+   175→
+   176→  const spawnTapParticle = (e: React.MouseEvent) => {
+   177→    if (!tapRef.current) return;
+   178→    const rect = tapRef.current.getBoundingClientRect();
+   179→    const x = e.clientX - rect.left;
+   180→    const y = e.clientY - rect.top;
+   181→    const colors = ["#f97316", "#ef4444", "#fbbf24", "#f59e0b", "#ffffff"];
+   182→    const newParticles = Array.from({ length: 6 }, (_, i) => ({
+   183→      id: Date.now() + i, x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 60,
+   184→      color: colors[Math.floor(Math.random() * colors.length)]
+   185→    }));
+   186→    setTapParticles(prev => [...prev, ...newParticles]);
+   187→    setTimeout(() => setTapParticles(prev => prev.filter(p => !newParticles.find(np => np.id === p.id))), 600);
+   188→  };
+   189→
+   190→  const handleTap = (e: React.MouseEvent) => {
+   191→    if (!active) { startGame(); return; }
+   192→    spawnTapParticle(e);
+   193→    setTaps(p => {
+   194→      const n = p + 1;
+   195→      if (n % 10 === 0) {
+   196→        setShakeKey(k => k + 1);
+   197→        setFlashClass("game-flash-white");
+   198→        setTimeout(() => setFlashClass(""), 300);
+   199→      }
+   200→      if (n % 25 === 0) {
+   201→        setFlashClass("game-flash-gold");
+   202→        setTimeout(() => setFlashClass(""), 400);
+   203→      }
+   204→      return n;
+   205→    });
+   206→  };
+   207→
+   208→  const startGame = () => { setTaps(0); setTimeLeft(10); setActive(true); setTapParticles([]); setGameEnded(false); setFlashClass(""); };
+   209→
+   210→  useEffect(() => {
+   211→    if (!active) return;
+   212→    const t = setInterval(() => {
+   213→      setTimeLeft((p) => {
+   214→        if (p <= 1) {
+   215→          setActive(false);
+   216→          setGameEnded(true);
+   217→          const finalTaps = taps;
+   218→          setBestScore((b) => {
+   219→            const newBest = Math.max(b, finalTaps);
+   220→            if (finalTaps >= 50) {
+   221→              setFlashClass("game-flash-gold");
+   222→              setTimeout(() => setFlashClass(""), 600);
+   223→              confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 }, colors: ["#f97316", "#fbbf24", "#ffffff"] });
+   224→              setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.3, y: 0.5 }, colors: ["#f97316", "#ef4444"] }), 200);
+   225→              setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.7, y: 0.5 }, colors: ["#f97316", "#ef4444"] }), 400);
+   226→            }
+   227→            return newBest;
+   228→          });
+   229→          return 0;
+   230→        }
+   231→        return p - 1;
+   232→      });
+   233→    }, 1000);
+   234→    return () => clearInterval(t);
+   235→  }, [active, taps]);
+   236→
+   237→  return (
+   238→    <div className="space-y-4">
+   239→      <div className="flex items-center justify-between">
+   240→        <div className="flex items-center gap-2">
+   241→          <Flame className="h-5 w-5 text-orange-500" />
+   242→          <h3 className="font-bold text-base">Batalha de Toques</h3>
+   243→        </div>
+   244→        {bestScore > 0 && (
+   245→          <Badge variant="secondary" className="text-[10px]">Recorde: {bestScore}</Badge>
+   246→        )}
+   247→      </div>
+   248→
+   249→      <div key={shakeKey} className={"text-center py-2 relative " + (shakeKey > 0 ? "game-screen-shake" : "")}>
+   250→        {flashClass && <div className={"absolute inset-0 z-10 pointer-events-none rounded-2xl " + flashClass} />}
+   251→        <motion.p key={taps} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 15 }} className="text-5xl font-black text-primary">{taps}</motion.p>
+   252→        <p className="text-xs text-muted-foreground mt-1">toques</p>
+   253→      </div>
+   254→
+   255→      {active && (
+   256→        <div className="relative">
+   257→          <div className={`absolute inset-0 rounded-full ${timeLeft <= 3 ? 'energy-bar-glow' : ''}`} />
+   258→          <Progress value={(timeLeft / 10) * 100} className={`h-3 ${timeLeft <= 3 ? '[&>div]:!bg-red-500' : timeLeft <= 5 ? '[&>div]:!bg-amber-500' : ''}`} />
+   259→          {timeLeft <= 3 && <p className="text-center text-[10px] text-red-400 font-bold mt-1 animate-pulse">ULTIMOS SEGUNDOS!</p>}
+   260→        </div>
+   261→      )}
+   262→
+   263→      <button
+   264→        onClick={handleTap}
+   265→        className={cn(
+   266→          "w-full h-32 rounded-2xl text-xl font-black transition-all active:scale-90 relative overflow-hidden",
+   267→          active
+   268→            ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30 spin-btn-glow"
+   269→            : "bg-gradient-to-r from-primary/10 to-accent/10 text-primary border-2 border-dashed border-primary/30"
+   270→        )}
+   271→      >
+   272→        {active && taps >= 50 && <div className="absolute inset-0 celebration-rays" />}
+   273→        {active ? "\u{1F4AA} TOQUE! (" + timeLeft + "s)" : "\u{1F3C3} Come\u00E7ar"}
+   274→      </button>
+   275→      {gameEnded && taps >= 50 && (
+   276→        <motion.div
+   277→          initial={{ opacity: 0, y: 10 }}
+   278→          animate={{ opacity: 1, y: 0 }}
+   279→          className="text-center mt-2"
+   280→        >
+   281→          <p className="text-xs font-bold text-primary animate-pulse">✨ INCREDIBLE! ✨</p>
+   282→        </motion.div>
+   283→      )}
+   284→    </div>
+   285→  );
+   286→};
+   287→
+   288→// ==================== MAIN COMPONENT ====================
+   289→const LiveParticipar = () => {
+   290→  const { slug } = useParams();
+   291→  const [params] = useSearchParams();
+   292→  const { user } = useAuth();
+   293→  const liveCode = params.get("code") || "";
+   294→  const scheduledLiveId = slug || undefined;
+   295→  const liveId = slug || liveCode;
+   296→
+   297→  const [viewerCount, setViewerCount] = useState(0);
+   298→  const [messages, setMessages] = useState<ChatMessage[]>([]);
+   299→  const [chatInput, setChatInput] = useState("");
+   300→  const [activePanel, setActivePanel] = useState<"chat" | "games" | "bingo">("chat");
+   301→  const [joined, setJoined] = useState(false);
+   302→  const [showChat, setShowChat] = useState(true);
+   303→  const [muted, setMuted] = useState(false);
+   304→  const [followingHost, setFollowingHost] = useState(false);
+   305→  const [recentTips, setRecentTips] = useState<LiveTip[]>([]);
+   306→  const [hostInfo, setHostInfo] = useState<any>(null);
+   307→  const chatEndRef = useRef<HTMLDivElement>(null);
+   308→
+   309→  // Presence
+   310→  useEffect(() => {
+   311→    if (!liveId) return;
+   312→    const update = () => updatePresence({ scheduled_live_id: scheduledLiveId, live_code: liveCode || undefined });
+   313→    update();
+   314→    const t = setInterval(update, 30000);
+   315→    return () => clearInterval(t);
+   316→  }, [liveId, scheduledLiveId, liveCode]);
+   317→
+   318→  // Viewer count
+   319→  useEffect(() => {
+   320→    if (!slug) return;
+   321→    getLiveViewerCount(slug).then(setViewerCount);
+   322→    const unsub = subscribeViewerCount(slug, setViewerCount);
+   323→    return unsub;
+   324→  }, [slug]);
+   325→
+   326→  // Chat history + subscribe
+   327→  useEffect(() => {
+   328→    if (!liveId) return;
+   329→    const opts = scheduledLiveId ? { scheduled_live_id: scheduledLiveId } : { live_code: liveCode };
+   330→    fetchChatHistory({ ...opts, limit: 50 }).then(({ data }) => {
+   331→      if (data) setMessages((data as ChatMessage[]).reverse());
+   332→    });
+   333→    const unsub = subscribeChat(liveId, opts, (msg) => {
+   334→      setMessages((prev) => [...prev.slice(-99), msg]);
+   335→    });
+   336→    return unsub;
+   337→  }, [liveId, scheduledLiveId, liveCode]);
+   338→
+   339→  // Tips
+   340→  useEffect(() => {
+   341→    if (!scheduledLiveId) return;
+   342→    const unsub = subscribeTips(scheduledLiveId, (tip) => {
+   343→      setRecentTips((prev) => [tip, ...prev].slice(0, 3));
+   344→    });
+   345→    return unsub;
+   346→  }, [scheduledLiveId]);
+   347→
+   348→  // Auto-scroll chat
+   349→  useEffect(() => {
+   350→    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+   351→  }, [messages.length]);
+   352→
+   353→  const handleJoin = async () => {
+   354→    if (user) {
+   355→      await sendChatMessage({
+   356→        scheduled_live_id: scheduledLiveId,
+   357→        live_code: liveCode || undefined,
+   358→        message: "Entrou na live! \u{1F44B}",
+   359→      });
+   360→    }
+   361→    setJoined(true);
+   362→  };
+   363→
+   364→  const handleSendChat = async () => {
+   365→    if (!chatInput.trim()) return;
+   366→    await sendChatMessage({
+   367→      scheduled_live_id: scheduledLiveId,
+   368→      live_code: liveCode || undefined,
+   369→      message: chatInput.trim(),
+   370→    });
+   371→    setChatInput("");
+   372→  };
+   373→
+   374→  const timeAgo = (iso: string) => {
+   375→    const diff = Date.now() - new Date(iso).getTime();
+   376→    if (diff < 60000) return "agora";
+   377→    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+   378→    return `${Math.floor(diff / 3600000)}h`;
+   379→  };
+   380→
+   381→  return (
+   382→    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+   383→      <FloatingReactions scheduledLiveId={scheduledLiveId} liveCode={liveCode || undefined} />
+   384→
+   385→      <AnimatePresence>
+   386→        {recentTips.map((tip, i) => (
+   387→          <motion.div
+   388→            key={`${tip.id}-${i}`}
+   389→            initial={{ x: 300, opacity: 0, scale: 0.5 }}
+   390→            animate={{ x: 0, opacity: 1, scale: 1 }}
+   391→            exit={{ x: -300, opacity: 0 }}
+   392→            transition={{ type: "spring", damping: 20 }}
+   393→            className="fixed top-20 right-4 z-50 max-w-xs"
+   394→          >
+   395→            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white shadow-xl shadow-amber-500/30 backdrop-blur-sm">
+   396→              <Gift className="h-5 w-5" />
+   397→              <div>
+   398→                <p className="text-[10px] opacity-80">Super Chat</p>
+   399→                <p className="text-sm font-black">${tip.amount.toFixed(2)}</p>
+   400→              </div>
+   401→            </div>
+   402→          </motion.div>
+   403→        ))}
+   404→      </AnimatePresence>
+   405→
+   406→      <div className="max-w-2xl mx-auto flex flex-col h-screen lg:h-screen">
+   407→        <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/40 bg-background/80 backdrop-blur-sm z-10">
+   408→          <div className="flex items-center gap-3">
+   409→            <Link to="/lives-agora">
+   410→              <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+   411→            </Link>
+   412→            <div className="flex items-center gap-2">
+   413→              <Badge className="bg-red-500 text-white text-[10px] gap-1.5 px-2.5 py-0.5 rounded-full animate-pulse shadow-lg shadow-red-500/20">
+   414→                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+   415→                AO VIVO
+   416→              </Badge>
+   417→              <span className="text-xs text-muted-foreground flex items-center gap-1">
+   418→                <Users className="h-3.5 w-3.5" /> {viewerCount}
+   419→              </span>
+   420→            </div>
+   421→          </div>
+   422→          <div className="flex items-center gap-2">
+   423→            <button onClick={() => setMuted((p) => !p)} className="p-2 rounded-full hover:bg-muted">
+   424→              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+   425→            </button>
+   426→            <button className="p-2 rounded-full hover:bg-muted">
+   427→              <Share2 className="h-4 w-4" />
+   428→            </button>
+   429→            {!joined && user && (
+   430→              <Button
+   431→                onClick={handleJoin}
+   432→                size="sm"
+   433→                className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] gap-1 h-8"
+   434→              >
+   435→                <Check className="h-3.5 w-3.5" /> Entrar
+   436→              </Button>
+   437→            )}
+   438→          </div>
+   439→        </div>
+   440→
+   441→        <div className="shrink-0 relative bg-gradient-to-br from-primary/20 via-background to-accent/10 aspect-video max-h-[40vh] lg:max-h-[50vh] flex items-center justify-center overflow-hidden">
+   442→          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-10" />
+   443→          <div className="relative z-20 text-center">
+   444→            <p className="text-5xl font-black text-white/10 select-none">BATEU</p>
+   445→            <p className="text-xs text-white/40 mt-1">Plataforma de Entretenimento</p>
+   446→          </div>
+   447→          <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2">
+   448→            <Badge className="bg-black/40 backdrop-blur-sm text-white border-0 text-[10px] rounded-full gap-1">
+   449→              <Gamepad2 className="h-3 w-3" /> Jogos ativos
+   450→            </Badge>
+   451→          </div>
+   452→          <div className="absolute top-3 right-3 z-20">
+   453→            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm text-white text-[10px]">
+   454→              <Eye className="h-3 w-3" /> {viewerCount}
+   455→            </div>
+   456→          </div>
+   457→        </div>
+   458→
+   459→        <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-border/40 overflow-x-auto">
+   460→          {[
+   461→            { id: "chat" as const, label: "Chat", icon: Zap },
+   462→            { id: "games" as const, label: "Jogos", icon: Gamepad2 },
+   463→            { id: "bingo" as const, label: "Bingo", icon: Trophy },
+   464→          ].map((tab) => {
+   465→            const Icon = tab.icon;
+   466→            return (
+   467→              <button
+   468→                key={tab.id}
+   469→                onClick={() => setActivePanel(tab.id)}
+   470→                className={cn(
+   471→                  "flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all",
+   472→                  activePanel === tab.id
+   473→                    ? "bg-primary text-primary-foreground shadow-md"
+   474→                    : "text-muted-foreground hover:bg-muted"
+   475→                )}
+   476→              >
+   477→                <Icon className="h-3.5 w-3.5" /> {tab.label}
+   478→              </button>
+   479→            );
+   480→          })}
+   481→        </div>
+   482→
+   483→        <div className="flex-1 overflow-hidden">
+   484→          <AnimatePresence mode="wait">
+   485→            {activePanel === "chat" && (
+   486→              <motion.div
+   487→                key="chat"
+   488→                initial={{ opacity: 0, x: -10 }}
+   489→                animate={{ opacity: 1, x: 0 }}
+   490→                exit={{ opacity: 0, x: 10 }}
+   491→                className="h-full flex flex-col"
+   492→              >
+   493→                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+   494→                  {messages.length === 0 && (
+   495→                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+   496→                      <Zap className="h-8 w-8 mb-2 opacity-20" />
+   497→                      <p className="text-xs">Aguardando mensagens...</p>
+   498→                    </div>
+   499→                  )}
+   500→                  <AnimatePresence initial={false}>
+   501→                    {messages.map((msg) => (
+   502→                      <motion.div
+   503→                        key={msg.id}
+   504→                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+   505→                        animate={{ opacity: 1, y: 0, scale: 1 }}
+   506→                        transition={{ duration: 0.15 }}
+   507→                        className={cn(
+   508→                          "text-xs rounded-xl px-3 py-2",
+   509→                          msg.is_system
+   510→                            ? "text-center text-primary/70 bg-primary/5"
+   511→                            : msg.is_highlighted
+   512→                              ? "bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/20"
+   513→                              : "hover:bg-muted/40"
+   514→                        )}
+   515→                      >
+   516→                        {msg.is_system ? (
+   517→                          <p>{msg.message}</p>
+   518→                        ) : (
+   519→                          <>
+   520→                            {msg.is_highlighted && msg.tip_amount > 0 && (
+   521→                              <Badge className="bg-amber-500 text-white text-[8px] border-0 mb-1 px-1.5 rounded-full">
+   522→                                $${msg.tip_amount.toFixed(2)}
+   523→                              </Badge>
+   524→                            )}
+   525→                            <div className="flex items-start gap-2">
+   526→                              <Avatar className="h-5 w-5 mt-0.5 shrink-0">
+   527→                                <AvatarImage src={msg.avatar_url || undefined} />
+   528→                                <AvatarFallback className="text-[7px] bg-primary/10">
+   529→                                  {msg.display_name?.charAt(0)?.toUpperCase()}
+   530→                                </AvatarFallback>
+   531→                              </Avatar>
+   532→                              <div className="min-w-0">
+   533→                                <span className="font-bold text-primary mr-1.5">{msg.display_name}</span>
+   534→                                <span className="break-words">{msg.message}</span>
+   535→                              </div>
+   536→                              <span className="text-[9px] text-muted-foreground/50 shrink-0 ml-auto">{timeAgo(msg.created_at)}</span>
+   537→                            </div>
+   538→                          </>
+   539→                        )}
+   540→                      </motion.div>
+   541→                    ))}
+   542→                  </AnimatePresence>
+   543→                  <div ref={chatEndRef} />
+   544→                </div>
+   545→
+   546→                <div className="shrink-0 flex items-center gap-1 px-4 py-1.5 overflow-x-auto">
+   547→                  {EMOJI_QUICK.map((emoji) => (
+   548→                    <button
+   549→                      key={emoji}
+   550→                      onClick={() => sendReaction({ scheduled_live_id: scheduledLiveId, live_code: liveCode || undefined, emoji })}
+   551→                      className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted active:scale-125 transition-all text-lg shrink-0"
+   552→                    >
+   553→                      {emoji}
+   554→                    </button>
+   555→                  ))}
+   556→                </div>
+   557→
+   558→                <div className="shrink-0 flex gap-2 px-4 py-3 border-t border-border/40 bg-background">
+   559→                  <Input
+   560→                    value={chatInput}
+   561→                    onChange={(e) => setChatInput(e.target.value)}
+   562→                    onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+   563→                    placeholder={joined ? "Enviar mensagem..." : "Entre na live para chat"}
+   564→                    className="flex-1 h-10 rounded-xl text-sm"
+   565→                    maxLength={500}
+   566→                    disabled={!joined}
+   567→                  />
+   568→                  <Button
+   569→                    onClick={handleSendChat}
+   570→                    disabled={!joined || !chatInput.trim()}
+   571→                    size="sm"
+   572→                    className="h-10 w-10 p-0 rounded-xl bg-primary"
+   573→                  >
+   574→                    <Send className="h-4 w-4" />
+   575→                  </Button>
+   576→                </div>
+   577→              </motion.div>
+   578→            )}
+   579→
+   580→            {activePanel === "games" && (
+   581→              <motion.div
+   582→                key="games"
+   583→                initial={{ opacity: 0, x: 10 }}
+   584→                animate={{ opacity: 1, x: 0 }}
+   585→                exit={{ opacity: 0, x: -10 }}
+   586→                className="h-full overflow-y-auto p-4 space-y-4"
+   587→              >
+   588→                <SpectatorTapBattle liveCode={liveCode || undefined} />
+   589→
+   590→                <div className="border-t border-border/40 pt-4">
+   591→                  <p className="text-xs text-muted-foreground mb-3 font-medium">Jogos dispon\u00EDveis na live:</p>
+   592→                  <div className="grid grid-cols-3 gap-2">
+   593→                    {QUICK_GAMES.map((g) => (
+   594→                      <div
+   595→                        key={g.id}
+   596→                        className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-border/60 hover:border-primary/30 hover:bg-muted/20 transition-all cursor-pointer active:scale-95"
+   597→                      >
+   598→                        <span className="text-3xl">{g.emoji}</span>
+   599→                        <span className="text-[11px] font-medium">{g.label}</span>
+   600→                      </div>
+   601→                    ))}
+   602→                  </div>
+   603→                </div>
+   604→              </motion.div>
+   605→            )}
+   606→
+   607→            {activePanel === "bingo" && (
+   608→              <motion.div
+   609→                key="bingo"
+   610→                initial={{ opacity: 0, y: 10 }}
+   611→                animate={{ opacity: 1, y: 0 }}
+   612→                exit={{ opacity: 0, y: -10 }}
+   613→                className="h-full overflow-y-auto p-4"
+   614→              >
+   615→                <SpectatorBingo scheduledLiveId={scheduledLiveId} liveCode={liveCode || undefined} />
+   616→              </motion.div>
+   617→            )}
+   618→          </AnimatePresence>
+   619→        </div>
+   620→      </div>
+   621→
+   622→      <BottomTabBar />
+   623→    </div>
+   624→  );
+   625→};
+   626→
+   627→export default LiveParticipar;
+   628→
