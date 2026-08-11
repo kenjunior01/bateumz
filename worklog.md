@@ -101,3 +101,32 @@ Stage Summary:
 - Regional Manager Panel fully internationalized - no hardcoded strings
 - ProtectedRoute, AuthContext, and Supabase types all support regional_manager role
 - /regional-panel route now works correctly for regional_manager, admin, and superadmin users
+
+---
+Task ID: 5
+Agent: Super Z (main)
+Task: Create complete SQL migration for regional managers system
+
+Work Log:
+- Analyzed all 4 existing regional migrations (20260620, 20260724, 20260730, 20260811)
+- Identified 2 missing tables: regional_announcements, native_games (referenced in code but never created)
+- Identified 12+ missing columns on regions table (label, flag, colors, logo_url, etc.)
+- Created consolidated migration with 11 parts:
+  1. ALTER TYPE app_role ADD VALUE regional_manager (idempotent)
+  2. CREATE TABLE regional_announcements + native_games
+  3. ADD missing columns to regions (12 columns, all IF NOT EXISTS)
+  4. Upsert 12 regions with labels, flags, currencies, timezones
+  5. Enable RLS + GRANT permissions
+  6. 8 RLS policies for all 6 regional tables (managers + admins)
+  7. 10 performance indexes
+  8. 3 updated_at triggers (idempotent)
+  9. 4 helper functions (is_regional_manager_for_region, get_my_managed_regions, etc.)
+  10. Seed default branding/settings/announcements for all regions
+  11. Usage examples in comments
+- File saved to supabase/migrations/ and download/
+
+Stage Summary:
+- Complete migration file: supabase/migrations/20260811_complete_regional_managers_system.sql
+- Also saved to: /home/z/my-project/download/20260811_complete_regional_managers_system.sql
+- All operations are idempotent (safe to run multiple times)
+- After running, re-gen types: npx supabase gen types typescript
