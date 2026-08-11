@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: 210mm 297mm; margin: 0; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 210mm; height: 297mm;
+    background: #1b1a18;
+    font-family: 'Inter', 'Noto Serif SC', sans-serif;
+    overflow: hidden;
+  }
+  .cover {
+    width: 210mm; height: 297mm;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 40mm 28mm 30mm 28mm;
+    overflow: hidden;
+  }
+  /* Decorative elements */
+  .line-accent {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 4px;
+    background: linear-gradient(90deg, #97781a 0%, #b08c44 50%, #5a5138 100%);
+  }
+  .line-top {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #97781a 50%, transparent 100%);
+  }
+  .circle-deco {
+    position: absolute;
+    top: -40mm; right: -30mm;
+    width: 140mm; height: 140mm;
+    border-radius: 50%;
+    border: 1px solid rgba(151, 120, 26, 0.12);
+  }
+  .circle-deco-2 {
+    position: absolute;
+    top: -20mm; right: -10mm;
+    width: 100mm; height: 100mm;
+    border-radius: 50%;
+    border: 1px solid rgba(151, 120, 26, 0.08);
+  }
+  /* Grid pattern */
+  .grid-pattern {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(151,120,26,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(151,120,26,0.03) 1px, transparent 1px);
+    background-size: 12mm 12mm;
+  }
+  /* Content */
+  .tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #97781a;
+    border: 1px solid rgba(151,120,26,0.3);
+    padding: 5px 14px;
+    border-radius: 3px;
+    margin-bottom: 16mm;
+    width: fit-content;
+  }
+  .title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    font-size: 36px;
+    line-height: 1.1;
+    color: #f2f1f0;
+    letter-spacing: -0.5px;
+    margin-bottom: 6mm;
+    max-width: 140mm;
+  }
+  .title .accent {
+    color: #97781a;
+  }
+  .subtitle {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: #bfb9a6;
+    line-height: 1.6;
+    max-width: 130mm;
+    margin-bottom: 12mm;
+  }
+  .meta {
+    display: flex;
+    gap: 24px;
+    font-size: 9px;
+    color: #7c7a73;
+    letter-spacing: 0.5px;
+  }
+  .meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta .dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #97781a;
+  }
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 10mm;
+  }
+  .stat-box {
+    background: rgba(151,120,26,0.08);
+    border: 1px solid rgba(151,120,26,0.15);
+    border-radius: 6px;
+    padding: 10px 18px;
+    text-align: center;
+  }
+  .stat-box .num {
+    font-size: 22px;
+    font-weight: 900;
+    color: #f2f1f0;
+    line-height: 1;
+  }
+  .stat-box .label {
+    font-size: 7px;
+    color: #bfb9a6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 3px;
+  }
+  .stat-box.critical .num { color: #9f534c; }
+  .stat-box.high .num { color: #d97706; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="grid-pattern"></div>
+  <div class="circle-deco"></div>
+  <div class="circle-deco-2"></div>
+  <div class="line-top"></div>
+
+  <div class="tag">Security &amp; Code Quality Audit</div>
+  <h1 class="title">Comprehensive<br>Code Audit Report<br><span class="accent">Bateu Gaming Platform</span></h1>
+  <p class="subtitle">A systematic analysis of security vulnerabilities, import errors, authentication weaknesses, wallet system risks, and architectural issues across the full React + Supabase codebase.</p>
+
+  <div class="meta">
+    <span><span class="dot"></span> August 2026</span>
+    <span>React + TypeScript + Vite</span>
+    <span>Supabase Auth + RLS</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box critical">
+      <div class="num">12</div>
+      <div class="label">Critical / High</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">37</div>
+      <div class="label">Total Issues</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">10/25</div>
+      <div class="label">Broken Games</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">80+</div>
+      <div class="label">Files Audited</div>
+    </div>
+  </div>
+
+  <div class="line-accent"></div>
+</div>
+</body>
+</html>
