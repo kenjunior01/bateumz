@@ -283,3 +283,26 @@ Stage Summary:
 - Existing history tabs grouped with visual divider and "Histórico" label
 - All text in Brazilian Portuguese, mobile responsive, framer-motion animations
 - Zero existing functionality removed
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implementar sistema de apostas/desafios P2P entre usuarios
+
+Work Log:
+- Analisou estrutura completa do projeto (435 ficheiros)
+- Leu esports-advanced.ts (1776 linhas) para entender tipos e funcoes existentes
+- Adicionou sistema P2P completo ao esports-advanced.ts (+1000 linhas): tipos, CRUD, escrow, settlement
+- Criou DuelosPage.tsx (950+ linhas) com 3 tabs, create dialog, duel cards, group cards, ranking, stats
+- Adicionou rota /esports/duelos no App.tsx
+- Adicionou item "Duelos P2P" na navegacao do EsportsLayout
+- Adicionou estilos CSS P2P ao index.css (VS glow, card hover, button shimmer)
+- Criou migration SQL para p2p_challenges e p2p_challenge_messages com RLS
+- TypeScript: 0 erros, Vite build: sucesso em 16.73s
+
+Stage Summary:
+- Sistema P2P com 3 metodos: Duelo 1v1, Desafio de Grupo (2-8), Liga de Amigos
+- Backend com escrow seguro, 5% taxa plataforma, auto-refund em expiracao
+- Frontend com arena cyberpunk, VS battle cards, trash talk, invite codes
+- Ranking P2P com win rate, streaks, lucro
+- Tabelas Supabase com indices otimizados e RLS
+- Tudo mock-ready (funciona sem backend real)
