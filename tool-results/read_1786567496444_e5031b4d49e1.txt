@@ -1,0 +1,671 @@
+     1→'use client';
+     2→
+     3→import { useState } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Clock,
+     7→  Coins,
+     8→  PauseCircle,
+     9→  ShieldAlert,
+    10→  Activity,
+    11→  ChevronDown,
+    12→  ChevronUp,
+    13→  Timer,
+    14→  TrendingDown,
+    15→  CheckCircle,
+    16→  AlertTriangle,
+    17→  Lock,
+    18→  CalendarX,
+    19→} from 'lucide-react';
+    20→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    21→import { Button } from '@/components/ui/button';
+    22→import { Badge } from '@/components/ui/badge';
+    23→import { Slider } from '@/components/ui/slider';
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogHeader,
+    28→  DialogTitle,
+    29→  DialogDescription,
+    30→} from '@/components/ui/dialog';
+    31→
+    32→// ============================================================
+    33→// TIPOS
+    34→// ============================================================
+    35→
+    36→type TimeLimit = 30 | 60 | 120 | 240 | null;
+    37→type CoinLimit = 100 | 500 | 1000 | 5000 | null;
+    38→type BreakDuration = '24h' | '48h' | '7d' | '30d';
+    39→
+    40→interface ActivitySummary {
+    41→  timeSpentToday: number; // minutes
+    42→  coinsUsedThisWeek: number;
+    43→}
+    44→
+    45→// ============================================================
+    46→// DADOS MOCK
+    47→// ============================================================
+    48→
+    49→const TIME_LIMIT_OPTIONS: { value: TimeLimit; label: string }[] = [
+    50→  { value: 30, label: '30 min' },
+    51→  { value: 60, label: '1 hora' },
+    52→  { value: 120, label: '2 horas' },
+    53→  { value: 240, label: '4 horas' },
+    54→  { value: null, label: 'Sem limite' },
+    55→];
+    56→
+    57→const COIN_LIMIT_OPTIONS: { value: CoinLimit; label: string }[] = [
+    58→  { value: 100, label: '100' },
+    59→  { value: 500, label: '500' },
+    60→  { value: 1000, label: '1.000' },
+    61→  { value: 5000, label: '5.000' },
+    62→  { value: null, label: 'Sem limite' },
+    63→];
+    64→
+    65→const BREAK_OPTIONS: { value: BreakDuration; label: string; description: string }[] = [
+    66→  { value: '24h', label: '24 horas', description: 'Pausa curta para descansar' },
+    67→  { value: '48h', label: '48 horas', description: 'Pausa de dois dias' },
+    68→  { value: '7d', label: '7 dias', description: 'Pausa de uma semana' },
+    69→  { value: '30d', label: '30 dias', description: 'Pausa de um mês' },
+    70→];
+    71→
+    72→const MOCK_ACTIVITY: ActivitySummary = {
+    73→  timeSpentToday: 47,
+    74→  coinsUsedThisWeek: 820,
+    75→};
+    76→
+    77→// ============================================================
+    78→// HELPERS
+    79→// ============================================================
+    80→
+    81→function formatMinutes(min: number): string {
+    82→  if (min < 60) return `${min} min`;
+    83→  const hours = Math.floor(min / 60);
+    84→  const remaining = min % 60;
+    85→  return remaining > 0 ? `${hours}h ${remaining}min` : `${hours}h`;
+    86→}
+    87→
+    88→function getLimitIndex<T>(value: T | null, options: { value: T | null }[]): number {
+    89→  const idx = options.findIndex(o => o.value === value);
+    90→  return idx >= 0 ? idx : options.length - 1;
+    91→}
+    92→
+    93→function getSliderPosition(index: number, total: number): number {
+    94→  if (total <= 1) return 0;
+    95→  return (index / (total - 1)) * 100;
+    96→}
+    97→
+    98→// ============================================================
+    99→// COMPONENTE PRINCIPAL
+   100→// ============================================================
+   101→
+   102→export default function ResponsibleGaming() {
+   103→  // Estado local
+   104→  const [timeLimit, setTimeLimit] = useState<TimeLimit>(60);
+   105→  const [coinLimit, setCoinLimit] = useState<CoinLimit>(1000);
+   106→  const [breakDialogOpen, setBreakDialogOpen] = useState(false);
+   107→  const [exclusionDialogOpen, setExclusionDialogOpen] = useState(false);
+   108→  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+   109→    new Set(['time-limit', 'coin-limit', 'activity'])
+   110→  );
+   111→  const [confirmingBreak, setConfirmingBreak] = useState<BreakDuration | null>(null);
+   112→  const [breakApplied, setBreakApplied] = useState(false);
+   113→  const [exclusionApplied, setExclusionApplied] = useState(false);
+   114→
+   115→  // Helpers para sliders
+   116→  const timeIndex = getLimitIndex(timeLimit, TIME_LIMIT_OPTIONS);
+   117→  const coinIndex = getLimitIndex(coinLimit, COIN_LIMIT_OPTIONS);
+   118→
+   119→  const toggleSection = (section: string) => {
+   120→    setExpandedSections(prev => {
+   121→      const next = new Set(prev);
+   122→      if (next.has(section)) {
+   123→        next.delete(section);
+   124→      } else {
+   125→        next.add(section);
+   126→      }
+   127→      return next;
+   128→    });
+   129→  };
+   130→
+   131→  const handleBreakConfirm = (duration: BreakDuration) => {
+   132→    setConfirmingBreak(duration);
+   133→  };
+   134→
+   135→  const handleBreakApply = () => {
+   136→    if (!confirmingBreak) return;
+   137→    setBreakApplied(true);
+   138→    setBreakDialogOpen(false);
+   139→    setConfirmingBreak(null);
+   140→    // Em produção: chamar API para aplicar a pausa
+   141→  };
+   142→
+   143→  const handleExclusionApply = () => {
+   144→    setExclusionApplied(true);
+   145→    setExclusionDialogOpen(false);
+   146→    // Em produção: chamar API para auto-exclusão
+   147→  };
+   148→
+   149→  // ============================================================
+   150→  // RENDER
+   151→  // ============================================================
+   152→
+   153→  return (
+   154→    <motion.div
+   155→      initial={{ opacity: 0, y: 16 }}
+   156→      animate={{ opacity: 1, y: 0 }}
+   157→      transition={{ duration: 0.4, ease: 'easeOut' }}
+   158→      className="w-full space-y-4"
+   159→    >
+   160→      {/* ---- Limite de Tempo Diário ---- */}
+   161→      <Card
+   162→        className="border-sky-500/15"
+   163→        style={{ background: 'rgba(14, 165, 233, 0.04)' }}
+   164→      >
+   165→        <button
+   166→          onClick={() => toggleSection('time-limit')}
+   167→          className="w-full text-left"
+   168→        >
+   169→          <CardHeader className="pb-2 cursor-pointer">
+   170→            <CardTitle className="flex items-center justify-between text-sm font-semibold text-white">
+   171→              <span className="flex items-center gap-2">
+   172→                <Timer className="h-4 w-4 text-sky-400" />
+   173→                Limite de Tempo Diário
+   174→              </span>
+   175→              {expandedSections.has('time-limit') ? (
+   176→                <ChevronUp className="h-4 w-4 text-white/30" />
+   177→              ) : (
+   178→                <ChevronDown className="h-4 w-4 text-white/30" />
+   179→              )}
+   180→            </CardTitle>
+   181→          </CardHeader>
+   182→        </button>
+   183→
+   184→        <AnimatePresence>
+   185→          {expandedSections.has('time-limit') && (
+   186→            <motion.div
+   187→              initial={{ height: 0, opacity: 0 }}
+   188→              animate={{ height: 'auto', opacity: 1 }}
+   189→              exit={{ height: 0, opacity: 0 }}
+   190→              transition={{ duration: 0.25 }}
+   191→              className="overflow-hidden"
+   192→            >
+   193→              <CardContent className="pt-0 pb-4 space-y-4">
+   194→                <p className="text-xs text-white/40">
+   195→                  Define um limite de tempo diário para jogar. Quando atingires o limite, serás notificado.
+   196→                </p>
+   197→
+   198→                <div className="space-y-2">
+   199→                  <Slider
+   200→                    value={[getSliderPosition(timeIndex, TIME_LIMIT_OPTIONS.length)]}
+   201→                    onValueChange={([val]) => {
+   202→                      const index = Math.round((val / 100) * (TIME_LIMIT_OPTIONS.length - 1));
+   203→                      setTimeLimit(TIME_LIMIT_OPTIONS[Math.min(index, TIME_LIMIT_OPTIONS.length - 1)].value);
+   204→                    }}
+   205→                    max={100}
+   206→                    step={25}
+   207→                    className="w-full [&_[role=slider]]:bg-sky-400 [&_[role=slider]]:border-sky-300 [&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=track]]:bg-sky-500/20"
+   208→                  />
+   209→                  <div className="flex justify-between text-[10px] text-white/25 font-medium">
+   210→                    {TIME_LIMIT_OPTIONS.map((opt) => (
+   211→                      <span
+   212→                        key={opt.label}
+   213→                        className={
+   214→                          timeLimit === opt.value
+   215→                            ? 'text-sky-400 font-bold'
+   216→                            : ''
+   217→                        }
+   218→                      >
+   219→                        {opt.label}
+   220→                      </span>
+   221→                    ))}
+   222→                  </div>
+   223→                </div>
+   224→
+   225→                <div className="flex items-center gap-2">
+   226→                  <Clock className="h-3.5 w-3.5 text-sky-400/50" />
+   227→                  <span className="text-xs text-white/50">
+   228→                    Limite actual:{' '}
+   229→                    <span className="text-sky-400 font-semibold">
+   230→                      {timeLimit ? formatMinutes(timeLimit) : 'Sem limite'}
+   231→                    </span>
+   232→                  </span>
+   233→                </div>
+   234→
+   235→                {MOCK_ACTIVITY.timeSpentToday > 0 && (
+   236→                  <div className="flex items-center gap-2 text-[10px]">
+   237→                    <Activity className="h-3 w-3 text-sky-400/40" />
+   238→                    <span className="text-white/30">
+   239→                      Hoje já usaste{' '}
+   240→                      <span className="text-white/50 font-medium">
+   241→                        {formatMinutes(MOCK_ACTIVITY.timeSpentToday)}
+   242→                      </span>
+   243→                    </span>
+   244→                  </div>
+   245→                )}
+   246→              </CardContent>
+   247→            </motion.div>
+   248→          )}
+   249→        </AnimatePresence>
+   250→      </Card>
+   251→
+   252→      {/* ---- Limite de Moedas Semanal ---- */}
+   253→      <Card
+   254→        className="border-sky-500/15"
+   255→        style={{ background: 'rgba(14, 165, 233, 0.04)' }}
+   256→      >
+   257→        <button
+   258→          onClick={() => toggleSection('coin-limit')}
+   259→          className="w-full text-left"
+   260→        >
+   261→          <CardHeader className="pb-2 cursor-pointer">
+   262→            <CardTitle className="flex items-center justify-between text-sm font-semibold text-white">
+   263→              <span className="flex items-center gap-2">
+   264→                <Coins className="h-4 w-4 text-sky-400" />
+   265→                Limite de Moedas Semanal
+   266→              </span>
+   267→              {expandedSections.has('coin-limit') ? (
+   268→                <ChevronUp className="h-4 w-4 text-white/30" />
+   269→              ) : (
+   270→                <ChevronDown className="h-4 w-4 text-white/30" />
+   271→              )}
+   272→            </CardTitle>
+   273→          </CardHeader>
+   274→        </button>
+   275→
+   276→        <AnimatePresence>
+   277→          {expandedSections.has('coin-limit') && (
+   278→            <motion.div
+   279→              initial={{ height: 0, opacity: 0 }}
+   280→              animate={{ height: 'auto', opacity: 1 }}
+   281→              exit={{ height: 0, opacity: 0 }}
+   282→              transition={{ duration: 0.25 }}
+   283→              className="overflow-hidden"
+   284→            >
+   285→              <CardContent className="pt-0 pb-4 space-y-4">
+   286→                <p className="text-xs text-white/40">
+   287→                  Define um limite semanal para as moedas virtuais que podes usar em previsões.
+   288→                </p>
+   289→
+   290→                <div className="space-y-2">
+   291→                  <Slider
+   292→                    value={[getSliderPosition(coinIndex, COIN_LIMIT_OPTIONS.length)]}
+   293→                    onValueChange={([val]) => {
+   294→                      const index = Math.round((val / 100) * (COIN_LIMIT_OPTIONS.length - 1));
+   295→                      setCoinLimit(COIN_LIMIT_OPTIONS[Math.min(index, COIN_LIMIT_OPTIONS.length - 1)].value);
+   296→                    }}
+   297→                    max={100}
+   298→                    step={25}
+   299→                    className="w-full [&_[role=slider]]:bg-sky-400 [&_[role=slider]]:border-sky-300 [&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=track]]:bg-sky-500/20"
+   300→                  />
+   301→                  <div className="flex justify-between text-[10px] text-white/25 font-medium">
+   302→                    {COIN_LIMIT_OPTIONS.map((opt) => (
+   303→                      <span
+   304→                        key={opt.label}
+   305→                        className={
+   306→                          coinLimit === opt.value
+   307→                            ? 'text-sky-400 font-bold'
+   308→                            : ''
+   309→                        }
+   310→                      >
+   311→                        {opt.label}
+   312→                      </span>
+   313→                    ))}
+   314→                  </div>
+   315→                </div>
+   316→
+   317→                <div className="flex items-center gap-2">
+   318→                  <TrendingDown className="h-3.5 w-3.5 text-sky-400/50" />
+   319→                  <span className="text-xs text-white/50">
+   320→                    Limite actual:{' '}
+   321→                    <span className="text-sky-400 font-semibold">
+   322→                      {coinLimit ? `${coinLimit.toLocaleString('pt-BR')} moedas` : 'Sem limite'}
+   323→                    </span>
+   324→                  </span>
+   325→                </div>
+   326→
+   327→                {MOCK_ACTIVITY.coinsUsedThisWeek > 0 && (
+   328→                  <div className="flex items-center gap-2 text-[10px]">
+   329→                    <Activity className="h-3 w-3 text-sky-400/40" />
+   330→                    <span className="text-white/30">
+   331→                      Esta semana usaste{' '}
+   332→                      <span className="text-white/50 font-medium">
+   333→                        {MOCK_ACTIVITY.coinsUsedThisWeek.toLocaleString('pt-BR')}
+   334→                      </span>{' '}
+   335→                      moedas
+   336→                    </span>
+   337→                  </div>
+   338→                )}
+   339→              </CardContent>
+   340→            </motion.div>
+   341→          )}
+   342→        </AnimatePresence>
+   343→      </Card>
+   344→
+   345→      {/* ---- Fazer Pausa ---- */}
+   346→      <Card
+   347→        className="border-amber-500/15"
+   348→        style={{ background: 'rgba(245, 158, 11, 0.04)' }}
+   349→      >
+   350→        <button
+   351→          onClick={() => toggleSection('break')}
+   352→          className="w-full text-left"
+   353→        >
+   354→          <CardHeader className="pb-2 cursor-pointer">
+   355→            <CardTitle className="flex items-center justify-between text-sm font-semibold text-white">
+   356→              <span className="flex items-center gap-2">
+   357→                <PauseCircle className="h-4 w-4 text-amber-400" />
+   358→                Fazer Pausa
+   359→              </span>
+   360→              {expandedSections.has('break') ? (
+   361→                <ChevronUp className="h-4 w-4 text-white/30" />
+   362→              ) : (
+   363→                <ChevronDown className="h-4 w-4 text-white/30" />
+   364→              )}
+   365→            </CardTitle>
+   366→          </CardHeader>
+   367→        </button>
+   368→
+   369→        <AnimatePresence>
+   370→          {expandedSections.has('break') && (
+   371→            <motion.div
+   372→              initial={{ height: 0, opacity: 0 }}
+   373→              animate={{ height: 'auto', opacity: 1 }}
+   374→              exit={{ height: 0, opacity: 0 }}
+   375→              transition={{ duration: 0.25 }}
+   376→              className="overflow-hidden"
+   377→            >
+   378→              <CardContent className="pt-0 pb-4 space-y-4">
+   379→                <p className="text-xs text-white/40">
+   380→                  Precisas de um descanso? Activa uma pausa temporária. Durante a pausa, não poderás aceder às previsões.
+   381→                </p>
+   382→
+   383→                {breakApplied ? (
+   384→                  <motion.div
+   385→                    initial={{ opacity: 0, scale: 0.95 }}
+   386→                    animate={{ opacity: 1, scale: 1 }}
+   387→                    className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+   388→                  >
+   389→                    <CheckCircle className="h-5 w-5 text-amber-400 shrink-0" />
+   390→                    <div>
+   391→                      <p className="text-sm font-semibold text-amber-300">
+   392→                        Pausa activada com sucesso
+   393→                      </p>
+   394→                      <p className="text-xs text-white/40 mt-0.5">
+   395→                        A tua pausa está activa. Podes voltar quando quiseres.
+   396→                      </p>
+   397→                    </div>
+   398→                  </motion.div>
+   399→                ) : (
+   400→                  <div className="grid grid-cols-2 gap-2">
+   401→                    {BREAK_OPTIONS.map((option) => (
+   402→                      <Button
+   403→                        key={option.value}
+   404→                        variant="outline"
+   405→                        onClick={() => {
+   406→                          setBreakDialogOpen(true);
+   407→                          setConfirmingBreak(option.value);
+   408→                        }}
+   409→                        className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/30 rounded-lg text-xs h-auto py-3 flex-col gap-1"
+   410→                      >
+   411→                        <PauseCircle className="h-4 w-4" />
+   412→                        <span className="font-semibold">{option.label}</span>
+   413→                      </Button>
+   414→                    ))}
+   415→                  </div>
+   416→                )}
+   417→              </CardContent>
+   418→            </motion.div>
+   419→          )}
+   420→        </AnimatePresence>
+   421→      </Card>
+   422→
+   423→      {/* ---- Auto-Exclusão ---- */}
+   424→      <Card
+   425→        className="border-red-500/15"
+   426→        style={{ background: 'rgba(239, 68, 68, 0.04)' }}
+   427→      >
+   428→        <button
+   429→          onClick={() => toggleSection('exclusion')}
+   430→          className="w-full text-left"
+   431→        >
+   432→          <CardHeader className="pb-2 cursor-pointer">
+   433→            <CardTitle className="flex items-center justify-between text-sm font-semibold text-white">
+   434→              <span className="flex items-center gap-2">
+   435→                <ShieldAlert className="h-4 w-4 text-red-400" />
+   436→                Auto-Exclusão
+   437→              </span>
+   438→              {expandedSections.has('exclusion') ? (
+   439→                <ChevronUp className="h-4 w-4 text-white/30" />
+   440→              ) : (
+   441→                <ChevronDown className="h-4 w-4 text-white/30" />
+   442→              )}
+   443→            </CardTitle>
+   444→          </CardHeader>
+   445→        </button>
+   446→
+   447→        <AnimatePresence>
+   448→          {expandedSections.has('exclusion') && (
+   449→            <motion.div
+   450→              initial={{ height: 0, opacity: 0 }}
+   451→              animate={{ height: 'auto', opacity: 1 }}
+   452→              exit={{ height: 0, opacity: 0 }}
+   453→              transition={{ duration: 0.25 }}
+   454→              className="overflow-hidden"
+   455→            >
+   456→              <CardContent className="pt-0 pb-4 space-y-4">
+   457→                <p className="text-xs text-white/40">
+   458→                  Se sentes que precisas de uma pausa mais longa, podes auto-excluir-te. A tua conta será desactivada temporariamente.
+   459→                </p>
+   460→
+   461→                {exclusionApplied ? (
+   462→                  <motion.div
+   463→                    initial={{ opacity: 0, scale: 0.95 }}
+   464→                    animate={{ opacity: 1, scale: 1 }}
+   465→                    className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20"
+   466→                  >
+   467→                    <Lock className="h-5 w-5 text-red-400 shrink-0" />
+   468→                    <div>
+   469→                      <p className="text-sm font-semibold text-red-300">
+   470→                        Auto-exclusão activada
+   471→                      </p>
+   472→                      <p className="text-xs text-white/40 mt-0.5">
+   473→                        A tua conta foi desactivada. Contacta o suporte para reactivar.
+   474→                      </p>
+   475→                    </div>
+   476→                  </motion.div>
+   477→                ) : (
+   478→                  <Button
+   479→                    variant="outline"
+   480→                    onClick={() => setExclusionDialogOpen(true)}
+   481→                    className="w-full border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/35 rounded-lg text-xs h-auto py-3 gap-2"
+   482→                  >
+   483→                    <CalendarX className="h-4 w-4" />
+   484→                    <span>Activar Auto-Exclusão</span>
+   485→                  </Button>
+   486→                )}
+   487→              </CardContent>
+   488→            </motion.div>
+   489→          )}
+   490→        </AnimatePresence>
+   491→      </Card>
+   492→
+   493→      {/* ---- Resumo de Actividade ---- */}
+   494→      <Card
+   495→        className="border-sky-500/15"
+   496→        style={{ background: 'rgba(14, 165, 233, 0.04)' }}
+   497→      >
+   498→        <button
+   499→          onClick={() => toggleSection('activity')}
+   500→          className="w-full text-left"
+   501→        >
+   502→          <CardHeader className="pb-2 cursor-pointer">
+   503→            <CardTitle className="flex items-center justify-between text-sm font-semibold text-white">
+   504→              <span className="flex items-center gap-2">
+   505→                <Activity className="h-4 w-4 text-sky-400" />
+   506→                Resumo de Actividade
+   507→              </span>
+   508→              {expandedSections.has('activity') ? (
+   509→                <ChevronUp className="h-4 w-4 text-white/30" />
+   510→              ) : (
+   511→                <ChevronDown className="h-4 w-4 text-white/30" />
+   512→              )}
+   513→            </CardTitle>
+   514→          </CardHeader>
+   515→        </button>
+   516→
+   517→        <AnimatePresence>
+   518→          {expandedSections.has('activity') && (
+   519→            <motion.div
+   520→              initial={{ height: 0, opacity: 0 }}
+   521→              animate={{ height: 'auto', opacity: 1 }}
+   522→              exit={{ height: 0, opacity: 0 }}
+   523→              transition={{ duration: 0.25 }}
+   524→              className="overflow-hidden"
+   525→            >
+   526→              <CardContent className="pt-0 pb-4 space-y-3">
+   527→                <div className="grid grid-cols-2 gap-3">
+   528→                  <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(14, 165, 233, 0.06)' }}>
+   529→                    <Clock className="h-5 w-5 text-sky-400/50 mx-auto mb-2" />
+   530→                    <p className="text-lg font-bold text-white">
+   531→                      {formatMinutes(MOCK_ACTIVITY.timeSpentToday)}
+   532→                    </p>
+   533→                    <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">
+   534→                      Tempo hoje
+   535→                    </p>
+   536→                  </div>
+   537→                  <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(14, 165, 233, 0.06)' }}>
+   538→                    <Coins className="h-5 w-5 text-sky-400/50 mx-auto mb-2" />
+   539→                    <p className="text-lg font-bold text-white">
+   540→                      {MOCK_ACTIVITY.coinsUsedThisWeek.toLocaleString('pt-BR')}
+   541→                    </p>
+   542→                    <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">
+   543→                      Moedas esta semana
+   544→                    </p>
+   545→                  </div>
+   546→                </div>
+   547→
+   548→                <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: 'rgba(14, 165, 233, 0.05)' }}>
+   549→                  <Badge
+   550→                    variant="outline"
+   551→                    className="border-sky-500/20 text-sky-400 text-[10px] bg-sky-500/10"
+   552→                  >
+   553→                    <Activity className="h-3 w-3 mr-1" />
+   554→                    Resumo local
+   555→                  </Badge>
+   556→                  <span className="text-[10px] text-white/30">
+   557→                    Dados calculados neste dispositivo
+   558→                  </span>
+   559→                </div>
+   560→              </CardContent>
+   561→            </motion.div>
+   562→          )}
+   563→        </AnimatePresence>
+   564→      </Card>
+   565→
+   566→      {/* ---- Dialog de Confirmação de Pausa ---- */}
+   567→      <Dialog open={breakDialogOpen} onOpenChange={setBreakDialogOpen}>
+   568→        <DialogContent className="bg-emerald-950/95 backdrop-blur-xl border-amber-500/20 text-white max-w-md">
+   569→          <DialogHeader>
+   570→            <DialogTitle className="flex items-center gap-2 text-lg text-amber-300">
+   571→              <AlertTriangle className="h-5 w-5" />
+   572→              Confirmar Pausa
+   573→            </DialogTitle>
+   574→            <DialogDescription className="text-white/50 text-sm">
+   575→              Tens a certeza que queres fazer uma pausa?
+   576→            </DialogDescription>
+   577→          </DialogHeader>
+   578→
+   579→          <div className="space-y-4 mt-2">
+   580→            {confirmingBreak && (
+   581→              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+   582→                <div className="flex items-center gap-3">
+   583→                  <PauseCircle className="h-8 w-8 text-amber-400" />
+   584→                  <div>
+   585→                    <p className="text-sm font-semibold text-amber-300">
+   586→                      Pausa de {BREAK_OPTIONS.find(b => b.value === confirmingBreak)?.label}
+   587→                    </p>
+   588→                    <p className="text-xs text-white/40 mt-0.5">
+   589→                      {BREAK_OPTIONS.find(b => b.value === confirmingBreak)?.description}
+   590→                    </p>
+   591→                  </div>
+   592→                </div>
+   593→              </div>
+   594→            )}
+   595→
+   596→            <div className="flex gap-3">
+   597→              <Button
+   598→                variant="ghost"
+   599→                onClick={() => {
+   600→                  setBreakDialogOpen(false);
+   601→                  setConfirmingBreak(null);
+   602→                }}
+   603→                className="flex-1 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-xl"
+   604→              >
+   605→                Cancelar
+   606→              </Button>
+   607→              <Button
+   608→                onClick={handleBreakApply}
+   609→                className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl shadow-lg shadow-amber-600/25"
+   610→              >
+   611→                <PauseCircle className="h-4 w-4 mr-2" />
+   612→                Confirmar Pausa
+   613→              </Button>
+   614→            </div>
+   615→          </div>
+   616→        </DialogContent>
+   617→      </Dialog>
+   618→
+   619→      {/* ---- Dialog de Confirmação de Auto-Exclusão ---- */}
+   620→      <Dialog open={exclusionDialogOpen} onOpenChange={setExclusionDialogOpen}>
+   621→        <DialogContent className="bg-emerald-950/95 backdrop-blur-xl border-red-500/20 text-white max-w-md">
+   622→          <DialogHeader>
+   623→            <DialogTitle className="flex items-center gap-2 text-lg text-red-300">
+   624→              <ShieldAlert className="h-5 w-5" />
+   625→              Auto-Exclusão
+   626→            </DialogTitle>
+   627→            <DialogDescription className="text-white/50 text-sm">
+   628→              Esta acção é irreversível e requer contacto com o suporte para reactivar a conta.
+   629→            </DialogDescription>
+   630→          </DialogHeader>
+   631→
+   632→          <div className="space-y-4 mt-2">
+   633→            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+   634→              <div className="flex items-start gap-3">
+   635→                <AlertTriangle className="h-6 w-6 text-red-400 shrink-0 mt-0.5" />
+   636→                <div>
+   637→                  <p className="text-sm font-semibold text-red-300">
+   638→                    Atenção: Acção Permanente
+   639→                  </p>
+   640→                  <p className="text-xs text-white/40 mt-1 leading-relaxed">
+   641→                    Ao activares a auto-exclusão, a tua conta será desactivada imediatamente. Não poderás
+   642→                    fazer previsões, ver mercados ou aceder a funcionalidades de competição até que
+   643→                    contactes o suporte para reactivar.
+   644→                  </p>
+   645→                </div>
+   646→              </div>
+   647→            </div>
+   648→
+   649→            <div className="flex gap-3">
+   650→              <Button
+   651→                variant="ghost"
+   652→                onClick={() => setExclusionDialogOpen(false)}
+   653→                className="flex-1 border border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-xl"
+   654→              >
+   655→                Cancelar
+   656→              </Button>
+   657→              <Button
+   658→                onClick={handleExclusionApply}
+   659→                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-600/25"
+   660→              >
+   661→                <Lock className="h-4 w-4 mr-2" />
+   662→                Auto-Excluir
+   663→              </Button>
+   664→            </div>
+   665→          </div>
+   666→        </DialogContent>
+   667→      </Dialog>
+   668→    </motion.div>
+   669→  );
+   670→}
+   671→

@@ -222,3 +222,64 @@ Stage Summary:
 - File modified: /home/z/my-project/bateumz-cb2c44d1/src/index.css (4714 → 4951 lines, +237 lines appended)
 - 6 CSS enhancement sections appended without altering any existing content
 - All keyframes, utility classes, and responsive grid rules are syntactically valid
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Create ProvablyFair component — cryptographic verification showcase
+
+Work Log:
+- Read TrustSignals.tsx and BlockchainVerification.tsx to match existing dark-theme patterns
+- Created /home/z/my-project/bateumz-cb2c44d1/src/components/ProvablyFair.tsx (210 lines)
+- Header: "Resultados Verificáveis" with gradient text, shield + fingerprint pill badge
+- 3-step "Como Funciona" section: Semente Gerada (emerald), Sorteio Público (amber), Verificação (cyan) — each with unique color gradient, step number badge, icon, and description
+- Latest Verifications table: 5 mock verified draws with raffle name, date (sm:visible), truncated monospace seed hash with fading opacity, green "VERIFICADO" badge with CheckCircle icon
+- Verify Button: gradient emerald→cyan, "Verificar Resultado" with Search + Fingerprint icons, hover scale animation, glow shadow (placeholder, non-functional)
+- Transparency Stats: 3 stat cards — "1.247 sorteios verificados" (CheckCircle), "Zero contestações" (Shield), "100% público" (Eye)
+- All animations via framer-motion: staggered container children, scroll-triggered whileInView, spring hover on step cards, slide-in draw rows with custom delay per row, hover scale on button and stats
+- Background: subtle emerald/cyan blur orbs for depth
+- Mobile responsive: grid collapses on mobile, date shown inline on mobile, table header hidden on mobile
+- Dark theme compatible via card/border/muted-foreground/secondary tokens
+- All text in Brazilian Portuguese
+- ESLint passes with zero errors
+
+Stage Summary:
+- File created: /home/z/my-project/bateumz-cb2c44d1/src/components/ProvablyFair.tsx (210 lines)
+- Complete provably-fair transparency showcase with 5 sections: header, 3-step explainer, verified draws table, verify button, transparency stats
+- Exports default, mobile responsive, Brazilian Portuguese, dark theme, zero lint errors
+
+---
+Task ID: 9
+Agent: Main Agent
+Task: Integrate ResponsibleGaming component and cross-platform progress section into the Profile page
+
+Work Log:
+- Read existing Profile.tsx (343 lines) — identified Tabs component with 'all', 'confirmed', 'pending' history tabs
+- Read ResponsibleGaming.tsx (671 lines) — full responsible gaming suite with time/coin limits, breaks, self-exclusion, activity summary
+- Added new imports to Profile.tsx: Heart, Target, Gamepad2, Coins, Star, TrendingUp from lucide-react; ResponsibleGaming component; Progress from shadcn/ui
+- Restructured the Tabs component:
+  - Changed section header from "Histórico de Participações" to "Área do Perfil"
+  - Grouped existing history tabs (Todos, Confirmados, Pendentes) inside a bordered divider with a "Histórico" label (visible on lg+)
+  - Added TabsTrigger for "responsible" (4th tab) with Heart icon
+  - Added TabsTrigger for "stats" (5th tab)
+  - Added overflow-x-auto and flex-nowrap for mobile horizontal scrolling
+- Added TabsContent for "responsible" rendering the full ResponsibleGaming component
+- Created inline CrossPlatformStats section in TabsContent for "stats":
+  - 6 stat cards in a responsive grid (1 col mobile → 2 col sm → 3 col lg)
+  - Card 1: "Nível" — "12" with Star icon, amber theme, 65% progress bar, "Rank B" badge with Trophy icon
+  - Card 2: "XP Total" — "4,280 XP" with TrendingUp icon, primary theme, "Experiência acumulada" subtitle
+  - Card 3: "Previsões" — "47" with Target icon, cyan theme, "Precisão: 68%" subtitle
+  - Card 4: "Sorteios" — "23 bilhetes" with Ticket icon, purple theme, "2 vitórias" subtitle
+  - Card 5: "Jogos" — "156 jogos" with Gamepad2 icon, emerald theme, "89 vitórias" subtitle
+  - Card 6: "Moedas" — "2,450" with Coins icon, yellow theme, "Saldo disponível" subtitle
+  - Each card uses framer-motion spring entrance animation with staggered delay (i * 0.07s)
+  - Consistent glass card styling with hover:border-primary/20 matching existing design
+- Moved "Histórico de Participações" as a sub-header (h3) inside each history TabsContent
+- All existing functionality preserved: profile card, stat cards, participation list, edit mode, loading skeleton
+
+Stage Summary:
+- File modified: /home/z/my-project/bateumz-cb2c44d1/src/pages/Profile.tsx (343 → 444 lines, +101 lines)
+- 2 new tabs added to the same Tabs component: "Jogo Responsável" (with ResponsibleGaming) and "Estatísticas" (with 6 animated stat cards)
+- Existing history tabs grouped with visual divider and "Histórico" label
+- All text in Brazilian Portuguese, mobile responsive, framer-motion animations
+- Zero existing functionality removed
