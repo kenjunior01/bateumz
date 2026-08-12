@@ -1,0 +1,1227 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Coins,
+     7→  Gift,
+     8→  Trophy,
+     9→  Flame,
+    10→  Target,
+    11→  Clock,
+    12→  CheckCircle,
+    13→  XCircle,
+    14→  Wallet,
+    15→  History,
+    16→  ArrowUpRight,
+    17→  RefreshCw,
+    18→  Zap,
+    19→  TrendingUp,
+    20→  TrendingDown,
+    21→  CircleDollarSign,
+    22→  BarChart3,
+    23→} from 'lucide-react';
+    24→import { Button } from '@/components/ui/button';
+    25→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    26→import { Badge } from '@/components/ui/badge';
+    27→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    28→import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    29→import { Input } from '@/components/ui/input';
+    30→import { Progress } from '@/components/ui/progress';
+    31→import {
+    32→  getOrCreateWallet,
+    33→  getUserBets,
+    34→  getWalletTransactions,
+    35→  placeBet,
+    36→  canClaimDailyBonus,
+    37→  claimDailyBonus,
+    38→  type Bet,
+    39→  type UserWallet,
+    40→  type WalletTransaction,
+    41→  type BetStatus,
+    42→  BET_STATUS_LABELS,
+    43→} from '@/lib/esports-advanced';
+    44→import { supabase } from '@/integrations/supabase/client';
+    45→
+    46→// ============================================================
+    47→// TIPOS LOCAIS
+    48→// ============================================================
+    49→
+    50→interface PredictionMarket {
+    51→  id: string;
+    52→  championship_id?: string;
+    53→  match_id?: string;
+    54→  season_match_id?: string;
+    55→  market_type: string;
+    56→  question: string;
+    57→  options: Array<{
+    58→    id: string;
+    59→    label: string;
+    60→    odds: number;
+    61→    total_wagered: number;
+    62→  }>;
+    63→  status: string;
+    64→  total_pool: number;
+    65→  total_bettors: number;
+    66→  closes_at?: string;
+    67→  created_at: string;
+    68→}
+    69→
+    70→// ============================================================
+    71→// HELPERS
+    72→// ============================================================
+    73→
+    74→function useUserId() {
+    75→  const [userId, setUserId] = useState<string | null>(null);
+    76→
+    77→  useEffect(() => {
+    78→    async function fetchUser() {
+    79→      try {
+    80→        const { data: { user } } = await supabase.auth.getUser();
+    81→        if (user) {
+    82→          setUserId(user.id);
+    83→        }
+    84→      } catch {
+    85→        // falha silenciosa
+    86→      }
+    87→    }
+    88→    fetchUser();
+    89→  }, []);
+    90→
+    91→  return userId;
+    92→}
+    93→
+    94→function timeAgo(dateStr: string): string {
+    95→  const now = new Date();
+    96→  const date = new Date(dateStr);
+    97→  const diffMs = now.getTime() - date.getTime();
+    98→  const diffSec = Math.floor(diffMs / 1000);
+    99→  const diffMin = Math.floor(diffSec / 60);
+   100→  const diffHour = Math.floor(diffMin / 60);
+   101→  const diffDay = Math.floor(diffHour / 24);
+   102→
+   103→  if (diffSec < 60) return 'agora mesmo';
+   104→  if (diffMin < 60) return `ha ${diffMin} min`;
+   105→  if (diffHour < 24) return `ha ${diffHour}h`;
+   106→  if (diffDay < 7) return `ha ${diffDay}d`;
+   107→  return `ha ${Math.floor(diffDay / 7)} semanas`;
+   108→}
+   109→
+   110→function getStatusColor(status: BetStatus): string {
+   111→  switch (status) {
+   112→    case 'open':
+   113→      return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+   114→    case 'settled':
+   115→      return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+   116→    case 'refunded':
+   117→      return 'bg-sky-500/20 text-sky-400 border-sky-500/30';
+   118→    case 'cancelled':
+   119→      return 'bg-red-500/20 text-red-400 border-red-500/30';
+   120→    default:
+   121→      return 'bg-white/10 text-white border-white/20';
+   122→  }
+   123→}
+   124→
+   125→function getBetStatusLabel(bet: Bet): string {
+   126→  if (bet.status === 'settled' && bet.is_correct) return 'GANHOU';
+   127→  if (bet.status === 'settled' && !bet.is_correct) return 'PERDEU';
+   128→  return BET_STATUS_LABELS[bet.status];
+   129→}
+   130→
+   131→function getBetStatusBadgeStyle(bet: Bet): string {
+   132→  if (bet.status === 'settled' && bet.is_correct) {
+   133→    return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+   134→  }
+   135→  if (bet.status === 'settled' && !bet.is_correct) {
+   136→    return 'bg-red-500/20 text-red-400 border-red-500/30';
+   137→  }
+   138→  return getStatusColor(bet.status);
+   139→}
+   140→
+   141→function getTransactionStyle(type: string) {
+   142→  switch (type) {
+   143→    case 'win':
+   144→    case 'won':
+   145→      return { icon: CheckCircle, color: 'text-emerald-400', bgColor: 'bg-emerald-500/15' };
+   146→    case 'bet':
+   147→    case 'wager':
+   148→      return { icon: Target, color: 'text-red-400', bgColor: 'bg-red-500/15' };
+   149→    case 'daily_bonus':
+   150→    case 'bonus':
+   151→      return { icon: Gift, color: 'text-yellow-400', bgColor: 'bg-yellow-500/15' };
+   152→    case 'refund':
+   153→      return { icon: RefreshCw, color: 'text-sky-400', bgColor: 'bg-sky-500/15' };
+   154→    default:
+   155→      return { icon: Coins, color: 'text-gray-400', bgColor: 'bg-gray-500/15' };
+   156→  }
+   157→}
+   158→
+   159→// ============================================================
+   160→// COMPONENTES AUXILIARES
+   161→// ============================================================
+   162→
+   163→function SkeletonLoader({ className }: { className?: string }) {
+   164→  return <div className={"animate-pulse rounded-lg bg-emerald-950/30 " + (className || '')} />;
+   165→}
+   166→
+   167→function LoadingSpinner() {
+   168→  return (
+   169→    <div className="flex items-center justify-center py-12">
+   170→      <RefreshCw className="h-8 w-8 text-emerald-500/50 animate-spin" />
+   171→    </div>
+   172→  );
+   173→}
+   174→
+   175→// ============================================================
+   176→// COMPONENTE PRINCIPAL
+   177→// ============================================================
+   178→
+   179→export default function BettingPage() {
+   180→  const userId = useUserId();
+   181→
+   182→  // Estado da carteira
+   183→  const [wallet, setWallet] = useState<UserWallet | null>(null);
+   184→  const [walletLoading, setWalletLoading] = useState(true);
+   185→
+   186→  // Estado do bonus
+   187→  const [canClaim, setCanClaim] = useState(false);
+   188→  const [canClaimLoading, setCanClaimLoading] = useState(true);
+   189→  const [claiming, setClaiming] = useState(false);
+   190→
+   191→  // Estado das apostas
+   192→  const [userBets, setUserBets] = useState<Bet[]>([]);
+   193→  const [betsLoading, setBetsLoading] = useState(true);
+   194→
+   195→  // Estado das transacoes
+   196→  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+   197→  const [transactionsLoading, setTransactionsLoading] = useState(true);
+   198→
+   199→  // Estado dos mercados
+   200→  const [openMarkets, setOpenMarkets] = useState<PredictionMarket[]>([]);
+   201→  const [marketsLoading, setMarketsLoading] = useState(true);
+   202→
+   203→  // Estado do dialogo de aposta
+   204→  const [selectedMarket, setSelectedMarket] = useState<PredictionMarket | null>(null);
+   205→  const [selectedOption, setSelectedOption] = useState<{ id: string; label: string; odds: number } | null>(null);
+   206→  const [betAmount, setBetAmount] = useState('');
+   207→  const [betting, setBetting] = useState(false);
+   208→  const [betError, setBetError] = useState('');
+   209→
+   210→  // Estado do toast
+   211→  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+   212→
+   213→  // ============================================================
+   214→  // CARREGAMENTO DE DADOS
+   215→  // ============================================================
+   216→
+   217→  const fetchWallet = useCallback(async () => {
+   218→    if (!userId) return;
+   219→    setWalletLoading(true);
+   220→    try {
+   221→      const w = await getOrCreateWallet(userId);
+   222→      setWallet(w);
+   223→    } catch (err) {
+   224→      console.error('Erro ao carregar carteira:', err);
+   225→    } finally {
+   226→      setWalletLoading(false);
+   227→    }
+   228→  }, [userId]);
+   229→
+   230→  const fetchCanClaim = useCallback(async () => {
+   231→    if (!userId) return;
+   232→    setCanClaimLoading(true);
+   233→    try {
+   234→      const result = await canClaimDailyBonus(userId);
+   235→      setCanClaim(result);
+   236→    } catch (err) {
+   237→      console.error('Erro ao verificar bonus:', err);
+   238→    } finally {
+   239→      setCanClaimLoading(false);
+   240→    }
+   241→  }, [userId]);
+   242→
+   243→  const fetchBets = useCallback(async () => {
+   244→    if (!userId) return;
+   245→    setBetsLoading(true);
+   246→    try {
+   247→      const bets = await getUserBets(userId, { limit: 50 });
+   248→      setUserBets(bets);
+   249→    } catch (err) {
+   250→      console.error('Erro ao carregar apostas:', err);
+   251→    } finally {
+   252→      setBetsLoading(false);
+   253→    }
+   254→  }, [userId]);
+   255→
+   256→  const fetchTransactions = useCallback(async () => {
+   257→    if (!userId) return;
+   258→    setTransactionsLoading(true);
+   259→    try {
+   260→      const txs = await getWalletTransactions(userId, 30);
+   261→      setTransactions(txs);
+   262→    } catch (err) {
+   263→      console.error('Erro ao carregar historico:', err);
+   264→    } finally {
+   265→      setTransactionsLoading(false);
+   266→    }
+   267→  }, [userId]);
+   268→
+   269→  const fetchOpenMarkets = useCallback(async () => {
+   270→    setMarketsLoading(true);
+   271→    try {
+   272→      const { data, error } = await (supabase as any)
+   273→        .from('esport_prediction_markets')
+   274→        .select('*')
+   275→        .eq('status', 'open')
+   276→        .order('created_at', { ascending: false })
+   277→        .limit(20);
+   278→      if (error) {
+   279→        setOpenMarkets([]);
+   280→      } else {
+   281→        setOpenMarkets(data || []);
+   282→      }
+   283→    } catch (err) {
+   284→      console.error('Erro ao carregar mercados:', err);
+   285→      setOpenMarkets([]);
+   286→    } finally {
+   287→      setMarketsLoading(false);
+   288→    }
+   289→  }, []);
+   290→
+   291→  useEffect(() => {
+   292→    fetchWallet();
+   293→    fetchCanClaim();
+   294→    fetchBets();
+   295→    fetchTransactions();
+   296→    fetchOpenMarkets();
+   297→  }, [fetchWallet, fetchCanClaim, fetchBets, fetchTransactions, fetchOpenMarkets]);
+   298→
+   299→  // ============================================================
+   300→  // HANDLERS
+   301→  // ============================================================
+   302→
+   303→  const handleClaimBonus = async () => {
+   304→    if (!userId || claiming || !canClaim) return;
+   305→    setClaiming(true);
+   306→    try {
+   307→      const updatedWallet = await claimDailyBonus(userId);
+   308→      setWallet(updatedWallet);
+   309→      setCanClaim(false);
+   310→      showToast('Bonus diario de 50 moedas colectado!', 'success');
+   311→      fetchTransactions();
+   312→    } catch (err: any) {
+   313→      showToast(err?.message || 'Erro ao colectar bonus', 'error');
+   314→    } finally {
+   315→      setClaiming(false);
+   316→    }
+   317→  };
+   318→
+   319→  const handleOpenBetDialog = (market: PredictionMarket, option: { id: string; label: string; odds: number }) => {
+   320→    setSelectedMarket(market);
+   321→    setSelectedOption(option);
+   322→    setBetAmount('');
+   323→    setBetError('');
+   324→  };
+   325→
+   326→  const handleCloseBetDialog = () => {
+   327→    setSelectedMarket(null);
+   328→    setSelectedOption(null);
+   329→    setBetAmount('');
+   330→    setBetError('');
+   331→  };
+   332→
+   333→  const handlePlaceBet = async () => {
+   334→    if (!userId || !selectedMarket || !selectedOption) return;
+   335→
+   336→    const amount = parseFloat(betAmount);
+   337→    if (isNaN(amount) || amount <= 0) {
+   338→      setBetError('Insira um valor valido');
+   339→      return;
+   340→    }
+   341→    if (!wallet || amount > wallet.balance) {
+   342→      setBetError('Saldo insuficiente');
+   343→      return;
+   344→    }
+   345→    if (amount < 10) {
+   346→      setBetError('Aposta minima: 10 moedas');
+   347→      return;
+   348→    }
+   349→
+   350→    setBetting(true);
+   351→    setBetError('');
+   352→    try {
+   353→      await placeBet({
+   354→        user_id: userId,
+   355→        match_id: selectedMarket.match_id,
+   356→        season_match_id: selectedMarket.season_match_id,
+   357→        championship_id: selectedMarket.championship_id,
+   358→        bet_type: selectedMarket.market_type as any,
+   359→        predicted_outcome: { option_id: selectedOption.id },
+   360→        predicted_label: selectedOption.label,
+   361→        odds: selectedOption.odds,
+   362→        amount_wagered: amount,
+   363→      });
+   364→      showToast('Aposta colocada com sucesso!', 'success');
+   365→      handleCloseBetDialog();
+   366→      fetchWallet();
+   367→      fetchBets();
+   368→      fetchTransactions();
+   369→    } catch (err: any) {
+   370→      setBetError(err?.message || 'Erro ao colocar aposta');
+   371→    } finally {
+   372→      setBetting(false);
+   373→    }
+   374→  };
+   375→
+   376→  const showToast = (message: string, type: 'success' | 'error') => {
+   377→    setToast({ message, type });
+   378→    setTimeout(() => setToast(null), 3500);
+   379→  };
+   380→
+   381→  const handleRefresh = () => {
+   382→    fetchWallet();
+   383→    fetchCanClaim();
+   384→    fetchBets();
+   385→    fetchTransactions();
+   386→    fetchOpenMarkets();
+   387→  };
+   388→
+   389→  // ============================================================
+   390→// VALORES COMPUTADOS
+   391→  // ============================================================
+   392→
+   393→  const totalWagered = wallet?.total_wagered || 0;
+   394→  const totalWon = wallet?.total_won || 0;
+   395→  const profit = totalWon - totalWagered;
+   396→
+   397→  const settledBets = userBets.filter(b => b.status === 'settled');
+   398→  const wonBets = settledBets.filter(b => b.is_correct);
+   399→  const winRate = settledBets.length > 0 ? Math.round((wonBets.length / settledBets.length) * 100) : 0;
+   400→
+   401→  // ============================================================
+   402→  // CABECALHO DA CARTEIRA (STICKY)
+   403→  // ============================================================
+   404→
+   405→  const renderWalletHeader = () => (
+   406→    <motion.div
+   407→      initial={{ opacity: 0, y: -20 }}
+   408→      animate={{ opacity: 1, y: 0 }}
+   409→      transition={{ duration: 0.4 }}
+   410→      className="sticky top-0 z-50 bg-gradient-to-r from-black via-emerald-950 to-black backdrop-blur-xl border-b border-emerald-500/20"
+   411→    >
+   412→      <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+   413→        <div className="flex items-center justify-between gap-3">
+   414→          <div className="flex items-center gap-3 sm:gap-4">
+   415→            <div className="h-11 w-11 sm:h-14 sm:w-14 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-500/25">
+   416→              <Coins className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
+   417→            </div>
+   418→            <div>
+   419→              {walletLoading ? (
+   420→                <>
+   421→                  <SkeletonLoader className="h-8 w-32 mb-1" />
+   422→                  <SkeletonLoader className="h-3 w-16" />
+   423→                </>
+   424→              ) : (
+   425→                <>
+   426→                  <div className="flex items-baseline gap-1.5">
+   427→                    <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+   428→                      {wallet?.balance.toLocaleString('pt-BR')}
+   429→                    </span>
+   430→                  </div>
+   431→                  <p className="text-[10px] sm:text-xs text-emerald-400/70 font-medium uppercase tracking-widest">
+   432→                    Moedas
+   433→                  </p>
+   434→                </>
+   435→              )}
+   436→            </div>
+   437→          </div>
+   438→
+   439→          <div className="flex items-center gap-2 sm:gap-3">
+   440→            <Button
+   441→              onClick={handleClaimBonus}
+   442→              disabled={canClaimLoading || claiming || !canClaim || !userId}
+   443→              className="border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl disabled:opacity-40 disabled:cursor-not-allowed text-xs sm:text-sm"
+   444→              variant="outline"
+   445→            >
+   446→              <Gift className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+   447→              <span className="hidden xs:inline sm:inline">Bonus Diario</span>
+   448→              <span className="sm:hidden">Bonus</span>
+   449→            </Button>
+   450→
+   451→            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/10">
+   452→              {profit >= 0 ? (
+   453→                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+   454→              ) : (
+   455→                <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+   456→              )}
+   457→              <span className={"text-xs font-bold " + (profit >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+   458→                {profit >= 0 ? '+' : ''}{walletLoading ? '...' : profit.toLocaleString('pt-BR')}
+   459→              </span>
+   460→            </div>
+   461→
+   462→            <Button
+   463→              onClick={handleRefresh}
+   464→              variant="ghost"
+   465→              size="icon"
+   466→              className="rounded-lg text-emerald-400/60 hover:text-emerald-300 hover:bg-emerald-500/10"
+   467→            >
+   468→              <RefreshCw className="h-4 w-4" />
+   469→            </Button>
+   470→          </div>
+   471→        </div>
+   472→      </div>
+   473→    </motion.div>
+   474→  );
+   475→
+   476→  // ============================================================
+   477→  // MERCADOS ABERTOS
+   478→  // ============================================================
+   479→
+   480→  const renderOpenMarkets = () => {
+   481→    if (marketsLoading) {
+   482→      return (
+   483→        <div className="space-y-4">
+   484→          {Array.from({ length: 3 }).map((_, i) => (
+   485→            <Card key={i} className="bg-emerald-950/20 border border-emerald-500/10">
+   486→              <CardContent className="p-4 sm:p-5">
+   487→                <SkeletonLoader className="h-5 w-3/4 mb-3" />
+   488→                <SkeletonLoader className="h-4 w-1/2 mb-4" />
+   489→                <div className="grid grid-cols-2 gap-3">
+   490→                  <SkeletonLoader className="h-20 rounded-xl" />
+   491→                  <SkeletonLoader className="h-20 rounded-xl" />
+   492→                </div>
+   493→              </CardContent>
+   494→            </Card>
+   495→          ))}
+   496→        </div>
+   497→      );
+   498→    }
+   499→
+   500→    if (openMarkets.length === 0) {
+   501→      return (
+   502→        <motion.div
+   503→          initial={{ opacity: 0, scale: 0.95 }}
+   504→          animate={{ opacity: 1, scale: 1 }}
+   505→          className="flex flex-col items-center justify-center py-20 px-4"
+   506→        >
+   507→          <div className="h-20 w-20 rounded-2xl bg-emerald-950/30 border border-emerald-500/10 flex items-center justify-center mb-5">
+   508→            <Flame className="h-10 w-10 text-emerald-500/30" />
+   509→          </div>
+   510→          <p className="text-white/60 text-lg font-semibold mb-2">Nenhum mercado aberto no momento</p>
+   511→          <p className="text-white/30 text-sm text-center max-w-sm leading-relaxed">
+   512→            Volta quando houver jogos ao vivo! Novos mercados de apostas serao disponibilizados em breve.
+   513→          </p>
+   514→        </motion.div>
+   515→      );
+   516→    }
+   517→
+   518→    return (
+   519→      <div className="space-y-4">
+   520→        {openMarkets.map((market, index) => (
+   521→          <motion.div
+   522→            key={market.id}
+   523→            initial={{ opacity: 0, y: 20 }}
+   524→            animate={{ opacity: 1, y: 0 }}
+   525→            transition={{ duration: 0.3, delay: index * 0.05 }}
+   526→          >
+   527→            <Card className="bg-emerald-950/20 border border-emerald-500/10 hover:border-emerald-500/30 transition-colors">
+   528→              <CardContent className="p-4 sm:p-5">
+   529→                <div className="flex items-start justify-between mb-4">
+   530→                  <div className="flex-1 min-w-0">
+   531→                    <div className="flex items-center gap-2 mb-2">
+   532→                      <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+   533→                      <h3 className="text-white font-semibold text-sm sm:text-base truncate">
+   534→                        {market.question}
+   535→                      </h3>
+   536→                    </div>
+   537→                    <div className="flex items-center gap-3 text-xs text-white/35">
+   538→                      <span className="flex items-center gap-1">
+   539→                        <Flame className="h-3 w-3" />
+   540→                        {market.total_bettors} apostadores
+   541→                      </span>
+   542→                      <span className="flex items-center gap-1">
+   543→                        <Coins className="h-3 w-3" />
+   544→                        {market.total_pool.toLocaleString('pt-BR')} pool
+   545→                      </span>
+   546→                      {market.closes_at && (
+   547→                        <span className="flex items-center gap-1">
+   548→                          <Clock className="h-3 w-3" />
+   549→                          Fecha {timeAgo(market.closes_at)}
+   550→                        </span>
+   551→                      )}
+   552→                    </div>
+   553→                  </div>
+   554→                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] shrink-0 ml-2">
+   555→                    ABERTO
+   556→                  </Badge>
+   557→                </div>
+   558→
+   559→                <div className="grid grid-cols-2 gap-3">
+   560→                  {market.options.map((option) => {
+   561→                    const prob = market.total_pool > 0
+   562→                      ? (option.total_wagered / market.total_pool) * 100
+   563→                      : 50;
+   564→                    const barColor = prob > 60
+   565→                      ? 'bg-emerald-500'
+   566→                      : prob > 35
+   567→                        ? 'bg-emerald-600'
+   568→                        : 'bg-emerald-700';
+   569→
+   570→                    return (
+   571→                      <button
+   572→                        key={option.id}
+   573→                        onClick={() => handleOpenBetDialog(market, option)}
+   574→                        disabled={!userId}
+   575→                        className="relative group bg-black/30 hover:bg-emerald-950/40 border border-emerald-500/15 hover:border-emerald-500/40 rounded-xl p-3 sm:p-4 text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+   576→                      >
+   577→                        <div className="absolute inset-0 rounded-xl overflow-hidden">
+   578→                          <div
+   579→                            className={"absolute bottom-0 left-0 right-0 transition-all duration-300 " + barColor + "/10"}
+   580→                            style={{ height: prob + '%' }}
+   581→                          />
+   582→                        </div>
+   583→
+   584→                        <div className="relative z-10">
+   585→                          <div className="flex items-center justify-between mb-2">
+   586→                            <span className="text-white text-xs sm:text-sm font-medium truncate pr-2">
+   587→                              {option.label}
+   588→                            </span>
+   589→                            <span className="text-emerald-400 text-sm sm:text-base font-bold whitespace-nowrap">
+   590→                              {option.odds.toFixed(2)}x
+   591→                            </span>
+   592→                          </div>
+   593→                          <div className="flex items-center gap-2">
+   594→                            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+   595→                              <div
+   596→                                className={"h-full rounded-full transition-all duration-500 " + barColor}
+   597→                                style={{ width: Math.max(5, prob) + '%' }}
+   598→                              />
+   599→                            </div>
+   600→                            <span className="text-[10px] text-white/25 whitespace-nowrap font-medium">
+   601→                              {Math.round(prob)}%
+   602→                            </span>
+   603→                          </div>
+   604→                          <div className="mt-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+   605→                            <Zap className="h-3 w-3 text-emerald-400" />
+   606→                            <span className="text-[10px] text-emerald-400 font-semibold tracking-wide">APOSTAR AGORA</span>
+   607→                          </div>
+   608→                        </div>
+   609→                      </button>
+   610→                    );
+   611→                  })}
+   612→                </div>
+   613→              </CardContent>
+   614→            </Card>
+   615→          </motion.div>
+   616→        ))}
+   617→      </div>
+   618→    );
+   619→  };
+   620→
+   621→  // ============================================================
+   622→  // MINHAS APOSTAS
+   623→  // ============================================================
+   624→
+   625→  const renderMyBets = () => {
+   626→    if (betsLoading) {
+   627→      return (
+   628→        <div className="space-y-3">
+   629→          {Array.from({ length: 4 }).map((_, i) => (
+   630→            <Card key={i} className="bg-emerald-950/20 border border-emerald-500/10">
+   631→              <CardContent className="p-4">
+   632→                <div className="flex items-center justify-between">
+   633→                  <div className="space-y-2 flex-1">
+   634→                    <SkeletonLoader className="h-4 w-40" />
+   635→                    <SkeletonLoader className="h-3 w-28" />
+   636→                  </div>
+   637→                  <SkeletonLoader className="h-6 w-20 rounded-lg" />
+   638→                </div>
+   639→              </CardContent>
+   640→            </Card>
+   641→          ))}
+   642→        </div>
+   643→      );
+   644→    }
+   645→
+   646→    if (userBets.length === 0) {
+   647→      return (
+   648→        <motion.div
+   649→          initial={{ opacity: 0, scale: 0.95 }}
+   650→          animate={{ opacity: 1, scale: 1 }}
+   651→          className="flex flex-col items-center justify-center py-20 px-4"
+   652→        >
+   653→          <div className="h-20 w-20 rounded-2xl bg-emerald-950/30 border border-emerald-500/10 flex items-center justify-center mb-5">
+   654→            <Target className="h-10 w-10 text-emerald-500/30" />
+   655→          </div>
+   656→          <p className="text-white/60 text-lg font-semibold mb-2">Nenhuma aposta ainda</p>
+   657→          <p className="text-white/30 text-sm text-center max-w-sm leading-relaxed">
+   658→            Explore os mercados abertos e faca a tua primeira aposta!
+   659→          </p>
+   660→        </motion.div>
+   661→      );
+   662→    }
+   663→
+   664→    return (
+   665→      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+   666→        {userBets.map((bet, index) => {
+   667→          const isWon = bet.status === 'settled' && bet.is_correct;
+   668→          const isLost = bet.status === 'settled' && !bet.is_correct;
+   669→          const potentialWin = bet.amount_wagered * bet.odds;
+   670→
+   671→          const borderClass = isWon
+   672→            ? 'border-emerald-500/50 shadow-emerald-500/10 shadow-lg'
+   673→            : isLost
+   674→              ? 'border-red-500/40'
+   675→              : 'border-emerald-500/10';
+   676→
+   677→          return (
+   678→            <motion.div
+   679→              key={bet.id}
+   680→              initial={{ opacity: 0, x: -20 }}
+   681→              animate={{ opacity: 1, x: 0 }}
+   682→              transition={{ duration: 0.25, delay: index * 0.03 }}
+   683→            >
+   684→              <Card className={"bg-emerald-950/20 border hover:border-emerald-500/30 transition-all " + borderClass}>
+   685→                <CardContent className="p-4">
+   686→                  <div className="flex items-start justify-between gap-3">
+   687→                    <div className="flex-1 min-w-0">
+   688→                      <div className="flex items-center gap-2 mb-2">
+   689→                        {isWon && <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />}
+   690→                        {isLost && <XCircle className="h-4 w-4 text-red-400 shrink-0" />}
+   691→                        {!isWon && !isLost && <Clock className="h-4 w-4 text-yellow-400 shrink-0" />}
+   692→                        <span className="text-white text-sm font-medium truncate">
+   693→                          {bet.predicted_label}
+   694→                        </span>
+   695→                      </div>
+   696→
+   697→                      <div className="flex items-center gap-2 mb-2">
+   698→                        <span className="text-emerald-400 text-sm font-bold">
+   699→                          {bet.odds.toFixed(2)}x
+   700→                        </span>
+   701→                      </div>
+   702→
+   703→                      {isWon && (
+   704→                        <motion.div
+   705→                          initial={{ opacity: 0, y: 5 }}
+   706→                          animate={{ opacity: 1, y: 0 }}
+   707→                          className="flex items-center gap-1"
+   708→                        >
+   709→                          <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
+   710→                          <span className="text-sm font-bold text-emerald-400">
+   711→                            +{bet.amount_won.toLocaleString('pt-BR')} moedas
+   712→                          </span>
+   713→                        </motion.div>
+   714→                      )}
+   715→
+   716→                      {!isWon && !isLost && (
+   717→                        <div className="flex items-center gap-1 opacity-60">
+   718→                          <TrendingUp className="h-3.5 w-3.5 text-white/40" />
+   719→                          <span className="text-xs text-white/40">
+   720→                            Potencial: {potentialWin.toLocaleString('pt-BR')}
+   721→                          </span>
+   722→                        </div>
+   723→                      )}
+   724→
+   725→                      <p className="text-[10px] text-white/20 mt-2">
+   726→                        {timeAgo(bet.created_at)}
+   727→                      </p>
+   728→                    </div>
+   729→
+   730→                    <div className="text-right shrink-0 space-y-2">
+   731→                      <Badge className={"text-[10px] px-2 py-0.5 border " + getBetStatusBadgeStyle(bet)}>
+   732→                        {getBetStatusLabel(bet)}
+   733→                      </Badge>
+   734→                      <div className="text-xs text-white/40">
+   735→                        <span className="text-white/60 font-medium">
+   736→                          {bet.amount_wagered.toLocaleString('pt-BR')}
+   737→                        </span>
+   738→                        {' '}apostado
+   739→                      </div>
+   740→                    </div>
+   741→                  </div>
+   742→                </CardContent>
+   743→              </Card>
+   744→            </motion.div>
+   745→          );
+   746→        })}
+   747→      </div>
+   748→    );
+   749→  };
+   750→
+   751→  // ============================================================
+   752→  // HISTORICO DE TRANSACOES
+   753→  // ============================================================
+   754→
+   755→  const renderHistory = () => {
+   756→    if (transactionsLoading) {
+   757→      return (
+   758→        <div className="space-y-2">
+   759→          {Array.from({ length: 6 }).map((_, i) => (
+   760→            <Card key={i} className="bg-emerald-950/20 border border-emerald-500/10">
+   761→              <CardContent className="p-3">
+   762→                <div className="flex items-center gap-3">
+   763→                  <SkeletonLoader className="h-9 w-9 rounded-lg" />
+   764→                  <div className="flex-1 space-y-2">
+   765→                    <SkeletonLoader className="h-3.5 w-36" />
+   766→                    <SkeletonLoader className="h-3 w-20" />
+   767→                  </div>
+   768→                  <SkeletonLoader className="h-4 w-16" />
+   769→                </div>
+   770→              </CardContent>
+   771→            </Card>
+   772→          ))}
+   773→        </div>
+   774→      );
+   775→    }
+   776→
+   777→    if (transactions.length === 0) {
+   778→      return (
+   779→        <motion.div
+   780→          initial={{ opacity: 0, scale: 0.95 }}
+   781→          animate={{ opacity: 1, scale: 1 }}
+   782→          className="flex flex-col items-center justify-center py-20 px-4"
+   783→        >
+   784→          <div className="h-20 w-20 rounded-2xl bg-emerald-950/30 border border-emerald-500/10 flex items-center justify-center mb-5">
+   785→            <History className="h-10 w-10 text-emerald-500/30" />
+   786→          </div>
+   787→          <p className="text-white/60 text-lg font-semibold mb-2">Sem historico</p>
+   788→          <p className="text-white/30 text-sm text-center max-w-sm leading-relaxed">
+   789→            As tuas transaccoes aparecerao aqui assim que comecares a apostar.
+   790→          </p>
+   791→        </motion.div>
+   792→      );
+   793→    }
+   794→
+   795→    return (
+   796→      <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+   797→        {transactions.map((tx, index) => {
+   798→          const { icon: TxIcon, color, bgColor } = getTransactionStyle(tx.type);
+   799→          const isPositive = tx.amount > 0;
+   800→
+   801→          return (
+   802→            <motion.div
+   803→              key={tx.id}
+   804→              initial={{ opacity: 0, x: -15 }}
+   805→              animate={{ opacity: 1, x: 0 }}
+   806→              transition={{ duration: 0.2, delay: index * 0.02 }}
+   807→            >
+   808→              <Card className="bg-emerald-950/20 border border-emerald-500/10 hover:border-emerald-500/25 transition-colors">
+   809→                <CardContent className="p-3">
+   810→                  <div className="flex items-center gap-3">
+   811→                    <div className={"h-9 w-9 rounded-lg " + bgColor + " flex items-center justify-center shrink-0"}>
+   812→                      <TxIcon className={"h-4 w-4 " + color} />
+   813→                    </div>
+   814→                    <div className="flex-1 min-w-0">
+   815→                      <p className="text-sm text-white truncate">
+   816→                        {tx.description || tx.type}
+   817→                      </p>
+   818→                      <p className="text-[11px] text-white/25">
+   819→                        {timeAgo(tx.created_at)}
+   820→                      </p>
+   821→                    </div>
+   822→                    <div className="text-right shrink-0">
+   823→                      <span className={"text-sm font-bold " + (isPositive ? 'text-emerald-400' : 'text-red-400')}>
+   824→                        {isPositive ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('pt-BR')}
+   825→                      </span>
+   826→                      <p className="text-[10px] text-white/20">
+   827→                        Saldo: {tx.balance_after.toLocaleString('pt-BR')}
+   828→                      </p>
+   829→                    </div>
+   830→                  </div>
+   831→                </CardContent>
+   832→              </Card>
+   833→            </motion.div>
+   834→          );
+   835→        })}
+   836→      </div>
+   837→    );
+   838→  };
+   839→
+   840→  // ============================================================
+   841→  // DIALOGO DE APOSTA
+   842→  // ============================================================
+   843→
+   844→  const renderBetDialog = () => {
+   845→    if (!selectedMarket || !selectedOption) return null;
+   846→
+   847→    const amount = parseFloat(betAmount) || 0;
+   848→    const potentialPayout = amount * selectedOption.odds;
+   849→    const profitAmount = potentialPayout - amount;
+   850→
+   851→    return (
+   852→      <Dialog open={!!selectedMarket} onOpenChange={() => handleCloseBetDialog()}>
+   853→        <DialogContent className="bg-emerald-950/95 backdrop-blur-xl border-emerald-500/20 text-white max-w-md">
+   854→          <DialogHeader>
+   855→            <DialogTitle className="flex items-center gap-2 text-lg">
+   856→              <Target className="h-5 w-5 text-emerald-400" />
+   857→              Colocar Aposta
+   858→            </DialogTitle>
+   859→          </DialogHeader>
+   860→
+   861→          <div className="space-y-5 mt-2">
+   862→            <div className="bg-emerald-950/50 rounded-xl p-4 border border-emerald-500/15">
+   863→              <p className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mb-1.5">Mercado</p>
+   864→              <p className="text-sm font-semibold text-white mb-3">{selectedMarket.question}</p>
+   865→              <div className="flex items-center justify-between">
+   866→                <span className="text-sm text-white/50">Tua escolha:</span>
+   867→                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+   868→                  {selectedOption.label} - {selectedOption.odds.toFixed(2)}x
+   869→                </Badge>
+   870→              </div>
+   871→            </div>
+   872→
+   873→            <div>
+   874→              <label className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mb-2 block">
+   875→                Valor da aposta (min: 10)
+   876→              </label>
+   877→              <div className="relative">
+   878→                <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500/40" />
+   879→                <Input
+   880→                  type="number"
+   881→                  value={betAmount}
+   882→                  onChange={(e) => setBetAmount(e.target.value)}
+   883→                  placeholder="0"
+   884→                  min={10}
+   885→                  max={wallet?.balance || 0}
+   886→                  className="bg-black/30 border-emerald-500/20 text-white text-lg font-bold pl-10 pr-20 h-12 rounded-xl focus:border-emerald-500/50 focus:ring-emerald-500/20"
+   887→                />
+   888→                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+   889→                  {[50, 100, 250].map((preset) => (
+   890→                    <button
+   891→                      key={preset}
+   892→                      onClick={() => setBetAmount(String(preset))}
+   893→                      className="text-[10px] text-emerald-400/50 hover:text-emerald-400 bg-emerald-950/50 hover:bg-emerald-500/15 rounded-md px-1.5 py-0.5 transition-colors border border-emerald-500/10"
+   894→                    >
+   895→                      {preset}
+   896→                    </button>
+   897→                  ))}
+   898→                </div>
+   899→              </div>
+   900→            </div>
+   901→
+   902→            <div className="flex gap-2">
+   903→              {wallet && (
+   904→                <>
+   905→                  <Button
+   906→                    variant="outline"
+   907→                    size="sm"
+   908→                    onClick={() => setBetAmount(String(Math.min(50, wallet.balance)))}
+   909→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   910→                  >
+   911→                    Min (50)
+   912→                  </Button>
+   913→                  <Button
+   914→                    variant="outline"
+   915→                    size="sm"
+   916→                    onClick={() => setBetAmount(String(Math.floor(wallet.balance / 2)))}
+   917→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   918→                  >
+   919→                    50%
+   920→                  </Button>
+   921→                  <Button
+   922→                    variant="outline"
+   923→                    size="sm"
+   924→                    onClick={() => setBetAmount(String(wallet.balance))}
+   925→                    className="flex-1 border-emerald-500/20 text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-xs"
+   926→                  >
+   927→                    Max
+   928→                  </Button>
+   929→                </>
+   930→              )}
+   931→            </div>
+   932→
+   933→            {amount > 0 && (
+   934→              <motion.div
+   935→                initial={{ opacity: 0, height: 0 }}
+   936→                animate={{ opacity: 1, height: 'auto' }}
+   937→                className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4"
+   938→              >
+   939→                <div className="flex items-center justify-between mb-2">
+   940→                  <span className="text-xs text-white/50">Retorno Potencial</span>
+   941→                  <span className="text-lg font-bold text-emerald-400">
+   942→                    {potentialPayout.toLocaleString('pt-BR')}
+   943→                  </span>
+   944→                </div>
+   945→                <div className="flex items-center justify-between">
+   946→                  <span className="text-xs text-white/50">Lucro Potencial</span>
+   947→                  <span className="text-sm font-semibold text-emerald-300">
+   948→                    +{profitAmount.toLocaleString('pt-BR')}
+   949→                  </span>
+   950→                </div>
+   951→              </motion.div>
+   952→            )}
+   953→
+   954→            <div className="flex items-center justify-between text-xs">
+   955→              <span className="text-white/40">Saldo actual:</span>
+   956→              <span className="text-white font-medium">
+   957→                {wallet?.balance.toLocaleString('pt-BR')} moedas
+   958→              </span>
+   959→            </div>
+   960→
+   961→            {betError && (
+   962→              <motion.div
+   963→                initial={{ opacity: 0, y: -5 }}
+   964→                animate={{ opacity: 1, y: 0 }}
+   965→                className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400"
+   966→              >
+   967→                {betError}
+   968→              </motion.div>
+   969→            )}
+   970→
+   971→            <div className="flex gap-3">
+   972→              <Button
+   973→                onClick={handleCloseBetDialog}
+   974→                variant="ghost"
+   975→                className="flex-1 border border-emerald-500/20 text-white/60 hover:text-white hover:bg-emerald-500/10 rounded-xl"
+   976→              >
+   977→                Cancelar
+   978→              </Button>
+   979→              <Button
+   980→                onClick={handlePlaceBet}
+   981→                disabled={betting || !betAmount || parseFloat(betAmount) < 10}
+   982→                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/25"
+   983→              >
+   984→                {betting ? (
+   985→                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+   986→                ) : (
+   987→                  <Zap className="h-4 w-4 mr-2" />
+   988→                )}
+   989→                {betting ? 'Apostando...' : 'Confirmar Aposta'}
+   990→              </Button>
+   991→            </div>
+   992→          </div>
+   993→        </DialogContent>
+   994→      </Dialog>
+   995→    );
+   996→  };
+   997→
+   998→  // ============================================================
+   999→  // COLUNA DIREITA - ESTATISTICAS
+  1000→  // ============================================================
+  1001→
+  1002→  const renderRightColumn = () => (
+  1003→    <div className="space-y-4">
+  1004→      <Card className="bg-emerald-950/20 border border-emerald-500/10 backdrop-blur-sm">
+  1005→        <CardHeader className="pb-3">
+  1006→          <CardTitle className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+  1007→            <BarChart3 className="h-4 w-4" />
+  1008→            Estatisticas da Carteira
+  1009→          </CardTitle>
+  1010→        </CardHeader>
+  1011→        <CardContent className="space-y-4">
+  1012→          <div className="text-center pb-4 border-b border-emerald-500/10">
+  1013→            {walletLoading ? (
+  1014→              <SkeletonLoader className="h-10 w-32 mx-auto mb-1" />
+  1015→            ) : (
+  1016→              <p className="text-3xl font-bold text-white tracking-tight">
+  1017→                {wallet?.balance.toLocaleString('pt-BR')}
+  1018→              </p>
+  1019→            )}
+  1020→            <p className="text-[10px] text-emerald-400/60 uppercase tracking-widest font-medium mt-1">
+  1021→              Saldo Atual
+  1022→            </p>
+  1023→          </div>
+  1024→
+  1025→          <div className="space-y-3">
+  1026→            <div className="flex items-center justify-between">
+  1027→              <div className="flex items-center gap-2">
+  1028→                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+  1029→                  <Target className="h-4 w-4 text-emerald-400" />
+  1030→                </div>
+  1031→                <span className="text-xs text-white/50">Total Apostado</span>
+  1032→              </div>
+  1033→              <span className="text-sm font-semibold text-white">
+  1034→                {walletLoading ? '...' : totalWagered.toLocaleString('pt-BR')}
+  1035→              </span>
+  1036→            </div>
+  1037→
+  1038→            <div className="flex items-center justify-between">
+  1039→              <div className="flex items-center gap-2">
+  1040→                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+  1041→                  <Trophy className="h-4 w-4 text-emerald-400" />
+  1042→                </div>
+  1043→                <span className="text-xs text-white/50">Total Ganho</span>
+  1044→              </div>
+  1045→              <span className="text-sm font-semibold text-emerald-400">
+  1046→                {walletLoading ? '...' : totalWon.toLocaleString('pt-BR')}
+  1047→              </span>
+  1048→            </div>
+  1049→
+  1050→            <div className="flex items-center justify-between">
+  1051→              <div className="flex items-center gap-2">
+  1052→                <div className={"h-8 w-8 rounded-lg flex items-center justify-center " + (profit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10')}>
+  1053→                  {profit >= 0 ? (
+  1054→                    <TrendingUp className="h-4 w-4 text-emerald-400" />
+  1055→                  ) : (
+  1056→                    <TrendingDown className="h-4 w-4 text-red-400" />
+  1057→                  )}
+  1058→                </div>
+  1059→                <span className="text-xs text-white/50">Lucro/Prejuizo</span>
+  1060→              </div>
+  1061→              <span className={"text-sm font-bold " + (profit >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+  1062→                {walletLoading ? '...' : (profit >= 0 ? '+' : '') + profit.toLocaleString('pt-BR')}
+  1063→              </span>
+  1064→            </div>
+  1065→
+  1066→            <div className="pt-3 border-t border-emerald-500/10">
+  1067→              <div className="flex items-center justify-between mb-2">
+  1068→                <span className="text-xs text-white/50">Taxa de Acerto</span>
+  1069→                <span className={"text-sm font-bold " + (winRate >= 50 ? 'text-emerald-400' : 'text-white/70')}>
+  1070→                  {winRate}%
+  1071→                </span>
+  1072→              </div>
+  1073→              <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+  1074→                <motion.div
+  1075→                  initial={{ width: 0 }}
+  1076→                  animate={{ width: winRate + '%' }}
+  1077→                  transition={{ duration: 1, ease: 'easeOut' }}
+  1078→                  className={"h-full rounded-full " + (winRate >= 50 ? 'bg-emerald-500' : 'bg-emerald-700')}
+  1079→                />
+  1080→              </div>
+  1081→              <div className="flex justify-between mt-1.5 text-[10px] text-white/25">
+  1082→                <span>{wonBets.length} ganhas</span>
+  1083→                <span>{settledBets.length} resolvidas</span>
+  1084→              </div>
+  1085→            </div>
+  1086→          </div>
+  1087→        </CardContent>
+  1088→      </Card>
+  1089→
+  1090→      <Card className="bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 border border-emerald-500/25">
+  1091→        <CardContent className="p-5">
+  1092→          <div className="flex items-start gap-3 mb-4">
+  1093→            <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+  1094→              <Zap className="h-5 w-5 text-emerald-400" />
+  1095→            </div>
+  1096→            <div>
+  1097→              <p className="text-sm font-semibold text-white mb-1">Dica Rapida</p>
+  1098→              <p className="text-xs text-white/50 leading-relaxed">
+  1099→                Sabe que podes ganhar moedas com Bonus Diarios e Conquistas? Explora todas as formas de
+  1100→                ganhar moedas e maximiza o teu saldo!
+  1101→              </p>
+  1102→            </div>
+  1103→          </div>
+  1104→          <Button
+  1105→            onClick={() => window.location.href = '/esports/achievements'}
+  1106→            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-sm"
+  1107→          >
+  1108→            <Trophy className="h-4 w-4 mr-2" />
+  1109→            Ver Conquistas
+  1110→          </Button>
+  1111→        </CardContent>
+  1112→      </Card>
+  1113→
+  1114→      <Card className="bg-emerald-950/20 border border-emerald-500/10">
+  1115→        <CardHeader className="pb-3">
+  1116→          <CardTitle className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+  1117→            <CircleDollarSign className="h-4 w-4" />
+  1118→            Resumo Rapido
+  1119→          </CardTitle>
+  1120→        </CardHeader>
+  1121→        <CardContent className="space-y-3">
+  1122→          <div className="grid grid-cols-2 gap-3">
+  1123→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1124→              <p className="text-lg font-bold text-white">{userBets.length}</p>
+  1125→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Apostas</p>
+  1126→            </div>
+  1127→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1128→              <p className="text-lg font-bold text-emerald-400">{openMarkets.length}</p>
+  1129→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Mercados</p>
+  1130→            </div>
+  1131→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1132→              <p className="text-lg font-bold text-white">{transactions.length}</p>
+  1133→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Transaccoes</p>
+  1134→            </div>
+  1135→            <div className="bg-black/20 rounded-lg p-3 text-center border border-emerald-500/5">
+  1136→              <p className="text-lg font-bold text-emerald-400">{winRate}%</p>
+  1137→              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Acerto</p>
+  1138→            </div>
+  1139→          </div>
+  1140→        </CardContent>
+  1141→      </Card>
+  1142→    </div>
+  1143→  );
+  1144→
+  1145→  // ============================================================
+  1146→  // RENDER PRINCIPAL
+  1147→  // ============================================================
+  1148→
+  1149→  return (
+  1150→    <div className="text-white">
+  1151→      {renderWalletHeader()}
+  1152→
+  1153→      <main className="max-w-6xl mx-auto px-4 py-6">
+  1154→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1155→          <div className="lg:col-span-2">
+  1156→            <Tabs defaultValue="markets" className="w-full">
+  1157→              <TabsList className="bg-emerald-950/30 border border-emerald-500/15 rounded-xl w-full h-auto p-1 mb-6">
+  1158→                <TabsTrigger
+  1159→                  value="markets"
+  1160→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1161→                >
+  1162→                  <Flame className="h-4 w-4 mr-1.5" />
+  1163→                  Mercados Abertos
+  1164→                </TabsTrigger>
+  1165→                <TabsTrigger
+  1166→                  value="bets"
+  1167→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1168→                >
+  1169→                  <Target className="h-4 w-4 mr-1.5" />
+  1170→                  Minhas Apostas
+  1171→                </TabsTrigger>
+  1172→                <TabsTrigger
+  1173→                  value="history"
+  1174→                  className="flex-1 rounded-lg text-xs sm:text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-600/20 text-white/40 py-2.5 transition-all"
+  1175→                >
+  1176→                  <History className="h-4 w-4 mr-1.5" />
+  1177→                  Historico
+  1178→                </TabsTrigger>
+  1179→              </TabsList>
+  1180→
+  1181→              <TabsContent value="markets">
+  1182→                {renderOpenMarkets()}
+  1183→              </TabsContent>
+  1184→
+  1185→              <TabsContent value="bets">
+  1186→                {renderMyBets()}
+  1187→              </TabsContent>
+  1188→
+  1189→              <TabsContent value="history">
+  1190→                {renderHistory()}
+  1191→              </TabsContent>
+  1192→            </Tabs>
+  1193→          </div>
+  1194→
+  1195→          <div className="hidden lg:block">
+  1196→            {renderRightColumn()}
+  1197→          </div>
+  1198→        </div>
+  1199→      </main>
+  1200→
+  1201→      {renderBetDialog()}
+  1202→
+  1203→      <AnimatePresence>
+  1204→        {toast && (
+  1205→          <motion.div
+  1206→            initial={{ opacity: 0, y: 50, x: '-50%' }}
+  1207→            animate={{ opacity: 1, y: 0, x: '-50%' }}
+  1208→            exit={{ opacity: 0, y: 50, x: '-50%' }}
+  1209→            className={"fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-xl shadow-2xl backdrop-blur-xl border text-sm font-medium " +
+  1210→              (toast.type === 'success'
+  1211→                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+  1212→                : 'bg-red-500/20 border-red-500/30 text-red-400')
+  1213→            }
+  1214→          >
+  1215→            {toast.type === 'success' ? (
+  1216→              <CheckCircle className="h-4 w-4 inline mr-2" />
+  1217→            ) : (
+  1218→              <XCircle className="h-4 w-4 inline mr-2" />
+  1219→            )}
+  1220→            {toast.message}
+  1221→          </motion.div>
+  1222→        )}
+  1223→      </AnimatePresence>
+  1224→    </div>
+  1225→  );
+  1226→}
+  1227→

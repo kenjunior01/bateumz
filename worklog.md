@@ -68,3 +68,157 @@ Work Log:
 Stage Summary:
 - Final deliverable: /home/z/my-project/download/Bateumz_Code_Audit_Report.pdf (59KB, 16 pages)
 - Covers: Executive Summary, Project Overview, Critical/High/Medium/Low findings, Architecture, Edge Functions Security, Performance, Recommendations & Roadmap
+
+---
+Task ID: 3
+Agent: Homepage Revolution Agent
+Task: Create revolutionary new homepage for Bateu platform
+
+Work Log:
+- Read existing Index.tsx (979 lines) to understand all imports, components, and patterns
+- Identified all existing components to reuse: Navbar, StatsBar, CategoryNav, ActiveRaffles, WinnersSection, Footer, TrustSignals, LiveFeed, PopularLeaderboard
+- Defined 3-pillar color system: Esports (cyan #00d4ff + deep purple #7b2ff7), Sorteios (purple #a855f7 + gold #fbbf24), Jogos (green #2ea043 + blue #58a6ff)
+- Created complete 732-line replacement homepage with 6 major sections
+- Hero: Full-viewport with animated gradient orbs, particle field, grid overlay, gradient text tagline "COMPETE. PREVEJA. CONQUISTA.", 3 gateway cards to /esports, /marketplace, /jogos
+- Live Activity Ticker: Auto-scrolling horizontal ticker with FOMO content (winners, live matches, active games)
+- 3-Pillar Showcase: Esports (dark cyberpunk, live match cards, team rankings), Sorteios (deep purple, jackpot counter with animated MT 2.8M, featured raffles, recent winners), Jogos (dark green, game categories grid, 8 featured games, live player count)
+- Fair Play Shield: Animated shield icon with 4 ethical differentiators (100% Transparência, Sem Apostas com Dinheiro Real, Moeda Virtual Apenas, Jogo Responsável)
+- Social Proof: 4 animated stat counters (48.5k users, 12.5k prizes, 12 countries, 69+ games), WinnersSection, LiveFeed, TrustSignals
+- CTA: "Junta-te à Comunidade" with 500 Luck Coins welcome offer, trust micro-badges
+- Added CategoryNav, ActiveRaffles, PopularLeaderboard sections before Footer
+- Used framer-motion for all animations (scroll-triggered reveals, hover effects, parallax hero, counting numbers, infinite ticker)
+- All text in Brazilian Portuguese
+- Mobile-first responsive design with useIsMobile hook
+- TypeScript type-check passes with zero errors
+
+Stage Summary:
+- File: /home/z/my-project/bateumz-cb2c44d1/src/pages/Index.tsx (732 lines)
+- Complete homepage replacement with 6 distinct visual sections
+- Reuses 9 existing components while adding revolutionary new content
+- Ethical differentiation prominently featured (Fair Play Shield section)
+- Production-ready with proper TypeScript types and no compilation errors
+
+---
+Task ID: 4
+Agent: Prediction Arena Agent
+Task: Transform "Apostas" (betting) into "Arena de Previsões" (Prediction Arena) — skill-based, virtual currency, no real gambling
+
+Work Log:
+- Updated EsportsLayout.tsx navigation: changed nav item icon from Coins to Target, label from 'Apostas' to 'Previsões' (path unchanged: /esports/betting)
+- Created FairPlayShield component (/src/components/FairPlayShield.tsx):
+  - 3 variants: 'badge' (small horizontal pill with Shield icon + "Jogo Justo & Transparente" + checkmark), 'banner' (4-column grid with Eye/Lock/Gem/Heart icons for 100% Verificável, Sem Dinheiro Real, Moeda Virtual, Jogo Responsável), 'full' (detailed section with header + expanded descriptions + footer badge)
+  - Sky-500/cyan color theme for trust
+  - Framer-motion entrance animations with staggered children
+  - All text in Brazilian Portuguese
+  - Mobile responsive
+- Created ResponsibleGaming component (/src/components/ResponsibleGaming.tsx):
+  - 5 collapsible accordion sections: Limite de Tempo Diário (slider: 30min/1h/2h/4h/unlimited), Limite de Moedas Semanal (slider: 100/500/1000/5000/unlimited), Fazer Pausa (24h/48h/7d/30d buttons with confirmation dialog), Auto-Exclusão (with severe warning dialog), Resumo de Actividade (mock data: time today, coins this week)
+  - Uses shadcn/ui Card, Button, Slider, Badge, Dialog components
+  - Framer-motion for accordion animations
+  - All text in Brazilian Portuguese
+  - Local state management (no backend)
+- Updated BettingPage.tsx:
+  - Added FairPlayShield import and placed banner variant after wallet header, before main content grid
+  - Replaced all user-facing "Aposta/Apostar/apostado/apostadores" text with "Previsão/Prever/previsto/previsores" equivalents
+  - Changed dialog title "Colocar Aposta" → "Fazer Previsão"
+  - Changed button text "Apostando.../Confirmar Aposta" → "A processar.../Confirmar Previsão"
+  - Changed error messages, empty states, and summary labels
+  - Changed tab label "Minhas Apostas" → "Minhas Previsões"
+  - Changed stats label "Total Apostado" → "Total Previsto"
+  - Changed stats label "Apostas" → "Previsões"
+  - Did NOT change variable names, function names, or API references (only user-facing JSX text)
+
+Stage Summary:
+- Files modified: EsportsLayout.tsx, BettingPage.tsx
+- Files created: FairPlayShield.tsx, ResponsibleGaming.tsx
+- Navigation: Coins icon + "Apostas" label → Target icon + "Previsões" label
+- Fair Play Shield: 3-variant trust badge component with sky-500 theme
+- Responsible Gaming: Full suite of player protection tools (time limits, coin limits, breaks, self-exclusion, activity summary)
+- All UI text shifted from betting terminology to prediction terminology
+- No changes to backend logic, variable names, or API calls
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Create two revolutionary new components — PredictionArenaHero and SocialPredictionChallenge
+
+Work Log:
+- Explored project structure to identify existing UI components, code style, and dependencies
+- Verified framer-motion, lucide-react, and all required shadcn/ui components (Card, Button, Badge, Dialog, Avatar, Tabs, Progress, Select, Label) are installed
+- Created `/src/components/esports/` directory
+
+Created PredictionArenaHero.tsx (295 lines):
+- Stunning cyberpunk hero section with "ARENA DE PREVISÕES" title using cyan #00d4ff glow text-shadow
+- "Predict & Compete" micro-badge above the title
+- "Torneio Semanal #47" weekly tournament card with live countdown timer (hours:minutes:seconds digit blocks)
+- Custom `useCountdown` hook for real-time countdown
+- Personal ranking card: position #42, trend indicator, points this week (1,280), win streak (7 jogos)
+- Two quick stat cards: "12,847 previsores ativos" (Users icon), "MT 5,000,000 em prémios este mês" (Coins icon)
+- "VERIFICADO JUSTO" prominent fair play badge with animated rotating Shield icon, emerald-400 theme, subtitle "Sem dinheiro real · Moedas virtuais"
+- Animated arena visual background: 4 concentric pulsing rings, 8 floating particles, grid overlay, horizontal scan line — all CSS gradients + framer-motion (zero images)
+- "Fazer Previsão Agora" CTA button with gradient + glow hover effect
+- Staggered entrance animations for all sections
+- Mobile responsive (sm/md/lg breakpoints)
+- All text in Brazilian Portuguese
+
+Created SocialPredictionChallenge.tsx (460 lines):
+- UNIQUE social challenge feature — no betting site has this
+- "Desafia um Amigo" button opens a full creation dialog
+- Active challenges list with 4 mock challenges:
+  - Challenger vs Opponent with Avatar + AvatarFallback + initials
+  - Match name and championship label
+  - Score display (e.g., "3 × 2 de 5") with centered VS layout
+  - Status badges: "Em Curso" (yellow/Clock), "Vitória" (green/Trophy), "Derrota" (red/Target), "Empate" (gray)
+  - Wager amount in Luck Coins + remaining time
+- Create Challenge dialog with:
+  - Championship/Game dropdown (Select component, 8 options)
+  - Number of predictions (3/5/7 toggle buttons with active gradient state)
+  - Wager amount (50/100/250/500 toggle buttons with Coins icon, gold theme)
+  - Time limit (24h/48h/72h toggle buttons with Clock icon)
+  - Submit only enabled when all fields selected
+- "Melhores Desafiadores" leaderboard tab with 5 top challengers:
+  - Rank medals (Crown for #1, Medal for #2/#3, number for others)
+  - Avatar + name + W/L record + win streak flame icon + win rate percentage
+  - Progress bar for visual win rate
+  - Top 3 highlighted with gold/amber gradient theme
+- Tab switching between "Desafios Activos" and "Melhores Desafiadores"
+- All text in Brazilian Portuguese
+- Mobile responsive
+- Mock data with local state (no backend)
+
+Lint verification:
+- Both files pass ESLint with zero errors (all existing 1064 errors are in pre-existing files)
+
+Stage Summary:
+- Files created:
+  1. /home/z/my-project/bateumz-cb2c44d1/src/components/esports/PredictionArenaHero.tsx (295 lines)
+  2. /home/z/my-project/bateumz-cb2c44d1/src/components/esports/SocialPredictionChallenge.tsx (460 lines)
+- PredictionArenaHero: Cyberpunk hero with animated arena visuals, countdown timer, ranking card, fair play badge
+- SocialPredictionChallenge: Social prediction challenges between friends with dialog creation, active challenges list, and top challengers leaderboard
+- Zero lint errors on both new files
+- Both exported as default components, mobile responsive, Brazilian Portuguese
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Append revolutionary CSS enhancements to index.css
+
+Work Log:
+- Read last 200 lines of /home/z/my-project/bateumz-cb2c44d1/src/index.css (lines 4514-4714) to understand existing structure
+- Identified file ends with `.world-indicator-jogos` cross-area navigation styles
+- Appended 6 new CSS sections (237 lines) after existing content without overwriting anything
+
+Sections added:
+1. Fair Play Shield Styles — `.fair-play-shield-badge`, `.fair-play-glow`, `@keyframes shield-pulse`, `.shield-pulse`
+2. Prediction Arena Cyber Enhancements — `@keyframes arena-ring-pulse`, `.arena-ring` (staggered delays), `@keyframes arena-particle-float`, `.arena-particle`, `.arena-scan-line`, `@keyframes scan`, `@keyframes countdown-digit`, `.countdown-digit`
+3. Social Challenge Styles — `.challenge-vs-badge`, `.challenge-card-win`, `.challenge-card-loss`, `.challenge-card-active`, `@keyframes vs-glow`, `.vs-glow-text`
+4. Homepage Hero Enhancements — `@keyframes hero-gradient-shift`, `.hero-gradient-animated`, `@keyframes hero-orb-float`, `.hero-orb` (staggered), `@keyframes ticker-scroll`, `.ticker-scroll` (pause on hover), `@keyframes jackpot-count`, `.jackpot-pulse`, `@keyframes gateway-border-rotate`, `.gateway-card-esports:hover`, `.gateway-card-sorteios:hover`, `.gateway-card-jogos:hover`, `@keyframes live-dot-ping`, `.live-dot-ping`
+5. Responsive Gaming Grid — `.game-grid` + mobile breakpoint, `.raffle-grid` + mobile breakpoint
+6. Responsible Gaming Panel — `.responsible-gaming-panel`, `@keyframes activity-ring`, `.activity-ring-animated`
+
+Verified file ends correctly at line 4950 with no syntax errors.
+
+Stage Summary:
+- File modified: /home/z/my-project/bateumz-cb2c44d1/src/index.css (4714 → 4951 lines, +237 lines appended)
+- 6 CSS enhancement sections appended without altering any existing content
+- All keyframes, utility classes, and responsive grid rules are syntactically valid
