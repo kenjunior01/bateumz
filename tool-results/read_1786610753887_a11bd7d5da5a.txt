@@ -1,0 +1,749 @@
+     1→import { useState, useRef, useEffect } from "react";
+     2→import { useNavigate, Link } from "react-router-dom";
+     3→import { useIsMobile } from "@/hooks/use-mobile";
+     4→import { useLanguage } from "@/contexts/LanguageContext";
+     5→import { supabase } from "@/integrations/supabase/client";
+     6→import Navbar from "@/components/Navbar";
+     7→import StatsBar from "@/components/StatsBar";
+     8→import CategoryNav from "@/components/CategoryNav";
+     9→import ActiveRaffles from "@/components/ActiveRaffles";
+    10→import WinnersSection from "@/components/WinnersSection";
+    11→import Footer from "@/components/Footer";
+    12→import TrustSignals from "@/components/TrustSignals";
+    13→import LiveFeed from "@/components/LiveFeed";
+    14→import PopularLeaderboard from "@/components/PopularLeaderboard";
+    15→import WhyDifferent from "@/components/WhyDifferent";
+    16→import ProvablyFair from "@/components/ProvablyFair";
+    17→import { Button } from "@/components/ui/button";
+    18→import {
+    19→  Gamepad2, ArrowRight, Users, Brain,
+    20→  Radio, Flame, Trophy, ShieldCheck, Zap, TrendingUp,
+    21→  ChevronRight, Crown, Diamond, Rocket, Target, Play, Eye,
+    22→  Coins, Heart, Swords, Gift, Monitor, Globe,
+    23→  CheckCircle2,
+    24→} from "lucide-react";
+    25→import { motion, useInView, useScroll, useTransform } from "framer-motion";
+    26→import bateuLogo from "@/assets/bateu-logo.png";
+    27→
+    28→/* ─── color tokens ─── */
+    29→const CYAN = "#00d4ff";
+    30→const PURPLE = "#a855f7";
+    31→const GREEN = "#2ea043";
+    32→const BLUE = "#58a6ff";
+    33→const GOLD = "#fbbf24";
+    34→const DEEP_PURPLE = "#7b2ff7";
+    35→
+    36→/* ─── animation variants ─── */
+    37→const fadeUp = {
+    38→  hidden: { opacity: 0, y: 30 },
+    39→  visible: (i: number) => ({
+    40→    opacity: 1, y: 0,
+    41→    transition: { delay: i * 0.08, duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    42→  }),
+    43→};
+    44→
+    45→const scaleIn = {
+    46→  hidden: { opacity: 0, scale: 0.9 },
+    47→  visible: (i: number) => ({
+    48→    opacity: 1, scale: 1,
+    49→    transition: { delay: i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+    50→  }),
+    51→};
+    52→
+    53→const sectionReveal = {
+    54→  hidden: { opacity: 0, y: 40 },
+    55→  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
+    56→};
+    57→
+    58→/* ─── Animated Section Wrapper ─── */
+    59→function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+    60→  const ref = useRef<HTMLDivElement>(null);
+    61→  const inView = useInView(ref, { once: true, margin: "-80px" });
+    62→  return (
+    63→    <motion.section ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={sectionReveal} transition={{ delay }} className={className}>
+    64→      {children}
+    65→    </motion.section>
+    66→  );
+    67→}
+    68→
+    69→/* ─── Counting Number ─── */
+    70→function CountingNumber({ target, suffix = "", duration = 2 }: { target: number; suffix?: string; duration?: number }) {
+    71→  const [count, setCount] = useState(0);
+    72→  const ref = useRef<HTMLSpanElement>(null);
+    73→  const inView = useInView(ref, { once: true });
+    74→  const hasAnimated = useRef(false);
+    75→  useEffect(() => {
+    76→    if (!inView || hasAnimated.current) return;
+    77→    hasAnimated.current = true;
+    78→    const start = performance.now();
+    79→    const step = (now: number) => {
+    80→      const elapsed = (now - start) / 1000;
+    81→      const progress = Math.min(elapsed / duration, 1);
+    82→      const eased = 1 - Math.pow(1 - progress, 3);
+    83→      setCount(Math.round(eased * target));
+    84→      if (progress < 1) requestAnimationFrame(step);
+    85→    };
+    86→    requestAnimationFrame(step);
+    87→  }, [inView, target, duration]);
+    88→  return <span ref={ref}>{count.toLocaleString("pt-BR")}{suffix}</span>;
+    89→}
+    90→
+    91→/* ─── Hero Particle Field ─── */
+    92→function HeroParticles() {
+    93→  const colors = [CYAN, PURPLE, GREEN, GOLD];
+    94→  return (
+    95→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    96→      {Array.from({ length: 30 }).map((_, i) => {
+    97→        const color = colors[i % colors.length];
+    98→        return (
+    99→          <motion.div
+   100→            key={i}
+   101→            className="absolute rounded-full"
+   102→            style={{
+   103→              width: Math.random() * 4 + 1.5 + "px",
+   104→              height: Math.random() * 4 + 1.5 + "px",
+   105→              left: Math.random() * 100 + "%",
+   106→              top: Math.random() * 100 + "%",
+   107→              background: color,
+   108→              boxShadow: `0 0 ${Math.random() * 8 + 4}px ${color}40`,
+   109→            }}
+   110→            animate={{
+   111→              y: [0, -(Math.random() * 80 + 30), 0],
+   112→              x: [0, (Math.random() * 50 - 25), 0],
+   113→              opacity: [0, 0.8, 0],
+   114→              scale: [0.3, 1.2, 0.3],
+   115→            }}
+   116→            transition={{
+   117→              duration: Math.random() * 5 + 4,
+   118→              repeat: Infinity,
+   119→              delay: Math.random() * 4,
+   120→              ease: "easeInOut",
+   121→            }}
+   122→          />
+   123→        );
+   124→      })}
+   125→    </div>
+   126→  );
+   127→}
+   128→
+   129→/* ─── Ban Icon (not in lucide by default) ─── */
+   130→function BanIcon(props: any) {
+   131→  return (
+   132→    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+   133→      <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+   134→    </svg>
+   135→  );
+   136→}
+   137→
+   138→/* ─── Ticker data ─── */
+   139→const TICKER_ITEMS = [
+   140→  { type: "win", text: "LucasMVP ganhou um iPhone 15 no Sorteio Mega!", color: GOLD },
+   141→  { type: "live", text: "🔴 AO VIVO: Team Alpha vs Omega Squad — CS2", color: CYAN },
+   142→  { type: "game", text: "1.247 jogadores online em Batalha de Cobras", color: GREEN },
+   143→  { type: "win", text: "AnaBeatriz ganhou 50.000 Luck Coins!", color: GOLD },
+   144→  { type: "live", text: "🔴 AO VIVO: Final do Campeonato League of Legends", color: CYAN },
+   145→  { type: "win", text: "PedroHenrique conquistou 1º lugar no Torneio de Xadrez", color: GOLD },
+   146→  { type: "game", text: "Novo jogo lançado: Corrida de Digitação", color: GREEN },
+   147→  { type: "win", text: "MariaSilva ganhou um PlayStation 5!", color: GOLD },
+   148→  { type: "live", text: "🔴 AO VIVO: Valorant — Semifinal Brasileira", color: CYAN },
+   149→  { type: "game", text: "3.891 partidas jogadas nas últimas 24h", color: GREEN },
+   150→];
+   151→
+   152→/* ─── Gateway Cards ─── */
+   153→const GATEWAY_CARDS = [
+   154→  {
+   155→    title: "ESPORTS",
+   156→    subtitle: "Competições Épicas",
+   157→    desc: "Campeonatos, ligas e torneios com prémios reais. Compete ao mais alto nível.",
+   158→    href: "/esports",
+   159→    icon: Swords,
+   160→    gradient: "linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)",
+   161→    accentColor: CYAN,
+   162→    secondaryColor: DEEP_PURPLE,
+   163→    borderGlow: CYAN,
+   164→    statLabel: "247 times ativos",
+   165→    badge: "AO VIVO",
+   166→  },
+   167→  {
+   168→    title: "SORTEIOS & PRÉMIOS",
+   169→    subtitle: "Sorteios Transparentes",
+   170→    desc: "Participa em sorteios verificados, ganha prémios incríveis com Luck Coins.",
+   171→    href: "/marketplace",
+   172→    icon: Gift,
+   173→    gradient: "linear-gradient(135deg, #0f0a1a 0%, #1a0a2e 50%, #0f0a1a 100%)",
+   174→    accentColor: PURPLE,
+   175→    secondaryColor: GOLD,
+   176→    borderGlow: PURPLE,
+   177→    statLabel: "MT 2.5M+ em prémios",
+   178→    badge: "NOVO",
+   179→  },
+   180→  {
+   181→    title: "JOGOS ONLINE",
+   182→    subtitle: "69+ Jogos Disponíveis",
+   183→    desc: "Estratégia, puzzle, arcade e muito mais. Joga e ganha Luck Coins.",
+   184→    href: "/jogos",
+   185→    icon: Gamepad2,
+   186→    gradient: "linear-gradient(135deg, #0a1a0f 0%, #0a1f14 50%, #0a1a0f 100%)",
+   187→    accentColor: GREEN,
+   188→    secondaryColor: BLUE,
+   189→    borderGlow: GREEN,
+   190→    statLabel: "12.4k jogadores online",
+   191→    badge: "POPULAR",
+   192→  },
+   193→];
+   194→
+   195→/* ─── Fair Play Items ─── */
+   196→const FAIR_PLAY_ITEMS = [
+   197→  { icon: Eye, title: "100% Transparência", desc: "Todos os resultados são verificáveis e públicos. Sem algoritmos ocultos.", color: CYAN },
+   198→  { icon: BanIcon, title: "Sem Apostas com Dinheiro Real", desc: "Nenhuma aposta com dinheiro real. Plataforma 100% legal e segura.", color: PURPLE },
+   199→  { icon: Coins, title: "Moeda Virtual Apenas", desc: "Luck Coins — moeda virtual da plataforma. Diversão sem riscos financeiros.", color: GOLD },
+   200→  { icon: Heart, title: "Jogo Responsável", desc: "Ferramentas integradas de jogo responsável: limites, pausas e alertas.", color: GREEN },
+   201→];
+   202→
+   203→/* ═══════════════════════════════════════════════════════════════
+   204→   ██  INDEX — REVOLUTIONARY HOMEPAGE
+   205→   ═══════════════════════════════════════════════════════════════ */
+   206→export default function Index() {
+   207→  const isMobile = useIsMobile();
+   208→  const { t } = useLanguage();
+   209→  const navigate = useNavigate();
+   210→  const [tickerOffset, setTickerOffset] = useState(0);
+   211→  const [activePillar, setActivePillar] = useState<string | null>(null);
+   212→  const heroRef = useRef<HTMLDivElement>(null);
+   213→  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+   214→  const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+   215→  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.92]);
+   216→  const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -60]);
+   217→
+   218→  /* auto-scroll ticker */
+   219→  useEffect(() => {
+   220→    const interval = setInterval(() => setTickerOffset((p) => p - 1), 30);
+   221→    return () => clearInterval(interval);
+   222→  }, []);
+   223→
+   224→  /* fetch live session count */
+   225→  const [liveNowCount, setLiveNowCount] = useState(0);
+   226→  useEffect(() => {
+   227→    const fetchLiveCount = async () => {
+   228→      try {
+   229→        const { count } = await (supabase as any).from("live_sessions").select("*", { count: "exact", head: true }).eq("status", "active");
+   230→        if (typeof count === "number") setLiveNowCount(count);
+   231→      } catch { /* silent */ }
+   232→    };
+   233→    fetchLiveCount();
+   234→    const interval = setInterval(fetchLiveCount, 30_000);
+   235→    return () => clearInterval(interval);
+   236→  }, []);
+   237→
+   238→  const doubledTicker = [...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS];
+   239→
+   240→  return (
+   241→    <div className="min-h-screen bg-background flex flex-col" style={{ background: "#050508" }}>
+   242→      <Navbar />
+   243→      <StatsBar />
+   244→
+   245→      {/* ═══════════ HERO ═══════════ */}
+   246→      <motion.section
+   247→        ref={heroRef}
+   248→        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
+   249→        style={{
+   250→          background: `radial-gradient(ellipse 80% 60% at 20% 30%, ${CYAN}12 0%, transparent 60%),
+   251→                   radial-gradient(ellipse 70% 50% at 80% 60%, ${PURPLE}10 0%, transparent 55%),
+   252→                   radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08 0%, transparent 50%),
+   253→                   linear-gradient(180deg, #050508 0%, #08080f 50%, #050508 100%)`,
+   254→        }}
+   255→      >
+   256→        {/* Grid overlay */}
+   257→        <div className="absolute inset-0 opacity-[0.04]" style={{
+   258→          backgroundImage: `linear-gradient(${CYAN}40 1px, transparent 1px), linear-gradient(90deg, ${CYAN}40 1px, transparent 1px)`,
+   259→          backgroundSize: "60px 60px",
+   260→          maskImage: "radial-gradient(ellipse 70% 50% at 50% 40%, black 10%, transparent 70%)",
+   261→          WebkitMaskImage: "radial-gradient(ellipse 70% 50% at 50% 40%, black 10%, transparent 70%)",
+   262→        }} />
+   263→
+   264→        {/* Orbs */}
+   265→        <motion.div className="absolute rounded-full blur-[120px] pointer-events-none" style={{ background: `${CYAN}15`, width: 600, height: 600, left: "-10%", top: "5%" }} animate={{ y: [0, -50, 0], x: [0, 30, 0], scale: [1, 1.2, 1] }} transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }} />
+   266→        <motion.div className="absolute rounded-full blur-[120px] pointer-events-none" style={{ background: `${PURPLE}12`, width: 500, height: 500, right: "-8%", top: "15%" }} animate={{ y: [0, 40, 0], x: [0, -30, 0], scale: [1, 1.15, 1] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} />
+   267→        <motion.div className="absolute rounded-full blur-[100px] pointer-events-none" style={{ background: `${GREEN}10`, width: 400, height: 400, left: "40%", bottom: "10%" }} animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} />
+   268→
+   269→        <HeroParticles />
+   270→
+   271→        {/* Hero content */}
+   272→        <motion.div style={{ opacity: heroOpacity, scale: heroScale, y: heroY }} className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 text-center pt-24 pb-8">
+   273→          {/* Logo */}
+   274→          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="mb-6">
+   275→            <img src={bateuLogo} alt="Bateu" className="h-14 sm:h-18 mx-auto mb-4" style={{ filter: `drop-shadow(0 0 30px ${CYAN}30)` }} />
+   276→          </motion.div>
+   277→
+   278→          {/* Tagline */}
+   279→          <motion.h1
+   280→            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+   281→            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter mb-4"
+   282→            style={{
+   283→              background: `linear-gradient(135deg, #ffffff 0%, ${CYAN} 30%, ${PURPLE} 60%, ${GOLD} 100%)`,
+   284→              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", lineHeight: 1.05,
+   285→            }}
+   286→          >
+   287→            COMPETE. PREVEJA.<br />CONQUISTA.
+   288→          </motion.h1>
+   289→
+   290→          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.6 }} className="text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+   291→            A plataforma definitiva de esports, sorteios e jogos online.<br className="hidden sm:block" />
+   292→            <span className="text-zinc-300 font-semibold">Moeda virtual. Competição real. 100% transparente.</span>
+   293→          </motion.p>
+   294→
+   295→          {/* CTA Buttons */}
+   296→          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.5 }} className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
+   297→            <Button size="lg" onClick={() => navigate("/register")} className="text-base font-bold px-8 py-6 rounded-xl h-auto shadow-lg transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 30px ${CYAN}30, 0 8px 32px rgba(0,0,0,0.4)` }}>
+   298→              <Rocket className="mr-2 h-5 w-5" /> Começar Agora — É Grátis
+   299→            </Button>
+   300→            <Button size="lg" variant="outline" onClick={() => navigate("/jogos")} className="text-base font-semibold px-8 py-6 rounded-xl h-auto border-zinc-700 text-zinc-300 hover:bg-zinc-800/50 hover:text-white transition-all duration-300">
+   301→              <Play className="mr-2 h-5 w-5" /> Explorar Jogos
+   302→            </Button>
+   303→          </motion.div>
+   304→
+   305→          {/* ── Gateway Cards ── */}
+   306→          <div className={`grid gap-4 sm:gap-6 ${isMobile ? "grid-cols-1 max-w-sm mx-auto" : "grid-cols-3"}`}>
+   307→            {GATEWAY_CARDS.map((card, i) => {
+   308→              const Icon = card.icon;
+   309→              return (
+   310→                <motion.div key={card.title} custom={i} variants={scaleIn} initial="hidden" animate="visible" whileHover={{ scale: 1.04, y: -6 }} whileTap={{ scale: 0.98 }} onHoverStart={() => setActivePillar(card.title)} onHoverEnd={() => setActivePillar(null)}>
+   311→                  <Link to={card.href} className="group relative block rounded-2xl p-5 sm:p-6 overflow-hidden cursor-pointer transition-all duration-500" style={{
+   312→                    background: card.gradient,
+   313→                    border: `1px solid ${card.borderGlow}20`,
+   314→                    boxShadow: activePillar === card.title ? `0 0 40px ${card.borderGlow}25, 0 20px 60px rgba(0,0,0,0.5)` : `0 8px 32px rgba(0,0,0,0.3)`,
+   315→                  }}>
+   316→                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: `radial-gradient(circle at 50% 0%, ${card.accentColor}15, transparent 70%)` }} />
+   317→                    <span className="absolute top-3 right-3 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${card.accentColor}20`, color: card.accentColor, border: `1px solid ${card.accentColor}30` }}>{card.badge}</span>
+   318→                    <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 transition-all duration-500 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${card.accentColor}20, ${card.secondaryColor}15)`, border: `1px solid ${card.accentColor}30`, boxShadow: `0 0 20px ${card.accentColor}15` }}>
+   319→                      <Icon className="h-6 w-6" style={{ color: card.accentColor }} />
+   320→                    </div>
+   321→                    <h3 className="text-lg font-bold mb-1 tracking-tight" style={{ color: card.accentColor }}>{card.title}</h3>
+   322→                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{card.subtitle}</p>
+   323→                    <p className="text-sm text-zinc-400 leading-relaxed mb-4">{card.desc}</p>
+   324→                    <div className="flex items-center justify-between">
+   325→                      <span className="text-xs font-medium text-zinc-500">{card.statLabel}</span>
+   326→                      <div className="flex items-center gap-1 text-xs font-bold transition-all duration-300 group-hover:gap-2" style={{ color: card.accentColor }}>
+   327→                        Explorar <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+   328→                      </div>
+   329→                    </div>
+   330→                    <motion.div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ border: `1px solid ${card.accentColor}` }} animate={{ opacity: [0, 0.3, 0] }} transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }} />
+   331→                  </Link>
+   332→                </motion.div>
+   333→              );
+   334→            })}
+   335→          </div>
+   336→
+   337→          {/* Scroll indicator */}
+   338→          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5, duration: 1 }} className="mt-12 flex flex-col items-center gap-2">
+   339→            <span className="text-[11px] uppercase tracking-[0.2em] text-zinc-600 font-medium">Descobrir mais</span>
+   340→            <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}>
+   341→              <ChevronRight className="h-5 w-5 text-zinc-600 rotate-90" />
+   342→            </motion.div>
+   343→          </motion.div>
+   344→        </motion.div>
+   345→      </motion.section>
+   346→
+   347→      {/* ═══════════ LIVE ACTIVITY TICKER ═══════════ */}
+   348→      <div className="relative overflow-hidden py-3 border-y" style={{ background: "linear-gradient(90deg, #050508, #0a0a14, #050508)", borderColor: "rgba(255,255,255,0.05)" }}>
+   349→        <div className="absolute left-0 top-0 bottom-0 w-32 z-10 pointer-events-none" style={{ background: "linear-gradient(90deg, #050508, transparent)" }} />
+   350→        <div className="absolute right-0 top-0 bottom-0 w-32 z-10 pointer-events-none" style={{ background: "linear-gradient(-90deg, #050508, transparent)" }} />
+   351→        <div className="flex whitespace-nowrap" style={{ transform: `translateX(${tickerOffset}px)` }}>
+   352→          {doubledTicker.map((item, i) => (
+   353→            <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
+   354→              {item.type === "win" && <Trophy className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   355→              {item.type === "live" && <Radio className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   356→              {item.type === "game" && <Gamepad2 className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   357→              <span className="text-sm font-medium text-zinc-400">{item.text}</span>
+   358→              <span className="text-zinc-700 mx-2">•</span>
+   359→            </div>
+   360→          ))}
+   361→        </div>
+   362→      </div>
+   363→
+   364→      {/* ═══════════ MAIN CONTENT ═══════════ */}
+   365→      <main className="flex-1">
+   366→
+   367→        {/* ─── PILLAR 1: ESPORTS ─── */}
+   368→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" style={{ background: `radial-gradient(ellipse 60% 40% at 15% 50%, ${CYAN}08, transparent), linear-gradient(180deg, #050508 0%, #060610 50%, #050508 100%)` }}>
+   369→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   370→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   371→              <div className="flex items-center gap-3">
+   372→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${CYAN}25, ${DEEP_PURPLE}20)`, border: `1px solid ${CYAN}30`, boxShadow: `0 0 25px ${CYAN}15` }}>
+   373→                  <Swords className="h-5 w-5" style={{ color: CYAN }} />
+   374→                </div>
+   375→                <div>
+   376→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: CYAN }}>ESPORTS</h2>
+   377→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Competições • Campeonatos • Ligas</p>
+   378→                </div>
+   379→              </div>
+   380→              <Link to="/esports" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: CYAN }}>
+   381→                Ver Torneios <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   382→              </Link>
+   383→            </div>
+   384→
+   385→            <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-3"} gap-4 sm:gap-6`}>
+   386→              {/* Featured Championship */}
+   387→              <motion.div whileHover={{ scale: 1.02 }} className={`${isMobile ? "" : "col-span-2"} relative rounded-2xl overflow-hidden cursor-pointer`} style={{ background: "linear-gradient(135deg, #0a0f1a, #0d1525)", border: `1px solid ${CYAN}15` }} onClick={() => navigate("/esports")}>
+   388→                <div className="absolute inset-0 opacity-30" style={{ background: `radial-gradient(ellipse at 80% 20%, ${CYAN}15, transparent 60%)` }} />
+   389→                <div className="relative p-6 sm:p-8">
+   390→                  <div className="flex items-center gap-2 mb-4">
+   391→                    <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: `${CYAN}15`, color: CYAN, border: `1px solid ${CYAN}25` }}><Radio className="h-3 w-3" /> AO VIVO</span>
+   392→                    <span className="text-xs text-zinc-500">Campeonato Brasileiro S4</span>
+   393→                  </div>
+   394→                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Grande Final — CS2 Masters</h3>
+   395→                  <p className="text-sm text-zinc-400 mb-6">Os melhores times do Brasil competem pelo título de campeão e prémios exclusivos.</p>
+   396→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   397→                    {[
+   398→                      { t1: "Furia", s1: 2, t2: "MIBR", s2: 1, status: "AO VIVO" },
+   399→                      { t1: "LOUD", s1: 0, t2: "Vivo Keyd", s2: 0, status: "18:00" },
+   400→                    ].map((match, i) => (
+   401→                      <div key={i} className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${CYAN}10` }}>
+   402→                        <div className="flex items-center justify-between mb-2">
+   403→                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: match.status === "AO VIVO" ? "#ef4444" : "#71717a" }}>{match.status}</span>
+   404→                        </div>
+   405→                        <div className="flex items-center justify-between">
+   406→                          <span className="text-sm font-bold text-white">{match.t1}</span>
+   407→                          <span className="text-lg font-black" style={{ color: CYAN }}>{match.s1} <span className="text-zinc-600 mx-1">:</span> {match.s2}</span>
+   408→                          <span className="text-sm font-bold text-white">{match.t2}</span>
+   409→                        </div>
+   410→                      </div>
+   411→                    ))}
+   412→                  </div>
+   413→                </div>
+   414→              </motion.div>
+   415→
+   416→              {/* Top Teams */}
+   417→              <div className="rounded-2xl p-5" style={{ background: "linear-gradient(180deg, #0a0f1a, #080c16)", border: `1px solid ${CYAN}10` }}>
+   418→                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Trophy className="h-4 w-4" style={{ color: GOLD }} /> Ranking Top 5</h4>
+   419→                <div className="space-y-3">
+   420→                  {[
+   421→                    { rank: 1, team: "Furia", pts: "2.450", trend: "up" },
+   422→                    { rank: 2, team: "LOUD", pts: "2.310", trend: "up" },
+   423→                    { rank: 3, team: "MIBR", pts: "2.180", trend: "down" },
+   424→                    { rank: 4, team: "Vivo Keyd", pts: "1.920", trend: "same" },
+   425→                    { rank: 5, team: "INTZ", pts: "1.840", trend: "up" },
+   426→                  ].map((item) => (
+   427→                    <div key={item.rank} className="flex items-center gap-3">
+   428→                      <span className="h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: item.rank <= 3 ? `linear-gradient(135deg, ${GOLD}30, ${GOLD}10)` : "rgba(255,255,255,0.05)", color: item.rank <= 3 ? GOLD : "#71717a", border: `1px solid ${item.rank <= 3 ? GOLD + "25" : "rgba(255,255,255,0.08)"}` }}>{item.rank}</span>
+   429→                      <span className="text-sm font-semibold text-zinc-300 flex-1">{item.team}</span>
+   430→                      <span className="text-xs font-bold text-zinc-500">{item.pts} pts</span>
+   431→                      <TrendingUp className={`h-3.5 w-3.5 ${item.trend === "down" ? "rotate-180 text-red-400" : item.trend === "same" ? "text-zinc-600" : ""}`} style={{ color: item.trend === "up" ? GREEN : undefined }} />
+   432→                    </div>
+   433→                  ))}
+   434→                </div>
+   435→                <Link to="/esports" className="mt-4 block text-center text-xs font-bold py-2 rounded-lg transition-all duration-300 hover:opacity-80" style={{ color: CYAN, background: `${CYAN}08`, border: `1px solid ${CYAN}15` }}>Ver Ranking Completo</Link>
+   436→              </div>
+   437→            </div>
+   438→          </div>
+   439→        </AnimatedSection>
+   440→
+   441→        {/* Divider */}
+   442→        <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${CYAN}20, ${PURPLE}20, transparent)` }} />
+   443→
+   444→        {/* ─── PILLAR 2: SORTEIOS ─── */}
+   445→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 60% 40% at 85% 50%, ${PURPLE}08, transparent), linear-gradient(180deg, #050508 0%, #0a0814 50%, #050508 100%)` }}>
+   446→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   447→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   448→              <div className="flex items-center gap-3">
+   449→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${PURPLE}25, ${GOLD}15)`, border: `1px solid ${PURPLE}30`, boxShadow: `0 0 25px ${PURPLE}15` }}>
+   450→                  <Gift className="h-5 w-5" style={{ color: PURPLE }} />
+   451→                </div>
+   452→                <div>
+   453→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: PURPLE }}>SORTEIOS & PRÉMIOS</h2>
+   454→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Sorteios Verificados • Prémios Reais</p>
+   455→                </div>
+   456→              </div>
+   457→              <Link to="/marketplace" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: PURPLE }}>
+   458→                Ver Sorteios <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   459→              </Link>
+   460→            </div>
+   461→
+   462→            <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-3"} gap-4 sm:gap-6`}>
+   463→              {/* Jackpot Counter */}
+   464→              <motion.div whileHover={{ scale: 1.02 }} className={`${isMobile ? "" : "col-span-2"} relative rounded-2xl overflow-hidden`} style={{ background: "linear-gradient(135deg, #0f0a1a, #140e20)", border: `1px solid ${PURPLE}15` }}>
+   465→                <div className="absolute inset-0 opacity-40" style={{ background: `radial-gradient(ellipse at 70% 30%, ${GOLD}10, transparent 60%)` }} />
+   466→                <div className="relative p-6 sm:p-8">
+   467→                  <div className="flex items-center gap-2 mb-6"><Diamond className="h-4 w-4" style={{ color: GOLD }} /><span className="text-xs font-bold uppercase tracking-wider" style={{ color: GOLD }}>Jackpot Acumulado</span></div>
+   468→                  <motion.div className="text-4xl sm:text-6xl font-black mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}, #f59e0b, ${GOLD})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }} animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+   469→                    MT <CountingNumber target={2847500} duration={3} />
+   470→                  </motion.div>
+   471→                  <p className="text-sm text-zinc-500 mb-8">em prémios disponíveis este mês</p>
+   472→                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+   473→                    {[
+   474→                      { prize: "iPhone 15 Pro Max", tickets: "12.450", end: "2h 34m", hot: true, emoji: "📱" },
+   475→                      { prize: "PlayStation 5", tickets: "8.920", end: "5h 12m", hot: true, emoji: "🎮" },
+   476→                      { prize: "MT 500.000 em Luck Coins", tickets: "24.100", end: "1h 08m", hot: false, emoji: "💰" },
+   477→                    ].map((raffle, i) => (
+   478→                      <motion.div key={i} whileHover={{ scale: 1.03, y: -2 }} className="rounded-xl p-4 cursor-pointer transition-all duration-300" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${raffle.hot ? GOLD + "20" : "rgba(255,255,255,0.06)"}` }} onClick={() => navigate("/marketplace")}>
+   479→                        {raffle.hot && <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}><Flame className="h-2.5 w-2.5" /> POPULAR</span>}
+   480→                        <span className="text-2xl block mb-1">{raffle.emoji}</span>
+   481→                        <p className="text-xs font-bold text-white mb-2 leading-tight">{raffle.prize}</p>
+   482→                        <div className="flex items-center justify-between">
+   483→                          <span className="text-[10px] text-zinc-500">{raffle.tickets} bilhetes</span>
+   484→                          <span className="text-[10px] font-bold" style={{ color: PURPLE }}>{raffle.end}</span>
+   485→                        </div>
+   486→                        <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+   487→                          <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${PURPLE}, ${GOLD})` }} initial={{ width: "0%" }} whileInView={{ width: `${65 + i * 15}%` }} transition={{ delay: 0.5 + i * 0.2, duration: 1 }} viewport={{ once: true }} />
+   488→                        </div>
+   489→                      </motion.div>
+   490→                    ))}
+   491→                  </div>
+   492→                </div>
+   493→              </motion.div>
+   494→
+   495→              {/* Recent Winners */}
+   496→              <div className="rounded-2xl p-5" style={{ background: "linear-gradient(180deg, #0f0a1a, #0c0816)", border: `1px solid ${PURPLE}10` }}>
+   497→                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Crown className="h-4 w-4" style={{ color: GOLD }} /> Vencedores Recentes</h4>
+   498→                <div className="space-y-3">
+   499→                  {[
+   500→                    { name: "LucasMVP", prize: "iPhone 15 Pro", time: "há 2h", avatar: "L" },
+   501→                    { name: "AnaBeatriz", prize: "50k Luck Coins", time: "há 5h", avatar: "A" },
+   502→                    { name: "PedroGamer", prize: "AirPods Pro", time: "há 8h", avatar: "P" },
+   503→                    { name: "MariaSilva", prize: "PlayStation 5", time: "há 12h", avatar: "M" },
+   504→                    { name: "JoaoVitor", prize: "25k Luck Coins", time: "há 1d", avatar: "J" },
+   505→                  ].map((winner, i) => (
+   506→                    <motion.div key={i} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1, duration: 0.4 }} viewport={{ once: true }} className="flex items-center gap-3">
+   507→                      <div className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${PURPLE}30, ${GOLD}20)`, color: GOLD, border: `1px solid ${PURPLE}25` }}>{winner.avatar}</div>
+   508→                      <div className="flex-1 min-w-0">
+   509→                        <p className="text-sm font-semibold text-zinc-300 truncate">{winner.name}</p>
+   510→                        <p className="text-[11px] text-zinc-500">{winner.prize}</p>
+   511→                      </div>
+   512→                      <span className="text-[10px] text-zinc-600 shrink-0">{winner.time}</span>
+   513→                    </motion.div>
+   514→                  ))}
+   515→                </div>
+   516→                <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${PURPLE}10` }}>
+   517→                  <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} /> Resultados verificados</div>
+   518→                </div>
+   519→              </div>
+   520→            </div>
+   521→          </div>
+   522→        </AnimatedSection>
+   523→
+   524→        {/* Divider */}
+   525→        <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${PURPLE}20, ${GREEN}20, transparent)` }} />
+   526→
+   527→        {/* ─── PILLAR 3: JOGOS ─── */}
+   528→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.2} style={{ background: `radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08, transparent), linear-gradient(180deg, #050508 0%, #060a08 50%, #050508 100%)` }}>
+   529→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   530→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   531→              <div className="flex items-center gap-3">
+   532→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${GREEN}25, ${BLUE}15)`, border: `1px solid ${GREEN}30`, boxShadow: `0 0 25px ${GREEN}15` }}>
+   533→                  <Gamepad2 className="h-5 w-5" style={{ color: GREEN }} />
+   534→                </div>
+   535→                <div>
+   536→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: GREEN }}>JOGOS ONLINE</h2>
+   537→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">69+ Jogos • Multiplayer • Skill-Based</p>
+   538→                </div>
+   539→              </div>
+   540→              <Link to="/jogos" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: GREEN }}>
+   541→                Ver Todos os Jogos <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   542→              </Link>
+   543→            </div>
+   544→
+   545→            {/* Categories */}
+   546→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 mb-6`}>
+   547→              {[
+   548→                { label: "Estratégia", icon: Brain, count: 18, color: CYAN },
+   549→                { label: "Arcade", icon: Zap, count: 22, color: GREEN },
+   550→                { label: "Puzzle", icon: Target, count: 15, color: PURPLE },
+   551→                { label: "Multiplayer", icon: Users, count: 14, color: BLUE },
+   552→              ].map((cat, i) => {
+   553→                const Icon = cat.icon;
+   554→                return (
+   555→                  <motion.button key={cat.label} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }} className="rounded-xl p-4 text-left transition-all duration-300" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${cat.color}15` }} onClick={() => navigate("/jogos")}>
+   556→                    <Icon className="h-5 w-5 mb-2" style={{ color: cat.color }} />
+   557→                    <p className="text-sm font-bold text-zinc-200">{cat.label}</p>
+   558→                    <p className="text-[11px] text-zinc-500">{cat.count} jogos</p>
+   559→                  </motion.button>
+   560→                );
+   561→              })}
+   562→            </div>
+   563→
+   564→            {/* Featured Games */}
+   565→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 sm:gap-4`}>
+   566→              {[
+   567→                { name: "Batalha de Cobras", players: "3.1k", emoji: "🐍", grad: `linear-gradient(135deg, ${GREEN}20, ${BLUE}10)`, hot: true, border: GREEN },
+   568→                { name: "Galo PRO", players: "2.4k", emoji: "✖", grad: `linear-gradient(135deg, ${CYAN}15, ${DEEP_PURPLE}10)`, hot: true, border: CYAN },
+   569→                { name: "Pedra Papel Tesoura", players: "4.5k", emoji: "✊", grad: `linear-gradient(135deg, ${GOLD}15, ${PURPLE}10)`, hot: false, border: GOLD },
+   570→                { name: "Duelo de Matemática", players: "1.2k", emoji: "🧮", grad: `linear-gradient(135deg, ${BLUE}15, ${GREEN}10)`, hot: false, border: BLUE },
+   571→                { name: "Ligar 4", players: "1.8k", emoji: "🔴", grad: `linear-gradient(135deg, ${CYAN}10, ${GREEN}15)`, hot: false, border: CYAN },
+   572→                { name: "Memória VS", players: "2.0k", emoji: "🃏", grad: `linear-gradient(135deg, ${PURPLE}15, ${CYAN}10)`, hot: false, border: PURPLE },
+   573→                { name: "Pong VS", players: "980", emoji: "🏓", grad: `linear-gradient(135deg, ${BLUE}20, ${CYAN}10)`, hot: false, border: BLUE },
+   574→                { name: "Bate o Alvo", players: "1.5k", emoji: "🎯", grad: `linear-gradient(135deg, ${GREEN}20, ${GOLD}10)`, hot: false, border: GREEN },
+   575→              ].map((game, i) => (
+   576→                <motion.div key={game.name} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300" style={{ background: game.grad, border: `1px solid ${game.border}15` }} onClick={() => navigate("/jogos")}>
+   577→                  {game.hot && <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: `${GREEN}20`, color: GREEN }}><Flame className="h-2.5 w-2.5 inline mr-0.5" />HOT</span>}
+   578→                  <span className="text-3xl block mb-3">{game.emoji}</span>
+   579→                  <p className="text-sm font-bold text-zinc-200 mb-1 leading-tight">{game.name}</p>
+   580→                  <div className="flex items-center gap-1"><Users className="h-3 w-3 text-zinc-500" /><span className="text-[11px] text-zinc-500">{game.players} jogando</span></div>
+   581→                </motion.div>
+   582→              ))}
+   583→            </div>
+   584→
+   585→            {/* Player count bar */}
+   586→            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-6 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${GREEN}10` }}>
+   587→              <div className="flex items-center gap-3">
+   588→                <div className="relative">
+   589→                  <div className="h-3 w-3 rounded-full" style={{ background: GREEN, boxShadow: `0 0 10px ${GREEN}60` }} />
+   590→                  <motion.div className="absolute inset-0 h-3 w-3 rounded-full" style={{ background: GREEN }} animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+   591→                </div>
+   592→                <span className="text-sm text-zinc-400"><span className="font-bold text-white">12.487</span> jogadores online agora</span>
+   593→              </div>
+   594→              <Button size="sm" onClick={() => navigate("/jogos")} className="font-bold rounded-lg" style={{ background: `linear-gradient(135deg, ${GREEN}, ${BLUE})` }}>
+   595→                <Play className="h-3.5 w-3.5 mr-1.5" /> Jogar Agora
+   596→              </Button>
+   597→            </motion.div>
+   598→          </div>
+   599→        </AnimatedSection>
+   600→
+   601→        {/* ═══════════ FAIR PLAY SHIELD ═══════════ */}
+   602→        <AnimatedSection className="relative py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(168,85,247,0.05), transparent), linear-gradient(180deg, #050508, #08060f, #050508)` }}>
+   603→          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+   604→            <div className="text-center mb-12">
+   605→              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="relative inline-flex items-center justify-center mb-6">
+   606→                <motion.div className="absolute h-28 w-28 rounded-full" style={{ border: `2px solid ${CYAN}20` }} animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }} transition={{ duration: 4, repeat: Infinity }} />
+   607→                <motion.div className="absolute h-24 w-24 rounded-full" style={{ border: `1px solid ${PURPLE}25` }} animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.15, 0.4] }} transition={{ duration: 3, repeat: Infinity, delay: 0.5 }} />
+   608→                <div className="relative h-20 w-20 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${CYAN}15, ${PURPLE}15, ${GREEN}15)`, border: "1px solid rgba(255,255,255,0.1)", boxShadow: `0 0 60px ${CYAN}15, 0 0 60px ${PURPLE}10` }}>
+   609→                  <ShieldCheck className="h-10 w-10" style={{ color: CYAN }} />
+   610→                </div>
+   611→              </motion.div>
+   612→              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.6 }} className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-3">
+   613→                Diferencial Ético
+   614→              </motion.h2>
+   615→              <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3, duration: 0.5 }} className="text-zinc-400 max-w-lg mx-auto text-sm sm:text-base">
+   616→                Ao contrário de plataformas de apostas, o Bateu é construído sobre transparência, moeda virtual e jogo responsável.
+   617→              </motion.p>
+   618→            </div>
+   619→
+   620→            <div className={`grid ${isMobile ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-4"} gap-4`}>
+   621→              {FAIR_PLAY_ITEMS.map((item, i) => {
+   622→                const Icon = item.icon;
+   623→                return (
+   624→                  <motion.div key={item.title} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ y: -4, scale: 1.02 }} className="relative rounded-2xl p-6 text-center group transition-all duration-300" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", border: `1px solid ${item.color}12` }}>
+   625→                    <motion.div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:scale-110" style={{ background: `${item.color}12`, border: `1px solid ${item.color}20`, boxShadow: `0 0 25px ${item.color}10` }}>
+   626→                      <Icon className="h-7 w-7" style={{ color: item.color }} />
+   627→                    </motion.div>
+   628→                    <h3 className="text-sm font-bold text-white mb-2">{item.title}</h3>
+   629→                    <p className="text-xs text-zinc-500 leading-relaxed">{item.desc}</p>
+   630→                  </motion.div>
+   631→                );
+   632→              })}
+   633→            </div>
+   634→          </div>
+   635→        </AnimatedSection>
+   636→
+   637→        {/* ═══════════ SOCIAL PROOF ═══════════ */}
+   638→        <AnimatedSection className="relative py-16 sm:py-24" style={{ background: `radial-gradient(ellipse 50% 40% at 50% 50%, rgba(251,191,36,0.04), transparent), linear-gradient(180deg, #050508, #080810, #050508)` }}>
+   639→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   640→            {/* Stats Row */}
+   641→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-4 mb-12`}>
+   642→              {[
+   643→                { icon: Users, value: 48500, suffix: "+", label: "Utilizadores Registados", color: CYAN },
+   644→                { icon: Trophy, value: 12500, suffix: "+", label: "Prémios Entregues", color: GOLD },
+   645→                { icon: Globe, value: 12, suffix: "", label: "Países", color: GREEN },
+   646→                { icon: Monitor, value: 69, suffix: "+", label: "Jogos Disponíveis", color: PURPLE },
+   647→              ].map((stat, i) => {
+   648→                const Icon = stat.icon;
+   649→                return (
+   650→                  <motion.div key={stat.label} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} className="rounded-2xl p-5 text-center" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${stat.color}10` }}>
+   651→                    <Icon className="h-5 w-5 mx-auto mb-2" style={{ color: stat.color }} />
+   652→                    <div className="text-2xl sm:text-3xl font-black text-white mb-1"><CountingNumber target={stat.value} suffix={stat.suffix} duration={2.5} /></div>
+   653→                    <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">{stat.label}</p>
+   654→                  </motion.div>
+   655→                );
+   656→              })}
+   657→            </div>
+   658→
+   659→            <WinnersSection />
+   660→            <div className="mt-8"><LiveFeed /></div>
+   661→            <div className="mt-8"><TrustSignals /></div>
+   662→          </div>
+   663→        </AnimatedSection>
+   664→
+   665→        {/* ═══════════ WHY DIFFERENT ═══════════ */}
+   666→        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #060610, #050508)` }}>
+   667→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   668→            <WhyDifferent />
+   669→          </div>
+   670→        </AnimatedSection>
+   671→
+   672→        {/* ═══════════ PROVABLY FAIR ═══════════ */}
+   673→        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #08060f, #050508)` }}>
+   674→          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+   675→            <ProvablyFair />
+   676→          </div>
+   677→        </AnimatedSection>
+   678→
+   679→        {/* ═══════════ CTA SECTION ═══════════ */}
+   680→        <AnimatedSection className="relative py-16 sm:py-24 overflow-hidden" style={{
+   681→          background: `radial-gradient(ellipse 70% 50% at 50% 50%, ${CYAN}08, transparent),
+   682→                   radial-gradient(ellipse 50% 40% at 20% 80%, ${PURPLE}06, transparent),
+   683→                   radial-gradient(ellipse 50% 40% at 80% 20%, ${GREEN}06, transparent),
+   684→                   linear-gradient(180deg, #050508, #080810, #050508)`,
+   685→        }}>
+   686→          <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
+   687→            <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
+   688→              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
+   689→                Junta-te à <span style={{ color: PURPLE }}>Comunidade</span>
+   690→              </h2>
+   691→              <p className="text-base sm:text-lg text-zinc-400 mb-8 max-w-xl mx-auto">
+   692→                Milhares de jogadores já estão a competir, prever e conquistar prémios.
+   693→                <br className="hidden sm:block" />
+   694→                Regista-te gratuitamente e recebe <span className="font-bold" style={{ color: GOLD }}>500 Luck Coins</span> de boas-vindas.
+   695→              </p>
+   696→              <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+   697→                <Button size="lg" onClick={() => navigate("/register")} className="text-base font-bold px-10 py-6 rounded-xl h-auto transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 40px ${CYAN}25, 0 8px 32px rgba(0,0,0,0.4)` }}>
+   698→                  <Rocket className="mr-2 h-5 w-5" /> Criar Conta Grátis
+   699→                </Button>
+   700→                <Button size="lg" variant="outline" onClick={() => navigate("/jogos")} className="text-base font-semibold px-10 py-6 rounded-xl h-auto border-zinc-700 text-zinc-300 hover:bg-zinc-800/50 hover:text-white transition-all duration-300">
+   701→                  <Eye className="mr-2 h-5 w-5" /> Explorar Plataforma
+   702→                </Button>
+   703→              </div>
+   704→              {/* Trust micro-badges */}
+   705→              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+   706→                {[
+   707→                  { icon: ShieldCheck, label: "Plataforma Segura", color: CYAN },
+   708→                  { icon: Users, label: "48.500+ Utilizadores", color: GREEN },
+   709→                  { icon: Zap, label: "Registo em 30s", color: GOLD },
+   710→                ].map((badge) => {
+   711→                  const BIcon = badge.icon;
+   712→                  return (
+   713→                    <div key={badge.label} className="flex items-center gap-1.5">
+   714→                      <BIcon className="h-4 w-4" style={{ color: badge.color }} />
+   715→                      <span className="text-xs text-zinc-500 font-medium">{badge.label}</span>
+   716→                    </div>
+   717→                  );
+   718→                })}
+   719→              </div>
+   720→            </motion.div>
+   721→          </div>
+   722→
+   723→          {/* Background decorations for CTA */}
+   724→          <motion.div className="absolute -left-20 top-1/2 -translate-y-1/2 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${CYAN}08` }} animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 8, repeat: Infinity }} />
+   725→          <motion.div className="absolute -right-20 top-1/3 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${PURPLE}08` }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 10, repeat: Infinity, delay: 2 }} />
+   726→        </AnimatedSection>
+   727→      </main>
+   728→
+   729→      {/* ═══════════ CATEGORY NAV ═══════════ */}
+   730→      <CategoryNav />
+   731→
+   732→      {/* ═══════════ ACTIVE RAFFLES (existing component) ═══════════ */}
+   733→      <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #050508, #08060f)` }}>
+   734→        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   735→          <ActiveRaffles />
+   736→        </div>
+   737→      </AnimatedSection>
+   738→
+   739→      {/* ═══════════ POPULAR LEADERBOARD ═══════════ */}
+   740→      <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #08060f, #050508)` }}>
+   741→        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   742→          <PopularLeaderboard />
+   743→        </div>
+   744→      </AnimatedSection>
+   745→
+   746→      <Footer />
+   747→    </div>
+   748→  );
+   749→}
