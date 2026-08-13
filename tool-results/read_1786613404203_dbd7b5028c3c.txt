@@ -1,0 +1,746 @@
+    92→export default function MillionairePage() {
+    93→  const { gameId } = useParams();
+    94→  const navigate = useNavigate();
+    95→  const { user } = useAuth();
+    96→  const { region } = useRegionalTheme();
+    97→
+    98→  const [screen, setScreen] = useState<Screen>("lobby");
+    99→  const [phase, setPhase] = useState<Phase>("question-in");
+   100→  const [questions, setQuestions] = useState<Question[]>([]);
+   101→  const [currentLevel, setCurrentLevel] = useState(1);
+   102→  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+   103→  const [answered, setAnswered] = useState(false);
+   104→  const [timeLeft, setTimeLeft] = useState(45);
+   105→  const [lifelinesUsed, setLifelinesUsed] = useState<Record<string, boolean>>({});
+   106→  const [soundEnabled, setSoundEnabled] = useState(true);
+   107→  const [disabledOptions, setDisabledOptions] = useState<string[]>([]);
+   108→  const [loading, setLoading] = useState(true);
+   109→  const [gameName, setGameName] = useState("");
+   110→  const [bgColor, setBgColor] = useState("#020817");
+   111→  const [primaryColor, setPrimaryColor] = useState("#fbbf24");
+   112→  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+   113→  const [audienceVotes, setAudienceVotes] = useState<number[]>([]);
+   114→  const [showAudience, setShowAudience] = useState(false);
+   115→  const [phoneFriend, setPhoneFriend] = useState("");
+   116→  const [showPhone, setShowPhone] = useState(false);
+   117→  const [questionKey, setQuestionKey] = useState(0);
+   118→  const timerRef = useRef<ReturnType<typeof setInterval>>();
+   119→
+   120→  const totalQuestions = 15;
+   121→  const currentQuestion = useMemo(() => questions[currentLevel - 1], [questions, currentLevel]);
+   122→  const currentPrize = PRIZE_STRUCTURE[currentLevel - 1];
+   123→
+   124→  useEffect(() => {
+   125→    loadGameData();
+   126→    loadLeaderboard();
+   127→  }, []);
+   128→
+   129→  const loadGameData = async () => {
+   130→    if (gameId) {
+   131→      const { data } = await supabase.from("millionaire_games").select("*").eq("id", gameId).single();
+   132→      if (data) {
+   133→        setGameName(data.name || "Quem Quer Ser Milionario?");
+   134→        setBgColor(data.background_color || "#020817");
+   135→        setPrimaryColor(data.primary_color || "#fbbf24");
+   136→      }
+   137→    }
+   138→    setLoading(false);
+   139→  };
+   140→
+   141→  const loadLeaderboard = async () => {
+   142→    if (!gameId) return;
+   143→    const { data } = await (supabase as any)
+   144→      .from("millionaire_leaderboard")
+   145→      .select("*, profiles!inner(display_name, avatar_url)")
+   146→      .eq("game_id", gameId)
+   147→      .order("highest_prize", { ascending: false })
+   148→      .limit(10);
+   149→    if (data) {
+   150→      setLeaderboard(data.map((d: any) => ({
+   151→        user_id: d.user_id,
+   152→        display_name: d.profiles?.display_name || "Anonymous",
+   153→        avatar_url: d.profiles?.avatar_url,
+   154→        highest_level: d.highest_level,
+   155→        highest_prize: d.highest_prize,
+   156→        total_plays: d.total_plays,
+   157→        total_wins: d.total_wins,
+   158→        average_level: d.average_level,
+   159→        last_played_at: d.last_played_at,
+   160→      })));
+   161→    }
+   162→  };
+   163→
+   164→  const startGame = async () => {
+   165→    setLoading(true);
+   166→    const trivia = await fetchTriviaQuestions(totalQuestions, undefined, "easy", "multiple");
+   167→    if (trivia.length > 0) {
+   168→      const formatted: Question[] = trivia.map((tq, i) => {
+   169→        const s = shuffleAnswers(decodeHTMLEntities(tq.correct_answer), tq.incorrect_answers.map(a => decodeHTMLEntities(a)));
+   170→        return { id: `t-${i}`, question_number: i + 1, question_text: decodeHTMLEntities(tq.question), ...s };
+   171→      });
+   172→      setQuestions(formatted);
+   173→    } else {
+   174→      setQuestions(defaultQuestions);
+   175→      toast.warning("Perguntas padrao carregadas");
+   176→    }
+   177→    setLoading(false);
+   178→    setScreen("playing");
+   179→    setCurrentLevel(1);
+   180→    setSelectedAnswer(null);
+   181→    setAnswered(false);
+   182→    setTimeLeft(45);
+   183→    setLifelinesUsed({});
+   184→    setDisabledOptions([]);
+   185→    setAudienceVotes([]);
+   186→    setPhoneFriend("");
+   187→  };
+   188→
+   189→  useEffect(() => {
+   190→    if (screen !== "playing" || answered) return;
+   191→    timerRef.current = setInterval(() => setTimeLeft(p => p - 1), 1000);
+   192→    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+   193→  }, [screen, answered, currentLevel]);
+   194→
+   195→  useEffect(() => {
+   196→    if (timeLeft === 0 && !answered && screen === "playing") {
+   197→      setAnswered(true);
+   198→      setPhase("reveal");
+   199→      setTimeout(() => {
+   200→        setScreen("lost");
+   201→        toast.error("Tempo esgotado!");
+   202→      }, 2500);
+   203→    }
+   204→  }, [timeLeft, answered, screen]);
+   205→
+   206→  const handleAnswer = (choice: string) => {
+   207→    if (answered || screen !== "playing") return;
+   208→    setSelectedAnswer(choice);
+   209→    setAnswered(true);
+   210→    setPhase("thinking");
+   211→
+   212→    setTimeout(() => {
+   213→      setPhase("reveal");
+   214→      const isCorrect = choice === currentQuestion.correct_answer;
+   215→
+   216→      if (isCorrect) {
+   217→        fireCorrectEffects();
+   218→        if (currentLevel === totalQuestions) {
+   219→          setTimeout(() => {
+   220→            fireWinEffects();
+   221→            setScreen("won");
+   222→            saveSession("completed", currentPrize.amount);
+   223→          }, 2000);
+   224→        } else {
+   225→          setTimeout(() => {
+   226→            setPhase("transition");
+   227→            setTimeout(() => {
+   228→              setCurrentLevel(p => p + 1);
+   229→              setAnswered(false);
+   230→              setSelectedAnswer(null);
+   231→              setDisabledOptions([]);
+   232→              setTimeLeft(45);
+   233→              setAudienceVotes([]);
+   234→              setPhoneFriend("");
+   235→              setQuestionKey(k => k + 1);
+   236→              setPhase("question-in");
+   237→            }, 800);
+   238→          }, 2000);
+   239→        }
+   240→      } else {
+   241→        fireWrongEffects();
+   242→        setTimeout(() => {
+   243→          setScreen("lost");
+   244→          saveSession("abandoned", calculateSafePrize());
+   245→        }, 2500);
+   246→      }
+   247→    }, 3000);
+   248→  };
+   249→
+   250→  const calculateSafePrize = () => {
+   251→    let safe = 0;
+   252→    for (let i = 0; i < currentLevel - 1; i++) {
+   253→      if (PRIZE_STRUCTURE[i]?.is_safe_haven) safe = PRIZE_STRUCTURE[i].amount;
+   254→    }
+   255→    return safe;
+   256→  };
+   257→
+   258→  const saveSession = async (status: string, prize: number) => {
+   259→    if (!user || !region || !gameId) return;
+   260→    await supabase.from("millionaire_sessions").insert({
+   261→      game_id: gameId,
+   262→      user_id: user.id,
+   263→      region_id: region.id,
+   264→      current_level: currentLevel,
+   265→      prize_won: prize,
+   266→      status,
+   267→    });
+   268→    loadLeaderboard();
+   269→  };
+   270→
+   271→  const handle5050 = () => {
+   272→    if (lifelinesUsed["50_50"] || answered) return;
+   273→    setLifelinesUsed(p => ({ ...p, "50_50": true }));
+   274→    const wrong = ["A", "B", "C", "D"].filter(l => l !== currentQuestion.correct_answer);
+   275→    const toDisable = wrong.sort(() => 0.5 - Math.random()).slice(0, 2);
+   276→    setDisabledOptions(toDisable);
+   277→    toast.info("50:50 - Duas respostas removidas!");
+   278→  };
+   279→
+   280→  const handleAudience = () => {
+   281→    if (lifelinesUsed.audience || answered) return;
+   282→    setLifelinesUsed(p => ({ ...p, audience: true }));
+   283→    setShowAudience(true);
+   284→    const correct = currentQuestion.correct_answer.charCodeAt(0) - 65;
+   285→    const votes = [0, 0, 0, 0].map((_, i) => {
+   286→      if (i === correct) return 40 + Math.floor(Math.random() * 40);
+   287→      return Math.floor(Math.random() * 20);
+   288→    });
+   289→    const total = votes.reduce((a, b) => a + b, 0);
+   290→    setAudienceVotes(votes.map(v => Math.round((v / total) * 100)));
+   291→    toast.info("O Publico votou!");
+   292→    setTimeout(() => setShowAudience(false), 5000);
+   293→  };
+   294→
+   295→  const handlePhone = () => {
+   296→    if (lifelinesUsed.phone || answered) return;
+   297→    setLifelinesUsed(p => ({ ...p, phone: true }));
+   298→    setShowPhone(true);
+   299→    const friends = ["Ana (Professora)", "Carlos (Engenheiro)", "Maria (Medica)", "Joao (Programador)"];
+   300→    const friend = friends[Math.floor(Math.random() * friends.length)];
+   301→    const correct = currentQuestion.correct_answer;
+   302→    const correctText = currentQuestion[`option_${correct.toLowerCase()}` as keyof Question] as string;
+   303→    const confidence = Math.random() > 0.2 ? "bastante seguro" : "nao tenho certeza";
+   304→    setPhoneFriend(`${friend} diz: \"Acho que e ${correctText}... estou ${confidence}!\"`);
+   305→    toast.info(`Ligacao para ${friend.split(" (")[0]}...`);
+   306→    setTimeout(() => setShowPhone(false), 5000);
+   307→  };
+   308→
+   309→  const fireCorrectEffects = () => {
+   310→    confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 }, colors: ["#22c55e", "#4ade80", "#ffffff"] });
+   311→  };
+   312→
+   313→  const fireWrongEffects = () => {
+   314→    setTimeout(() => confetti({ particleCount: 30, spread: 60, origin: { y: 0.6 }, colors: ["#ef4444", "#991b1b"] }), 500);
+   315→  };
+   316→
+   317→  const fireWinEffects = () => {
+   318→    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 } });
+   319→    setTimeout(() => confetti({ particleCount: 200, spread: 150, origin: { x: 0.2, y: 0.5 }, colors: ["#fbbf24", "#f59e0b", "#ffffff", "#fde68a"] }), 200);
+   320→    setTimeout(() => confetti({ particleCount: 200, spread: 150, origin: { x: 0.8, y: 0.5 }, colors: ["#fbbf24", "#f59e0b", "#ffffff", "#fde68a"] }), 400);
+   321→    setTimeout(() => {
+   322→      const end = Date.now() + 5000;
+   323→      const iv = setInterval(() => {
+   324→        if (Date.now() > end) return clearInterval(iv);
+   325→        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors: ["#fbbf24", "#ffffff"] });
+   326→        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors: ["#fbbf24", "#ffffff"] });
+   327→      }, 60);
+   328→    }, 800);
+   329→  };
+   330→
+   331→  const formatPrize = (n: number) => n.toLocaleString("pt-MZ");
+   332→
+   333→  if (loading) {
+   334→    return (
+   335→      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bgColor }}>
+   336→        <div className="text-center">
+   337→          <div className="relative inline-block">
+   338→            <div className="w-20 h-20 rounded-full border-4 border-amber-400/30 border-t-amber-400 animate-spin" />
+   339→            <Crown className="w-8 h-8 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+   340→          </div>
+   341→          <p className="text-amber-400/60 mt-4 text-sm uppercase tracking-[0.3em]">A carregar...</p>
+   342→        </div>
+   343→      </div>
+   344→    );
+   345→  }
+   346→
+   347→  return (
+   348→    <div className="min-h-screen relative overflow-hidden font-sans" style={{ backgroundColor: bgColor }}>
+   349→      <div className="absolute inset-0 bg-gradient-to-b from-blue-950/30 via-transparent to-black/40" />
+   350→      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-amber-500/5 blur-[120px]" />
+   351→      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full bg-blue-600/5 blur-[100px]" />
+   352→      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full bg-purple-600/5 blur-[100px]" />
+   353→
+   354→      <div className="relative z-10">
+   355→        {screen === "lobby" && <LobbyScreen gameName={gameName} primaryColor={primaryColor} leaderboard={leaderboard} onStart={startGame} user={user} onLogin={() => navigate("/login")} formatPrize={formatPrize} />}
+   356→        {screen === "playing" && currentQuestion && (
+   357→          <GameScreen
+   358→            key={questionKey}
+   359→            gameName={gameName}
+   360→            primaryColor={primaryColor}
+   361→            currentLevel={currentLevel}
+   362→            totalQuestions={totalQuestions}
+   363→            currentQuestion={currentQuestion}
+   364→            currentPrize={currentPrize}
+   365→            timeLeft={timeLeft}
+   366→            maxTime={45}
+   367→            selectedAnswer={selectedAnswer}
+   368→            answered={answered}
+   369→            phase={phase}
+   370→            lifelinesUsed={lifelinesUsed}
+   371→            disabledOptions={disabledOptions}
+   372→            prizeStructure={PRIZE_STRUCTURE}
+   373→            soundEnabled={soundEnabled}
+   374→            audienceVotes={audienceVotes}
+   375→            showAudience={showAudience}
+   376→            phoneFriend={phoneFriend}
+   377→            showPhone={showPhone}
+   378→            onAnswer={handleAnswer}
+   379→            on5050={handle5050}
+   380→            onAudience={handleAudience}
+   381→            onPhone={handlePhone}
+   382→            onToggleSound={() => setSoundEnabled(p => !p)}
+   383→            onQuit={() => setScreen("lobby")}
+   384→            formatPrize={formatPrize}
+   385→          />
+   386→        )}
+   387→        {(screen === "won" || screen === "lost") && (
+   388→          <ResultScreen
+   389→            screen={screen}
+   390→            gameName={gameName}
+   391→            primaryColor={primaryColor}
+   392→            currentLevel={currentLevel}
+   393→            currentPrize={currentPrize}
+   394→            safePrize={calculateSafePrize()}
+   395→            prizeStructure={PRIZE_STRUCTURE}
+   396→            onRestart={() => { setScreen("lobby"); loadLeaderboard(); }}
+   397→            onQuit={() => setScreen("lobby")}
+   398→            formatPrize={formatPrize}
+   399→          />
+   400→        )}
+   401→      </div>
+   402→    </div>
+   403→  );
+   404→}
+   405→
+   406→function LobbyScreen({ gameName, primaryColor, leaderboard, onStart, user, onLogin, formatPrize }: {
+   407→  gameName: string;
+   408→  primaryColor: string;
+   409→  leaderboard: LeaderboardEntry[];
+   410→  onStart: () => void;
+   411→  user: any;
+   412→  onLogin: () => void;
+   413→  formatPrize: (n: number) => string;
+   414→}) {
+   415→  return (
+   416→    <div className="min-h-screen flex flex-col">
+   417→      <div className="flex-1 flex items-center justify-center p-4">
+   418→        <motion.div
+   419→          initial={{ opacity: 0, y: 30 }}
+   420→          animate={{ opacity: 1, y: 0 }}
+   421→          transition={{ duration: 0.8, type: "spring" }}
+   422→          className="max-w-2xl w-full text-center space-y-8"
+   423→        >
+   424→          <motion.div
+   425→            initial={{ scale: 0 }}
+   426→            animate={{ scale: 1 }}
+   427→            transition={{ delay: 0.2, type: "spring", bounce: 0.5 }}
+   428→          >
+   429→            <div className="relative inline-block">
+   430→              <div className="absolute -inset-4 rounded-full blur-xl opacity-40" style={{ background: `radial-gradient(circle, ${primaryColor}, transparent 70%)` }} />
+   431→              <div className="relative w-28 h-28 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primaryColor}, #b45309)` }}>
+   432→                <Crown className="w-14 h-14 text-black" />
+   433→              </div>
+   434→              <motion.div
+   435→                animate={{ rotate: 360 }}
+   436→                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+   437→                className="absolute -inset-6 rounded-full border-2 border-dashed"
+   438→                style={{ borderColor: `${primaryColor}30` }}
+   439→              />
+   440→            </div>
+   441→          </motion.div>
+   442→
+   443→          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+   444→            <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter" style={{ textShadow: `0 0 40px ${primaryColor}40` }}>
+   445→              Quem Quer Ser
+   446→            </h1>
+   447→            <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter" style={{ color: primaryColor, textShadow: `0 0 60px ${primaryColor}60` }}>
+   448→              Milionario?
+   449→            </h1>
+   450→          </motion.div>
+   451→
+   452→          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-white/50 text-lg">
+   453→            15 perguntas. 3 ajudas. 1 milhao de MZN.
+   454→          </motion.p>
+   455→
+   456→          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-4">
+   457→            <div className="flex items-center justify-center gap-8 text-white/40 text-sm">
+   458→              <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" style={{ color: primaryColor }} /> Niveis de seguranca</div>
+   459→              <div className="flex items-center gap-2"><Star className="w-4 h-4" style={{ color: primaryColor }} /> 15 niveis</div>
+   460→              <div className="flex items-center gap-2"><Flame className="w-4 h-4" style={{ color: primaryColor }} /> 3 ajudas</div>
+   461→            </div>
+   462→          </motion.div>
+   463→
+   464→          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1 }}>
+   465→            {user ? (
+   466→              <button
+   467→                onClick={onStart}
+   468→                className="group relative px-16 py-5 rounded-full text-xl font-black text-black uppercase tracking-wider overflow-hidden transition-transform hover:scale-105"
+   469→                style={{ background: `linear-gradient(135deg, ${primaryColor}, #b45309)` }}
+   470→              >
+   471→                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+   472→                <span className="relative">JOGAR</span>
+   473→              </button>
+   474→            ) : (
+   475→              <button
+   476→                onClick={onLogin}
+   477→                className="group relative px-16 py-5 rounded-full text-xl font-black text-black uppercase tracking-wider overflow-hidden transition-transform hover:scale-105"
+   478→                style={{ background: `linear-gradient(135deg, ${primaryColor}, #b45309)` }}
+   479→              >
+   480→                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+   481→                <span className="relative">ENTRAR PARA JOGAR</span>
+   482→              </button>
+   483→            )}
+   484→          </motion.div>
+   485→
+   486→          {leaderboard.length > 0 && (
+   487→            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="mt-8">
+   488→              <div className="inline-flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+   489→                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Melhores Jogadores</h3>
+   490→                <div className="space-y-2 w-full max-w-sm">
+   491→                  {leaderboard.slice(0, 5).map((entry, i) => (
+   492→                    <div key={entry.user_id} className="flex items-center gap-3 text-sm">
+   493→                      <span className="w-6 text-center font-black" style={{ color: i === 0 ? "#fbbf24" : i === 1 ? "#94a3b8" : i === 2 ? "#b45309" : "#475569" }}>{i + 1}</span>
+   494→                      <span className="flex-1 text-white/70 truncate">{entry.display_name}</span>
+   495→                      <span className="font-bold text-white/50">Nv.{entry.highest_level}</span>
+   496→                      <span className="font-black min-w-[80px] text-right" style={{ color: i === 0 ? "#fbbf24" : "#94a3b8" }}>{formatPrize(entry.highest_prize)} MZN</span>
+   497→                    </div>
+   498→                  ))}
+   499→                </div>
+   500→              </div>
+   501→            </motion.div>
+   502→          )}
+   503→        </motion.div>
+   504→      </div>
+   505→    </div>
+   506→  );
+   507→}
+   508→
+   509→function GameScreen({ gameName, primaryColor, currentLevel, totalQuestions, currentQuestion, currentPrize, timeLeft, maxTime, selectedAnswer, answered, phase, lifelinesUsed, disabledOptions, prizeStructure, soundEnabled, audienceVotes, showAudience, phoneFriend, showPhone, onAnswer, on5050, onAudience, onPhone, onToggleSound, onQuit, formatPrize }: {
+   510→  gameName: string;
+   511→  primaryColor: string;
+   512→  currentLevel: number;
+   513→  totalQuestions: number;
+   514→  currentQuestion: Question;
+   515→  currentPrize: PrizeLevel;
+   516→  timeLeft: number;
+   517→  maxTime: number;
+   518→  selectedAnswer: string | null;
+   519→  answered: boolean;
+   520→  phase: Phase;
+   521→  lifelinesUsed: Record<string, boolean>;
+   522→  disabledOptions: string[];
+   523→  prizeStructure: PrizeLevel[];
+   524→  soundEnabled: boolean;
+   525→  audienceVotes: number[];
+   526→  showAudience: boolean;
+   527→  phoneFriend: string;
+   528→  showPhone: boolean;
+   529→  onAnswer: (c: string) => void;
+   530→  on5050: () => void;
+   531→  onAudience: () => void;
+   532→  onPhone: () => void;
+   533→  onToggleSound: () => void;
+   534→  onQuit: () => void;
+   535→  formatPrize: (n: number) => string;
+   536→}) {
+   537→  const isUrgent = timeLeft <= 10;
+   538→  const isCritical = timeLeft <= 5;
+   539→  const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+   540→  const isWrong = answered && selectedAnswer !== null && !isCorrect;
+   541→
+   542→  return (
+   543→    <div className="min-h-screen flex flex-col">
+   544→      <div className="relative z-20 px-4 py-3 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-md">
+   545→        <div className="flex items-center gap-3">
+   546→          <button onClick={onQuit} className="text-white/40 hover:text-white/80 transition-colors">
+   547→            <ArrowLeft className="w-5 h-5" />
+   548→          </button>
+   549→          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `${primaryColor}20` }}>
+   550→            <Crown className="w-4 h-4" style={{ color: primaryColor }} />
+   551→          </div>
+   552→          <span className="text-white/60 text-xs uppercase tracking-widest font-bold hidden sm:block">Pergunta {currentLevel} de {totalQuestions}</span>
+   553→        </div>
+   554→
+   555→        <div className="flex items-center gap-2">
+   556→          <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${isCritical ? "bg-red-500/20 border-red-500/50" : isUrgent ? "bg-amber-500/20 border-amber-500/40" : "bg-black/40 border-white/10"}`}>
+   557→            <Timer className={`w-4 h-4 transition-colors ${isCritical ? "text-red-400 animate-pulse" : isUrgent ? "text-amber-400" : "text-white/60"}`} />
+   558→            <span className={`text-lg font-mono font-bold tabular-nums min-w-[2ch] text-center ${isCritical ? "text-red-400" : isUrgent ? "text-amber-400" : "text-white"}`}>{timeLeft}</span>
+   559→          </div>
+   560→          <button onClick={onToggleSound} className="text-white/40 hover:text-white/80 p-2 transition-colors">
+   561→            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+   562→          </button>
+   563→        </div>
+   564→      </div>
+   565→
+   566→      <div className="relative z-20 h-1 bg-white/5">
+   567→        <div
+   568→          className="h-full transition-all duration-1000 ease-linear"
+   569→          style={{
+   570→            width: answered ? "0%" : `${(timeLeft / maxTime) * 100}%`,
+   571→            background: isCritical ? "linear-gradient(90deg, #ef4444, #f87171)" : isUrgent ? "linear-gradient(90deg, #f59e0b, #fbbf24)" : `linear-gradient(90deg, ${primaryColor}, ${primaryColor}80)`,
+   572→          }}
+   573→        />
+   574→      </div>
+   575→
+   576→      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_280px]">
+   577→        <div className="flex flex-col justify-center p-4 md:p-8 lg:p-12 space-y-8">
+   578→          <div className="text-center space-y-4">
+   579→            <div className="flex items-center justify-center gap-2">
+   580→              <Badge variant="outline" className="border-white/10 text-white/40 text-xs">NIVEL {currentLevel}</Badge>
+   581→              <span className="text-white/30">|</span>
+   582→              <Badge className="text-xs font-bold" style={{ background: `${primaryColor}20`, color: primaryColor, border: `1px solid ${primaryColor}30` }}>
+   583→                {formatPrize(currentPrize.amount)} {currentPrize.currency}
+   584→              </Badge>
+   585→            </div>
+   586→
+   587→            <AnimatePresence mode="wait">
+   588→              <motion.div
+   589→                key={currentQuestion.id}
+   590→                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+   591→                animate={{ opacity: 1, y: 0, scale: 1 }}
+   592→                exit={{ opacity: 0, y: -20, scale: 0.98 }}
+   593→                transition={{ duration: 0.5, type: "spring", stiffness: 200, damping: 25 }}
+   594→                className="relative max-w-3xl mx-auto"
+   595→              >
+   596→                <div
+   597→                  className="relative p-8 md:p-12 rounded-3xl border backdrop-blur-xl transition-all duration-500"
+   598→                  style={{
+   599→                    borderColor: answered ? (isCorrect ? "#22c55e40" : isWrong ? "#ef444440" : "#ffffff15") : isCritical ? "#ef444440" : `${primaryColor}20`,
+   600→                    background: answered ? (isCorrect ? "rgba(34,197,94,0.05)" : isWrong ? "rgba(239,68,68,0.05)" : "rgba(255,255,255,0.03)") : "rgba(255,255,255,0.03)",
+   601→                    boxShadow: answered ? (isCorrect ? "0 0 60px rgba(34,197,94,0.15)" : isWrong ? "0 0 60px rgba(239,68,68,0.15)" : "none") : isCritical ? "0 0 60px rgba(239,68,68,0.1)" : `0 0 40px ${primaryColor}05`,
+   602→                  }}
+   603→                >
+   604→                  <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+   605→                  <h2 className="text-xl md:text-3xl lg:text-4xl font-bold text-white leading-relaxed">
+   606→                    {currentQuestion.question_text}
+   607→                  </h2>
+   608→                  <div className="absolute bottom-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+   609→                </div>
+   610→              </motion.div>
+   611→            </AnimatePresence>
+   612→          </div>
+   613→
+   614→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto w-full">
+   615→            {["A", "B", "C", "D"].map((letter, idx) => {
+   616→              const optKey = `option_${letter.toLowerCase()}` as keyof Question;
+   617→              const text = currentQuestion[optKey] as string;
+   618→              const isSel = selectedAnswer === letter;
+   619→              const isCorr = letter === currentQuestion.correct_answer;
+   620→              const isDis = disabledOptions.includes(letter);
+   621→              const isLocked = answered || isDis;
+   622→
+   623→              let bg = "bg-white/5 border-white/15 hover:bg-white/10 hover:border-white/25";
+   624→              let textCol = "text-white/90";
+   625→              let letterBg = "bg-white/10 text-white/60";
+   626→
+   627→              if (isDis) {
+   628→                bg = "bg-white/[0.02] border-white/5 opacity-20";
+   629→                textCol = "text-white/20";
+   630→              }
+   631→              if (isSel && !answered) {
+   632→                bg = `border-2`; 
+   633→                letterBg = "text-black font-bold";
+   634→              }
+   635→              if (answered && isCorr) {
+   636→                bg = "bg-green-500/15 border-green-500/50";
+   637→                textCol = "text-green-400";
+   638→                letterBg = "bg-green-500 text-white";
+   639→              }
+   640→              if (answered && isSel && !isCorr) {
+   641→                bg = "bg-red-500/15 border-red-500/50";
+   642→                textCol = "text-red-400";
+   643→                letterBg = "bg-red-500 text-white";
+   644→              }
+   645→
+   646→              return (
+   647→                <motion.button
+   648→                  key={`${currentQuestion.id}-${letter}`}
+   649→                  initial={{ opacity: 0, x: idx < 2 ? -20 : 20 }}
+   650→                  animate={{ opacity: isDis ? 0.2 : 1, x: 0 }}
+   651→                  transition={{ delay: 0.1 + idx * 0.1, type: "spring", stiffness: 200, damping: 25 }}
+   652→                  onClick={() => onAnswer(letter)}
+   653→                  disabled={isLocked}
+   654→                  className={`group relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 ${bg} ${isLocked ? "cursor-default" : "cursor-pointer active:scale-[0.98]"}`}
+   655→                  style={isSel && !answered ? { borderColor: primaryColor, background: `${primaryColor}15` } : {}}
+   656→                >
+   657→                  <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-black text-sm md:text-base transition-all ${letterBg}`} style={isSel && !answered ? { background: primaryColor, color: "#000" } : {}}>
+   658→                    {letter}
+   659→                  </div>
+   660→                  <span className={`flex-1 text-left font-semibold text-base md:text-lg ${textCol}`}>{text}</span>
+   661→                  {answered && isCorr && <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />}
+   662→                  {answered && isSel && !isCorr && <XCircle className="w-5 h-5 text-red-400 shrink-0" />}
+   663→                </motion.button>
+   664→              );
+   665→            })}
+   666→          </div>
+   667→
+   668→          <div className="flex items-center justify-center gap-4 max-w-3xl mx-auto w-full">
+   669→            <LifelineButton icon={<Lightbulb className="w-5 h-5" />} label="50:50" used={lifelinesUsed["50_50"]} onClick={on5050} disabled={answered} primaryColor={primaryColor} />
+   670→            <LifelineButton icon={<Users className="w-5 h-5" />} label="PUBLICO" used={lifelinesUsed.audience} onClick={onAudience} disabled={answered} primaryColor={primaryColor} />
+   671→            <LifelineButton icon={<Phone className="w-5 h-5" />} label="LIGAR" used={lifelinesUsed.phone} onClick={onPhone} disabled={answered} primaryColor={primaryColor} />
+   672→          </div>
+   673→        </div>
+   674→
+   675→        <div className="hidden lg:flex flex-col border-l border-white/10 bg-black/20">
+   676→          <div className="p-4 border-b border-white/10">
+   677→            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/30">Piramide de Premios</h3>
+   678→          </div>
+   679→          <div className="flex-1 overflow-y-auto p-2 space-y-1 flex flex-col-reverse">
+   680→            {prizeStructure.map((p) => {
+   681→              const isCurrent = currentLevel === p.level;
+   682→              const isPast = currentLevel > p.level;
+   683→              return (
+   684→                <div
+   685→                  key={p.level}
+   686→                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${isCurrent ? "font-black scale-[1.02]" : isPast ? "opacity-30 line-through" : "hover:bg-white/5"}`}
+   687→                  style={isCurrent ? { background: primaryColor, color: "#000" } : {}}
+   688→                >
+   689→                  <span className={`text-xs font-bold w-5 ${isCurrent ? "text-black/60" : "text-white/30"}`}>{p.level}</span>
+   690→                  <span className="flex-1 text-sm">{formatPrize(p.amount)} {p.currency}</span>
+   691→                  {p.is_safe_haven && <ShieldCheck className={`w-3.5 h-3.5 ${isCurrent ? "text-black/40" : ""}`} style={!isCurrent ? { color: primaryColor } : {}} />}
+   692→                </div>
+   693→              );
+   694→            })}
+   695→          </div>
+   696→        </div>
+   697→      </div>
+   698→
+   699→      <AnimatePresence>
+   700→        {showAudience && audienceVotes.length === 4 && (
+   701→          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+   702→            <div className="bg-black/90 border border-white/10 rounded-2xl backdrop-blur-xl p-6 min-w-[300px]">
+   703→              <h4 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-4 text-center">Voto do Publico</h4>
+   704→              <div className="space-y-2">
+   705→                {["A", "B", "C", "D"].map((l, i) => (
+   706→                  <div key={l} className="flex items-center gap-3">
+   707→                    <span className="w-6 text-xs font-bold text-white/50">{l}</span>
+   708→                    <div className="flex-1 h-6 bg-white/10 rounded-full overflow-hidden">
+   709→                      <motion.div initial={{ width: 0 }} animate={{ width: `${audienceVotes[i]}%` }} transition={{ duration: 1, delay: i * 0.15 }} className="h-full rounded-full" style={{ background: l === currentQuestion.correct_answer ? primaryColor : "rgba(255,255,255,0.3)" }} />
+   710→                    </div>
+   711→                    <span className="text-xs font-bold text-white/60 w-10 text-right">{audienceVotes[i]}%</span>
+   712→                  </div>
+   713→                ))}
+   714→              </div>
+   715→            </div>
+   716→          </motion.div>
+   717→        )}
+   718→      </AnimatePresence>
+   719→
+   720→      <AnimatePresence>
+   721→        {showPhone && phoneFriend && (
+   722→          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+   723→            <div className="bg-gradient-to-b from-blue-950 to-black border border-blue-500/20 rounded-3xl p-8 max-w-md w-full text-center space-y-4">
+   724→              <Phone className="w-10 h-10 text-blue-400 mx-auto animate-pulse" />
+   725→              <p className="text-white/90 text-lg italic leading-relaxed">{phoneFriend}</p>
+   726→            </div>
+   727→          </motion.div>
+   728→        )}
+   729→      </AnimatePresence>
+   730→
+   731→      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-black/80 backdrop-blur-md border-t border-white/10 p-2">
+   732→        <div className="flex items-center gap-1 max-w-md mx-auto">
+   733→          {prizeStructure.map((p) => {
+   734→            const isCurrent = currentLevel === p.level;
+   735→            return (
+   736→              <div key={p.level} className={`flex-1 h-1.5 rounded-full transition-all ${isCurrent ? "" : "bg-white/10"}`} style={isCurrent ? { background: primaryColor, boxShadow: `0 0 8px ${primaryColor}` } : {}} />
+   737→            );
+   738→          })}
+   739→        </div>
+   740→      </div>
+   741→    </div>
+   742→  );
+   743→}
+   744→
+   745→function LifelineButton({ icon, label, used, onClick, disabled, primaryColor }: {
+   746→  icon: React.ReactNode;
+   747→  label: string;
+   748→  used: boolean;
+   749→  onClick: () => void;
+   750→  disabled: boolean;
+   751→  primaryColor: string;
+   752→}) {
+   753→  return (
+   754→    <button
+   755→      onClick={onClick}
+   756→      disabled={used || disabled}
+   757→      className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all duration-300 ${used ? "opacity-25 grayscale border-white/5 bg-white/[0.02]" : `border-white/15 bg-white/5 hover:bg-white/10 active:scale-95`}`}
+   758→      style={!used ? { borderColor: `${primaryColor}30` } : {}}
+   759→    >
+   760→      <span style={!used ? { color: primaryColor } : {}}>{icon}</span>
+   761→      <span className={`text-xs font-bold uppercase tracking-wider ${used ? "text-white/20" : "text-white/60"}`}>{label}</span>
+   762→    </button>
+   763→  );
+   764→}
+   765→
+   766→function ResultScreen({ screen, primaryColor, currentLevel, currentPrize, safePrize, prizeStructure, onRestart, onQuit, formatPrize }: {
+   767→  screen: "won" | "lost";
+   768→  gameName: string;
+   769→  primaryColor: string;
+   770→  currentLevel: number;
+   771→  currentPrize: PrizeLevel;
+   772→  safePrize: number;
+   773→  prizeStructure: PrizeLevel[];
+   774→  onRestart: () => void;
+   775→  onQuit: () => void;
+   776→  formatPrize: (n: number) => string;
+   777→}) {
+   778→  const isWin = screen === "won";
+   779→  const prize = isWin ? currentPrize.amount : safePrize;
+   780→
+   781→  return (
+   782→    <div className="min-h-screen flex items-center justify-center p-4">
+   783→      <motion.div
+   784→        initial={{ opacity: 0, scale: 0.9, y: 30 }}
+   785→        animate={{ opacity: 1, scale: 1, y: 0 }}
+   786→        transition={{ type: "spring", stiffness: 200, damping: 20 }}
+   787→        className="max-w-lg w-full text-center space-y-8"
+   788→      >
+   789→        <motion.div
+   790→          initial={{ scale: 0 }}
+   791→          animate={{ scale: 1 }}
+   792→          transition={{ delay: 0.3, type: "spring", bounce: 0.5 }}
+   793→          className="relative inline-block"
+   794→        >
+   795→          <div className="absolute -inset-8 rounded-full blur-2xl opacity-30" style={{ background: isWin ? primaryColor : "#ef4444" }} />
+   796→          <div className="relative w-32 h-32 rounded-full flex items-center justify-center" style={{ background: isWin ? `linear-gradient(135deg, ${primaryColor}, #b45309)` : "linear-gradient(135deg, #ef4444, #991b1b)" }}>
+   797→            {isWin ? <Trophy className="w-16 h-16 text-black" /> : <XCircle className="w-16 h-16 text-white" />}
+   798→          </div>
+   799→        </motion.div>
+   800→
+   801→        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+   802→          <h1 className={`text-4xl md:text-6xl font-black uppercase tracking-tighter ${isWin ? "" : ""}`} style={{ color: isWin ? primaryColor : "#ef4444", textShadow: `0 0 40px ${isWin ? primaryColor : "#ef444440"}` }}>
+   803→            {isWin ? "MILIONARIO!" : "FIM DE JOGO"}
+   804→          </h1>
+   805→          <p className="text-white/40 mt-2 text-lg">
+   806→            {isWin ? "Parabens! Ganhou o premio maximo!" : "Chegou ao nivel " + currentLevel}
+   807→          </p>
+   808→        </motion.div>
+   809→
+   810→        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }} className="space-y-2">
+   811→          <p className="text-white/50 text-sm uppercase tracking-widest">Leva para casa</p>
+   812→          <p className="text-5xl md:text-6xl font-black" style={{ color: primaryColor, textShadow: `0 0 40px ${primaryColor}40` }}>
+   813→            {formatPrize(prize)}
+   814→            <span className="text-2xl text-white/40 ml-2">{prizeStructure[0].currency}</span>
+   815→          </p>
+   816→        </motion.div>
+   817→
+   818→        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="flex items-center justify-center gap-4 pt-4">
+   819→          <button
+   820→            onClick={onRestart}
+   821→            className="px-10 py-4 rounded-full text-lg font-black text-black uppercase tracking-wider transition-transform hover:scale-105"
+   822→            style={{ background: `linear-gradient(135deg, ${primaryColor}, #b45309)` }}
+   823→          >
+   824→            JOGAR NOVAMENTE
+   825→          </button>
+   826→          <button
+   827→            onClick={onQuit}
+   828→            className="px-10 py-4 rounded-full text-lg font-black uppercase tracking-wider border-2 border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-all"
+   829→          >
+   830→            SAIR
+   831→          </button>
+   832→        </motion.div>
+   833→      </motion.div>
+   834→    </div>
+   835→  );
+   836→}
+   837→

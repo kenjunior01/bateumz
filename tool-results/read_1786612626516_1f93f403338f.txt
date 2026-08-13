@@ -1,0 +1,751 @@
+     1→import { useState, useRef, useEffect } from "react";
+     2→import { useNavigate, Link } from "react-router-dom";
+     3→import { useIsMobile } from "@/hooks/use-mobile";
+     4→import { useLanguage } from "@/contexts/LanguageContext";
+     5→import { supabase } from "@/integrations/supabase/client";
+     6→import Navbar from "@/components/Navbar";
+     7→import StatsBar from "@/components/StatsBar";
+     8→import CategoryNav from "@/components/CategoryNav";
+     9→import ActiveRaffles from "@/components/ActiveRaffles";
+    10→import WinnersSection from "@/components/WinnersSection";
+    11→import Footer from "@/components/Footer";
+    12→import TrustSignals from "@/components/TrustSignals";
+    13→import LiveFeed from "@/components/LiveFeed";
+    14→import PopularLeaderboard from "@/components/PopularLeaderboard";
+    15→import WhyDifferent from "@/components/WhyDifferent";
+    16→import ProvablyFair from "@/components/ProvablyFair";
+    17→import { Button } from "@/components/ui/button";
+    18→import {
+    19→  Gamepad2, ArrowRight, Users, Brain,
+    20→  Radio, Flame, Trophy, ShieldCheck, Zap, TrendingUp,
+    21→  ChevronRight, Crown, Diamond, Rocket, Target, Play, Eye,
+    22→  Coins, Heart, Swords, Gift, Monitor, Globe,
+    23→  CheckCircle2,
+    24→} from "lucide-react";
+    25→import { motion, useInView, useScroll, useTransform } from "framer-motion";
+    26→import { useSoundEffects } from "@/hooks/useSoundEffects";
+    27→import bateuLogo from "@/assets/bateu-logo.png";
+    28→
+    29→/* ─── color tokens ─── */
+    30→const CYAN = "#00d4ff";
+    31→const PURPLE = "#a855f7";
+    32→const GREEN = "#2ea043";
+    33→const BLUE = "#58a6ff";
+    34→const GOLD = "#fbbf24";
+    35→const DEEP_PURPLE = "#7b2ff7";
+    36→
+    37→/* ─── animation variants ─── */
+    38→const fadeUp = {
+    39→  hidden: { opacity: 0, y: 30 },
+    40→  visible: (i: number) => ({
+    41→    opacity: 1, y: 0,
+    42→    transition: { delay: i * 0.08, duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    43→  }),
+    44→};
+    45→
+    46→const scaleIn = {
+    47→  hidden: { opacity: 0, scale: 0.9 },
+    48→  visible: (i: number) => ({
+    49→    opacity: 1, scale: 1,
+    50→    transition: { delay: i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+    51→  }),
+    52→};
+    53→
+    54→const sectionReveal = {
+    55→  hidden: { opacity: 0, y: 40 },
+    56→  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
+    57→};
+    58→
+    59→/* ─── Animated Section Wrapper ─── */
+    60→function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+    61→  const ref = useRef<HTMLDivElement>(null);
+    62→  const inView = useInView(ref, { once: true, margin: "-80px" });
+    63→  return (
+    64→    <motion.section ref={ref} initial="hidden" animate={inView ? "visible" : "hidden"} variants={sectionReveal} transition={{ delay }} className={className}>
+    65→      {children}
+    66→    </motion.section>
+    67→  );
+    68→}
+    69→
+    70→/* ─── Counting Number ─── */
+    71→function CountingNumber({ target, suffix = "", duration = 2 }: { target: number; suffix?: string; duration?: number }) {
+    72→  const [count, setCount] = useState(0);
+    73→  const ref = useRef<HTMLSpanElement>(null);
+    74→  const inView = useInView(ref, { once: true });
+    75→  const hasAnimated = useRef(false);
+    76→  useEffect(() => {
+    77→    if (!inView || hasAnimated.current) return;
+    78→    hasAnimated.current = true;
+    79→    const start = performance.now();
+    80→    const step = (now: number) => {
+    81→      const elapsed = (now - start) / 1000;
+    82→      const progress = Math.min(elapsed / duration, 1);
+    83→      const eased = 1 - Math.pow(1 - progress, 3);
+    84→      setCount(Math.round(eased * target));
+    85→      if (progress < 1) requestAnimationFrame(step);
+    86→    };
+    87→    requestAnimationFrame(step);
+    88→  }, [inView, target, duration]);
+    89→  return <span ref={ref}>{count.toLocaleString("pt-BR")}{suffix}</span>;
+    90→}
+    91→
+    92→/* ─── Hero Particle Field ─── */
+    93→function HeroParticles() {
+    94→  const colors = [CYAN, PURPLE, GREEN, GOLD];
+    95→  return (
+    96→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    97→      {Array.from({ length: 30 }).map((_, i) => {
+    98→        const color = colors[i % colors.length];
+    99→        return (
+   100→          <motion.div
+   101→            key={i}
+   102→            className="absolute rounded-full"
+   103→            style={{
+   104→              width: Math.random() * 4 + 1.5 + "px",
+   105→              height: Math.random() * 4 + 1.5 + "px",
+   106→              left: Math.random() * 100 + "%",
+   107→              top: Math.random() * 100 + "%",
+   108→              background: color,
+   109→              boxShadow: `0 0 ${Math.random() * 8 + 4}px ${color}40`,
+   110→            }}
+   111→            animate={{
+   112→              y: [0, -(Math.random() * 80 + 30), 0],
+   113→              x: [0, (Math.random() * 50 - 25), 0],
+   114→              opacity: [0, 0.8, 0],
+   115→              scale: [0.3, 1.2, 0.3],
+   116→            }}
+   117→            transition={{
+   118→              duration: Math.random() * 5 + 4,
+   119→              repeat: Infinity,
+   120→              delay: Math.random() * 4,
+   121→              ease: "easeInOut",
+   122→            }}
+   123→          />
+   124→        );
+   125→      })}
+   126→    </div>
+   127→  );
+   128→}
+   129→
+   130→/* ─── Ban Icon (not in lucide by default) ─── */
+   131→function BanIcon(props: any) {
+   132→  return (
+   133→    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+   134→      <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+   135→    </svg>
+   136→  );
+   137→}
+   138→
+   139→/* ─── Ticker data ─── */
+   140→const TICKER_ITEMS = [
+   141→  { type: "win", text: "LucasMVP ganhou um iPhone 15 no Sorteio Mega!", color: GOLD },
+   142→  { type: "live", text: "🔴 AO VIVO: Team Alpha vs Omega Squad — CS2", color: CYAN },
+   143→  { type: "game", text: "1.247 jogadores online em Batalha de Cobras", color: GREEN },
+   144→  { type: "win", text: "AnaBeatriz ganhou 50.000 Luck Coins!", color: GOLD },
+   145→  { type: "live", text: "🔴 AO VIVO: Final do Campeonato League of Legends", color: CYAN },
+   146→  { type: "win", text: "PedroHenrique conquistou 1º lugar no Torneio de Xadrez", color: GOLD },
+   147→  { type: "game", text: "Novo jogo lançado: Corrida de Digitação", color: GREEN },
+   148→  { type: "win", text: "MariaSilva ganhou um PlayStation 5!", color: GOLD },
+   149→  { type: "live", text: "🔴 AO VIVO: Valorant — Semifinal Brasileira", color: CYAN },
+   150→  { type: "game", text: "3.891 partidas jogadas nas últimas 24h", color: GREEN },
+   151→];
+   152→
+   153→/* ─── Gateway Cards ─── */
+   154→const GATEWAY_CARDS = [
+   155→  {
+   156→    title: "ESPORTS",
+   157→    subtitle: "Competições Épicas",
+   158→    desc: "Campeonatos, ligas e torneios com prémios reais. Compete ao mais alto nível.",
+   159→    href: "/esports",
+   160→    icon: Swords,
+   161→    gradient: "linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)",
+   162→    accentColor: CYAN,
+   163→    secondaryColor: DEEP_PURPLE,
+   164→    borderGlow: CYAN,
+   165→    statLabel: "247 times ativos",
+   166→    badge: "AO VIVO",
+   167→  },
+   168→  {
+   169→    title: "SORTEIOS & PRÉMIOS",
+   170→    subtitle: "Sorteios Transparentes",
+   171→    desc: "Participa em sorteios verificados, ganha prémios incríveis com Luck Coins.",
+   172→    href: "/marketplace",
+   173→    icon: Gift,
+   174→    gradient: "linear-gradient(135deg, #0f0a1a 0%, #1a0a2e 50%, #0f0a1a 100%)",
+   175→    accentColor: PURPLE,
+   176→    secondaryColor: GOLD,
+   177→    borderGlow: PURPLE,
+   178→    statLabel: "MT 2.5M+ em prémios",
+   179→    badge: "NOVO",
+   180→  },
+   181→  {
+   182→    title: "JOGOS ONLINE",
+   183→    subtitle: "69+ Jogos Disponíveis",
+   184→    desc: "Estratégia, puzzle, arcade e muito mais. Joga e ganha Luck Coins.",
+   185→    href: "/jogos",
+   186→    icon: Gamepad2,
+   187→    gradient: "linear-gradient(135deg, #0a1a0f 0%, #0a1f14 50%, #0a1a0f 100%)",
+   188→    accentColor: GREEN,
+   189→    secondaryColor: BLUE,
+   190→    borderGlow: GREEN,
+   191→    statLabel: "12.4k jogadores online",
+   192→    badge: "POPULAR",
+   193→  },
+   194→];
+   195→
+   196→/* ─── Fair Play Items ─── */
+   197→const FAIR_PLAY_ITEMS = [
+   198→  { icon: Eye, title: "100% Transparência", desc: "Todos os resultados são verificáveis e públicos. Sem algoritmos ocultos.", color: CYAN },
+   199→  { icon: BanIcon, title: "Sem Apostas com Dinheiro Real", desc: "Nenhuma aposta com dinheiro real. Plataforma 100% legal e segura.", color: PURPLE },
+   200→  { icon: Coins, title: "Moeda Virtual Apenas", desc: "Luck Coins — moeda virtual da plataforma. Diversão sem riscos financeiros.", color: GOLD },
+   201→  { icon: Heart, title: "Jogo Responsável", desc: "Ferramentas integradas de jogo responsável: limites, pausas e alertas.", color: GREEN },
+   202→];
+   203→
+   204→/* ═══════════════════════════════════════════════════════════════
+   205→   ██  INDEX — REVOLUTIONARY HOMEPAGE
+   206→   ═══════════════════════════════════════════════════════════════ */
+   207→export default function Index() {
+   208→  const isMobile = useIsMobile();
+   209→  const { t } = useLanguage();
+   210→  const navigate = useNavigate();
+   211→  const { sfx } = useSoundEffects();
+   212→  const [tickerOffset, setTickerOffset] = useState(0);
+   213→  const [activePillar, setActivePillar] = useState<string | null>(null);
+   214→  const heroRef = useRef<HTMLDivElement>(null);
+   215→  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+   216→  const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+   217→  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.92]);
+   218→  const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -60]);
+   219→
+   220→  /* auto-scroll ticker */
+   221→  useEffect(() => {
+   222→    const interval = setInterval(() => setTickerOffset((p) => p - 1), 30);
+   223→    return () => clearInterval(interval);
+   224→  }, []);
+   225→
+   226→  /* fetch live session count */
+   227→  const [liveNowCount, setLiveNowCount] = useState(0);
+   228→  useEffect(() => {
+   229→    const fetchLiveCount = async () => {
+   230→      try {
+   231→        const { count } = await (supabase as any).from("live_sessions").select("*", { count: "exact", head: true }).eq("status", "active");
+   232→        if (typeof count === "number") setLiveNowCount(count);
+   233→      } catch { /* silent */ }
+   234→    };
+   235→    fetchLiveCount();
+   236→    const interval = setInterval(fetchLiveCount, 30_000);
+   237→    return () => clearInterval(interval);
+   238→  }, []);
+   239→
+   240→  const doubledTicker = [...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS];
+   241→
+   242→  return (
+   243→    <div className="min-h-screen bg-background flex flex-col" style={{ background: "#050508" }}>
+   244→      <Navbar />
+   245→      <StatsBar />
+   246→
+   247→      {/* ═══════════ HERO ═══════════ */}
+   248→      <motion.section
+   249→        ref={heroRef}
+   250→        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
+   251→        style={{
+   252→          background: `radial-gradient(ellipse 80% 60% at 20% 30%, ${CYAN}12 0%, transparent 60%),
+   253→                   radial-gradient(ellipse 70% 50% at 80% 60%, ${PURPLE}10 0%, transparent 55%),
+   254→                   radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08 0%, transparent 50%),
+   255→                   linear-gradient(180deg, #050508 0%, #08080f 50%, #050508 100%)`,
+   256→        }}
+   257→      >
+   258→        {/* Grid overlay */}
+   259→        <div className="absolute inset-0 opacity-[0.04]" style={{
+   260→          backgroundImage: `linear-gradient(${CYAN}40 1px, transparent 1px), linear-gradient(90deg, ${CYAN}40 1px, transparent 1px)`,
+   261→          backgroundSize: "60px 60px",
+   262→          maskImage: "radial-gradient(ellipse 70% 50% at 50% 40%, black 10%, transparent 70%)",
+   263→          WebkitMaskImage: "radial-gradient(ellipse 70% 50% at 50% 40%, black 10%, transparent 70%)",
+   264→        }} />
+   265→
+   266→        {/* Orbs */}
+   267→        <motion.div className="absolute rounded-full blur-[120px] pointer-events-none" style={{ background: `${CYAN}15`, width: 600, height: 600, left: "-10%", top: "5%" }} animate={{ y: [0, -50, 0], x: [0, 30, 0], scale: [1, 1.2, 1] }} transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }} />
+   268→        <motion.div className="absolute rounded-full blur-[120px] pointer-events-none" style={{ background: `${PURPLE}12`, width: 500, height: 500, right: "-8%", top: "15%" }} animate={{ y: [0, 40, 0], x: [0, -30, 0], scale: [1, 1.15, 1] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} />
+   269→        <motion.div className="absolute rounded-full blur-[100px] pointer-events-none" style={{ background: `${GREEN}10`, width: 400, height: 400, left: "40%", bottom: "10%" }} animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} />
+   270→
+   271→        <HeroParticles />
+   272→
+   273→        {/* Hero content */}
+   274→        <motion.div style={{ opacity: heroOpacity, scale: heroScale, y: heroY }} className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 text-center pt-24 pb-8">
+   275→          {/* Logo */}
+   276→          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="mb-6">
+   277→            <img src={bateuLogo} alt="Bateu" className="h-14 sm:h-18 mx-auto mb-4" style={{ filter: `drop-shadow(0 0 30px ${CYAN}30)` }} />
+   278→          </motion.div>
+   279→
+   280→          {/* Tagline */}
+   281→          <motion.h1
+   282→            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+   283→            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter mb-4"
+   284→            style={{
+   285→              background: `linear-gradient(135deg, #ffffff 0%, ${CYAN} 30%, ${PURPLE} 60%, ${GOLD} 100%)`,
+   286→              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", lineHeight: 1.05,
+   287→            }}
+   288→          >
+   289→            COMPETE. PREVEJA.<br />CONQUISTA.
+   290→          </motion.h1>
+   291→
+   292→          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.6 }} className="text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+   293→            A plataforma definitiva de esports, sorteios e jogos online.<br className="hidden sm:block" />
+   294→            <span className="text-zinc-300 font-semibold">Moeda virtual. Competição real. 100% transparente.</span>
+   295→          </motion.p>
+   296→
+   297→          {/* CTA Buttons */}
+   298→          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.5 }} className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
+   299→            <Button size="lg" onClick={() => navigate("/register")} className="text-base font-bold px-8 py-6 rounded-xl h-auto shadow-lg transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 30px ${CYAN}30, 0 8px 32px rgba(0,0,0,0.4)` }}>
+   300→              <Rocket className="mr-2 h-5 w-5" /> Começar Agora — É Grátis
+   301→            </Button>
+   302→            <Button size="lg" variant="outline" onClick={() => navigate("/jogos")} className="text-base font-semibold px-8 py-6 rounded-xl h-auto border-zinc-700 text-zinc-300 hover:bg-zinc-800/50 hover:text-white transition-all duration-300">
+   303→              <Play className="mr-2 h-5 w-5" /> Explorar Jogos
+   304→            </Button>
+   305→          </motion.div>
+   306→
+   307→          {/* ── Gateway Cards ── */}
+   308→          <div className={`grid gap-4 sm:gap-6 ${isMobile ? "grid-cols-1 max-w-sm mx-auto" : "grid-cols-3"}`}>
+   309→            {GATEWAY_CARDS.map((card, i) => {
+   310→              const Icon = card.icon;
+   311→              return (
+   312→                <motion.div key={card.title} custom={i} variants={scaleIn} initial="hidden" animate="visible" whileHover={{ scale: 1.04, y: -6 }} whileTap={{ scale: 0.98 }} onHoverStart={() => setActivePillar(card.title)} onHoverEnd={() => setActivePillar(null)}>
+   313→                  <Link to={card.href} className="group relative block rounded-2xl p-5 sm:p-6 overflow-hidden cursor-pointer transition-all duration-500" style={{
+   314→                    background: card.gradient,
+   315→                    border: `1px solid ${card.borderGlow}20`,
+   316→                    boxShadow: activePillar === card.title ? `0 0 40px ${card.borderGlow}25, 0 20px 60px rgba(0,0,0,0.5)` : `0 8px 32px rgba(0,0,0,0.3)`,
+   317→                  }}>
+   318→                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: `radial-gradient(circle at 50% 0%, ${card.accentColor}15, transparent 70%)` }} />
+   319→                    <span className="absolute top-3 right-3 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${card.accentColor}20`, color: card.accentColor, border: `1px solid ${card.accentColor}30` }}>{card.badge}</span>
+   320→                    <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 transition-all duration-500 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${card.accentColor}20, ${card.secondaryColor}15)`, border: `1px solid ${card.accentColor}30`, boxShadow: `0 0 20px ${card.accentColor}15` }}>
+   321→                      <Icon className="h-6 w-6" style={{ color: card.accentColor }} />
+   322→                    </div>
+   323→                    <h3 className="text-lg font-bold mb-1 tracking-tight" style={{ color: card.accentColor }}>{card.title}</h3>
+   324→                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{card.subtitle}</p>
+   325→                    <p className="text-sm text-zinc-400 leading-relaxed mb-4">{card.desc}</p>
+   326→                    <div className="flex items-center justify-between">
+   327→                      <span className="text-xs font-medium text-zinc-500">{card.statLabel}</span>
+   328→                      <div className="flex items-center gap-1 text-xs font-bold transition-all duration-300 group-hover:gap-2" style={{ color: card.accentColor }}>
+   329→                        Explorar <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+   330→                      </div>
+   331→                    </div>
+   332→                    <motion.div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ border: `1px solid ${card.accentColor}` }} animate={{ opacity: [0, 0.3, 0] }} transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }} />
+   333→                  </Link>
+   334→                </motion.div>
+   335→              );
+   336→            })}
+   337→          </div>
+   338→
+   339→          {/* Scroll indicator */}
+   340→          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5, duration: 1 }} className="mt-12 flex flex-col items-center gap-2">
+   341→            <span className="text-[11px] uppercase tracking-[0.2em] text-zinc-600 font-medium">Descobrir mais</span>
+   342→            <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}>
+   343→              <ChevronRight className="h-5 w-5 text-zinc-600 rotate-90" />
+   344→            </motion.div>
+   345→          </motion.div>
+   346→        </motion.div>
+   347→      </motion.section>
+   348→
+   349→      {/* ═══════════ LIVE ACTIVITY TICKER ═══════════ */}
+   350→      <div className="relative overflow-hidden py-3 border-y" style={{ background: "linear-gradient(90deg, #050508, #0a0a14, #050508)", borderColor: "rgba(255,255,255,0.05)" }}>
+   351→        <div className="absolute left-0 top-0 bottom-0 w-32 z-10 pointer-events-none" style={{ background: "linear-gradient(90deg, #050508, transparent)" }} />
+   352→        <div className="absolute right-0 top-0 bottom-0 w-32 z-10 pointer-events-none" style={{ background: "linear-gradient(-90deg, #050508, transparent)" }} />
+   353→        <div className="flex whitespace-nowrap" style={{ transform: `translateX(${tickerOffset}px)` }}>
+   354→          {doubledTicker.map((item, i) => (
+   355→            <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
+   356→              {item.type === "win" && <Trophy className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   357→              {item.type === "live" && <Radio className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   358→              {item.type === "game" && <Gamepad2 className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
+   359→              <span className="text-sm font-medium text-zinc-400">{item.text}</span>
+   360→              <span className="text-zinc-700 mx-2">•</span>
+   361→            </div>
+   362→          ))}
+   363→        </div>
+   364→      </div>
+   365→
+   366→      {/* ═══════════ MAIN CONTENT ═══════════ */}
+   367→      <main className="flex-1">
+   368→
+   369→        {/* ─── PILLAR 1: ESPORTS ─── */}
+   370→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" style={{ background: `radial-gradient(ellipse 60% 40% at 15% 50%, ${CYAN}08, transparent), linear-gradient(180deg, #050508 0%, #060610 50%, #050508 100%)` }}>
+   371→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   372→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   373→              <div className="flex items-center gap-3">
+   374→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${CYAN}25, ${DEEP_PURPLE}20)`, border: `1px solid ${CYAN}30`, boxShadow: `0 0 25px ${CYAN}15` }}>
+   375→                  <Swords className="h-5 w-5" style={{ color: CYAN }} />
+   376→                </div>
+   377→                <div>
+   378→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: CYAN }}>ESPORTS</h2>
+   379→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Competições • Campeonatos • Ligas</p>
+   380→                </div>
+   381→              </div>
+   382→              <Link to="/esports" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: CYAN }}>
+   383→                Ver Torneios <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   384→              </Link>
+   385→            </div>
+   386→
+   387→            <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-3"} gap-4 sm:gap-6`}>
+   388→              {/* Featured Championship */}
+   389→              <motion.div whileHover={{ scale: 1.02 }} className={`${isMobile ? "" : "col-span-2"} relative rounded-2xl overflow-hidden cursor-pointer`} style={{ background: "linear-gradient(135deg, #0a0f1a, #0d1525)", border: `1px solid ${CYAN}15` }} onClick={() => navigate("/esports")}>
+   390→                <div className="absolute inset-0 opacity-30" style={{ background: `radial-gradient(ellipse at 80% 20%, ${CYAN}15, transparent 60%)` }} />
+   391→                <div className="relative p-6 sm:p-8">
+   392→                  <div className="flex items-center gap-2 mb-4">
+   393→                    <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: `${CYAN}15`, color: CYAN, border: `1px solid ${CYAN}25` }}><Radio className="h-3 w-3" /> AO VIVO</span>
+   394→                    <span className="text-xs text-zinc-500">Campeonato Brasileiro S4</span>
+   395→                  </div>
+   396→                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Grande Final — CS2 Masters</h3>
+   397→                  <p className="text-sm text-zinc-400 mb-6">Os melhores times do Brasil competem pelo título de campeão e prémios exclusivos.</p>
+   398→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   399→                    {[
+   400→                      { t1: "Furia", s1: 2, t2: "MIBR", s2: 1, status: "AO VIVO" },
+   401→                      { t1: "LOUD", s1: 0, t2: "Vivo Keyd", s2: 0, status: "18:00" },
+   402→                    ].map((match, i) => (
+   403→                      <div key={i} className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${CYAN}10` }}>
+   404→                        <div className="flex items-center justify-between mb-2">
+   405→                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: match.status === "AO VIVO" ? "#ef4444" : "#71717a" }}>{match.status}</span>
+   406→                        </div>
+   407→                        <div className="flex items-center justify-between">
+   408→                          <span className="text-sm font-bold text-white">{match.t1}</span>
+   409→                          <span className="text-lg font-black" style={{ color: CYAN }}>{match.s1} <span className="text-zinc-600 mx-1">:</span> {match.s2}</span>
+   410→                          <span className="text-sm font-bold text-white">{match.t2}</span>
+   411→                        </div>
+   412→                      </div>
+   413→                    ))}
+   414→                  </div>
+   415→                </div>
+   416→              </motion.div>
+   417→
+   418→              {/* Top Teams */}
+   419→              <div className="rounded-2xl p-5" style={{ background: "linear-gradient(180deg, #0a0f1a, #080c16)", border: `1px solid ${CYAN}10` }}>
+   420→                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Trophy className="h-4 w-4" style={{ color: GOLD }} /> Ranking Top 5</h4>
+   421→                <div className="space-y-3">
+   422→                  {[
+   423→                    { rank: 1, team: "Furia", pts: "2.450", trend: "up" },
+   424→                    { rank: 2, team: "LOUD", pts: "2.310", trend: "up" },
+   425→                    { rank: 3, team: "MIBR", pts: "2.180", trend: "down" },
+   426→                    { rank: 4, team: "Vivo Keyd", pts: "1.920", trend: "same" },
+   427→                    { rank: 5, team: "INTZ", pts: "1.840", trend: "up" },
+   428→                  ].map((item) => (
+   429→                    <div key={item.rank} className="flex items-center gap-3">
+   430→                      <span className="h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: item.rank <= 3 ? `linear-gradient(135deg, ${GOLD}30, ${GOLD}10)` : "rgba(255,255,255,0.05)", color: item.rank <= 3 ? GOLD : "#71717a", border: `1px solid ${item.rank <= 3 ? GOLD + "25" : "rgba(255,255,255,0.08)"}` }}>{item.rank}</span>
+   431→                      <span className="text-sm font-semibold text-zinc-300 flex-1">{item.team}</span>
+   432→                      <span className="text-xs font-bold text-zinc-500">{item.pts} pts</span>
+   433→                      <TrendingUp className={`h-3.5 w-3.5 ${item.trend === "down" ? "rotate-180 text-red-400" : item.trend === "same" ? "text-zinc-600" : ""}`} style={{ color: item.trend === "up" ? GREEN : undefined }} />
+   434→                    </div>
+   435→                  ))}
+   436→                </div>
+   437→                <Link to="/esports" className="mt-4 block text-center text-xs font-bold py-2 rounded-lg transition-all duration-300 hover:opacity-80" style={{ color: CYAN, background: `${CYAN}08`, border: `1px solid ${CYAN}15` }}>Ver Ranking Completo</Link>
+   438→              </div>
+   439→            </div>
+   440→          </div>
+   441→        </AnimatedSection>
+   442→
+   443→        {/* Divider */}
+   444→        <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${CYAN}20, ${PURPLE}20, transparent)` }} />
+   445→
+   446→        {/* ─── PILLAR 2: SORTEIOS ─── */}
+   447→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 60% 40% at 85% 50%, ${PURPLE}08, transparent), linear-gradient(180deg, #050508 0%, #0a0814 50%, #050508 100%)` }}>
+   448→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   449→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   450→              <div className="flex items-center gap-3">
+   451→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${PURPLE}25, ${GOLD}15)`, border: `1px solid ${PURPLE}30`, boxShadow: `0 0 25px ${PURPLE}15` }}>
+   452→                  <Gift className="h-5 w-5" style={{ color: PURPLE }} />
+   453→                </div>
+   454→                <div>
+   455→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: PURPLE }}>SORTEIOS & PRÉMIOS</h2>
+   456→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Sorteios Verificados • Prémios Reais</p>
+   457→                </div>
+   458→              </div>
+   459→              <Link to="/marketplace" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: PURPLE }}>
+   460→                Ver Sorteios <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   461→              </Link>
+   462→            </div>
+   463→
+   464→            <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-3"} gap-4 sm:gap-6`}>
+   465→              {/* Jackpot Counter */}
+   466→              <motion.div whileHover={{ scale: 1.02 }} className={`${isMobile ? "" : "col-span-2"} relative rounded-2xl overflow-hidden`} style={{ background: "linear-gradient(135deg, #0f0a1a, #140e20)", border: `1px solid ${PURPLE}15` }}>
+   467→                <div className="absolute inset-0 opacity-40" style={{ background: `radial-gradient(ellipse at 70% 30%, ${GOLD}10, transparent 60%)` }} />
+   468→                <div className="relative p-6 sm:p-8">
+   469→                  <div className="flex items-center gap-2 mb-6"><Diamond className="h-4 w-4" style={{ color: GOLD }} /><span className="text-xs font-bold uppercase tracking-wider" style={{ color: GOLD }}>Jackpot Acumulado</span></div>
+   470→                  <motion.div className="text-4xl sm:text-6xl font-black mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}, #f59e0b, ${GOLD})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }} animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+   471→                    MT <CountingNumber target={2847500} duration={3} />
+   472→                  </motion.div>
+   473→                  <p className="text-sm text-zinc-500 mb-8">em prémios disponíveis este mês</p>
+   474→                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+   475→                    {[
+   476→                      { prize: "iPhone 15 Pro Max", tickets: "12.450", end: "2h 34m", hot: true, emoji: "📱" },
+   477→                      { prize: "PlayStation 5", tickets: "8.920", end: "5h 12m", hot: true, emoji: "🎮" },
+   478→                      { prize: "MT 500.000 em Luck Coins", tickets: "24.100", end: "1h 08m", hot: false, emoji: "💰" },
+   479→                    ].map((raffle, i) => (
+   480→                      <motion.div key={i} whileHover={{ scale: 1.03, y: -2 }} className="rounded-xl p-4 cursor-pointer transition-all duration-300" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${raffle.hot ? GOLD + "20" : "rgba(255,255,255,0.06)"}` }} onClick={() => navigate("/marketplace")}>
+   481→                        {raffle.hot && <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}><Flame className="h-2.5 w-2.5" /> POPULAR</span>}
+   482→                        <span className="text-2xl block mb-1">{raffle.emoji}</span>
+   483→                        <p className="text-xs font-bold text-white mb-2 leading-tight">{raffle.prize}</p>
+   484→                        <div className="flex items-center justify-between">
+   485→                          <span className="text-[10px] text-zinc-500">{raffle.tickets} bilhetes</span>
+   486→                          <span className="text-[10px] font-bold" style={{ color: PURPLE }}>{raffle.end}</span>
+   487→                        </div>
+   488→                        <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+   489→                          <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${PURPLE}, ${GOLD})` }} initial={{ width: "0%" }} whileInView={{ width: `${65 + i * 15}%` }} transition={{ delay: 0.5 + i * 0.2, duration: 1 }} viewport={{ once: true }} />
+   490→                        </div>
+   491→                      </motion.div>
+   492→                    ))}
+   493→                  </div>
+   494→                </div>
+   495→              </motion.div>
+   496→
+   497→              {/* Recent Winners */}
+   498→              <div className="rounded-2xl p-5" style={{ background: "linear-gradient(180deg, #0f0a1a, #0c0816)", border: `1px solid ${PURPLE}10` }}>
+   499→                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Crown className="h-4 w-4" style={{ color: GOLD }} /> Vencedores Recentes</h4>
+   500→                <div className="space-y-3">
+   501→                  {[
+   502→                    { name: "LucasMVP", prize: "iPhone 15 Pro", time: "há 2h", avatar: "L" },
+   503→                    { name: "AnaBeatriz", prize: "50k Luck Coins", time: "há 5h", avatar: "A" },
+   504→                    { name: "PedroGamer", prize: "AirPods Pro", time: "há 8h", avatar: "P" },
+   505→                    { name: "MariaSilva", prize: "PlayStation 5", time: "há 12h", avatar: "M" },
+   506→                    { name: "JoaoVitor", prize: "25k Luck Coins", time: "há 1d", avatar: "J" },
+   507→                  ].map((winner, i) => (
+   508→                    <motion.div key={i} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1, duration: 0.4 }} viewport={{ once: true }} className="flex items-center gap-3">
+   509→                      <div className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${PURPLE}30, ${GOLD}20)`, color: GOLD, border: `1px solid ${PURPLE}25` }}>{winner.avatar}</div>
+   510→                      <div className="flex-1 min-w-0">
+   511→                        <p className="text-sm font-semibold text-zinc-300 truncate">{winner.name}</p>
+   512→                        <p className="text-[11px] text-zinc-500">{winner.prize}</p>
+   513→                      </div>
+   514→                      <span className="text-[10px] text-zinc-600 shrink-0">{winner.time}</span>
+   515→                    </motion.div>
+   516→                  ))}
+   517→                </div>
+   518→                <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${PURPLE}10` }}>
+   519→                  <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} /> Resultados verificados</div>
+   520→                </div>
+   521→              </div>
+   522→            </div>
+   523→          </div>
+   524→        </AnimatedSection>
+   525→
+   526→        {/* Divider */}
+   527→        <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${PURPLE}20, ${GREEN}20, transparent)` }} />
+   528→
+   529→        {/* ─── PILLAR 3: JOGOS ─── */}
+   530→        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.2} style={{ background: `radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08, transparent), linear-gradient(180deg, #050508 0%, #060a08 50%, #050508 100%)` }}>
+   531→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   532→            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+   533→              <div className="flex items-center gap-3">
+   534→                <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${GREEN}25, ${BLUE}15)`, border: `1px solid ${GREEN}30`, boxShadow: `0 0 25px ${GREEN}15` }}>
+   535→                  <Gamepad2 className="h-5 w-5" style={{ color: GREEN }} />
+   536→                </div>
+   537→                <div>
+   538→                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: GREEN }}>JOGOS ONLINE</h2>
+   539→                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">69+ Jogos • Multiplayer • Skill-Based</p>
+   540→                </div>
+   541→              </div>
+   542→              <Link to="/jogos" className="group flex items-center gap-1.5 text-sm font-bold" style={{ color: GREEN }}>
+   543→                Ver Todos os Jogos <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+   544→              </Link>
+   545→            </div>
+   546→
+   547→            {/* Categories */}
+   548→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 mb-6`}>
+   549→              {[
+   550→                { label: "Estratégia", icon: Brain, count: 18, color: CYAN },
+   551→                { label: "Arcade", icon: Zap, count: 22, color: GREEN },
+   552→                { label: "Puzzle", icon: Target, count: 15, color: PURPLE },
+   553→                { label: "Multiplayer", icon: Users, count: 14, color: BLUE },
+   554→              ].map((cat, i) => {
+   555→                const Icon = cat.icon;
+   556→                return (
+   557→                  <motion.button key={cat.label} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }} className="rounded-xl p-4 text-left transition-all duration-300" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${cat.color}15` }} onClick={() => navigate("/jogos")}>
+   558→                    <Icon className="h-5 w-5 mb-2" style={{ color: cat.color }} />
+   559→                    <p className="text-sm font-bold text-zinc-200">{cat.label}</p>
+   560→                    <p className="text-[11px] text-zinc-500">{cat.count} jogos</p>
+   561→                  </motion.button>
+   562→                );
+   563→              })}
+   564→            </div>
+   565→
+   566→            {/* Featured Games */}
+   567→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 sm:gap-4`}>
+   568→              {[
+   569→                { name: "Batalha de Cobras", players: "3.1k", emoji: "🐍", grad: `linear-gradient(135deg, ${GREEN}20, ${BLUE}10)`, hot: true, border: GREEN },
+   570→                { name: "Galo PRO", players: "2.4k", emoji: "✖", grad: `linear-gradient(135deg, ${CYAN}15, ${DEEP_PURPLE}10)`, hot: true, border: CYAN },
+   571→                { name: "Pedra Papel Tesoura", players: "4.5k", emoji: "✊", grad: `linear-gradient(135deg, ${GOLD}15, ${PURPLE}10)`, hot: false, border: GOLD },
+   572→                { name: "Duelo de Matemática", players: "1.2k", emoji: "🧮", grad: `linear-gradient(135deg, ${BLUE}15, ${GREEN}10)`, hot: false, border: BLUE },
+   573→                { name: "Ligar 4", players: "1.8k", emoji: "🔴", grad: `linear-gradient(135deg, ${CYAN}10, ${GREEN}15)`, hot: false, border: CYAN },
+   574→                { name: "Memória VS", players: "2.0k", emoji: "🃏", grad: `linear-gradient(135deg, ${PURPLE}15, ${CYAN}10)`, hot: false, border: PURPLE },
+   575→                { name: "Pong VS", players: "980", emoji: "🏓", grad: `linear-gradient(135deg, ${BLUE}20, ${CYAN}10)`, hot: false, border: BLUE },
+   576→                { name: "Bate o Alvo", players: "1.5k", emoji: "🎯", grad: `linear-gradient(135deg, ${GREEN}20, ${GOLD}10)`, hot: false, border: GREEN },
+   577→              ].map((game, i) => (
+   578→                <motion.div key={game.name} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300" style={{ background: game.grad, border: `1px solid ${game.border}15` }} onClick={() => navigate("/jogos")}>
+   579→                  {game.hot && <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: `${GREEN}20`, color: GREEN }}><Flame className="h-2.5 w-2.5 inline mr-0.5" />HOT</span>}
+   580→                  <span className="text-3xl block mb-3">{game.emoji}</span>
+   581→                  <p className="text-sm font-bold text-zinc-200 mb-1 leading-tight">{game.name}</p>
+   582→                  <div className="flex items-center gap-1"><Users className="h-3 w-3 text-zinc-500" /><span className="text-[11px] text-zinc-500">{game.players} jogando</span></div>
+   583→                </motion.div>
+   584→              ))}
+   585→            </div>
+   586→
+   587→            {/* Player count bar */}
+   588→            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-6 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${GREEN}10` }}>
+   589→              <div className="flex items-center gap-3">
+   590→                <div className="relative">
+   591→                  <div className="h-3 w-3 rounded-full" style={{ background: GREEN, boxShadow: `0 0 10px ${GREEN}60` }} />
+   592→                  <motion.div className="absolute inset-0 h-3 w-3 rounded-full" style={{ background: GREEN }} animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+   593→                </div>
+   594→                <span className="text-sm text-zinc-400"><span className="font-bold text-white">12.487</span> jogadores online agora</span>
+   595→              </div>
+   596→              <Button size="sm" onClick={() => navigate("/jogos")} className="font-bold rounded-lg" style={{ background: `linear-gradient(135deg, ${GREEN}, ${BLUE})` }}>
+   597→                <Play className="h-3.5 w-3.5 mr-1.5" /> Jogar Agora
+   598→              </Button>
+   599→            </motion.div>
+   600→          </div>
+   601→        </AnimatedSection>
+   602→
+   603→        {/* ═══════════ FAIR PLAY SHIELD ═══════════ */}
+   604→        <AnimatedSection className="relative py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(168,85,247,0.05), transparent), linear-gradient(180deg, #050508, #08060f, #050508)` }}>
+   605→          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+   606→            <div className="text-center mb-12">
+   607→              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="relative inline-flex items-center justify-center mb-6">
+   608→                <motion.div className="absolute h-28 w-28 rounded-full" style={{ border: `2px solid ${CYAN}20` }} animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }} transition={{ duration: 4, repeat: Infinity }} />
+   609→                <motion.div className="absolute h-24 w-24 rounded-full" style={{ border: `1px solid ${PURPLE}25` }} animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.15, 0.4] }} transition={{ duration: 3, repeat: Infinity, delay: 0.5 }} />
+   610→                <div className="relative h-20 w-20 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${CYAN}15, ${PURPLE}15, ${GREEN}15)`, border: "1px solid rgba(255,255,255,0.1)", boxShadow: `0 0 60px ${CYAN}15, 0 0 60px ${PURPLE}10` }}>
+   611→                  <ShieldCheck className="h-10 w-10" style={{ color: CYAN }} />
+   612→                </div>
+   613→              </motion.div>
+   614→              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.6 }} className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-3">
+   615→                Diferencial Ético
+   616→              </motion.h2>
+   617→              <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3, duration: 0.5 }} className="text-zinc-400 max-w-lg mx-auto text-sm sm:text-base">
+   618→                Ao contrário de plataformas de apostas, o Bateu é construído sobre transparência, moeda virtual e jogo responsável.
+   619→              </motion.p>
+   620→            </div>
+   621→
+   622→            <div className={`grid ${isMobile ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-4"} gap-4`}>
+   623→              {FAIR_PLAY_ITEMS.map((item, i) => {
+   624→                const Icon = item.icon;
+   625→                return (
+   626→                  <motion.div key={item.title} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ y: -4, scale: 1.02 }} className="relative rounded-2xl p-6 text-center group transition-all duration-300" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", border: `1px solid ${item.color}12` }}>
+   627→                    <motion.div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:scale-110" style={{ background: `${item.color}12`, border: `1px solid ${item.color}20`, boxShadow: `0 0 25px ${item.color}10` }}>
+   628→                      <Icon className="h-7 w-7" style={{ color: item.color }} />
+   629→                    </motion.div>
+   630→                    <h3 className="text-sm font-bold text-white mb-2">{item.title}</h3>
+   631→                    <p className="text-xs text-zinc-500 leading-relaxed">{item.desc}</p>
+   632→                  </motion.div>
+   633→                );
+   634→              })}
+   635→            </div>
+   636→          </div>
+   637→        </AnimatedSection>
+   638→
+   639→        {/* ═══════════ SOCIAL PROOF ═══════════ */}
+   640→        <AnimatedSection className="relative py-16 sm:py-24" style={{ background: `radial-gradient(ellipse 50% 40% at 50% 50%, rgba(251,191,36,0.04), transparent), linear-gradient(180deg, #050508, #080810, #050508)` }}>
+   641→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   642→            {/* Stats Row */}
+   643→            <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-4 mb-12`}>
+   644→              {[
+   645→                { icon: Users, value: 48500, suffix: "+", label: "Utilizadores Registados", color: CYAN },
+   646→                { icon: Trophy, value: 12500, suffix: "+", label: "Prémios Entregues", color: GOLD },
+   647→                { icon: Globe, value: 12, suffix: "", label: "Países", color: GREEN },
+   648→                { icon: Monitor, value: 69, suffix: "+", label: "Jogos Disponíveis", color: PURPLE },
+   649→              ].map((stat, i) => {
+   650→                const Icon = stat.icon;
+   651→                return (
+   652→                  <motion.div key={stat.label} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} className="rounded-2xl p-5 text-center" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${stat.color}10` }}>
+   653→                    <Icon className="h-5 w-5 mx-auto mb-2" style={{ color: stat.color }} />
+   654→                    <div className="text-2xl sm:text-3xl font-black text-white mb-1"><CountingNumber target={stat.value} suffix={stat.suffix} duration={2.5} /></div>
+   655→                    <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">{stat.label}</p>
+   656→                  </motion.div>
+   657→                );
+   658→              })}
+   659→            </div>
+   660→
+   661→            <WinnersSection />
+   662→            <div className="mt-8"><LiveFeed /></div>
+   663→            <div className="mt-8"><TrustSignals /></div>
+   664→          </div>
+   665→        </AnimatedSection>
+   666→
+   667→        {/* ═══════════ WHY DIFFERENT ═══════════ */}
+   668→        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #060610, #050508)` }}>
+   669→          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   670→            <WhyDifferent />
+   671→          </div>
+   672→        </AnimatedSection>
+   673→
+   674→        {/* ═══════════ PROVABLY FAIR ═══════════ */}
+   675→        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #08060f, #050508)` }}>
+   676→          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+   677→            <ProvablyFair />
+   678→          </div>
+   679→        </AnimatedSection>
+   680→
+   681→        {/* ═══════════ CTA SECTION ═══════════ */}
+   682→        <AnimatedSection className="relative py-16 sm:py-24 overflow-hidden" style={{
+   683→          background: `radial-gradient(ellipse 70% 50% at 50% 50%, ${CYAN}08, transparent),
+   684→                   radial-gradient(ellipse 50% 40% at 20% 80%, ${PURPLE}06, transparent),
+   685→                   radial-gradient(ellipse 50% 40% at 80% 20%, ${GREEN}06, transparent),
+   686→                   linear-gradient(180deg, #050508, #080810, #050508)`,
+   687→        }}>
+   688→          <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
+   689→            <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
+   690→              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
+   691→                Junta-te à <span style={{ color: PURPLE }}>Comunidade</span>
+   692→              </h2>
+   693→              <p className="text-base sm:text-lg text-zinc-400 mb-8 max-w-xl mx-auto">
+   694→                Milhares de jogadores já estão a competir, prever e conquistar prémios.
+   695→                <br className="hidden sm:block" />
+   696→                Regista-te gratuitamente e recebe <span className="font-bold" style={{ color: GOLD }}>500 Luck Coins</span> de boas-vindas.
+   697→              </p>
+   698→              <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+   699→                <Button size="lg" onClick={() => navigate("/register")} className="text-base font-bold px-10 py-6 rounded-xl h-auto transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 40px ${CYAN}25, 0 8px 32px rgba(0,0,0,0.4)` }}>
+   700→                  <Rocket className="mr-2 h-5 w-5" /> Criar Conta Grátis
+   701→                </Button>
+   702→                <Button size="lg" variant="outline" onClick={() => navigate("/jogos")} className="text-base font-semibold px-10 py-6 rounded-xl h-auto border-zinc-700 text-zinc-300 hover:bg-zinc-800/50 hover:text-white transition-all duration-300">
+   703→                  <Eye className="mr-2 h-5 w-5" /> Explorar Plataforma
+   704→                </Button>
+   705→              </div>
+   706→              {/* Trust micro-badges */}
+   707→              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+   708→                {[
+   709→                  { icon: ShieldCheck, label: "Plataforma Segura", color: CYAN },
+   710→                  { icon: Users, label: "48.500+ Utilizadores", color: GREEN },
+   711→                  { icon: Zap, label: "Registo em 30s", color: GOLD },
+   712→                ].map((badge) => {
+   713→                  const BIcon = badge.icon;
+   714→                  return (
+   715→                    <div key={badge.label} className="flex items-center gap-1.5">
+   716→                      <BIcon className="h-4 w-4" style={{ color: badge.color }} />
+   717→                      <span className="text-xs text-zinc-500 font-medium">{badge.label}</span>
+   718→                    </div>
+   719→                  );
+   720→                })}
+   721→              </div>
+   722→            </motion.div>
+   723→          </div>
+   724→
+   725→          {/* Background decorations for CTA */}
+   726→          <motion.div className="absolute -left-20 top-1/2 -translate-y-1/2 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${CYAN}08` }} animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 8, repeat: Infinity }} />
+   727→          <motion.div className="absolute -right-20 top-1/3 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${PURPLE}08` }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 10, repeat: Infinity, delay: 2 }} />
+   728→        </AnimatedSection>
+   729→      </main>
+   730→
+   731→      {/* ═══════════ CATEGORY NAV ═══════════ */}
+   732→      <CategoryNav />
+   733→
+   734→      {/* ═══════════ ACTIVE RAFFLES (existing component) ═══════════ */}
+   735→      <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #050508, #08060f)` }}>
+   736→        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   737→          <ActiveRaffles />
+   738→        </div>
+   739→      </AnimatedSection>
+   740→
+   741→      {/* ═══════════ POPULAR LEADERBOARD ═══════════ */}
+   742→      <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #08060f, #050508)` }}>
+   743→        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+   744→          <PopularLeaderboard />
+   745→        </div>
+   746→      </AnimatedSection>
+   747→
+   748→      <Footer />
+   749→    </div>
+   750→  );
+   751→}
