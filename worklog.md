@@ -221,3 +221,122 @@ Stage Summary:
 - SoundSettings widget accessible from Esports, Sorteios, and Jogos navigation bars
 - PrizeWheel no longer depends on external audio files (local sfx engine only)
 - Zero TypeScript errors verified
+
+---
+Task ID: enhance-homepage
+Agent: Sub Agent
+Task: Enhance Homepage (Index.tsx) with new animation components (ShimmerText, AnimatedNumber, CardTilt, GlowPulse)
+
+Work Log:
+- Added 5 new imports to Index.tsx: ShimmerText, AnimatedNumber, CardTilt, GlowPulse, fadeInUp/staggerContainer/cardHover/microShake from animation-utilities
+- Added `microShake` variant export to src/lib/animation-utilities.ts (was missing)
+- Hero tagline: Wrapped "COMPETE. PREVEJA. CONQUISTA." in ShimmerText with 6-color rainbow shimmer (speed=5); removed inline gradient background/clip styles from motion.h1
+- Gateway Cards: Wrapped each card's <Link> content in <CardTilt maxTilt={8} scaleOnHover={1.02} borderGlow={card.accentColor}>; removed whileHover/whileTap from outer motion.div (CardTilt handles hover scale)
+- Jackpot counter: Replaced `<CountingNumber target={2847500} duration={3} />` with `<AnimatedNumber value={2847500} duration={3} prefix="MT " locale="pt-BR" className="inline" />`
+- Live player count: Replaced hardcoded "12.487" with `<AnimatedNumber value={12487} duration={2} locale="pt-BR" className="font-bold text-white" />`
+- Esports heading: Wrapped "ESPORTS" in ShimmerText with cyan/deep-purple shimmer (speed=3)
+- Sorteios heading: Wrapped "SORTEIOS & PRÉMIOS" in ShimmerText with purple/gold shimmer (speed=3.5)
+- Jogos heading: Wrapped "JOGOS ONLINE" in ShimmerText with green/blue shimmer (speed=4)
+
+Files modified (2):
+- src/pages/Index.tsx (8 surgical edits: 1 import block + 7 component integrations)
+- src/lib/animation-utilities.ts (added microShake variant export)
+
+TypeScript check: 0 errors (npx tsc --noEmit)
+
+Stage Summary:
+- Hero tagline now has animated rainbow shimmer effect instead of static gradient
+- 3 gateway cards have 3D perspective tilt with color-matched border glow on hover
+- Jackpot counter uses spring-physics AnimatedNumber with MT prefix and pt-BR locale
+- Live player count animates on scroll into view
+- 3 section headings (Esports, Sorteios, Jogos) each have theme-matched shimmer effects
+- All new animation components (ShimmerText, AnimatedNumber, CardTilt) integrated with zero TS errors
+## Task ID: responsible-gaming-categorynav
+### Date: 2026-08-13T09:48:51Z
+
+### TASK 1: Integrate ResponsibleGaming into Footer
+- Added `import ResponsibleGaming from "@/components/ResponsibleGaming"` to Footer.tsx
+- Rendered `<ResponsibleGaming />` in a centered container between the payment badges section and the footer links/copyright section
+- Component is a default export with no props; no breaking changes
+
+### TASK 2: Enhance CategoryNav with hover sounds + micro-interactions
+- Added `useRef` and `useCallback` imports from React
+- Created `lastHoverRef` (useRef<number>) and `handleHover` callback that throttles `sfx.hover()` to max once per 200ms using Date.now() comparison
+- Mobile category buttons: already had `sfx.tabClick()` on click; added `onMouseEnter={handleHover}` for throttled hover sound
+- Mobile "more" button: added `sfx.tabClick()` on click and `onMouseEnter={handleHover}`
+- Desktop category buttons: added `sfx.tabClick()` on click (was missing) and `onMouseEnter={handleHover}`
+- Added active indicator dot/line with `micro-pulse` CSS class: mobile gets `h-1 w-4 rounded-full bg-primary` bar, desktop gets `h-0.5 w-5 rounded-full bg-primary mt-0.5` line — both with `micro-pulse` animation
+
+### Verification
+- `npx tsc --noEmit` passed with zero errors
+- Files modified: `src/components/Footer.tsx`, `src/components/CategoryNav.tsx`
+
+---
+Task ID: enhance-esportshub
+Agent: Sub Agent
+Task: Enhance EsportsHub page with animation components and effects
+
+Work Log:
+- Read full EsportsHub.tsx (860 lines) to understand structure and existing animation patterns
+- Identified conflicting local `fadeInUp` and `staggerContainer` definitions that used spread-prop style instead of Framer Motion Variants
+- Removed local animation definitions, imported shared variants from `@/lib/animation-utilities`
+- Migrated all 7 `{...fadeInUp}` spread usages to proper `variants={fadeInUp} initial="hidden" animate="visible"` pattern
+- Migrated staggerContainer parent from `initial="initial" animate="animate"` to `initial="hidden" animate="visible"`
+- Added `useSoundEffects` hook and `const { sfx } = useSoundEffects()` in component
+
+### ShimmerText (3 headings)
+- "Atividade Recente" — orange/red/yellow gradient
+- "Proximos Jogos" — cyan/purple gradient
+- "Visao Geral" — violet/cyan/pink gradient
+
+### AnimatedNumber (4 stats)
+- Jogos Ativos (games count)
+- Campeonatos (championships count)
+- Ao Vivo Agora (live count, red)
+- Registo Aberto (registration open count, green)
+
+### CardTilt (3 cards)
+- Featured championship banner — `borderGlow="cyan"`
+- Proximos Jogos section — `borderGlow="cyan"`
+- Top Equipas section — `borderGlow="emerald"`
+- Visao Geral stats section — `borderGlow="violet"`
+
+### Sound Effects
+- `sfx.click()` on: featured banner, "Ver Campeonato" button, championship list items, team items, game filter buttons
+- `sfx.whoosh()` on: "Ver todos" navigation button, all 5 Links Rapidos navigation buttons
+
+### Verification
+- `npx tsc --noEmit` passed with zero errors
+- File modified: `src/pages/esports/EsportsHub.tsx`
+
+---
+Task ID: enhance-allgames-hook
+Agent: Sub Agent
+Task: Create useMicroInteractions hook + Enhance AllGames page with animations and sound effects
+
+### Changes Made
+
+**1. Created `/src/hooks/useMicroInteractions.ts`**
+- New React hook providing micro-interaction CSS class triggers
+- Returns: `elementRef`, `triggerPulse`, `triggerShake`, `triggerGlowSuccess`, `triggerGlowError`, `triggerBounceIn`, `triggerTickUp`, `triggerTickDown`
+- Each trigger: removes class → force reflow → adds class → listens for `animationend` to auto-remove
+
+**2. Enhanced `/src/pages/AllGames.tsx`**
+- **Imports added**: `useSoundEffects` (hook), `ShimmerText` (UI component), `AnimatedNumber` (UI component)
+- **Sound effects wired up**:
+  - `sfx.inputFocus()` on search input focus event
+  - `sfx.tabClick()` on category filter button clicks
+  - `sfx.click()` on sort button clicks
+  - `sfx.click()` on all game card `<Link>` clicks (main grid + bot section)
+- **ShimmerText**: Wrapped the "Todos os Jogos" h1 heading with `<ShimmerText>` using theme colors (green/blue/orange gradient, speed=5)
+- **AnimatedNumber**: Replaced all static game counts with `<AnimatedNumber>`:
+  - Hero badge: `{ALL_GAMES.length}` → `<AnimatedNumber value={ALL_GAMES.length} />`
+  - Hero badge: `{botGames.length}` → `<AnimatedNumber value={botGames.length} />`
+  - Category tabs: `({categoryCounts[c.id] || 0})` → `(<AnimatedNumber value={categoryCounts[c.id] || 0} />)`
+  - Sort bar: `{filtered.length}` → `<AnimatedNumber value={filtered.length} />`
+  - Bot CTA section: `{botGames.length}` → `<AnimatedNumber value={botGames.length} />`
+
+### Verification
+- `npx tsc --noEmit` passed with zero errors
+- Files created: `src/hooks/useMicroInteractions.ts`
+- Files modified: `src/pages/AllGames.tsx`
