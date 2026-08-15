@@ -1,0 +1,845 @@
+   100→        <div className="flex gap-4 pt-2">
+   101→          <Skeleton className="h-4 w-16" />
+   102→          <Skeleton className="h-4 w-14" />
+   103→          <Skeleton className="h-4 w-12" />
+   104→        </div>
+   105→      </div>
+   106→    </div>
+   107→  );
+   108→}
+   109→
+   110→function FeaturedSkeleton() {
+   111→  return (
+   112→    <div className="relative rounded-3xl overflow-hidden h-[320px] md:h-[420px] w-full">
+   113→      <Skeleton className="absolute inset-0 rounded-none" />
+   114→      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+   115→      <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 space-y-3">
+   116→        <Skeleton className="h-6 w-24 rounded-full" />
+   117→        <Skeleton className="h-8 w-3/4" />
+   118→        <Skeleton className="h-6 w-1/2" />
+   119→        <Skeleton className="h-4 w-1/3" />
+   120→      </div>
+   121→    </div>
+   122→  );
+   123→}
+   124→
+   125→function TrendingCardSkeleton() {
+   126→  return (
+   127→    <div className="flex-shrink-0 w-[280px] md:w-[320px] rounded-2xl border border-border/50 bg-card overflow-hidden">
+   128→      <Skeleton className="aspect-[16/10] w-full rounded-none" />
+   129→      <div className="p-3 space-y-2">
+   130→        <Skeleton className="h-4 w-16 rounded-full" />
+   131→        <Skeleton className="h-4 w-full" />
+   132→        <Skeleton className="h-4 w-2/3" />
+   133→        <Skeleton className="h-3 w-24" />
+   134→      </div>
+   135→    </div>
+   136→  );
+   137→}
+   138→
+   139→/* ------------------------------------------------------------------ */
+   140→/*  Post Card                                                          */
+   141→/* ------------------------------------------------------------------ */
+   142→
+   143→const cardVariants = {
+   144→  hidden: { opacity: 0, y: 30 },
+   145→  visible: (i: number) => ({
+   146→    opacity: 1,
+   147→    y: 0,
+   148→    transition: { delay: i * 0.06, duration: 0.45, ease: 'easeOut' },
+   149→  }),
+   150→};
+   151→
+   152→function PostCard({ post, index }: { post: BlogPost; index: number }) {
+   153→  const catColor = post.category?.color || 'hsl(var(--primary))';
+   154→
+   155→  return (
+   156→    <motion.div
+   157→      custom={index}
+   158→      variants={cardVariants as any}
+   159→      initial="hidden"
+   160→      whileInView="visible"
+   161→      viewport={{ once: true, amount: 0.15 }}
+   162→    >
+   163→      <Link to={`/blog/${post.slug}`} className="block group">
+   164→        <Card className="h-full overflow-hidden border-border/50 bg-card hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group-hover:-translate-y-1 rounded-2xl">
+   165→          <div className="relative aspect-video overflow-hidden">
+   166→            <img
+   167→              src={post.image_url || '/placeholder.svg'}
+   168→              alt={post.title}
+   169→              loading="lazy"
+   170→              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+   171→            />
+   172→            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+   173→
+   174→            <div className="absolute top-3 left-3 flex gap-1.5">
+   175→              {post.is_trending && (
+   176→                <Badge className="bg-orange-500 text-white border-none gap-1 text-[10px] font-bold shadow-lg">
+   177→                  <Flame className="h-3 w-3" />
+   178→                  Em Alta
+   179→                </Badge>
+   180→              )}
+   181→              {post.is_featured && (
+   182→                <Badge className="bg-amber-400 text-black border-none gap-1 text-[10px] font-bold shadow-lg">
+   183→                  <Star className="h-3 w-3" />
+   184→                  Destaque
+   185→                </Badge>
+   186→              )}
+   187→            </div>
+   188→          </div>
+   189→
+   190→          <CardContent className="p-4 flex flex-col gap-2.5">
+   191→            <div className="flex items-center justify-between gap-2">
+   192→              <Badge
+   193→                variant="secondary"
+   194→                className="text-[10px] font-semibold px-2 py-0.5 rounded-full border-none"
+   195→                style={{
+   196→                  backgroundColor: `${catColor}18`,
+   197→                  color: catColor,
+   198→                }}
+   199→              >
+   200→                {post.category?.icon && <span className="mr-1">{post.category.icon}</span>}
+   201→                {post.category?.name || 'Geral'}
+   202→              </Badge>
+   203→              <span className="text-[11px] text-muted-foreground flex items-center gap-1 whitespace-nowrap">
+   204→                <Calendar className="h-3 w-3" />
+   205→                {formatDate(post.published_at)}
+   206→              </span>
+   207→            </div>
+   208→
+   209→            <h3 className="font-bold text-base leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+   210→              {post.title}
+   211→            </h3>
+   212→
+   213→            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+   214→              {post.summary}
+   215→            </p>
+   216→
+   217→            <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+   218→              <span className="flex items-center gap-1" title="Tempo de leitura">
+   219→                <Clock className="h-3 w-3" />
+   220→                {post.reading_time_min || 3} min
+   221→              </span>
+   222→              <span className="flex items-center gap-1" title="Visualizações">
+   223→                <Eye className="h-3 w-3" />
+   224→                {formatCount(post.view_count || 0)}
+   225→              </span>
+   226→              <span className="flex items-center gap-1" title="Curtidas">
+   227→                <Heart className="h-3 w-3" />
+   228→                {formatCount(post.like_count || 0)}
+   229→              </span>
+   230→              <span className="flex items-center gap-1" title="Compartilhamentos">
+   231→                <Share2 className="h-3 w-3" />
+   232→                {formatCount(post.share_count || 0)}
+   233→              </span>
+   234→            </div>
+   235→          </CardContent>
+   236→        </Card>
+   237→      </Link>
+   238→    </motion.div>
+   239→  );
+   240→}
+   241→
+   242→/* ------------------------------------------------------------------ */
+   243→/*  Blog Component                                                     */
+   244→/* ------------------------------------------------------------------ */
+   245→
+   246→export default function Blog() {
+   247→  const { region } = useRegionalTheme();
+   248→
+   249→  /* ---------- state ---------- */
+   250→  const [posts, setPosts] = useState<BlogPost[]>([]);
+   251→  const [categories, setCategories] = useState<BlogCategory[]>([]);
+   252→  const [trendingPosts, setTrendingPosts] = useState<BlogPost[]>([]);
+   253→  const [featuredPost, setFeaturedPost] = useState<BlogPost | null>(null);
+   254→
+   255→  const [loading, setLoading] = useState(true);
+   256→  const [loadingMore, setLoadingMore] = useState(false);
+   257→  const [error, setError] = useState<string | null>(null);
+   258→
+   259→  const [searchTerm, setSearchTerm] = useState('');
+   260→  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+   261→
+   262→  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+   263→  const [hasMore, setHasMore] = useState(false);
+   264→
+   265→  /* ---------- data fetching ---------- */
+   266→  const fetchData = useCallback(async () => {
+   267→    setLoading(true);
+   268→    setError(null);
+   269→    try {
+   270→      // Categorias
+   271→      const { data: catData } = await (supabase as any)
+   272→        .from('blog_categories')
+   273→        .select('*')
+   274→        .order('name');
+   275→      setCategories((catData as BlogCategory[]) || []);
+   276→
+   277→      // Posts principais
+   278→      let postQuery = (supabase as any)
+   279→        .from('blog_posts')
+   280→        .select(
+   281→          `id, title, slug, summary, image_url, published_at, seo_keywords, view_count, like_count, share_count, reading_time_min, is_featured, is_trending, trending_score, category:blog_categories(name, slug, color, icon)`
+   282→        )
+   283→        .eq('published', true);
+   284→
+   285→      if (region) {
+   286→        postQuery = postQuery.or(
+   287→          `region_id.eq.${region.id},region_id.is.null`
+   288→        );
+   289→      }
+   290→
+   291→      const { data: postData, error: postErr } = await postQuery.order(
+   292→        'published_at',
+   293→        { ascending: false }
+   294→      );
+   295→      if (postErr) throw postErr;
+   296→      setPosts((postData as BlogPost[]) || []);
+   297→
+   298→      // Posts em alta
+   299→      let trendQuery = (supabase as any)
+   300→        .from('blog_posts')
+   301→        .select(
+   302→          `id, title, slug, summary, image_url, published_at, seo_keywords, view_count, like_count, share_count, reading_time_min, is_featured, is_trending, trending_score, category:blog_categories(name, slug, color, icon)`
+   303→        )
+   304→        .eq('published', true)
+   305→        .eq('is_trending', true);
+   306→
+   307→      if (region) {
+   308→        trendQuery = trendQuery.or(
+   309→          `region_id.eq.${region.id},region_id.is.null`
+   310→        );
+   311→      }
+   312→
+   313→      const { data: trendData } = await trendQuery
+   314→        .order('trending_score', { ascending: false })
+   315→        .limit(5);
+   316→      setTrendingPosts((trendData as BlogPost[]) || []);
+   317→
+   318→      // Post destaque
+   319→      let featQuery = (supabase as any)
+   320→        .from('blog_posts')
+   321→        .select(
+   322→          `id, title, slug, summary, image_url, published_at, seo_keywords, view_count, like_count, share_count, reading_time_min, is_featured, is_trending, trending_score, category:blog_categories(name, slug, color, icon)`
+   323→        )
+   324→        .eq('published', true)
+   325→        .eq('is_featured', true);
+   326→
+   327→      if (region) {
+   328→        featQuery = featQuery.or(
+   329→          `region_id.eq.${region.id},region_id.is.null`
+   330→        );
+   331→      }
+   332→
+   333→      const { data: featData } = await featQuery
+   334→        .order('published_at', { ascending: false })
+   335→        .limit(1)
+   336→        .single();
+   337→      setFeaturedPost((featData as BlogPost) || null);
+   338→    } catch (err: any) {
+   339→      console.error('Erro ao carregar blog:', err);
+   340→      setError('Não foi possível carregar os posts. Tente novamente mais tarde.');
+   341→    } finally {
+   342→      setLoading(false);
+   343→    }
+   344→  }, [region]);
+   345→
+   346→  useEffect(() => {
+   347→    fetchData();
+   348→  }, [fetchData]);
+   349→
+   350→  /* ---------- filtering ---------- */
+   351→  const filteredPosts = useMemo(() => {
+   352→    let result = posts;
+   353→
+   354→    // Remover o post destaque da listagem principal para evitar duplicidade
+   355→    if (featuredPost) {
+   356→      result = result.filter((p) => p.id !== featuredPost.id);
+   357→    }
+   358→
+   359→    // Filtro por categoria
+   360→    if (activeCategory) {
+   361→      result = result.filter((p) => p.category?.slug === activeCategory);
+   362→    }
+   363→
+   364→    // Filtro por busca
+   365→    if (searchTerm.trim()) {
+   366→      const term = searchTerm.toLowerCase();
+   367→      result = result.filter(
+   368→        (p) =>
+   369→          p.title.toLowerCase().includes(term) ||
+   370→          p.summary.toLowerCase().includes(term) ||
+   371→          p.seo_keywords?.some((k: string) => k.toLowerCase().includes(term))
+   372→      );
+   373→    }
+   374→
+   375→    return result;
+   376→  }, [posts, activeCategory, searchTerm, featuredPost]);
+   377→
+   378→  const visiblePosts = useMemo(
+   379→    () => filteredPosts.slice(0, visibleCount),
+   380→    [filteredPosts, visibleCount]
+   381→  );
+   382→
+   383→  useEffect(() => {
+   384→    setHasMore(visibleCount < filteredPosts.length);
+   385→  }, [visibleCount, filteredPosts.length]);
+   386→
+   387→  // Resetar contagem ao mudar filtros
+   388→  useEffect(() => {
+   389→    setVisibleCount(PAGE_SIZE);
+   390→  }, [activeCategory, searchTerm]);
+   391→
+   392→  const handleLoadMore = () => {
+   393→    setLoadingMore(true);
+   394→    setTimeout(() => {
+   395→      setVisibleCount((prev) => prev + PAGE_SIZE);
+   396→      setLoadingMore(false);
+   397→    }, 400);
+   398→  };
+   399→
+   400→  /* ---------- render ---------- */
+   401→  return (
+   402→    <>
+   403→      <Helmet>
+   404→        <title>Blog – Bateu Online | Notícias, Dicas e Sorteios</title>
+   405→        <meta
+   406→          name="description"
+   407→          content="Fique por dentro das últimas novidades sobre sorteios online, dicas de participação, resultados e muito mais no blog do Bateu Online."
+   408→        />
+   409→        <link rel="canonical" href={CANONICAL} />
+   410→        <meta property="og:title" content="Blog – Bateu Online | Notícias e Sorteios" />
+   411→        <meta
+   412→          property="og:description"
+   413→          content="Descubra dicas, resultados e novidades sobre sorteios online no maior blog de sorteios do Brasil."
+   414→        />
+   415→        <meta property="og:url" content={CANONICAL} />
+   416→        <meta property="og:type" content="website" />
+   417→        <meta property="og:site_name" content="Bateu Online" />
+   418→        <meta name="twitter:card" content="summary_large_image" />
+   419→        <meta
+   420→          name="twitter:title"
+   421→          content="Blog – Bateu Online | Notícias e Sorteios"
+   422→        />
+   423→        <meta
+   424→          name="twitter:description"
+   425→          content="Descubra dicas, resultados e novidades sobre sorteios online."
+   426→        />
+   427→      </Helmet>
+   428→
+   429→      <script
+   430→        type="application/ld+json"
+   431→        dangerouslySetInnerHTML={{
+   432→          __html: JSON.stringify({
+   433→            "@context": "https://schema.org",
+   434→            "@type": "CollectionPage",
+   435→            name: "Blog Bateu - Dicas, Novidades e Conteudo Viral",
+   436→            description: "Descubra dicas, resultados e novidades sobre sorteios online, jogos e muito mais.",
+   437→            url: `${window.location.origin}/blog`,
+   438→            publisher: {
+   439→              "@type": "Organization",
+   440→              name: "Bateu",
+   441→              url: window.location.origin,
+   442→            },
+   443→          }),
+   444→        }}
+   445→      />
+   446→
+   447→      <div className="min-h-screen bg-background">
+   448→        <section className="relative overflow-hidden">
+   449→          <div
+   450→            className="absolute inset-0"
+   451→            style={{
+   452→              background:
+   453→                'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 80% 60%) 25%, hsl(340 85% 55%) 50%, hsl(45 95% 55%) 75%, hsl(var(--primary)) 100%)',
+   454→              backgroundSize: '400% 400%',
+   455→              animation: 'gradientShift 12s ease infinite',
+   456→            }}
+   457→          />
+   458→          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+   459→
+   460→          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+   461→            {[...Array(6)].map((_, i) => (
+   462→              <motion.div
+   463→                key={i}
+   464→                className="absolute w-2 h-2 bg-white/20 rounded-full"
+   465→                style={{
+   466→                  left: `${15 + i * 14}%`,
+   467→                  top: `${20 + (i % 3) * 25}%`,
+   468→                }}
+   469→                animate={{
+   470→                  y: [0, -20, 0],
+   471→                  opacity: [0.2, 0.6, 0.2],
+   472→                  scale: [1, 1.3, 1],
+   473→                }}
+   474→                transition={{
+   475→                  duration: 3 + i * 0.5,
+   476→                  repeat: Infinity,
+   477→                  ease: 'easeInOut',
+   478→                  delay: i * 0.4,
+   479→                }}
+   480→              />
+   481→            ))}
+   482→          </div>
+   483→
+   484→          <div className="relative z-10 container mx-auto px-4 pt-28 pb-16 md:pt-36 md:pb-24 text-center">
+   485→            <motion.div
+   486→              initial={{ opacity: 0, y: -20 }}
+   487→              animate={{ opacity: 1, y: 0 }}
+   488→              transition={{ duration: 0.6 }}
+   489→            >
+   490→              <Badge
+   491→                variant="outline"
+   492→                className="border-white/30 text-white/90 mb-4 text-xs font-semibold px-3 py-1 backdrop-blur-sm bg-white/10"
+   493→              >
+   494→                <Newspaper className="h-3 w-3 mr-1.5" />
+   495→                Blog Bateu Online
+   496→              </Badge>
+   497→            </motion.div>
+   498→
+   499→            <motion.h1
+   500→              className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 tracking-tight"
+   501→              initial={{ opacity: 0, y: 20 }}
+   502→              animate={{ opacity: 1, y: 0 }}
+   503→              transition={{ duration: 0.6, delay: 0.15 }}
+   504→            >
+   505→              Novidades, Dicas e{' '}
+   506→              <span className="bg-gradient-to-r from-yellow-300 via-orange-300 to-pink-400 bg-clip-text text-transparent">
+   507→                Sorteios
+   508→              </span>
+   509→            </motion.h1>
+   510→
+   511→            <motion.p
+   512→              className="text-white/70 text-base md:text-lg max-w-xl mx-auto mb-8"
+   513→              initial={{ opacity: 0, y: 20 }}
+   514→              animate={{ opacity: 1, y: 0 }}
+   515→              transition={{ duration: 0.6, delay: 0.3 }}
+   516→            >
+   517→              Fique por dentro das últimas novidades sobre sorteios, tecnologia, dicas de
+   518→              participação e muito mais.
+   519→            </motion.p>
+   520→
+   521→            <motion.div
+   522→              className="max-w-lg mx-auto relative"
+   523→              initial={{ opacity: 0, y: 20 }}
+   524→              animate={{ opacity: 1, y: 0 }}
+   525→              transition={{ duration: 0.6, delay: 0.45 }}
+   526→            >
+   527→              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   528→              <Input
+   529→                placeholder="Buscar no blog..."
+   530→                className="pl-11 h-12 rounded-full bg-white/95 backdrop-blur-sm border-0 shadow-2xl shadow-black/20 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/50"
+   531→                value={searchTerm}
+   532→                onChange={(e) => setSearchTerm(e.target.value)}
+   533→              />
+   534→            </motion.div>
+   535→          </div>
+   536→
+   537→          <div className="absolute bottom-0 left-0 right-0">
+   538→            <svg
+   539→              viewBox="0 0 1440 60"
+   540→              fill="none"
+   541→              xmlns="http://www.w3.org/2000/svg"
+   542→              className="w-full"
+   543→            >
+   544→              <path
+   545→                d="M0 60L1440 60L1440 0C1440 0 1080 50 720 50C360 50 0 0 0 0L0 60Z"
+   546→                fill="hsl(var(--background))"
+   547→              />
+   548→            </svg>
+   549→          </div>
+   550→        </section>
+   551→
+   552→        <div className="container mx-auto px-4 pb-20">
+   553→          {!loading && categories.length > 0 && (
+   554→            <motion.section
+   555→              className="mb-10 -mt-2"
+   556→              initial={{ opacity: 0 }}
+   557→              animate={{ opacity: 1 }}
+   558→              transition={{ delay: 0.5 }}
+   559→            >
+   560→              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
+   561→                <button
+   562→                  onClick={() => setActiveCategory(null)}
+   563→                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+   564→                    !activeCategory
+   565→                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+   566→                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+   567→                  }`}
+   568→                >
+   569→                  <BookOpen className="h-3.5 w-3.5" />
+   570→                  Todas
+   571→                </button>
+   572→                {categories.map((cat) => {
+   573→                  const isActive = activeCategory === cat.slug;
+   574→                  const dotColor = cat.color || 'hsl(var(--primary))';
+   575→                  return (
+   576→                    <button
+   577→                      key={cat.id}
+   578→                      onClick={() =>
+   579→                        setActiveCategory(isActive ? null : cat.slug)
+   580→                      }
+   581→                      className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border ${
+   582→                        isActive
+   583→                          ? 'border-transparent shadow-lg'
+   584→                          : 'bg-card border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+   585→                      }`}
+   586→                      style={
+   587→                        isActive
+   588→                          ? {
+   589→                              backgroundColor: dotColor,
+   590→                              color: '#fff',
+   591→                              boxShadow: `0 4px 14px ${dotColor}40`,
+   592→                            }
+   593→                          : undefined
+   594→                      }
+   595→                    >
+   596→                      <span
+   597→                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+   598→                        style={{ backgroundColor: dotColor }}
+   599→                      />
+   600→                      {cat.icon && <span>{cat.icon}</span>}
+   601→                      {cat.name}
+   602→                    </button>
+   603→                  );
+   604→                })}
+   605→              </div>
+   606→            </motion.section>
+   607→          )}
+   608→
+   609→          {error && !loading && (
+   610→            <motion.div
+   611→              className="text-center py-20"
+   612→              initial={{ opacity: 0, scale: 0.95 }}
+   613→              animate={{ opacity: 1, scale: 1 }}
+   614→            >
+   615→              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-destructive/10 mb-6">
+   616→                <AlertCircle className="h-10 w-10 text-destructive" />
+   617→              </div>
+   618→              <h3 className="text-xl font-bold mb-2">Ops! Algo deu errado</h3>
+   619→              <p className="text-muted-foreground mb-6 max-w-md mx-auto">{error}</p>
+   620→              <Button onClick={fetchData} variant="outline" size="lg">
+   621→                <Loader2 className="h-4 w-4 mr-2" />
+   622→                Tentar novamente
+   623→              </Button>
+   624→            </motion.div>
+   625→          )}
+   626→
+   627→          {loading && !error && (
+   628→            <div className="space-y-12">
+   629→              <FeaturedSkeleton />
+   630→              <div>
+   631→                <Skeleton className="h-7 w-36 mb-5 rounded-full" />
+   632→                <div className="flex gap-4 overflow-hidden">
+   633→                  {[...Array(3)].map((_, i) => (
+   634→                    <TrendingCardSkeleton key={i} />
+   635→                  ))}
+   636→                </div>
+   637→              </div>
+   638→              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+   639→                {[...Array(6)].map((_, i) => (
+   640→                  <PostCardSkeleton key={i} />
+   641→                ))}
+   642→              </div>
+   643→            </div>
+   644→          )}
+   645→
+   646→          {!loading && !error && (
+   647→            <div className="space-y-14">
+   648→              <AnimatePresence>
+   649→                {featuredPost && (
+   650→                  <motion.section
+   651→                    initial={{ opacity: 0, y: 20 }}
+   652→                    animate={{ opacity: 1, y: 0 }}
+   653→                    transition={{ duration: 0.5 }}
+   654→                  >
+   655→                    <div className="flex items-center gap-2 mb-4">
+   656→                      <Sparkles className="h-5 w-5 text-amber-400" />
+   657→                      <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+   658→                        Post em Destaque
+   659→                      </h2>
+   660→                    </div>
+   661→                    <Link to={`/blog/${featuredPost.slug}`} className="block group">
+   662→                      <div className="relative rounded-3xl overflow-hidden h-[320px] md:h-[440px] w-full">
+   663→                        <img
+   664→                          src={featuredPost.image_url || '/placeholder.svg'}
+   665→                          alt={featuredPost.title}
+   666→                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+   667→                        />
+   668→                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+   669→                        <div className="absolute top-4 left-4 flex gap-2">
+   670→                          <Badge className="bg-amber-400 text-black border-none gap-1 font-bold shadow-lg">
+   671→                            <Star className="h-3 w-3" />
+   672→                            Destaque
+   673→                          </Badge>
+   674→                          {featuredPost.is_trending && (
+   675→                            <Badge className="bg-orange-500 text-white border-none gap-1 font-bold shadow-lg">
+   676→                              <Flame className="h-3 w-3" />
+   677→                              Em Alta
+   678→                            </Badge>
+   679→                          )}
+   680→                        </div>
+   681→                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
+   682→                          <Badge
+   683→                            variant="secondary"
+   684→                            className="mb-3 text-xs font-semibold border-none"
+   685→                            style={{
+   686→                              backgroundColor: `${featuredPost.category?.color || 'hsl(var(--primary))'}30`,
+   687→                              color: featuredPost.category?.color || 'hsl(var(--primary))',
+   688→                            }}
+   689→                          >
+   690→                            {featuredPost.category?.icon && (
+   691→                              <span className="mr-1">{featuredPost.category.icon}</span>
+   692→                            )}
+   693→                            {featuredPost.category?.name || 'Geral'}
+   694→                          </Badge>
+   695→                          <h2 className="text-2xl md:text-4xl font-black text-white mb-3 leading-tight max-w-2xl group-hover:text-yellow-200 transition-colors">
+   696→                            {featuredPost.title}
+   697→                          </h2>
+   698→                          <p className="text-white/70 text-sm md:text-base line-clamp-2 max-w-xl mb-4">
+   699→                            {featuredPost.summary}
+   700→                          </p>
+   701→                          <div className="flex items-center gap-4 text-white/60 text-xs">
+   702→                            <span className="flex items-center gap-1">
+   703→                              <Calendar className="h-3 w-3" />
+   704→                              {formatDate(featuredPost.published_at)}
+   705→                            </span>
+   706→                            <span className="flex items-center gap-1">
+   707→                              <Clock className="h-3 w-3" />
+   708→                              {featuredPost.reading_time_min || 3} min de leitura
+   709→                            </span>
+   710→                            <span className="flex items-center gap-1">
+   711→                              <Eye className="h-3 w-3" />
+   712→                              {formatCount(featuredPost.view_count || 0)}
+   713→                            </span>
+   714→                            <span className="flex items-center gap-1">
+   715→                              <Heart className="h-3 w-3" />
+   716→                              {formatCount(featuredPost.like_count || 0)}
+   717→                            </span>
+   718→                          </div>
+   719→                        </div>
+   720→                      </div>
+   721→                    </Link>
+   722→                  </motion.section>
+   723→                )}
+   724→              </AnimatePresence>
+   725→
+   726→              {trendingPosts.length > 0 && (
+   727→                <motion.section
+   728→                  initial={{ opacity: 0, y: 20 }}
+   729→                  whileInView={{ opacity: 1, y: 0 }}
+   730→                  viewport={{ once: true }}
+   731→                  transition={{ duration: 0.5 }}
+   732→                >
+   733→                  <div className="flex items-center gap-2 mb-5">
+   734→                    <Flame className="h-5 w-5 text-orange-500" />
+   735→                    <h2 className="text-lg font-bold">Em Alta</h2>
+   736→                    <Badge variant="outline" className="text-orange-500 border-orange-300 text-[10px]">
+   737→                      <TrendingUp className="h-3 w-3 mr-1" />
+   738→                      Trending
+   739→                    </Badge>
+   740→                  </div>
+   741→
+   742→                  <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory">
+   743→                    {trendingPosts.map((post, i) => {
+   744→                      const catColor = post.category?.color || 'hsl(var(--primary))';
+   745→                      return (
+   746→                        <motion.div
+   747→                          key={post.id}
+   748→                          className="flex-shrink-0 w-[280px] md:w-[320px] snap-start"
+   749→                          initial={{ opacity: 0, x: 40 }}
+   750→                          whileInView={{ opacity: 1, x: 0 }}
+   751→                          viewport={{ once: true }}
+   752→                          transition={{ delay: i * 0.1, duration: 0.45 }}
+   753→                        >
+   754→                          <Link to={`/blog/${post.slug}`} className="block group">
+   755→                            <Card className="overflow-hidden border-border/50 hover:shadow-xl hover:shadow-orange-500/5 transition-all duration-300 group-hover:-translate-y-1 rounded-2xl h-full">
+   756→                              <div className="relative aspect-[16/10] overflow-hidden">
+   757→                                <img
+   758→                                  src={post.image_url || '/placeholder.svg'}
+   759→                                  alt={post.title}
+   760→                                  loading="lazy"
+   761→                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+   762→                                />
+   763→                                <div className="absolute top-2 left-2">
+   764→                                  <Badge className="bg-orange-500 text-white border-none gap-1 text-[10px] font-bold shadow-lg">
+   765→                                    🔥 Em Alta
+   766→                                  </Badge>
+   767→                                </div>
+   768→                              </div>
+   769→                              <CardContent className="p-3.5">
+   770→                                <div className="flex items-center gap-2 mb-1.5">
+   771→                                  <span
+   772→                                    className="w-2 h-2 rounded-full"
+   773→                                    style={{ backgroundColor: catColor }}
+   774→                                  />
+   775→                                  <span className="text-[11px] font-semibold" style={{ color: catColor }}>
+   776→                                    {post.category?.name || 'Geral'}
+   777→                                  </span>
+   778→                                  <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-0.5">
+   779→                                    <Eye className="h-2.5 w-2.5" />
+   780→                                    {formatCount(post.view_count || 0)}
+   781→                                  </span>
+   782→                                </div>
+   783→                                <h4 className="font-bold text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+   784→                                  {post.title}
+   785→                                </h4>
+   786→                                <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+   787→                                  <span className="flex items-center gap-0.5">
+   788→                                    <Clock className="h-2.5 w-2.5" />
+   789→                                    {post.reading_time_min || 3} min
+   790→                                  </span>
+   791→                                  <span>•</span>
+   792→                                  <span>{formatDate(post.published_at)}</span>
+   793→                                </div>
+   794→                              </CardContent>
+   795→                            </Card>
+   796→                          </Link>
+   797→                        </motion.div>
+   798→                      );
+   799→                    })}
+   800→                  </div>
+   801→                </motion.section>
+   802→              )}
+   803→
+   804→              <section>
+   805→                <div className="flex items-center justify-between mb-6">
+   806→                  <h2 className="text-lg font-bold flex items-center gap-2">
+   807→                    <BookOpen className="h-5 w-5 text-primary" />
+   808→                    {activeCategory
+   809→                      ? categories.find((c) => c.slug === activeCategory)?.name || 'Todos os Posts'
+   810→                      : 'Todos os Posts'}
+   811→                  </h2>
+   812→                  <span className="text-sm text-muted-foreground">
+   813→                    {filteredPosts.length}{' '}
+   814→                    {filteredPosts.length === 1 ? 'artigo' : 'artigos'}
+   815→                  </span>
+   816→                </div>
+   817→
+   818→                {filteredPosts.length === 0 ? (
+   819→                  /* ---- Empty state ---- */
+   820→                  <motion.div
+   821→                    className="text-center py-20"
+   822→                    initial={{ opacity: 0, scale: 0.95 }}
+   823→                    animate={{ opacity: 1, scale: 1 }}
+   824→                  >
+   825→                    <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-muted/50 mb-6">
+   826→                      <Newspaper className="h-12 w-12 text-muted-foreground/40" />
+   827→                    </div>
+   828→                    <h3 className="text-xl font-bold mb-2">Nenhum artigo encontrado</h3>
+   829→                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+   830→                      {searchTerm
+   831→                        ? `Não encontramos resultados para "${searchTerm}". Tente buscar por outros termos.`
+   832→                        : 'Ainda não há posts nesta categoria. Volte em breve para conferir novidades!'}
+   833→                    </p>
+   834→                    {(searchTerm || activeCategory) && (
+   835→                      <Button
+   836→                        variant="outline"
+   837→                        onClick={() => {
+   838→                          setSearchTerm('');
+   839→                          setActiveCategory(null);
+   840→                        }}
+   841→                      >
+   842→                        <BookOpen className="h-4 w-4 mr-2" />
+   843→                        Ver todos os posts
+   844→                      </Button>
+   845→                    )}
+   846→                  </motion.div>
+   847→                ) : (
+   848→                  <>
+   849→                    <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+   850→                      {visiblePosts.map((post, i) => (
+   851→                        <div key={post.id} className="break-inside-avoid">
+   852→                          <PostCard post={post} index={i} />
+   853→                        </div>
+   854→                      ))}
+   855→                    </div>
+   856→
+   857→                    {hasMore && (
+   858→                      <div className="flex justify-center mt-12">
+   859→                        <Button
+   860→                          variant="outline"
+   861→                          size="lg"
+   862→                          onClick={handleLoadMore}
+   863→                          disabled={loadingMore}
+   864→                          className="rounded-full px-8 font-semibold hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+   865→                        >
+   866→                          {loadingMore ? (
+   867→                            <>
+   868→                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   869→                              Carregando...
+   870→                            </>
+   871→                          ) : (
+   872→                            <>
+   873→                              Carregar mais artigos
+   874→                              <ChevronRight className="h-4 w-4 ml-1" />
+   875→                            </>
+   876→                          )}
+   877→                        </Button>
+   878→                      </div>
+   879→                    )}
+   880→                  </>
+   881→                )}
+   882→              </section>
+   883→
+   884→              <motion.section
+   885→                initial={{ opacity: 0, y: 30 }}
+   886→                whileInView={{ opacity: 1, y: 0 }}
+   887→                viewport={{ once: true, amount: 0.3 }}
+   888→                transition={{ duration: 0.6 }}
+   889→              >
+   890→                <Link to="/marketplace" className="block group">
+   891→                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/90 via-primary to-primary/70 p-8 md:p-12">
+   892→                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+   893→                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+   894→
+   895→                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+   896→                      <div className="text-center md:text-left">
+   897→                        <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4">
+   898→                          <Zap className="h-4 w-4 text-yellow-300" />
+   899→                          <span className="text-sm font-semibold text-white/90">
+   900→                            Não perca nenhuma chance!
+   901→                          </span>
+   902→                        </div>
+   903→                        <h3 className="text-2xl md:text-3xl font-black text-white mb-2">
+   904→                          Participe dos Sorteios
+   905→                        </h3>
+   906→                        <p className="text-white/70 max-w-md">
+   907→                          Milhares de prêmios estão esperando por você. Acesse nosso marketplace e
+   908→                          concorra agora mesmo!
+   909→                        </p>
+   910→                      </div>
+   911→                      <Button
+   912→                        size="lg"
+   913→                        className="rounded-full bg-white text-primary font-bold hover:bg-white/90 shadow-2xl shadow-black/20 px-8 py-6 text-base group-hover:scale-105 transition-transform duration-300"
+   914→                      >
+   915→                        Ver Sorteios
+   916→                        <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+   917→                      </Button>
+   918→                    </div>
+   919→                  </div>
+   920→                </Link>
+   921→              </motion.section>
+   922→            </div>
+   923→          )}
+   924→        </div>
+   925→
+   926→        <style>{`
+   927→          @keyframes gradientShift {
+   928→            0% { background-position: 0% 50%; }
+   929→            50% { background-position: 100% 50%; }
+   930→            100% { background-position: 0% 50%; }
+   931→          }
+   932→          .scrollbar-none {
+   933→            -ms-overflow-style: none;
+   934→            scrollbar-width: none;
+   935→          }
+   936→          .scrollbar-none::-webkit-scrollbar {
+   937→            display: none;
+   938→          }
+   939→        `}</style>
+   940→      </div>
+   941→    </>
+   942→  );
+   943→}
+   944→
