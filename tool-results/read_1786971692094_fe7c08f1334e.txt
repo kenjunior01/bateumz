@@ -1,0 +1,262 @@
+   201→            <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-background text-xs"><PieChart className="w-3.5 h-3.5" /> Dashboard</TabsTrigger>
+   202→            <TabsTrigger value="financeiro" className="gap-1.5 data-[state=active]:bg-background text-xs"><BadgeDollarSign className="w-3.5 h-3.5" /> Financeiro</TabsTrigger>
+   203→            <TabsTrigger value="pagamentos" className="gap-1.5 data-[state=active]:bg-background text-xs"><CreditCard className="w-3.5 h-3.5" /> Pagamentos</TabsTrigger>
+   204→            <TabsTrigger value="users" className="gap-1.5 data-[state=active]:bg-background text-xs"><Users className="w-3.5 h-3.5" /> Utilizadores</TabsTrigger>
+   205→            <TabsTrigger value="branding" className="gap-1.5 data-[state=active]:bg-background text-xs"><Palette className="w-3.5 h-3.5" /> {t("regional.panel.branding")}</TabsTrigger>
+   206→            <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-background text-xs"><Settings className="w-3.5 h-3.5" /> {t("regional.panel.settings")}</TabsTrigger>
+   207→            <TabsTrigger value="announcement" className="gap-1.5 data-[state=active]:bg-background text-xs"><Megaphone className="w-3.5 h-3.5" /> {t("regional.panel.announcements")}</TabsTrigger>
+   208→            <TabsTrigger value="apostas" className="gap-1.5 data-[state=active]:bg-background text-xs"><Coins className="w-3.5 h-3.5" /> Apostas</TabsTrigger>
+   209→            <TabsTrigger value="regional_games" className="gap-1.5 data-[state=active]:bg-background text-xs"><Dices className="w-3.5 h-3.5" /> Jogos</TabsTrigger>
+   210→          </TabsList>
+   211→
+   212→          {/* === DASHBOARD TAB === */}
+   213→          <TabsContent value="dashboard" className="space-y-4">
+   214→            <div className="grid md:grid-cols-2 gap-4">
+   215→              {/* Activity Log */}
+   216→              <Card className="neon-border">
+   217→                <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Activity className="w-4 h-4" /> Actividade Recente</CardTitle></CardHeader>
+   218→                <CardContent className="pt-0">
+   219→                  {loadingStats ? <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}</div> :
+   220→                  regionStats.recentActivity.length === 0 ? <p className="text-xs text-muted-foreground text-center py-8">Sem atividade recente</p> :
+   221→                  <div className="space-y-1.5">{regionStats.recentActivity.map(a => (
+   222→                    <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/40 transition-colors">
+   223→                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"><Hash className="h-3.5 w-3.5 text-primary" /></div>
+   224→                      <div className="flex-1 min-w-0">
+   225→                        <p className="text-xs font-medium truncate">{a.details || a.action}</p>
+   226→                        <p className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleString("pt-BR")}</p>
+   227→                      </div>
+   228→                    </div>
+   229→                  ))}</div>}
+   230→                </CardContent>
+   231→              </Card>
+   232→              {/* Top Payment Methods */}
+   233→              <Card className="neon-border">
+   234→                <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><HandCoins className="w-4 h-4" /> Metodos de Pagamento Populares</CardTitle></CardHeader>
+   235→                <CardContent className="pt-0">
+   236→                  {regionStats.topMethods.length === 0 ? <p className="text-xs text-muted-foreground text-center py-8">Sem dados de pagamentos</p> :
+   237→                  <div className="space-y-2">{regionStats.topMethods.map((m, i) => {
+   238→                    const maxTotal = regionStats.topMethods[0]?.total || 1;
+   239→                    const pct = (m.total / maxTotal) * 100;
+   240→                    return (
+   241→                      <div key={m.method} className="space-y-1">
+   242→                        <div className="flex items-center justify-between text-xs"><span className="font-medium">{m.method}</span><span className="text-muted-foreground">{m.count} pedidos | {formatMoney(m.total, cc)}</span></div>
+   243→                        <div className="h-2 rounded-full bg-muted overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: i * 0.1 }} className="h-full rounded-full bg-gradient-to-r from-primary to-accent" /></div>
+   244→                      </div>
+   245→                    );
+   246→                  })}</div>}
+   247→                </CardContent>
+   248→              </Card>
+   249→            </div>
+   250→            {/* Pending Actions Summary */}
+   251→            {(regionStats.pendingDeposits > 0 || regionStats.pendingWithdrawals > 0) && (
+   252→              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   253→                <Card className="border-destructive/30 bg-destructive/5">
+   254→                  <CardContent className="p-4">
+   255→                    <div className="flex items-start gap-3">
+   256→                      <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+   257→                      <div className="flex-1">
+   258→                        <p className="text-sm font-semibold">Acoes Pendentes</p>
+   259→                        <p className="text-xs text-muted-foreground mt-0.5">Voce tem {regionStats.pendingDeposits} depositos e {regionStats.pendingWithdrawals} levantamentos aguardando aprovacao. Aceda ao separador Financeiro para processar.</p>
+   260→                      </div>
+   261→                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => setActiveTab("financeiro")}>Ver</Button>
+   262→                    </div>
+   263→                  </CardContent>
+   264→                </Card>
+   265→              </motion.div>
+   266→            )}
+   267→          </TabsContent>
+   268→
+   269→          {/* === FINANCEIRO TAB === */}
+   270→          <TabsContent value="financeiro" className="space-y-4">
+   271→            <Card className="neon-border">
+   272→              <CardHeader className="pb-3">
+   273→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   274→                  <CardTitle className="flex items-center gap-2 text-sm"><Receipt className="w-4 h-4" /> Transacoes Financeiras</CardTitle>
+   275→                  <div className="flex items-center gap-2">
+   276→                    <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" /><Input placeholder="Pesquisar..." value={finSearch} onChange={e => setFinSearch(e.target.value)} className="pl-8 h-8 w-44 text-xs" /></div>
+   277→                    <div className="flex rounded-lg border p-0.5 bg-muted/50">
+   278→                      {["all", "deposit", "withdrawal"].map(f => (
+   279→                        <button key={f} onClick={() => setFinFilter(f)} className={"px-2.5 py-1 rounded-md text-[11px] font-medium transition-all " + (finFilter === f ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>{f === "all" ? "Todos" : f === "deposit" ? "Depositos" : "Levantamentos"}</button>
+   280→                      ))}
+   281→                    </div>
+   282→                    <Button size="sm" variant="outline" className="gap-1" onClick={loadFinancialData}><RefreshCw className="w-3 h-3.5" /></Button>
+   283→                  </div>
+   284→                </div>
+   285→              </CardHeader>
+   286→              <CardContent className="pt-0">
+   287→                {loadingFinancial ? <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div> :
+   288→                filteredFinancial.length === 0 ? <p className="text-xs text-muted-foreground text-center py-8">Nenhuma transacao encontrada</p> :
+   289→                <div className="space-y-1.5">{filteredFinancial.map(r => (
+   290→                  <div key={r.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/40 transition-colors">
+   291→                    <div className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg " + (r.type === "deposit" ? "bg-emerald-500/10" : "bg-red-500/10")}>{r.type === "deposit" ? <ArrowDownRight className="h-4 w-4 text-emerald-600" /> : <ArrowUpRight className="h-4 w-4 text-red-600" />}</div>
+   292→                    <div className="flex-1 min-w-0">
+   293→                      <div className="flex items-center gap-2"><p className="text-xs font-medium">{r.type === "deposit" ? "Deposito" : "Levantamento"}</p>{statusBadge(r.status)}</div>
+   294→                      <p className="text-[10px] text-muted-foreground">{r.method} {r.destination ? `→ ${r.destination}` : ""} | {new Date(r.created_at).toLocaleString("pt-BR")}</p>
+   295→                    </div>
+   296→                    <p className={"text-sm font-bold " + (r.type === "deposit" ? "text-emerald-600" : "text-red-600")}>{r.type === "deposit" ? "+" : "-"}{formatMoney(r.amount, cc)}</p>
+   297→                  </div>
+   298→                ))}</div>}
+   299→              </CardContent>
+   300→            </Card>
+   301→          </TabsContent>
+   302→
+   303→          {/* === PAGAMENTOS TAB (NEW) === */}
+   304→          <TabsContent value="pagamentos" className="space-y-4">
+   305→            <Card className="neon-border">
+   306→              <CardHeader className="pb-3">
+   307→                <div className="flex items-center justify-between">
+   308→                  <CardTitle className="flex items-center gap-2 text-sm"><CreditCard className="w-4 h-4" /> Metodos de Pagamento da Regiao</CardTitle>
+   309→                  <Button size="sm" onClick={handleSavePaymentConfig} disabled={saving} className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : "Guardar"}</Button>
+   310→                </div>
+   311→                <p className="text-xs text-muted-foreground">Active ou desactive os metodos disponiveis para {countryInfo?.label || "esta regiao"}. Configure os dados de cada conta.</p>
+   312→              </CardHeader>
+   313→              <CardContent className="pt-0 space-y-4">
+   314→                {Object.entries(groupedMethods).map(([cat, methods]) => {
+   315→                  const catInfo = PAYMENT_CATEGORY_LABELS[cat];
+   316→                  return (
+   317→                    <div key={cat}>
+   318→                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">{catInfo?.label || cat} ({methods.length})</p>
+   319→                      <div className="space-y-2">
+   320→                        {methods.map(m => {
+   321→                          const enabled = enabledMethods.has(m.id);
+   322→                          return (
+   323→                            <div key={m.id} className="rounded-xl border border-border/40 bg-card/30 p-3 space-y-2">
+   324→                              <div className="flex items-center justify-between">
+   325→                                <div className="flex items-center gap-2.5">
+   326→                                  <div className={"h-8 w-8 rounded-lg bg-gradient-to-br " + (m.color || "from-gray-500 to-gray-600") + " flex items-center justify-center text-white text-xs font-bold"}>{m.label.charAt(0)}</div>
+   327→                                  <div><p className="text-sm font-semibold">{m.label}</p><p className="text-[10px] text-muted-foreground">{m.desc}</p></div>
+   328→                                </div>
+   329→                                <Switch checked={enabled} onCheckedChange={() => toggleMethod(m.id)} />
+   330→                              </div>
+   331→                              {enabled && (
+   332→                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="grid sm:grid-cols-3 gap-2 pl-10 pt-1">
+   333→                                  <div className="space-y-1"><Label className="text-[10px]">Valor Minimo ({cc})</Label><Input type="number" value={paymentConfig[m.id]?.min_amount ?? 10} onChange={e => setPaymentConfig(p => ({ ...p, [m.id]: { ...p[m.id], enabled: true, min_amount: Number(e.target.value), max_amount: p[m.id]?.max_amount ?? 50000, account_details: p[m.id]?.account_details ?? "" } }))} className="h-8 text-xs" /></div>
+   334→                                  <div className="space-y-1"><Label className="text-[10px]">Valor Maximo ({cc})</Label><Input type="number" value={paymentConfig[m.id]?.max_amount ?? 50000} onChange={e => setPaymentConfig(p => ({ ...p, [m.id]: { ...p[m.id], enabled: true, min_amount: p[m.id]?.min_amount ?? 10, max_amount: Number(e.target.value), account_details: p[m.id]?.account_details ?? "" } }))} className="h-8 text-xs" /></div>
+   335→                                  <div className="space-y-1"><Label className="text-[10px]">Dados da Conta</Label><Input placeholder={m.placeholder || "Numero, IBAN, chave..."} value={paymentConfig[m.id]?.account_details ?? ""} onChange={e => setPaymentConfig(p => ({ ...p, [m.id]: { ...p[m.id], enabled: true, min_amount: p[m.id]?.min_amount ?? 10, max_amount: p[m.id]?.max_amount ?? 50000, account_details: e.target.value } }))} className="h-8 text-xs" /></div>
+   336→                                </motion.div>
+   337→                              )}
+   338→                            </div>
+   339→                          );
+   340→                        })}
+   341→                      </div>
+   342→                    </div>
+   343→                  );
+   344→                })}
+   345→              </CardContent>
+   346→            </Card>
+   347→          </TabsContent>
+   348→
+   349→          {/* === USERS TAB (NEW) === */}
+   350→          <TabsContent value="users" className="space-y-4">
+   351→            <Card className="neon-border">
+   352→              <CardHeader className="pb-3">
+   353→                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   354→                  <CardTitle className="flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> Utilizadores da Regiao</CardTitle>
+   355→                  <div className="flex items-center gap-2">
+   356→                    <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" /><Input placeholder="Pesquisar email ou nome..." value={usersSearch} onChange={e => setUsersSearch(e.target.value)} className="pl-8 h-8 w-52 text-xs" /></div>
+   357→                    <Button size="sm" variant="outline" className="gap-1" onClick={loadUsers}><RefreshCw className="w-3.5 h-3.5" /></Button>
+   358→                  </div>
+   359→                </div>
+   360→              </CardHeader>
+   361→              <CardContent className="pt-0">
+   362→                {loadingUsers ? <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-11 w-full rounded-lg" />)}</div> :
+   363→                filteredUsers.length === 0 ? <p className="text-xs text-muted-foreground text-center py-8">Nenhum utilizador encontrado</p> :
+   364→                <div className="space-y-1.5">{filteredUsers.map(u => (
+   365→                  <div key={u.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/40 transition-colors">
+   366→                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10"><UserPlus className="h-4 w-4 text-primary" /></div>
+   367→                    <div className="flex-1 min-w-0">
+   368→                      <p className="text-xs font-medium truncate">{u.full_name || u.email}</p>
+   369→                      <p className="text-[10px] text-muted-foreground">{u.email}</p>
+   370→                    </div>
+   371→                    <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("pt-BR")}</p>
+   372→                  </div>
+   373→                ))}</div>}
+   374→              </CardContent>
+   375→            </Card>
+   376→          </TabsContent>
+   377→
+   378→          {/* === BRANDING TAB === */}
+   379→          <TabsContent value="branding"><Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Palette className="w-4 h-4" /> {t("regional.panel.visualIdentity")}</CardTitle></CardHeader><CardContent className="space-y-5">
+   380→            <div className="grid md:grid-cols-2 gap-5">
+   381→              {[{ key: "primary_color", label: t("regional.panel.primaryColor") }, { key: "secondary_color", label: t("regional.panel.secondaryColor") }, { key: "accent_color", label: t("regional.panel.accentColor") }].map(f => (
+   382→                <div key={f.key} className="space-y-1.5"><Label className="text-xs">{f.label}</Label><div className="flex gap-2"><input type="color" value={branding[f.key as keyof typeof branding]} onChange={e => setBranding(p => ({ ...p, [f.key]: e.target.value }))} className="h-9 w-12 rounded-lg border cursor-pointer" /><Input value={branding[f.key as keyof typeof branding]} onChange={e => setBranding(p => ({ ...p, [f.key]: e.target.value }))} className="h-9 text-xs" /></div></div>
+   383→              ))}
+   384→              <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.themeName")}</Label><Input value={branding.theme_name} onChange={e => setBranding(p => ({ ...p, theme_name: e.target.value }))} placeholder="Ex: Bateu India" className="h-9 text-xs" /></div>
+   385→            </div>
+   386→            <div className="grid md:grid-cols-2 gap-5">
+   387→              <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.logoUrl")}</Label><Input value={branding.logo_url} onChange={e => setBranding(p => ({ ...p, logo_url: e.target.value }))} placeholder="https://..." className="h-9 text-xs" /></div>
+   388→              <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.bannerUrl")}</Label><Input value={branding.banner_url} onChange={e => setBranding(p => ({ ...p, banner_url: e.target.value }))} placeholder="https://..." className="h-9 text-xs" /></div>
+   389→            </div>
+   390→            <div className="flex justify-end"><Button onClick={handleSaveBranding} disabled={saving} size="sm" className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : t("regional.panel.saveBranding")}</Button></div>
+   391→          </CardContent></Card></TabsContent>
+   392→
+   393→          {/* === SETTINGS TAB === */}
+   394→          <TabsContent value="settings"><Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Settings className="w-4 h-4" /> {t("regional.panel.regionSettings")}</CardTitle></CardHeader><CardContent className="space-y-3">
+   395→            {[{ key: "enable_spin_wheel" as const, label: t("regional.panel.spinWheel"), desc: t("regional.panel.spinWheelDesc"), icon: Gamepad2 },{ key: "enable_millionaire_game" as const, label: t("regional.panel.millionaire"), desc: t("regional.panel.millionaireDesc"), icon: TrendingUp },{ key: "enable_challenge_games" as const, label: t("regional.panel.challengeGames"), desc: t("regional.panel.challengeGamesDesc"), icon: Zap },{ key: "enable_live_games" as const, label: t("regional.panel.liveGames"), desc: t("regional.panel.liveGamesDesc"), icon: Activity }].map(item => (
+   396→              <div key={item.key} className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/50 transition-colors"><div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10"><item.icon className="h-3.5 w-3.5 text-primary" /></div><div><p className="text-xs font-semibold">{item.label}</p><p className="text-[10px] text-muted-foreground">{item.desc}</p></div></div><Switch checked={settings[item.key]} onCheckedChange={v => setSettings(p => ({ ...p, [item.key]: v }))} /></div>
+   397→            ))}
+   398→            <div className="flex items-center justify-between p-3 rounded-xl border border-red-500/30 bg-red-500/5"><div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10"><Shield className="h-3.5 w-3.5 text-red-500" /></div><div><p className="text-xs font-semibold">{t("regional.panel.maintenanceMode")}</p><p className="text-[10px] text-muted-foreground">{t("regional.panel.maintenanceDesc")}</p></div></div><Switch checked={settings.maintenance_mode} onCheckedChange={v => setSettings(p => ({ ...p, maintenance_mode: v }))} /></div>
+   399→            <div className="flex justify-end"><Button onClick={handleSaveSettings} disabled={saving} size="sm" className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : t("regional.panel.saveSettings")}</Button></div>
+   400→          </CardContent></Card></TabsContent>
+   401→
+   402→          {/* === ANNOUNCEMENT TAB === */}
+   403→          <TabsContent value="announcement"><Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Megaphone className="w-4 h-4" /> {t("regional.panel.announcementTitle")}</CardTitle></CardHeader><CardContent className="space-y-4">
+   404→            <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-card/30"><div><p className="text-xs font-semibold">{t("regional.panel.announcementActive")}</p><p className="text-[10px] text-muted-foreground">{t("regional.panel.announcementActiveDesc")}</p></div><Switch checked={announcement.enabled} onCheckedChange={v => setAnnouncement(p => ({ ...p, enabled: v }))} /></div>
+   405→            <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.announcementText")}</Label><Textarea value={announcement.text} onChange={e => setAnnouncement(p => ({ ...p, text: e.target.value }))} placeholder="Ex: Grande sorteio!" rows={3} className="text-xs" /></div>
+   406→            <div className="grid md:grid-cols-2 gap-4">
+   407→              <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.ctaLabel")}</Label><Input value={announcement.cta_label} onChange={e => setAnnouncement(p => ({ ...p, cta_label: e.target.value }))} placeholder="Participar" className="h-9 text-xs" /></div>
+   408→              <div className="space-y-1.5"><Label className="text-xs">{t("regional.panel.ctaUrl")}</Label><Input value={announcement.cta_url} onChange={e => setAnnouncement(p => ({ ...p, cta_url: e.target.value }))} placeholder="/marketplace" className="h-9 text-xs" /></div>
+   409→            </div>
+   410→            <div className="flex justify-end"><Button onClick={handleSaveAnnouncement} disabled={saving} size="sm" className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : t("regional.panel.saveAnnouncement")}</Button></div>
+   411→          </CardContent></Card></TabsContent>
+   412→
+   413→          {/* === APOSTAS TAB === */}
+   414→          <TabsContent value="apostas" className="space-y-4">
+   415→            <Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Coins className="w-4 h-4" /> Configuracao de Apostas</CardTitle></CardHeader><CardContent className="space-y-5">
+   416→              <div className="grid md:grid-cols-3 gap-4">
+   417→                {[{ key: "min_bet", label: "Aposta Minima" },{ key: "max_bet", label: "Aposta Maxima" },{ key: "default_bet", label: "Aposta Padrao" }].map(f => (
+   418→                  <div key={f.key} className="space-y-1.5"><Label className="text-xs">{f.label}</Label><div className="relative"><Input type="number" value={betConfig[f.key as keyof typeof betConfig] as number} onChange={e => setBetConfig(p => ({ ...p, [f.key]: Number(e.target.value) }))} className="h-9 text-xs" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{cc}</span></div></div>
+   419→                ))}
+   420→              </div>
+   421→              <div className="grid md:grid-cols-2 gap-4">
+   422→                <div className="space-y-1.5"><Label className="text-xs">Saque Minimo</Label><div className="relative"><Input type="number" value={betConfig.min_withdrawal} onChange={e => setBetConfig(p => ({ ...p, min_withdrawal: Number(e.target.value) }))} className="h-9 text-xs" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{cc}</span></div></div>
+   423→                <div className="space-y-1.5"><Label className="text-xs">Auto Cashout (limite)</Label><div className="relative"><Input type="number" value={betConfig.auto_cashout_threshold} onChange={e => setBetConfig(p => ({ ...p, auto_cashout_threshold: Number(e.target.value) }))} className="h-9 text-xs" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{cc}</span></div></div>
+   424→              </div>
+   425→              {[{ key: "enable_p2p_betting" as const, label: "Apostas P2P", desc: "Permitir apostas entre utilizadores" },{ key: "enable_bot_betting" as const, label: "Apostas com Bots", desc: "Bots preenchem mesas" },{ key: "regional_games_enabled" as const, label: "Jogos Regionais", desc: "Activar jogos tradicionais" }].map(item => (
+   426→                <div key={item.key} className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-card/30 hover:bg-card/50 transition-colors"><div><p className="text-xs font-semibold">{item.label}</p><p className="text-[10px] text-muted-foreground">{item.desc}</p></div><Switch checked={betConfig[item.key]} onCheckedChange={v => setBetConfig(p => ({ ...p, [item.key]: v }))} /></div>
+   427→              ))}
+   428→              <div className="space-y-2"><div className="flex items-center justify-between"><Label className="flex items-center gap-1.5 text-xs"><Percent className="w-3.5 h-3.5" /> Comissao ({betConfig.commission_percent}%)</Label><span className="text-[10px] text-muted-foreground">0% - 20%</span></div><input type="range" min="0" max="20" step="0.5" value={betConfig.commission_percent} onChange={e => setBetConfig(p => ({ ...p, commission_percent: Number(e.target.value) }))} className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary bg-muted" /></div>
+   429→            </CardContent></Card>
+   430→            <div className="flex justify-end"><Button onClick={handleSaveBetConfig} disabled={saving} size="sm" className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : "Guardar Configuracao"}</Button></div>
+   431→          </TabsContent>
+   432→
+   433→          {/* === REGIONAL GAMES TAB === */}
+   434→          <TabsContent value="regional_games" className="space-y-4">
+   435→            <Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Gamepad2 className="w-4 h-4" /> Jogos Nativos</CardTitle></CardHeader><CardContent>
+   436→              <div className="flex items-center justify-between mb-4"><p className="text-xs text-muted-foreground">{nativeGames.length} jogos criados</p><Button onClick={handleCreateGame} disabled={saving} size="sm" className="gap-1"><Plus className="w-3.5 h-3.5" /> {saving ? "..." : t("regional.panel.createGame")}</Button></div>
+   437→              {nativeGames.length === 0 ? <p className="text-xs text-muted-foreground text-center py-8">{t("regional.panel.noGames")}</p> :
+   438→              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">{nativeGames.map((game, i) => (
+   439→                <motion.div key={game.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: i * 0.04 }} className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 card-glow-hover">
+   440→                  <div className="flex items-center justify-between mb-2"><span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full " + (game.is_active ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground")}>{game.is_active ? t("regional.panel.active") : t("regional.panel.inactive")}</span><span className="text-[9px] text-muted-foreground">{game.type}</span></div>
+   441→                  <h4 className="text-sm font-bold mb-0.5">{game.name}</h4><p className="text-[10px] text-muted-foreground">{t("regional.panel.createdOn")} {new Date(game.created_at).toLocaleDateString()}</p>
+   442→                  <div className="flex gap-2 mt-3"><Button size="sm" variant="outline" className="flex-1 gap-1 text-[10px] h-7" onClick={() => toast.info(t("regional.panel.editorDev"))}><Settings className="w-3 h-3" /> {t("regional.panel.configure")}</Button><Button size="sm" variant="outline" className="gap-1 text-[10px] h-7 w-8 p-0" onClick={() => toast.info(t("regional.panel.previewDev"))}><Eye className="w-3 h-3" /></Button></div>
+   443→                </motion.div>
+   444→              ))}</div>}
+   445→            </CardContent></Card>
+   446→            {countryGameData && <Card className="neon-border"><CardHeader><CardTitle className="flex items-center gap-2 text-sm"><span className="text-lg">{countryGameData.emoji}</span> {countryGameData.label}</CardTitle></CardHeader><CardContent>
+   447→              <p className="text-xs text-muted-foreground mb-3">Active ou desactive os jogos regionais para {countryInfo?.label || region?.label}.</p>
+   448→              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">{regionalGames.map((game, i) => (
+   449→                <motion.div key={game.name} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: i * 0.04 }} className="rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 card-glow-hover">
+   450→                  <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="text-xl">{game.emoji}</span><span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full " + (game.active ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground")}>{game.active ? "Activo" : "Inactivo"}</span></div><Switch checked={game.active} onCheckedChange={v => setRegionalGames(prev => prev.map((g: any) => g.name === game.name ? { ...g, active: v } : g))} /></div>
+   451→                  <h4 className="text-sm font-bold mb-0.5">{game.name}</h4><p className="text-[10px] text-muted-foreground">{game.desc}</p>
+   452→                </motion.div>
+   453→              ))}</div>
+   454→            </CardContent></Card>}
+   455→            <div className="flex justify-end"><Button onClick={handleSaveRegionalGames} disabled={saving} size="sm" className="gap-1"><Save className="w-3.5 h-3.5" /> {saving ? "..." : "Guardar Jogos"}</Button></div>
+   456→          </TabsContent>
+   457→        </Tabs>
+   458→      </div>
+   459→    </div>
+   460→  );
+   461→}
+   462→
