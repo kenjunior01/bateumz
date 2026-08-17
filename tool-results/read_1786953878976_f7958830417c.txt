@@ -1,0 +1,630 @@
+     1→import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+     2→import { useParams, Link } from "react-router-dom";
+     3→import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+     4→import { supabase } from "@/integrations/supabase/client";
+     5→import {
+     6→  Share2, ExternalLink, Gamepad2, Trophy, Users, Clock, Flame,
+     7→  Calendar, Star, Zap, Award, ChevronRight, MapPin, Globe,
+     8→  CheckCircle2, Copy, Check, ArrowRight, Heart, Play,
+     9→  Music, UtensilsCrossed, Dumbbell, GraduationCap, ShoppingBag,
+    10→  Palette, Mic2, Sparkles, TrendingUp, Eye, Crown, Radio,
+    11→  Gift, Target, BarChart3
+    12→} from "lucide-react";
+    13→import { Card, CardContent } from "@/components/ui/card";
+    14→import { Button } from "@/components/ui/button";
+    15→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    16→import { Input } from "@/components/ui/input";
+    17→import { useToast } from "@/hooks/use-toast";
+    18→import Footer from "@/components/Footer";
+    19→
+    20→/* ─── Types ──────────────────────────────────────────── */
+    21→interface CompanyInfo {
+    22→  user_id: string;
+    23→  display_name: string | null;
+    24→  company_name: string | null;
+    25→  avatar_url: string | null;
+    26→  is_verified: boolean | null;
+    27→  city: string | null;
+    28→  province: string | null;
+    29→  created_at: string | null;
+    30→  phone: string | null;
+    31→}
+    32→
+    33→interface CompanyBranding {
+    34→  primary_color: string;
+    35→  secondary_color: string;
+    36→  accent_color: string;
+    37→  background_color: string;
+    38→  text_color: string;
+    39→  company_logo_url: string | null;
+    40→  background_image_url: string | null;
+    41→  company_name: string | null;
+    42→  company_slogan: string | null;
+    43→  niche?: string;
+    44→  hero_title?: string;
+    45→  hero_subtitle?: string;
+    46→  hero_cta_text?: string;
+    47→  hero_cta_link?: string;
+    48→  about_text?: string;
+    49→  social_links?: Record<string, string>;
+    50→  homepage_layout?: string;
+    51→  featured_badge?: string;
+    52→  show_leaderboard?: boolean;
+    53→  show_games?: boolean;
+    54→  show_lives?: boolean;
+    55→  show_stats?: boolean;
+    56→}
+    57→
+    58→interface GameItem {
+    59→  id: string;
+    60→  name: string;
+    61→  type: "wheel" | "millionaire" | "custom";
+    62→  is_published?: boolean;
+    63→  segment_count?: number;
+    64→  created_at: string;
+    65→  is_active?: boolean;
+    66→}
+    67→
+    68→interface LiveSession {
+    69→  code: string;
+    70→  title?: string;
+    71→  started_at: number;
+    72→  ended_at: number;
+    73→  duration_sec: number;
+    74→  players_count: number;
+    75→  games_count: number;
+    76→  winners: string[];
+    77→}
+    78→
+    79→/* ─── Niche System ──────────────────────────────────── */
+    80→type NicheId = "entertainment" | "gaming" | "restaurant" | "retail" | "education" | "fitness" | "music" | "fashion" | "tech" | "food" | "beauty" | "sports" | "casino" | "charity" | "other";
+    81→
+    82→const NICHE_META: Record<string, {
+    83→  icon: any; label: string; gradient: string; particleColor: string;
+    84→  heroGlow: string; badge: string; defaultTitle: string; defaultCta: string;
+    85→}> = {
+    86→  entertainment: { icon: Sparkles, label: "Entretenimento", gradient: "from-violet-600 via-fuchsia-500 to-pink-500", particleColor: "#d946ef", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(217,70,239,0.25), transparent 70%)", badge: "Show de Entretenimento", defaultTitle: "Vem divertir-te connosco", defaultCta: "Entrar no Jogo" },
+    87→  gaming: { icon: Gamepad2, label: "Gaming", gradient: "from-emerald-600 via-cyan-500 to-blue-500", particleColor: "#06b6d4", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.25), transparent 70%)", badge: "Gaming Zone", defaultTitle: "Arena de Jogos", defaultCta: "Começar a Jogar" },
+    88→  restaurant: { icon: UtensilsCrossed, label: "Restauração", gradient: "from-orange-600 via-red-500 to-rose-500", particleColor: "#f97316", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.25), transparent 70%)", badge: "Sabor & Diversão", defaultTitle: "Joga e Ganha Prémios", defaultCta: "Ver Cardápio de Jogos" },
+    89→  retail: { icon: ShoppingBag, label: "Retalho", gradient: "from-blue-600 via-indigo-500 to-violet-500", particleColor: "#6366f1", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.25), transparent 70%)", badge: "Loja Interativa", defaultTitle: "Descontos exclusivos", defaultCta: "Aproveitar Agora" },
+    90→  education: { icon: GraduationCap, label: "Educação", gradient: "from-teal-600 via-emerald-500 to-green-500", particleColor: "#14b8a6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(20,184,166,0.25), transparent 70%)", badge: "Aprende & Joga", defaultTitle: "Aprende brincando", defaultCta: "Começar a Aprender" },
+    91→  fitness: { icon: Dumbbell, label: "Fitness", gradient: "from-lime-500 via-green-500 to-emerald-600", particleColor: "#22c55e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.25), transparent 70%)", badge: "Desafio Fitness", defaultTitle: "Desafia os teus limites", defaultCta: "Iniciar Desafio" },
+    92→  music: { icon: Music, label: "Música", gradient: "from-purple-600 via-pink-500 to-rose-500", particleColor: "#ec4899", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.25), transparent 70%)", badge: "Vibe Musical", defaultTitle: "Sente o ritmo", defaultCta: "Tocar Agora" },
+    93→  fashion: { icon: Palette, label: "Moda", gradient: "from-pink-500 via-fuchsia-500 to-purple-600", particleColor: "#c026d3", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(192,38,211,0.25), transparent 70%)", badge: "Estilo & Diversão", defaultTitle: "Desfiles de estilo", defaultCta: "Explorar Coleção" },
+    94→  tech: { icon: Zap, label: "Tecnologia", gradient: "from-cyan-500 via-blue-600 to-indigo-600", particleColor: "#0ea5e9", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(14,165,233,0.25), transparent 70%)", badge: "Tech Hub", defaultTitle: "Inovação em tempo real", defaultCta: "Explorar" },
+    95→  food: { icon: UtensilsCrossed, label: "Food & Bebidas", gradient: "from-amber-500 via-orange-500 to-red-500", particleColor: "#f59e0b", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.25), transparent 70%)", badge: "Sabores & Jogos", defaultTitle: "Prova a tua sorte", defaultCta: "Degustar & Jogar" },
+    96→  beauty: { icon: Star, label: "Beleza", gradient: "from-rose-400 via-pink-500 to-fuchsia-500", particleColor: "#f472b6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,114,182,0.25), transparent 70%)", badge: "Beleza & Sorte", defaultTitle: "Brilha & Ganha", defaultCta: "Descobrir" },
+    97→  sports: { icon: Target, label: "Desporto", gradient: "from-green-500 via-emerald-600 to-teal-600", particleColor: "#10b981", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.25), transparent 70%)", badge: "Zona Desportiva", defaultTitle: "Compete em tempo real", defaultCta: "Entrar no Jogo" },
+    98→  casino: { icon: Crown, label: "Casino", gradient: "from-yellow-500 via-amber-500 to-orange-600", particleColor: "#eab308", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(234,179,8,0.3), transparent 70%)", badge: "Casino Premium", defaultTitle: "A sorte sorri-te", defaultCta: "Jogar Agora" },
+    99→  charity: { icon: Heart, label: "Solidariedade", gradient: "from-rose-500 via-pink-500 to-red-500", particleColor: "#f43f5e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,63,94,0.25), transparent 70%)", badge: "Causa Solidária", defaultTitle: "Joga por uma causa", defaultCta: "Apoiar Agora" },
+   100→  other: { icon: Sparkles, label: "Personalizado", gradient: "from-slate-600 via-gray-500 to-zinc-600", particleColor: "#94a3b8", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(148,163,184,0.2), transparent 70%)", badge: "Experiência Única", defaultTitle: "Bem-vindo", defaultCta: "Explorar" },
+   101→};
+   102→
+   103→/* ─── Spring configs (outside JSX) ──────────────────── */
+   104→const springUp = { type: "spring" as const, stiffness: 180, damping: 22 };
+   105→const springBounce = { type: "spring" as const, stiffness: 300, damping: 20 };
+   106→
+   107→/* ─── Floating Particles Component ──────────────────── */
+   108→const FloatingParticles = ({ color, count = 30 }: { color: string; count?: number }) => {
+   109→  const particles = useMemo(
+   110→    () =>
+   111→      Array.from({ length: count }, (_, i) => ({
+   112→        id: i,
+   113→        x: Math.random() * 100,
+   114→        y: Math.random() * 100,
+   115→        size: 2 + Math.random() * 4,
+   116→        duration: 6 + Math.random() * 8,
+   117→        delay: Math.random() * 4,
+   118→        opacity: 0.15 + Math.random() * 0.35,
+   119→      })),
+   120→    [count],
+   121→  );
+   122→  return (
+   123→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+   124→      {particles.map((p) => (
+   125→        <motion.div
+   126→          key={p.id}
+   127→          className="absolute rounded-full"
+   128→          style={{
+   129→            left: `${p.x}%`,
+   130→            width: p.size,
+   131→            height: p.size,
+   132→            backgroundColor: color,
+   133→          }}
+   134→          animate={{
+   135→            y: [0, -30, 0, 20, 0],
+   136→            x: [0, 10, -10, 5, 0],
+   137→            opacity: [p.opacity, p.opacity * 1.5, p.opacity * 0.5, p.opacity],
+   138→          }}
+   139→          transition={{
+   140→            duration: p.duration,
+   141→            repeat: Infinity,
+   142→            delay: p.delay,
+   143→            ease: "easeInOut",
+   144→          }}
+   145→        />
+   146→      ))}
+   147→    </div>
+   148→  );
+   149→};
+   150→
+   151→/* ─── Stat Card ─────────────────────────────────────── */
+   152→const StatCard = ({ icon: Icon, label, value, sub, color, delay }: { icon: any; label: string; value: string | number; sub?: string; color: string; delay: number }) => (
+   153→  <motion.div
+   154→    initial={{ y: 30, opacity: 0, scale: 0.9 }}
+   155→    animate={{ y: 0, opacity: 1, scale: 1 }}
+   156→    transition={{ ...springUp, delay }}
+   157→    className="relative group"
+   158→  >
+   159→    <div className="absolute -inset-0.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(135deg, ${color}40, transparent)` }} />
+   160→    <Card className="relative border-border/40 bg-card/60 backdrop-blur-sm hover:border-border/80 transition-all duration-300 overflow-hidden">
+   161→      <CardContent className="p-4 flex items-center gap-3">
+   162→        <div className="relative p-2.5 rounded-xl" style={{ backgroundColor: `${color}15` }}>
+   163→          <Icon className="h-5 w-5" style={{ color }} />
+   164→          <motion.div
+   165→            className="absolute inset-0 rounded-xl"
+   166→            style={{ backgroundColor: `${color}10` }}
+   167→            animate={{ scale: [1, 1.15, 1] }}
+   168→            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+   169→          />
+   170→        </div>
+   171→        <div className="flex-1 min-w-0">
+   172→          <p className="text-xl font-black tabular-nums leading-none" style={{ color }}>{value}</p>
+   173→          <p className="text-[10px] text-muted-foreground mt-1 font-medium uppercase tracking-wider">{label}</p>
+   174→          {sub && <p className="text-[9px] mt-0.5 opacity-60">{sub}</p>}
+   175→        </div>
+   176→      </CardContent>
+   177→    </Card>
+   178→  </motion.div>
+   179→);
+   180→
+   181→/* ═══════════════════════════════════════════════════════
+   182→   MAIN COMPONENT
+   183→   ═══════════════════════════════════════════════════════ */
+   184→const CompanyPublicProfile = () => {
+   185→  const { id } = useParams<{ id: string }>();
+   186→  const { toast } = useToast();
+   187→  const [company, setCompany] = useState<CompanyInfo | null>(null);
+   188→  const [branding, setBranding] = useState<CompanyBranding | null>(null);
+   189→  const [games, setGames] = useState<GameItem[]>([]);
+   190→  const [sessions, setSessions] = useState<LiveSession[]>([]);
+   191→  const [loading, setLoading] = useState(true);
+   192→  const [copied, setCopied] = useState(false);
+   193→  const [playerName, setPlayerName] = useState("");
+   194→  const [hasJoined, setHasJoined] = useState(false);
+   195→  const [activeTab, setActiveTab] = useState("games");
+   196→  const [liked, setLiked] = useState(false);
+   197→  const heroRef = useRef<HTMLDivElement>(null);
+   198→  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+   199→  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+   200→  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.9]);
+   201→
+   202→  /* ─── Data Loading ─────────────────────────────────── */
+   203→  useEffect(() => {
+   204→    if (!id) return;
+   205→    const load = async () => {
+   206→      setLoading(true);
+   207→      try {
+   208→        const [profileRes, brandRes, wheelsRes, milsRes, livesRes] = await Promise.all([
+   209→          supabase.from("profiles").select("*").eq("id", id).single(),
+   210→          supabase.from("company_branding").select("*").eq("user_id", id).single(),
+   211→          supabase.from("spin_wheel_games").select("*").eq("business_user_id", id).order("created_at", { ascending: false }),
+   212→          supabase.from("millionaire_games").select("*").eq("business_user_id", id).order("created_at", { ascending: false }),
+   213→          supabase.from("scheduled_lives").select("*").eq("business_user_id", id).neq("status", "draft").order("scheduled_at", { ascending: false }).limit(20),
+   214→        ]);
+   215→        if (profileRes.data) {
+   216→          const p = profileRes.data;
+   217→          setCompany({ user_id: p.id, display_name: p.display_name, company_name: p.company_name, avatar_url: p.avatar_url, is_verified: p.is_verified, city: p.city, province: p.province, created_at: p.created_at, phone: p.phone });
+   218→        }
+   219→        if (brandRes.data) setBranding(brandRes.data as any);
+   220→        const allGames: GameItem[] = [];
+   221→        (wheelsRes.data || []).forEach((w: any) => allGames.push({ id: w.id, name: w.name, type: "wheel", is_published: w.is_published, segment_count: w.segment_count, created_at: w.created_at, is_active: w.is_active }));
+   222→        (milsRes.data || []).forEach((m: any) => allGames.push({ id: m.id, name: m.name || "Quem Quer Ser Milionário", type: "millionaire", is_published: m.is_active, created_at: m.created_at, is_active: m.is_active }));
+   223→        setGames(allGames);
+   224→        if (livesRes.data) {
+   225→          setSessions(livesRes.data.map((l: any) => ({ code: l.live_code || l.slug || l.id, title: l.title, started_at: new Date(l.scheduled_at).getTime(), ended_at: l.ends_at ? new Date(l.ends_at).getTime() : Date.now(), duration_sec: l.ends_at ? Math.round((new Date(l.ends_at).getTime() - new Date(l.scheduled_at).getTime()) / 1000) : 0, players_count: 0, games_count: 0, winners: [] })));
+   226→        }
+   227→      } catch (e) { console.error(e); }
+   228→      setLoading(false);
+   229→    };
+   230→    load();
+   231→  }, [id]);
+   232→
+   233→  /* ─── Player Join ──────────────────────────────────── */
+   234→  const joinGame = useCallback(() => {
+   235→    if (!playerName.trim()) return;
+   236→    setHasJoined(true);
+   237→    try {
+   238→      const key = `companyPlayer:${id}`;
+   239→      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+   240→      if (!existing.includes(playerName.trim())) { existing.push(playerName.trim()); localStorage.setItem(key, JSON.stringify(existing)); }
+   241→      toast({ title: `Bem-vindo, ${playerName.trim()}!`, description: "Agora podes participar nos jogos desta empresa." });
+   242→    } catch {}
+   243→  }, [playerName, id, toast]);
+   244→
+   245→  useEffect(() => {
+   246→    if (!id) return;
+   247→    try {
+   248→      const key = `companyPlayer:${id}`;
+   249→      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+   250→      if (existing.length > 0) { setPlayerName(existing[0]); setHasJoined(true); }
+   251→    } catch {}
+   252→  }, [id]);
+   253→
+   254→  const copyLink = async () => { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+   255→
+   256→  /* ─── Derived Values ───────────────────────────────── */
+   257→  const primary = branding?.primary_color || "#fbbf24";
+   258→  const secondary = branding?.secondary_color || "#3b82f6";
+   259→  const accent = branding?.accent_color || "#8b5cf6";
+   260→  const bgColor = branding?.background_color || undefined;
+   261→  const companyName = company?.company_name || company?.display_name || "Empresa";
+   262→  const nicheKey = branding?.niche || "entertainment";
+   263→  const niche = NICHE_META[nicheKey] || NICHE_META.entertainment;
+   264→  const NicheIcon = niche.icon;
+   265→  const totalGames = games.length;
+   266→  const publishedGames = games.filter((g) => g.is_published || g.is_active).length;
+   267→  const totalLives = sessions.length;
+   268→  const heroTitle = branding?.hero_title || niche.defaultTitle;
+   269→  const heroSubtitle = branding?.hero_subtitle || branding?.company_slogan || `Descobre os jogos e lives de ${companyName}`;
+   270→  const ctaText = branding?.hero_cta_text || niche.defaultCta;
+   271→  const ctaLink = branding?.hero_cta_link || "/lives";
+   272→  const aboutText = branding?.about_text || null;
+   273→  const socialLinks = branding?.social_links || {};
+   274→  const layout = branding?.homepage_layout || "showcase";
+   275→
+   276→  /* ─── Loading State ────────────────────────────────── */
+   277→  if (loading) {
+   278→    return (
+   279→      <div className="min-h-screen flex items-center justify-center" style={bgColor ? { backgroundColor: bgColor } : {}}>
+   280→        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+   281→          <NicheIcon className="h-12 w-12" style={{ color: primary }} />
+   282→        </motion.div>
+   283→      </div>
+   284→    );
+   285→  }
+   286→
+   287→  /* ─── Not Found ────────────────────────────────────── */
+   288→  if (!company) {
+   289→    return (
+   290→      <div className="min-h-screen flex items-center justify-center">
+   291→        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
+   292→          <div className="h-20 w-20 mx-auto mb-4 rounded-3xl bg-muted/30 flex items-center justify-center">
+   293→            <Gamepad2 className="h-10 w-10 text-muted-foreground/30" />
+   294→          </div>
+   295→          <h2 className="text-2xl font-black font-display">Empresa não encontrada</h2>
+   296→          <p className="text-sm text-muted-foreground mt-2">Este perfil não existe ou foi removido.</p>
+   297→          <Link to="/empresas" className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-full text-sm font-bold" style={{ backgroundColor: primary, color: "#000" }}>
+   298→            <ArrowRight className="h-4 w-4" /> Ver todas as empresas
+   299→          </Link>
+   300→        </motion.div>
+   301→      </div>
+   302→    );
+   303→  }
+   304→
+   305→  /* ═══════════════════════════════════════════════════
+   306→     RENDER — Full Immersive Profile
+   307→     ═══════════════════════════════════════════════════ */
+   308→  return (
+   309→    <div className="min-h-screen relative" style={bgColor ? { backgroundColor: bgColor } : {}}>
+   310→      
+   311→      {branding?.background_image_url && (
+   312→        <div className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-30" style={{ backgroundImage: `url(${branding.background_image_url})` }} />
+   313→      )}
+   314→
+   315→      <motion.div ref={heroRef} style={{ opacity: heroOpacity, scale: heroScale }} className="relative min-h-[85vh] md:min-h-screen flex items-center justify-center overflow-hidden">
+   316→        
+   317→        <div className={`absolute inset-0 bg-gradient-to-br ${niche.gradient} opacity-90`} />
+   318→        <div className="absolute inset-0" style={{ background: niche.heroGlow }} />
+   319→        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 80% 20%, ${secondary}30, transparent 50%)` }} />
+   320→        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background to-transparent" />
+   321→
+   322→        
+   323→        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "30px 30px" }} />
+   324→
+   325→        
+   326→        <FloatingParticles color={niche.particleColor} count={35} />
+   327→
+   328→        
+   329→        <motion.div className="absolute w-[400px] h-[400px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${primary}20, transparent 70%)`, top: "10%", left: "10%", filter: "blur(60px)" }} animate={{ x: [0, 30, 0], y: [0, -20, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
+   330→        <motion.div className="absolute w-[300px] h-[300px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${accent}15, transparent 70%)`, bottom: "20%", right: "10%", filter: "blur(50px)" }} animate={{ x: [0, -20, 0], y: [0, 15, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
+   331→
+   332→        
+   333→        <div className="relative z-10 container mx-auto px-4 py-20">
+   334→          <div className="max-w-3xl mx-auto text-center">
+   335→            
+   336→            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.1 }} className="mb-6">
+   337→              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold uppercase tracking-widest">
+   338→                <NicheIcon className="h-3.5 w-3.5" />
+   339→                {branding?.featured_badge || niche.badge}
+   340→                {company.is_verified && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />}
+   341→              </span>
+   342→            </motion.div>
+   343→
+   344→            
+   345→            <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.2 }} className="mb-6">
+   346→              <div className="inline-flex flex-col items-center gap-4">
+   347→                <motion.div className="relative" whileHover={{ scale: 1.05 }} transition={springBounce}>
+   348→                  <div className="h-24 w-24 md:h-32 md:w-32 rounded-3xl border-4 border-white/30 shadow-2xl overflow-hidden backdrop-blur-sm bg-white/10">
+   349→                    {(branding?.company_logo_url || company.avatar_url) ? (
+   350→                      <img src={branding?.company_logo_url || company.avatar_url || ""} alt={companyName} className="h-full w-full object-cover" />
+   351→                    ) : (
+   352→                      <div className="h-full w-full flex items-center justify-center text-white">
+   353→                        <span className="text-5xl font-black">{companyName.charAt(0).toUpperCase()}</span>
+   354→                      </div>
+   355→                    )}
+   356→                  </div>
+   357→                  <motion.div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-white flex items-center justify-center shadow-lg" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+   358→                    <NicheIcon className="h-4 w-4" style={{ color: primary }} />
+   359→                  </motion.div>
+   360→                </motion.div>
+   361→                <div>
+   362→                  <h1 className="text-4xl md:text-6xl font-black font-display text-white drop-shadow-lg">{companyName}</h1>
+   363→                  {branding?.company_slogan && <p className="text-white/70 text-sm md:text-base mt-2 font-medium">{branding.company_slogan}</p>}
+   364→                </div>
+   365→              </div>
+   366→            </motion.div>
+   367→
+   368→            
+   369→            <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.35 }} className="text-xl md:text-3xl font-black text-white/95 leading-tight mb-3">
+   370→              {heroTitle}
+   371→            </motion.p>
+   372→            <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.45 }} className="text-sm md:text-base text-white/60 mb-8 max-w-lg mx-auto">
+   373→              {heroSubtitle}
+   374→            </motion.p>
+   375→
+   376→            
+   377→            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.55 }} className="flex flex-wrap items-center justify-center gap-3">
+   378→              <Link to={ctaLink} className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-white text-black font-black text-sm shadow-2xl hover:shadow-white/25 transition-all duration-300">
+   379→                <Play className="h-4 w-4 group-hover:scale-110 transition-transform" /> {ctaText}
+   380→              </Link>
+   381→              <button onClick={() => setLiked(!liked)} className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white font-bold text-sm hover:bg-white/20 transition-all">
+   382→                <motion.div animate={liked ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.3 }}>
+   383→                  <Heart className={`h-4 w-4 ${liked ? "fill-rose-400 text-rose-400" : ""}`} />
+   384→                </motion.div>
+   385→                {liked ? "Seguindo" : "Seguir"}
+   386→              </button>
+   387→              <button onClick={copyLink} className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white font-bold text-sm hover:bg-white/20 transition-all">
+   388→                {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+   389→                {copied ? "Copiado!" : "Partilhar"}
+   390→              </button>
+   391→            </motion.div>
+   392→
+   393→            
+   394→            {Object.keys(socialLinks).length > 0 && (
+   395→              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ ...springUp, delay: 0.65 }} className="flex items-center justify-center gap-3 mt-8">
+   396→                {Object.entries(socialLinks).map(([platform, url]) => (
+   397→                  <a key={platform} href={url as string} target="_blank" rel="noreferrer" className="h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all">
+   398→                    <span className="text-xs font-bold uppercase">{platform.slice(0, 2)}</span>
+   399→                  </a>
+   400→                ))}
+   401→              </motion.div>
+   402→            )}
+   403→
+   404→            
+   405→            {(company.city || company.province) && (
+   406→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="flex items-center justify-center gap-2 mt-4 text-white/40 text-xs">
+   407→                <MapPin className="h-3 w-3" /> {[company.city, company.province].filter(Boolean).join(", ")}
+   408→              </motion.div>
+   409→            )}
+   410→          </div>
+   411→        </div>
+   412→
+   413→        
+   414→        <motion.div className="absolute bottom-8 left-1/2 -translate-x-1/2" animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+   415→          <div className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-1.5">
+   416→            <motion.div className="w-1.5 h-1.5 rounded-full bg-white/60" animate={{ y: [0, 12, 0] }} transition={{ duration: 2, repeat: Infinity }} />
+   417→          </div>
+   418→        </motion.div>
+   419→      </motion.div>
+   420→
+   421→      <div className="relative z-10 -mt-12">
+   422→        <div className="container mx-auto px-4">
+   423→          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   424→            <StatCard icon={Gamepad2} label="Jogos" value={totalGames} sub={`${publishedGames} ativos`} color={primary} delay={0} />
+   425→            <StatCard icon={Radio} label="Lives" value={totalLives} color={secondary} delay={0.05} />
+   426→            <StatCard icon={Users} label="Seguidores" value="-" color={accent} delay={0.1} />
+   427→            <StatCard icon={Zap} label="Estado" value="Ativo" color="#10b981" delay={0.15} />
+   428→          </div>
+   429→        </div>
+   430→      </div>
+   431→
+   432→      <div className="container mx-auto px-4 mt-8">
+   433→        <AnimatePresence mode="wait">
+   434→          {!hasJoined ? (
+   435→            <motion.div key="join" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="relative overflow-hidden rounded-3xl border-2 p-6 md:p-8" style={{ borderColor: `${primary}30`, background: `linear-gradient(135deg, ${primary}08, ${accent}04)` }}>
+   436→              <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 90% 10%, ${primary}08, transparent 50%)` }} />
+   437→              <div className="relative flex flex-col md:flex-row items-center gap-6">
+   438→                <div className="flex-1 text-center md:text-left">
+   439→                  <div className="inline-flex p-3 rounded-2xl mb-3" style={{ backgroundColor: `${primary}15` }}>
+   440→                    <NicheIcon className="h-8 w-8" style={{ color: primary }} />
+   441→                  </div>
+   442→                  <h3 className="text-2xl font-black">Junta-te aos jogos!</h3>
+   443→                  <p className="text-sm text-muted-foreground mt-1">Coloca o teu nome para participar nos jogos e ver o teu histórico</p>
+   444→                </div>
+   445→                <div className="flex gap-2 w-full md:w-auto">
+   446→                  <Input placeholder="O teu nome..." value={playerName} onChange={(e) => setPlayerName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && joinGame()} className="flex-1 md:w-64 rounded-full" />
+   447→                  <Button onClick={joinGame} disabled={!playerName.trim()} className="rounded-full px-6 font-bold" style={{ backgroundColor: primary, color: "#000" }}>
+   448→                    Entrar <ChevronRight className="h-4 w-4 ml-1" />
+   449→                  </Button>
+   450→                </div>
+   451→              </div>
+   452→            </motion.div>
+   453→          ) : (
+   454→            <motion.div key="joined" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="flex items-center gap-4 p-4 rounded-2xl border" style={{ borderColor: `${primary}20`, background: `${primary}05` }}>
+   455→              <div className="h-12 w-12 rounded-full flex items-center justify-center font-black text-xl" style={{ backgroundColor: primary, color: "#000" }}>{playerName.charAt(0).toUpperCase()}</div>
+   456→              <div className="flex-1">
+   457→                <p className="font-bold">Olá, {playerName}!</p>
+   458→                <p className="text-xs text-muted-foreground">Pronto para jogar em nome de {companyName}</p>
+   459→              </div>
+   460→              <Button variant="ghost" size="sm" onClick={() => { setHasJoined(false); setPlayerName(""); }}>Trocar</Button>
+   461→            </motion.div>
+   462→          )}
+   463→        </AnimatePresence>
+   464→      </div>
+   465→
+   466→      {aboutText && (
+   467→        <div className="container mx-auto px-4 mt-8">
+   468→          <motion.div initial={{ y: 20, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={springUp} className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-6">
+   469→            <div className="flex items-center gap-2 mb-3">
+   470→              <Globe className="h-4 w-4" style={{ color: primary }} />
+   471→              <h3 className="font-bold text-lg">Sobre {companyName}</h3>
+   472→            </div>
+   473→            <p className="text-sm text-muted-foreground leading-relaxed">{aboutText}</p>
+   474→          </motion.div>
+   475→        </div>
+   476→      )}
+   477→
+   478→      <div className="container mx-auto px-4 mt-10 pb-16">
+   479→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   480→          <TabsList className="w-full h-12 rounded-2xl bg-muted/50 p-1">
+   481→            <TabsTrigger value="games" className="flex-1 gap-2 rounded-xl data-[state=active]:shadow-md transition-all" style={{ "--tw-shadow-color": `${primary}30` } as any}>
+   482→              <Gamepad2 className="h-4 w-4" /> Jogos
+   483→              <span className="hidden sm:inline ml-1 text-xs bg-muted px-2 py-0.5 rounded-full">{totalGames}</span>
+   484→            </TabsTrigger>
+   485→            <TabsTrigger value="lives" className="flex-1 gap-2 rounded-xl data-[state=active]:shadow-md transition-all" style={{ "--tw-shadow-color": `${secondary}30` } as any}>
+   486→              <Radio className="h-4 w-4" /> Lives
+   487→              <span className="hidden sm:inline ml-1 text-xs bg-muted px-2 py-0.5 rounded-full">{totalLives}</span>
+   488→            </TabsTrigger>
+   489→            <TabsTrigger value="style" className="flex-1 gap-2 rounded-xl data-[state=active]:shadow-md transition-all" style={{ "--tw-shadow-color": `${accent}30` } as any}>
+   490→              <Palette className="h-4 w-4" /> Estilo
+   491→            </TabsTrigger>
+   492→          </TabsList>
+   493→
+   494→          
+   495→          <TabsContent value="games" className="mt-6">
+   496→            {games.length > 0 ? (
+   497→              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   498→                {games.map((game, i) => (
+   499→                  <motion.div key={game.id} initial={{ y: 20, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ ...springUp, delay: i * 0.04 }}>
+   500→                    <Card className="group border-border/40 hover:border-border/80 transition-all duration-300 overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1">
+   501→                      <div className="h-2" style={{ background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
+   502→                      <CardContent className="p-5">
+   503→                        <div className="flex items-start gap-4">
+   504→                          <motion.div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${primary}25, ${accent}15)` }} whileHover={{ rotate: [0, -5, 5, 0] }} transition={{ duration: 0.4 }}>
+   505→                            {game.type === "wheel" ? <span className="text-2xl">🎰</span> : <span className="text-2xl">💰</span>}
+   506→                          </motion.div>
+   507→                          <div className="flex-1 min-w-0">
+   508→                            <p className="font-bold text-sm group-hover:text-primary transition-colors truncate">{game.name}</p>
+   509→                            <p className="text-[11px] text-muted-foreground mt-0.5">{game.type === "wheel" ? "Roda de Prémios" : "Quem Quer Ser Milionário"}</p>
+   510→                          </div>
+   511→                          <span className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] font-bold ${game.is_published || game.is_active ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+   512→                            {game.is_published || game.is_active ? "Ativo" : "Rascunho"}
+   513→                          </span>
+   514→                        </div>
+   515→                        <div className="mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
+   516→                          <span>{game.segment_count ? `${game.segment_count} segmentos` : "Configurado"}</span>
+   517→                          <span>{new Date(game.created_at).toLocaleDateString("pt-PT")}</span>
+   518→                        </div>
+   519→                      </CardContent>
+   520→                    </Card>
+   521→                  </motion.div>
+   522→                ))}
+   523→              </div>
+   524→            ) : (
+   525→              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center py-16">
+   526→                <div className="h-20 w-20 mx-auto mb-4 rounded-3xl bg-muted/30 flex items-center justify-center">
+   527→                  <Gamepad2 className="h-10 w-10 text-muted-foreground/20" />
+   528→                </div>
+   529→                <p className="text-sm text-muted-foreground">Nenhum jogo configurado ainda</p>
+   530→                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda não adicionou jogos</p>
+   531→              </motion.div>
+   532→            )}
+   533→          </TabsContent>
+   534→
+   535→          
+   536→          <TabsContent value="lives" className="mt-6">
+   537→            {sessions.length > 0 ? (
+   538→              <div className="space-y-3">
+   539→                {sessions.map((s, i) => (
+   540→                  <motion.div key={`${s.code}-${i}`} initial={{ y: 15, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ ...springUp, delay: i * 0.03 }}>
+   541→                    <Card className="border-border/40 hover:border-border/80 transition-all group cursor-pointer hover:shadow-md">
+   542→                      <CardContent className="p-4 flex items-center gap-4">
+   543→                        <div className="h-14 w-14 rounded-2xl flex flex-col items-center justify-center shrink-0 relative overflow-hidden" style={{ backgroundColor: `${primary}12` }}>
+   544→                          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/5" />
+   545→                          <Radio className="h-5 w-5 relative" style={{ color: primary }} />
+   546→                          <span className="text-[8px] font-black mt-0.5 text-muted-foreground relative">LIVE</span>
+   547→                        </div>
+   548→                        <div className="flex-1 min-w-0">
+   549→                          <p className="font-bold text-sm truncate group-hover:text-primary transition-colors">{s.title || `Live ${s.code}`}</p>
+   550→                          <p className="text-[11px] text-muted-foreground mt-0.5">{new Date(s.started_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+   551→                          {s.duration_sec > 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{Math.round(s.duration_sec / 60)} min</p>}
+   552→                        </div>
+   553→                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+   554→                      </CardContent>
+   555→                    </Card>
+   556→                  </motion.div>
+   557→                ))}
+   558→              </div>
+   559→            ) : (
+   560→              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center py-16">
+   561→                <div className="h-20 w-20 mx-auto mb-4 rounded-3xl bg-muted/30 flex items-center justify-center">
+   562→                  <Radio className="h-10 w-10 text-muted-foreground/20" />
+   563→                </div>
+   564→                <p className="text-sm text-muted-foreground">Nenhuma live realizada ainda</p>
+   565→              </motion.div>
+   566→            )}
+   567→          </TabsContent>
+   568→
+   569→          
+   570→          <TabsContent value="style" className="mt-6">
+   571→            <div className="space-y-4">
+   572→              
+   573→              <motion.div initial={{ y: 15, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} className="rounded-2xl border border-border/40 bg-card/40 p-6">
+   574→                <div className="flex items-center gap-2 mb-4">
+   575→                  <Palette className="h-4 w-4" style={{ color: primary }} />
+   576→                  <h3 className="font-bold">Identidade Visual</h3>
+   577→                </div>
+   578→                {branding ? (
+   579→                  <div className="space-y-4">
+   580→                    <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+   581→                      {[["Principal", primary], ["Secundária", secondary], ["Acento", accent], ["Fundo", branding.background_color], ["Texto", branding.text_color]].map(([label, color]) => (
+   582→                        <div key={label as string} className="text-center">
+   583→                          <motion.div className="h-14 rounded-xl border border-border/50 shadow-inner mb-1.5" style={{ backgroundColor: color as string }} whileHover={{ scale: 1.05 }} />
+   584→                          <p className="text-[9px] text-muted-foreground font-medium">{label as string}</p>
+   585→                          <p className="text-[8px] text-muted-foreground/50 font-mono">{color as string}</p>
+   586→                        </div>
+   587→                      ))}
+   588→                    </div>
+   589→                    <div className="h-3 rounded-full overflow-hidden" style={{ background: `linear-gradient(90deg, ${primary}, ${secondary}, ${accent})` }} />
+   590→                  </div>
+   591→                ) : <p className="text-xs text-muted-foreground">Sem identidade visual configurada</p>}
+   592→              </motion.div>
+   593→
+   594→              
+   595→              <motion.div initial={{ y: 15, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} className="rounded-2xl border border-border/40 bg-card/40 p-6">
+   596→                <div className="flex items-center gap-2 mb-4">
+   597→                  <NicheIcon className="h-4 w-4" style={{ color: primary }} />
+   598→                  <h3 className="font-bold">Configuração do Perfil</h3>
+   599→                </div>
+   600→                <div className="grid grid-cols-2 gap-3 text-sm">
+   601→                  <div className="flex items-center gap-2"><span className="text-muted-foreground text-xs">Nicho:</span><span className="font-bold text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${primary}15`, color: primary }}>{niche.label}</span></div>
+   602→                  <div className="flex items-center gap-2"><span className="text-muted-foreground text-xs">Layout:</span><span className="font-bold text-xs capitalize">{layout}</span></div>
+   603→                </div>
+   604→              </motion.div>
+   605→
+   606→              
+   607→              <motion.div initial={{ y: 15, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} className="rounded-2xl border border-border/40 bg-card/40 p-6">
+   608→                <div className="flex items-center gap-2 mb-4">
+   609→                  <Globe className="h-4 w-4 text-muted-foreground" />
+   610→                  <h3 className="font-bold">Informações</h3>
+   611→                </div>
+   612→                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+   613→                  <div className="flex items-center gap-2 text-muted-foreground"><Globe className="h-4 w-4" />{company.display_name || company.company_name}</div>
+   614→                  {(company.city || company.province) && <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" />{[company.city, company.province].filter(Boolean).join(", ")}</div>}
+   615→                  {company.created_at && <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" />{new Date(company.created_at).toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}</div>}
+   616→                </div>
+   617→              </motion.div>
+   618→            </div>
+   619→          </TabsContent>
+   620→        </Tabs>
+   621→      </div>
+   622→
+   623→      <Footer />
+   624→    </div>
+   625→  );
+   626→};
+   627→
+   628→
+   629→export default CompanyPublicProfile;
+   630→
