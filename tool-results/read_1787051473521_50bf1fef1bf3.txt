@@ -1,0 +1,629 @@
+    60→    month: "short",
+    61→    year: "numeric",
+    62→    hour: "2-digit",
+    63→    minute: "2-digit",
+    64→  });
+    65→}
+    66→
+    67→function timeAgo(iso: string) {
+    68→  const diff = Date.now() - new Date(iso).getTime();
+    69→  const mins = Math.floor(diff / 60000);
+    70→  if (mins < 1) return "agora";
+    71→  if (mins < 60) return `${mins}m atras`;
+    72→  const hrs = Math.floor(mins / 60);
+    73→  if (hrs < 24) return `${hrs}h atras`;
+    74→  const days = Math.floor(hrs / 24);
+    75→  return `${days}d atras`;
+    76→}
+    77→
+    78→export default function LeagueDetailPage() {
+    79→  const { slug } = useParams<{ slug: string }>();
+    80→  const { t } = useLanguage();
+    81→  const { user } = useAuth();
+    82→  const navigate = useNavigate();
+    83→
+    84→  const [league, setLeague] = useState<League | null>(null);
+    85→  const [participants, setParticipants] = useState<LeagueParticipant[]>([]);
+    86→  const [matches, setMatches] = useState<LeagueMatch[]>([]);
+    87→  const [activity, setActivity] = useState<LeagueActivity[]>([]);
+    88→  const [loading, setLoading] = useState(true);
+    89→  const [isParticipant, setIsParticipant] = useState(false);
+    90→  const [copied, setCopied] = useState(false);
+    91→  const [activeTab, setActiveTab] = useState("overview");
+    92→
+    93→  const loadData = async () => {
+    94→    if (!slug) return;
+    95→    setLoading(true);
+    96→    try {
+    97→      const [l, p, m, a] = await Promise.all([
+    98→        getLeagueBySlug(slug),
+    99→        getLeagueParticipants(slug).catch(() => []),
+   100→        getLeagueMatches(slug).catch(() => []),
+   101→        getLeagueActivity(slug, 50).catch(() => []),
+   102→      ]);
+   103→      if (l) {
+   104→        setLeague(l);
+   105→        setParticipants(p);
+   106→        setMatches(m);
+   107→        setActivity(a);
+   108→        if (user) {
+   109→          setIsParticipant(p.some((pt) => pt.user_id === user.id));
+   110→        }
+   111→      }
+   112→    } catch (e) {
+   113→      console.error(e);
+   114→    } finally {
+   115→      setLoading(false);
+   116→    }
+   117→  };
+   118→
+   119→  useEffect(() => {
+   120→    loadData();
+   121→  }, [slug]);
+   122→
+   123→  const handleJoin = async () => {
+   124→    if (!user || !league) return;
+   125→    try {
+   126→      await joinLeague(league.id, user.id);
+   127→      setIsParticipant(true);
+   128→      await loadData();
+   129→    } catch (e) {
+   130→      console.error(e);
+   131→    }
+   132→  };
+   133→
+   134→  const handleLeave = async () => {
+   135→    if (!user || !league) return;
+   136→    try {
+   137→      await leaveLeague(league.id, user.id);
+   138→      setIsParticipant(false);
+   139→      await loadData();
+   140→    } catch (e) {
+   141→      console.error(e);
+   142→    }
+   143→  };
+   144→
+   145→  const handleGenerateInvite = async () => {
+   146→    if (!user || !league) return;
+   147→    try {
+   148→      const invite = await createInvitation(league.id, user.id, { max_uses: 10 });
+   149→      await navigator.clipboard.writeText(invite.code);
+   150→      setCopied(true);
+   151→      setTimeout(() => setCopied(false), 2500);
+   152→    } catch (e) {
+   153→      console.error(e);
+   154→    }
+   155→  };
+   156→
+   157→  const matchesByRound = useMemo(() => {
+   158→    const map: Record<number, LeagueMatch[]> = {};
+   159→    for (const m of matches) {
+   160→      if (!map[m.round_number]) map[m.round_number] = [];
+   161→      map[m.round_number].push(m);
+   162→    }
+   163→    return map;
+   164→  }, [matches]);
+   165→
+   166→  const standings = useMemo(
+   167→    () => [...participants].sort((a, b) => b.points - a.points || b.wins - a.wins),
+   168→    [participants]
+   169→  );
+   170→
+   171→  const prizeBreakdown = useMemo(() => {
+   172→    if (!league || !league.prize_pool) return [];
+   173→    const dist = league.prize_distribution.length > 0 ? league.prize_distribution : [50, 30, 20];
+   174→    return dist.map((pct, i) => ({
+   175→      place: i + 1,
+   176→      pct,
+   177→      amount: Math.round((league.prize_pool * pct) / 100),
+   178→    }));
+   179→  }, [league]);
+   180→
+   181→  if (loading) {
+   182→    return (
+   183→      <div className="min-h-screen bg-[#0a0a12] p-4 md:p-8 max-w-5xl mx-auto space-y-4">
+   184→        <Skeleton className="h-8 w-32" />
+   185→        <Skeleton className="h-52 rounded-2xl" />
+   186→        <Skeleton className="h-12 w-full" />
+   187→        <div className="grid gap-4 md:grid-cols-2">
+   188→          <Skeleton className="h-64 rounded-xl" />
+   189→          <Skeleton className="h-64 rounded-xl" />
+   190→        </div>
+   191→      </div>
+   192→    );
+   193→  }
+   194→
+   195→  if (!league) {
+   196→    return (
+   197→      <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center">
+   198→        <div className="text-center">
+   199→          <AlertCircle className="h-12 w-12 text-white/20 mx-auto mb-3" />
+   200→          <p className="text-white/40">Liga nao encontrada</p>
+   201→          <Button variant="ghost" className="mt-3 text-white/50" onClick={() => navigate("/leagues")}>
+   202→            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+   203→          </Button>
+   204→        </div>
+   205→      </div>
+   206→    );
+   207→  }
+   208→
+   209→  const statusInfo = STATUS_MAP[league.status] || STATUS_MAP.draft;
+   210→  const isElimination = league.format === "single_elimination" || league.format === "double_elimination";
+   211→  const isRoundRobin = league.format === "round_robin" || league.format === "swiss";
+   212→
+   213→  return (
+   214→    <div className="min-h-screen bg-[#0a0a12]">
+   215→      <div
+   216→        className="relative h-44 md:h-56"
+   217→        style={{
+   218→          background: `linear-gradient(135deg, ${league.primary_color || "#6d28d9"}, ${league.secondary_color || "#2563eb"})`,
+   219→        }}
+   220→      >
+   221→        <div className="absolute inset-0 bg-black/30" />
+   222→        <div className="relative z-10 h-full flex flex-col justify-end p-4 md:p-8 max-w-5xl mx-auto">
+   223→          <Button
+   224→            variant="ghost"
+   225→            size="sm"
+   226→            className="absolute top-4 left-4 text-white/70 hover:text-white hover:bg-white/10"
+   227→            onClick={() => navigate("/leagues")}
+   228→          >
+   229→            <ArrowLeft className="h-4 w-4 mr-1" /> Ligas
+   230→          </Button>
+   231→          <div className="flex items-end justify-between gap-4 flex-wrap">
+   232→            <div className="space-y-2">
+   233→              <div className="flex items-center gap-2 flex-wrap">
+   234→                <Badge className={`text-[10px] border-0 ${statusInfo.color}`}>{statusInfo.label}</Badge>
+   235→                <Badge variant="outline" className="text-[10px] border-white/30 text-white/80">
+   236→                  {FORMAT_LABELS[league.format]}
+   237→                </Badge>
+   238→                <Badge variant="outline" className="text-[10px] border-white/30 text-white/80">
+   239→                  {league.game_type}
+   240→                </Badge>
+   241→              </div>
+   242→              <h1 className="text-2xl md:text-3xl font-extrabold text-white">{league.name}</h1>
+   243→              <div className="flex items-center gap-4 text-white/60 text-xs">
+   244→                <span className="flex items-center gap-1">
+   245→                  <Users className="h-3.5 w-3.5" /> {league.current_participants}/{league.max_participants}
+   246→                </span>
+   247→                {league.prize_pool > 0 && (
+   248→                  <span className="flex items-center gap-1">
+   249→                    <Gift className="h-3.5 w-3.5" /> {league.prize_pool.toLocaleString()} {league.currency}
+   250→                  </span>
+   251→                )}
+   252→              </div>
+   253→            </div>
+   254→            <div className="flex gap-2">
+   255→              {user && (
+   256→                <Button
+   257→                  variant="outline"
+   258→                  size="sm"
+   259→                  className="text-white/70 border-white/20 hover:bg-white/10 text-xs"
+   260→                  onClick={handleGenerateInvite}
+   261→                >
+   262→                  {copied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+   263→                  {copied ? "Copiado!" : "Convite"}
+   264→                </Button>
+   265→              )}
+   266→              {user && league.status === "registration" && (
+   267→                isParticipant ? (
+   268→                  <Button
+   269→                    size="sm"
+   270→                    variant="outline"
+   271→                    className="text-red-300 border-red-400/30 hover:bg-red-500/10 text-xs"
+   272→                    onClick={handleLeave}
+   273→                  >
+   274→                    <LogOut className="h-3.5 w-3.5 mr-1" /> Sair
+   275→                  </Button>
+   276→                ) : (
+   277→                  <Button
+   278→                    size="sm"
+   279→                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+   280→                    onClick={handleJoin}
+   281→                  >
+   282→                    <UserPlus className="h-3.5 w-3.5 mr-1" /> Participar
+   283→                  </Button>
+   284→                )
+   285→              )}
+   286→            </div>
+   287→          </div>
+   288→        </div>
+   289→      </div>
+   290→
+   291→      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+   292→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   293→          <TabsList className="bg-white/5 border border-white/10 w-full overflow-x-auto flex-nowrap mb-6">
+   294→            <TabsTrigger value="overview" className="text-white/60 data-[state=active]:bg-purple-600/30 data-[state=active]:text-white text-xs whitespace-nowrap">
+   295→              Visao Geral
+   296→            </TabsTrigger>
+   297→            <TabsTrigger value="participants" className="text-white/60 data-[state=active]:bg-purple-600/30 data-[state=active]:text-white text-xs whitespace-nowrap">
+   298→              <Users className="h-3.5 w-3.5 mr-1" /> Participantes
+   299→            </TabsTrigger>
+   300→            <TabsTrigger value="bracket" className="text-white/60 data-[state=active]:bg-purple-600/30 data-[state=active]:text-white text-xs whitespace-nowrap">
+   301→              <Swords className="h-3.5 w-3.5 mr-1" /> Jogos
+   302→            </TabsTrigger>
+   303→            <TabsTrigger value="standings" className="text-white/60 data-[state=active]:bg-purple-600/30 data-[state=active]:text-white text-xs whitespace-nowrap">
+   304→              <TrendingUp className="h-3.5 w-3.5 mr-1" /> Classificacao
+   305→            </TabsTrigger>
+   306→            <TabsTrigger value="activity" className="text-white/60 data-[state=active]:bg-purple-600/30 data-[state=active]:text-white text-xs whitespace-nowrap">
+   307→              <MessageSquare className="h-3.5 w-3.5 mr-1" /> Actividade
+   308→            </TabsTrigger>
+   309→          </TabsList>
+   310→
+   311→          <TabsContent value="overview">
+   312→            <div className="grid gap-6 md:grid-cols-3">
+   313→              <motion.div
+   314→                initial={{ opacity: 0, y: 12 }}
+   315→                animate={{ opacity: 1, y: 0 }}
+   316→                className="md:col-span-2 space-y-6"
+   317→              >
+   318→                <Card className="bg-white/5 border-white/10 backdrop-blur-md">
+   319→                  <CardHeader>
+   320→                    <CardTitle className="text-white text-sm">Descricao</CardTitle>
+   321→                  </CardHeader>
+   322→                  <CardContent>
+   323→                    <p className="text-white/60 text-sm leading-relaxed">
+   324→                      {league.description || "Sem descricao disponivel."}
+   325→                    </p>
+   326→                  </CardContent>
+   327→                </Card>
+   328→                <Card className="bg-white/5 border-white/10 backdrop-blur-md">
+   329→                  <CardHeader>
+   330→                    <CardTitle className="text-white text-sm">Regras</CardTitle>
+   331→                  </CardHeader>
+   332→                  <CardContent>
+   333→                    <p className="text-white/60 text-sm leading-relaxed">
+   334→                      {league.game_type} - {FORMAT_DESCRIPTIONS[league.format]}
+   335→                    </p>
+   336→                    <Separator className="my-3 bg-white/10" />
+   337→                    <div className="grid grid-cols-2 gap-3 text-xs">
+   338→                      <div className="text-white/40">Vitoria: <span className="text-white/70">+{league.points_per_win} pts</span></div>
+   339→                      <div className="text-white/40">Empate: <span className="text-white/70">+{league.points_per_draw} pts</span></div>
+   340→                      <div className="text-white/40">Derrota: <span className="text-white/70">+{league.points_per_loss} pts</span></div>
+   341→                      <div className="text-white/40">Melhor de: <span className="text-white/70">{league.wins_needed}</span></div>
+   342→                    </div>
+   343→                  </CardContent>
+   344→                </Card>
+   345→              </motion.div>
+   346→
+   347→              <motion.div
+   348→                initial={{ opacity: 0, y: 12 }}
+   349→                animate={{ opacity: 1, y: 0 }}
+   350→                transition={{ delay: 0.1 }}
+   351→                className="space-y-4"
+   352→              >
+   353→                {prizeBreakdown.length > 0 && (
+   354→                  <Card className="bg-white/5 border-white/10 backdrop-blur-md">
+   355→                    <CardHeader>
+   356→                      <CardTitle className="text-white text-sm flex items-center gap-2">
+   357→                        <Trophy className="h-4 w-4 text-amber-400" /> Premios
+   358→                      </CardTitle>
+   359→                    </CardHeader>
+   360→                    <CardContent className="space-y-2">
+   361→                      {prizeBreakdown.map((p) => (
+   362→                        <div key={p.place} className="flex justify-between text-xs">
+   363→                          <span className="text-white/50">{p.place}o lugar</span>
+   364→                          <span className="text-white/80 font-medium">
+   365→                            {p.amount.toLocaleString()} {league.currency}
+   366→                            <span className="text-white/30 ml-1">({p.pct}%)</span>
+   367→                          </span>
+   368→                        </div>
+   369→                      ))}
+   370→                      {league.prize_description && (
+   371→                        <p className="text-[11px] text-white/30 mt-2">{league.prize_description}</p>
+   372→                      )}
+   373→                    </CardContent>
+   374→                  </Card>
+   375→                )}
+   376→                <Card className="bg-white/5 border-white/10 backdrop-blur-md">
+   377→                  <CardHeader>
+   378→                    <CardTitle className="text-white text-sm flex items-center gap-2">
+   379→                      <Calendar className="h-4 w-4 text-purple-400" /> Datas
+   380→                    </CardTitle>
+   381→                  </CardHeader>
+   382→                  <CardContent className="space-y-2 text-xs">
+   383→                    <div className="flex justify-between">
+   384→                      <span className="text-white/40">Inscricoes abrem</span>
+   385→                      <span className="text-white/70">{formatDate(league.registration_opens_at)}</span>
+   386→                    </div>
+   387→                    <Separator className="bg-white/5" />
+   388→                    <div className="flex justify-between">
+   389→                      <span className="text-white/40">Inscricoes fecham</span>
+   390→                      <span className="text-white/70">{formatDate(league.registration_closes_at)}</span>
+   391→                    </div>
+   392→                    <Separator className="bg-white/5" />
+   393→                    <div className="flex justify-between">
+   394→                      <span className="text-white/40">Inicio</span>
+   395→                      <span className="text-white/70">{formatDate(league.starts_at)}</span>
+   396→                    </div>
+   397→                    <Separator className="bg-white/5" />
+   398→                    <div className="flex justify-between">
+   399→                      <span className="text-white/40">Fim</span>
+   400→                      <span className="text-white/70">{formatDate(league.ends_at)}</span>
+   401→                    </div>
+   402→                  </CardContent>
+   403→                </Card>
+   404→              </motion.div>
+   405→            </div>
+   406→          </TabsContent>
+   407→
+   408→          <TabsContent value="participants">
+   409→            {participants.length === 0 ? (
+   410→              <div className="text-center py-16 text-white/30 text-sm">
+   411→                Nenhum participante ainda.
+   412→              </div>
+   413→            ) : (
+   414→              <motion.div
+   415→                initial={{ opacity: 0 }}
+   416→                animate={{ opacity: 1 }}
+   417→                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+   418→              >
+   419→                {participants.map((p, i) => (
+   420→                  <motion.div
+   421→                    key={p.id}
+   422→                    initial={{ opacity: 0, y: 8 }}
+   423→                    animate={{ opacity: 1, y: 0 }}
+   424→                    transition={{ delay: i * 0.04 }}
+   425→                  >
+   426→                    <Card className="bg-white/5 border-white/10 backdrop-blur-md">
+   427→                      <CardContent className="p-4 flex items-center gap-3">
+   428→                        <div
+   429→                          className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+   430→                          style={{
+   431→                            background: `linear-gradient(135deg, ${league.primary_color}, ${league.secondary_color})`,
+   432→                          }}
+   433→                        >
+   434→                          {i + 1}
+   435→                        </div>
+   436→                        <div className="min-w-0 flex-1">
+   437→                          <p className="text-white text-sm font-medium truncate">
+   438→                            {p.display_name || p.profile?.display_name || `Jogador ${i + 1}`}
+   439→                          </p>
+   440→                          {p.rpg_class && (
+   441→                            <p className="text-[10px] text-purple-300/70 flex items-center gap-1">
+   442→                              <Shield className="h-3 w-3" /> {p.rpg_class} Nv.{p.rpg_level}
+   443→                            </p>
+   444→                          )}
+   445→                          <div className="flex gap-3 mt-1 text-[10px] text-white/40">
+   446→                            <span className="text-emerald-400/70">{p.wins}V</span>
+   447→                            <span className="text-amber-400/70">{p.draws}E</span>
+   448→                            <span className="text-red-400/70">{p.losses}D</span>
+   449→                            <span className="text-white/60">{p.points} pts</span>
+   450→                          </div>
+   451→                        </div>
+   452→                      </CardContent>
+   453→                    </Card>
+   454→                  </motion.div>
+   455→                ))}
+   456→              </motion.div>
+   457→            )}
+   458→          </TabsContent>
+   459→
+   460→          <TabsContent value="bracket">
+   461→            {matches.length === 0 ? (
+   462→              <div className="text-center py-16 text-white/30 text-sm">
+   463→                Nenhum jogo cadastrado ainda.
+   464→              </div>
+   465→            ) : isElimination ? (
+   466→              <div className="space-y-8 overflow-x-auto">
+   467→                {Object.entries(matchesByRound).map(([round, roundMatches]) => {
+   468→                  const roundNum = Number(round);
+   469→                  const isFinal = roundNum === Math.max(...Object.keys(matchesByRound).map(Number));
+   470→                  return (
+   471→                    <motion.div
+   472→                      key={round}
+   473→                      initial={{ opacity: 0, x: -16 }}
+   474→                      animate={{ opacity: 1, x: 0 }}
+   475→                      transition={{ delay: roundNum * 0.1 }}
+   476→                    >
+   477→                      <div className="flex items-center gap-2 mb-3">
+   478→                        <Badge
+   479→                          className={`text-[10px] border-0 ${isFinal ? "bg-amber-500/20 text-amber-300" : "bg-white/10 text-white/50"}`}
+   480→                        >
+   481→                          {isFinal ? "Final" : `Ronda ${round}`}
+   482→                        </Badge>
+   483→                        <span className="text-[10px] text-white/30">{roundMatches.length} jogos</span>
+   484→                      </div>
+   485→                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   486→                        {roundMatches.map((m) => {
+   487→                          const p1Win = m.winner_id && m.winner_id === m.player1_id;
+   488→                          const p2Win = m.winner_id && m.winner_id === m.player2_id;
+   489→                          return (
+   490→                            <Card
+   491→                              key={m.id}
+   492→                              className={`bg-white/5 border backdrop-blur-md transition-colors ${
+   493→                                m.status === "completed"
+   494→                                  ? "border-white/10"
+   495→                                  : m.status === "in_progress"
+   496→                                  ? "border-amber-500/40"
+   497→                                  : "border-white/5"
+   498→                              }`}
+   499→                            >
+   500→                              <CardContent className="p-3 space-y-2">
+   501→                                <div className="flex items-center justify-between text-xs">
+   502→                                  <span
+   503→                                    className={`font-medium truncate flex-1 ${p1Win ? "text-emerald-300" : "text-white/60"}`}
+   504→                                  >
+   505→                                    {m.player1_display || m.player1?.display_name || "TBD"}
+   506→                                  </span>
+   507→                                  <span className={`font-mono font-bold ml-2 ${p1Win ? "text-emerald-300" : "text-white/40"}`}>
+   508→                                    {m.player1_score}
+   509→                                  </span>
+   510→                                </div>
+   511→                                <div className="text-center text-[10px] text-white/20">VS</div>
+   512→                                <div className="flex items-center justify-between text-xs">
+   513→                                  <span
+   514→                                    className={`font-medium truncate flex-1 ${p2Win ? "text-emerald-300" : "text-white/60"}`}
+   515→                                  >
+   516→                                    {m.player2_display || m.player2?.display_name || "TBD"}
+   517→                                  </span>
+   518→                                  <span className={`font-mono font-bold ml-2 ${p2Win ? "text-emerald-300" : "text-white/40"}`}>
+   519→                                    {m.player2_score}
+   520→                                  </span>
+   521→                                </div>
+   522→                                {m.status === "scheduled" && m.scheduled_at && (
+   523→                                  <p className="text-[10px] text-white/20 text-center mt-1">
+   524→                                    <Calendar className="h-3 w-3 inline mr-1" />
+   525→                                    {formatDate(m.scheduled_at)}
+   526→                                  </p>
+   527→                                )}
+   528→                              </CardContent>
+   529→                            </Card>
+   530→                          );
+   531→                        })}
+   532→                      </div>
+   533→                    </motion.div>
+   534→                  );
+   535→                })}
+   536→              </div>
+   537→            ) : (
+   538→              // Round Robin / Swiss — group by round
+   539→              <div className="space-y-6">
+   540→                {Object.entries(matchesByRound).map(([round, roundMatches]) => (
+   541→                  <motion.div
+   542→                    key={round}
+   543→                    initial={{ opacity: 0, y: 8 }}
+   544→                    animate={{ opacity: 1, y: 0 }}
+   545→                  >
+   546→                    <Badge className="mb-3 text-[10px] bg-white/10 text-white/50 border-0">
+   547→                      Ronda {round} <span className="text-white/30 ml-1">({roundMatches.length} jogos)</span>
+   548→                    </Badge>
+   549→                    <div className="grid gap-2">
+   550→                      {roundMatches.map((m) => {
+   551→                        const p1Win = m.winner_id === m.player1_id;
+   552→                        const p2Win = m.winner_id === m.player2_id;
+   553→                        return (
+   554→                          <Card key={m.id} className="bg-white/5 border-white/5 backdrop-blur-md">
+   555→                            <CardContent className="p-3 flex items-center justify-between text-xs">
+   556→                              <span className={`font-medium ${p1Win ? "text-emerald-300" : "text-white/60"}`}>
+   557→                                {m.player1_display || m.player1?.display_name || "TBD"}
+   558→                              </span>
+   559→                              <div className="flex items-center gap-2">
+   560→                                <span className={`font-mono font-bold ${p1Win ? "text-emerald-300" : "text-white/40"}`}>
+   561→                                  {m.player1_score}
+   562→                                </span>
+   563→                                <span className="text-white/20">x</span>
+   564→                                <span className={`font-mono font-bold ${p2Win ? "text-emerald-300" : "text-white/40"}`}>
+   565→                                  {m.player2_score}
+   566→                                </span>
+   567→                              </div>
+   568→                              <span className={`font-medium text-right ${p2Win ? "text-emerald-300" : "text-white/60"}`}>
+   569→                                {m.player2_display || m.player2?.display_name || "TBD"}
+   570→                              </span>
+   571→                            </CardContent>
+   572→                          </Card>
+   573→                        );
+   574→                      })}
+   575→                    </div>
+   576→                  </motion.div>
+   577→                ))}
+   578→              </div>
+   579→            )}
+   580→          </TabsContent>
+   581→
+   582→          <TabsContent value="standings">
+   583→            {standings.length === 0 ? (
+   584→              <div className="text-center py-16 text-white/30 text-sm">
+   585→                Nenhuma classificacao disponivel.
+   586→              </div>
+   587→            ) : (
+   588→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+   589→                <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden">
+   590→                  <div className="overflow-x-auto">
+   591→                    <table className="w-full text-xs">
+   592→                      <thead>
+   593→                        <tr className="border-b border-white/10">
+   594→                          <th className="text-left p-3 text-white/40 font-medium">#</th>
+   595→                          <th className="text-left p-3 text-white/40 font-medium">Jogador</th>
+   596→                          {league.format === "rpg_championship" && (
+   597→                            <th className="text-left p-3 text-white/40 font-medium">Classe</th>
+   598→                          )}
+   599→                          <th className="text-center p-3 text-white/40 font-medium">V</th>
+   600→                          <th className="text-center p-3 text-white/40 font-medium">E</th>
+   601→                          <th className="text-center p-3 text-white/40 font-medium">D</th>
+   602→                          <th className="text-center p-3 text-white/40 font-medium">Pts</th>
+   603→                          <th className="text-right p-3 text-white/40 font-medium">Score</th>
+   604→                        </tr>
+   605→                      </thead>
+   606→                      <tbody>
+   607→                        {standings.map((p, i) => (
+   608→                          <motion.tr
+   609→                            key={p.id}
+   610→                            initial={{ opacity: 0, x: -8 }}
+   611→                            animate={{ opacity: 1, x: 0 }}
+   612→                            transition={{ delay: i * 0.03 }}
+   613→                            className="border-b border-white/5 hover:bg-white/5 transition-colors"
+   614→                          >
+   615→                            <td className="p-3">
+   616→                              <span
+   617→                                className="inline-flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold"
+   618→                                style={{
+   619→                                  background: i < 3
+   620→                                    ? `linear-gradient(135deg, ${league.primary_color}, ${league.secondary_color})`
+   621→                                    : "rgba(255,255,255,0.05)",
+   622→                                  color: i < 3 ? "white" : "rgba(255,255,255,0.4)",
+   623→                                }}
+   624→                              >
+   625→                                {i + 1}
+   626→                              </span>
+   627→                            </td>
+   628→                            <td className="p-3 text-white/80 font-medium">
+   629→                              {p.display_name || p.profile?.display_name || `Jogador ${i + 1}`}
+   630→                            </td>
+   631→                            {league.format === "rpg_championship" && (
+   632→                              <td className="p-3 text-purple-300/60">{p.rpg_class || "--"}</td>
+   633→                            )}
+   634→                            <td className="p-3 text-center text-emerald-400/70">{p.wins}</td>
+   635→                            <td className="p-3 text-center text-amber-400/70">{p.draws}</td>
+   636→                            <td className="p-3 text-center text-red-400/70">{p.losses}</td>
+   637→                            <td className="p-3 text-center text-white font-bold">{p.points}</td>
+   638→                            <td className="p-3 text-right text-white/50">{p.score_for}</td>
+   639→                          </motion.tr>
+   640→                        ))}
+   641→                      </tbody>
+   642→                    </table>
+   643→                  </div>
+   644→                </Card>
+   645→              </motion.div>
+   646→            )}
+   647→          </TabsContent>
+   648→
+   649→          <TabsContent value="activity">
+   650→            {activity.length === 0 ? (
+   651→              <div className="text-center py-16 text-white/30 text-sm">
+   652→                Nenhuma actividade registada.
+   653→              </div>
+   654→            ) : (
+   655→              <div className="space-y-2 max-h-96 overflow-y-auto">
+   656→                {activity.map((a, i) => (
+   657→                  <motion.div
+   658→                    key={a.id}
+   659→                    initial={{ opacity: 0, x: -8 }}
+   660→                    animate={{ opacity: 1, x: 0 }}
+   661→                    transition={{ delay: i * 0.03 }}
+   662→                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors"
+   663→                  >
+   664→                    <div className="mt-0.5 text-white/30">
+   665→                      {ACTIVITY_ICONS[a.type] || <MessageSquare className="h-4 w-4" />}
+   666→                    </div>
+   667→                    <div className="flex-1 min-w-0">
+   668→                      <p className="text-white/70 text-xs">
+   669→                        {a.title || a.type}
+   670→                      </p>
+   671→                      {a.body && (
+   672→                        <p className="text-white/40 text-[11px] mt-0.5 line-clamp-1">{a.body}</p>
+   673→                      )}
+   674→                    </div>
+   675→                    <span className="text-[10px] text-white/20 shrink-0 whitespace-nowrap">
+   676→                      {timeAgo(a.created_at)}
+   677→                    </span>
+   678→                  </motion.div>
+   679→                ))}
+   680→              </div>
+   681→            )}
+   682→          </TabsContent>
+   683→        </Tabs>
+   684→      </div>
+   685→    </div>
+   686→  );
+   687→}
+   688→
