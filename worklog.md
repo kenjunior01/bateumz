@@ -381,3 +381,44 @@ Stage Summary:
 - Commit 9ebbab7: perf + hreflang + sitemap dinamico
 - Build passa sem erros com compressao ativa
 - Total de commits SEO: 3 (453df73, aabde22, 9ebbab7)
+---
+Task ID: session-continue
+Agent: Main Agent
+Task: Push para GitHub + enriquecer perfis + corrigir bugs business + corrigir MMORPG
+
+Work Log:
+- Corrigido remote git de Z-ai-Technologies/ para kenjunior01/bateumz-cb2c44d1
+- git pull --rebase + push: 20 ficheiros sincronizados (outros devs tinham feito fixes)
+- Enriquecido CompanyPublicProfile.tsx (+91 linhas):
+  - Adicionado tab Prestações com produtos a prestações
+  - Adicionado tab Vencedores com rankings de concursos
+  - Adicionado Challenge Roulettes aos jogos
+  - Adicionado ícones sociais reais (Instagram, Facebook, Youtube, Twitter)
+  - Stats expandidos de 4 para 6 (Prestações + Bilhetes Vendidos)
+  - SEO melhorado (ogType, ogImage, título completo)
+- Corrigido 10 bugs em funcionalidades de empresa:
+  - C1 (CRÍTICO): handleDraw sem tratamento de erro → adicionado try/catch/batch update
+  - C2 (CRÍTICO): Botão Enviar mensagem não fazia nada → implementado envio via notifications
+  - H1: BusinessProfile sub-componentes usam MZN em vez de moeda do user
+  - H2: DashboardOverview stats hardcoded → removido, calculados de dados reais
+  - H5: CurrencyContext so aceitava USD/CAD/INR → agora suporta 12 moedas + MZN default
+  - L2: CSV export sem escape → adicionado aspas duplas
+  - L3: BusinessLivesTab texto em inglês → traduzido
+  - L4: AmbassadorPanel texto em inglês → traduzido
+  - M1: DashboardPrestacoes import morto → removido
+  - M2: AmbassadorPanel null as any → undefined
+- Corrigido 4 bugs do MMORPG:
+  - MM2 (CRÍTICO): Chat insertava char_id (UUID) em vez de guest_id (TEXT)
+  - MM3 (CRÍTICO): Transfers usavam colunas UUID em vez de TEXT
+  - MM8: Heal podia exceder maxHp → adicionado Math.min
+  - MM13: Auto-grind nunca rotacionava inimigos → agora seleciona novo a cada luta
+- Atualizado migration SQL 20260818_mmorpg_fixes.sql:
+  - rpg_transactions: colunas UUID→TEXT, renomeadas para guest_id
+  - RLS: politica UPDATE removida (tautologica), simplificada
+  - Marketplace: DELETE policy removida (USING true era insegura)
+
+Stage Summary:
+- 4 commits pushed para GitHub (kenjunior01/bateumz-cb2c44d1)
+- 5 commits totais na sessão: 515729a, 148c191, e0f1eb4 + 2 do rebase
+- Build limpo em todos os commits (0 erros TS)
+- Migração SQL pendente execução manual no Supabase
