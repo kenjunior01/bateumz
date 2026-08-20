@@ -119,8 +119,8 @@ CREATE INDEX IF NOT EXISTS idx_rpg_characters_level ON rpg_characters(level DESC
 CREATE INDEX IF NOT EXISTS idx_rpg_duels_challenger ON rpg_duels(challenger_id);
 CREATE INDEX IF NOT EXISTS idx_rpg_duels_defender ON rpg_duels(defender_id);
 CREATE INDEX IF NOT EXISTS idx_rpg_duels_status ON rpg_duels(status);
-CREATE INDEX IF NOT EXISTS idx_rpg_transactions_from ON rpg_transactions(from_guest_id);
-CREATE INDEX IF NOT EXISTS idx_rpg_transactions_to ON rpg_transactions(to_guest_id);
+CREATE INDEX IF NOT EXISTS idx_rpg_transactions_from ON rpg_transactions(from_char_id);
+CREATE INDEX IF NOT EXISTS idx_rpg_transactions_to ON rpg_transactions(to_char_id);
 CREATE INDEX IF NOT EXISTS idx_rpg_chat_created ON rpg_chat(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rpg_chat_zone ON rpg_chat(zone);
 CREATE INDEX IF NOT EXISTS idx_rpg_market_created ON rpg_market_listings(created_at DESC);
