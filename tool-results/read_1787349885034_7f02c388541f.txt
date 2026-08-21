@@ -1,0 +1,800 @@
+     1→import { useState, useRef, useEffect, useCallback } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import confetti from "canvas-confetti";
+     4→import { Plus, Trash2, Settings2, Volume2, VolumeX, Trophy, Share2, AlertTriangle, Gift, Sparkles, Zap, Star, PartyPopper, Monitor, Smartphone } from "lucide-react";
+     5→import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+     6→import { Input } from "@/components/ui/input";
+     7→import { Label } from "@/components/ui/label";
+     8→import { Button } from "@/components/ui/button";
+     9→import { supabase } from "@/integrations/supabase/client";
+    10→import { useAuth } from "@/contexts/AuthContext";
+    11→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    12→import { useLanguage } from "@/contexts/LanguageContext";
+    13→import { toast } from "sonner";
+    14→import { CompanyBranding } from './LiveGameSettings';
+    15→import { useSoundEffects } from "@/hooks/useSoundEffects";
+    16→import { PRESET_THEMES, type WheelTheme } from "@/lib/themes";
+    17→import {
+    18→  computeFinalRotation,
+    19→  findPrizeIndex,
+    20→  getSegmentAngle,
+    21→  getSegmentAtPointer,
+    22→  isNoWinLabel,
+    23→} from "@/lib/wheel-math";
+    24→
+    25→export type WheelPrize = {
+    26→  id: string;
+    27→  label: string;
+    28→  color: string;
+    29→  textColor?: string;
+    30→  weight: number;
+    31→  description?: string;
+    32→  rewardType?: string;
+    33→  rewardValue?: string;
+    34→  rewardImageUrl?: string;
+    35→  maxWinsPerDay?: number | null;
+    36→  maxWinsTotal?: number | null;
+    37→  currentWinsToday?: number;
+    38→  currentWinsTotal?: number;
+    39→  effectType?: "confetti" | "fireworks" | "stars" | "poppers" | "zap";
+    40→  segment_number?: number;
+    41→};
+    42→
+    43→export const DEFAULT_WHEEL_PRIZES: WheelPrize[] = [
+    44→  { id: "p1", label: "10% OFF", color: "#22c55e", textColor: "#fff", weight: 25, rewardType: "discount", rewardValue: "10%", effectType: "confetti" },
+    45→  { id: "p2", label: "Tenta Outra", color: "#334155", textColor: "#fff", weight: 35, rewardType: "none", rewardValue: "" },
+    46→  { id: "p3", label: "Brinde", color: "#eab308", textColor: "#000", weight: 15, rewardType: "prize", rewardValue: "Brinde", effectType: "stars" },
+    47→  { id: "p4", label: "Tenta Outra", color: "#1e293b", textColor: "#fff", weight: 15, rewardType: "none", rewardValue: "" },
+    48→  { id: "p5", label: "PRÉMIO!", color: "#8b5cf6", textColor: "#fff", weight: 5, rewardType: "grand_prize", rewardValue: "Grande Prémio", effectType: "fireworks" },
+    49→  { id: "p6", label: "5% OFF", color: "#ef4444", textColor: "#fff", weight: 5, rewardType: "discount", rewardValue: "5%", effectType: "poppers" },
+    50→];
+    51→
+    52→const palette = ["#22c55e", "#eab308", "#8b5cf6", "#ef4444", "#0ea5e9", "#f97316", "#ec4899", "#14b8a6"];
+    53→
+    54→const fireConfetti = (type: string = "confetti") => {
+    55→  const duration = 3 * 1000;
+    56→  const animationEnd = Date.now() + duration;
+    57→  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+    58→
+    59→  const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+    60→
+    61→  const interval = setInterval(() => {
+    62→    const timeLeft = animationEnd - Date.now();
+    63→    if (timeLeft <= 0) {
+    64→      return clearInterval(interval);
+    65→    }
+    66→
+    67→    const particleCount = 50 * (timeLeft / duration);
+    68→
+    69→    switch (type) {
+    70→      case "fireworks":
+    71→        confetti({
+    72→          ...defaults,
+    73→          particleCount,
+    74→          spread: 70,
+    75→          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+    76→          colors: ["#ff0000", "#00ff00", "#0000ff", "#ffff00"],
+    77→        });
+    78→        confetti({
+    79→          ...defaults,
+    80→          particleCount,
+    81→          spread: 70,
+    82→          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+    83→          colors: ["#ff00ff", "#00ffff", "#ff8800", "#88ff00"],
+    84→        });
+    85→        break;
+    86→      case "stars":
+    87→        confetti({
+    88→          ...defaults,
+    89→          particleCount: particleCount * 0.5,
+    90→          shapes: ["star"],
+    91→          gravity: 0.8,
+    92→          scalar: 1.2,
+    93→          origin: { y: 0.4 },
+    94→          colors: ["#ffd700", "#ffed4e", "#ffffff"],
+    95→        });
+    96→        break;
+    97→      case "poppers":
+    98→        for (let i = 0; i < 5; i++) {
+    99→          setTimeout(() => {
+   100→            confetti({
+   101→              ...defaults,
+   102→              particleCount: 20,
+   103→              origin: { x: 0.2 + i * 0.15, y: 0.6 },
+   104→              spread: 60,
+   105→              colors: ["#ff4444", "#44ff44", "#4444ff", "#ffff44"],
+   106→            });
+   107→          }, i * 200);
+   108→        }
+   109→        break;
+   110→      case "zap":
+   111→        confetti({
+   112→          ...defaults,
+   113→          particleCount: 100,
+   114→          shapes: ["circle", "square"],
+   115→          gravity: 1.2,
+   116→          scalar: 0.9,
+   117→          origin: { y: 0.2 },
+   118→          colors: ["#ff00ff", "#00ffff", "#ff0000", "#00ff00"],
+   119→        });
+   120→        break;
+   121→      case "confetti":
+   122→      default:
+   123→        confetti({
+   124→          ...defaults,
+   125→          particleCount,
+   126→          origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
+   127→        });
+   128→        confetti({
+   129→          ...defaults,
+   130→          particleCount,
+   131→          origin: { x: randomInRange(0.2, 0.8), y: Math.random() - 0.1 },
+   132→          spread: 180,
+   133→        });
+   134→        break;
+   135→    }
+   136→  }, 250);
+   137→};
+   138→
+   139→interface Props {
+   140→  prizes: WheelPrize[];
+   141→  gameId?: string;
+   142→  onChange?: (prizes: WheelPrize[]) => void;
+   143→  onWin?: (prize: WheelPrize) => void;
+   144→  editable?: boolean;
+   145→  rotationDuration?: number;
+   146→  spinCost?: number;
+   147→  soundEnabled?: boolean;
+   148→  particleEffects?: boolean;
+   149→  branding?: CompanyBranding;
+   150→  mode?: "horizontal" | "vertical";
+   151→  theme?: keyof typeof PRESET_THEMES | WheelTheme;
+   152→}
+   153→
+   154→const pickWeighted = (prizes: WheelPrize[]) => {
+   155→  const total = prizes.reduce((s, p) => s + Math.max(0, p.weight), 0) || 1;
+   156→  let r = Math.random() * total;
+   157→  for (let i = 0; i < prizes.length; i++) {
+   158→    r -= Math.max(0, prizes[i].weight);
+   159→    if (r <= 0) return i;
+   160→  }
+   161→  return prizes.length - 1;
+   162→};
+   163→
+   164→const getResultIcon = (result: WheelPrize) => {
+   165→  if (result.effectType === "fireworks") return <PartyPopper className="h-10 w-10" />;
+   166→  if (result.effectType === "stars") return <Star className="h-10 w-10" />;
+   167→  if (result.effectType === "zap") return <Zap className="h-10 w-10" />;
+   168→  if (result.effectType === "poppers") return <Gift className="h-10 w-10" />;
+   169→  return <Trophy className="h-10 w-10" />;
+   170→};
+   171→
+   172→const PrizeWheel = ({
+   173→  prizes: initialPrizes,
+   174→  gameId,
+   175→  onChange,
+   176→  onWin,
+   177→  editable = true,
+   178→  rotationDuration = 5,
+   179→  spinCost = 0,
+   180→  soundEnabled: initialSoundEnabled = true,
+   181→  particleEffects = true,
+   182→  branding,
+   183→  mode: initialMode = "horizontal",
+   184→  theme: initialTheme = "dark",
+   185→}: Props) => {
+   186→  const { user } = useAuth();
+   187→  const { region } = useRegionalTheme();
+   188→  const { t } = useLanguage();
+   189→  const { sfx } = useSoundEffects();
+   190→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   191→  const [spinning, setSpinning] = useState(false);
+   192→  const [rotation, setRotation] = useState(0);
+   193→  const [result, setResult] = useState<WheelPrize | null>(null);
+   194→  const [soundEnabled, setSoundEnabled] = useState(initialSoundEnabled);
+   195→  const [loading, setLoading] = useState(false);
+   196→  const [prizes, setPrizes] = useState<WheelPrize[]>(initialPrizes);
+   197→  const [gameName, setGameName] = useState("Roda da Sorte");
+   198→  const [defaultEffect, setDefaultEffect] = useState<string>("confetti");
+   199→  const [wheelConfig, setWheelConfig] = useState<any>(null);
+   200→  const [mode, setMode] = useState<"horizontal" | "vertical">(initialMode);
+   201→  const [currentTheme, setCurrentTheme] = useState<WheelTheme>(
+   202→    typeof initialTheme === "string" ? PRESET_THEMES[initialTheme] : initialTheme
+   203→  );
+   204→
+   205→  // Fetch game from Supabase if gameId is provided
+   206→  useEffect(() => {
+   207→    if (!gameId) return;
+   208→    
+   209→    const fetchGame = async () => {
+   210→      setLoading(true);
+   211→      try {
+   212→        // Fetch game data
+   213→        const { data: gameData, error: gameError } = await supabase
+   214→          .from("spin_wheel_games")
+   215→          .select("*")
+   216→          .eq("id", gameId)
+   217→          .single();
+   218→        
+   219→        if (gameError) throw gameError;
+   220→        
+   221→        setWheelConfig(gameData);
+   222→        setGameName(gameData.name);
+   223→        setDefaultEffect(gameData.default_effect || "confetti");
+   224→        
+   225→        // Fetch segments
+   226→        const { data: segmentsData, error: segmentsError } = await supabase
+   227→          .from("spin_wheel_segments")
+   228→          .select("*")
+   229→          .eq("wheel_id", gameId)
+   230→          .order("segment_number");
+   231→        
+   232→        if (segmentsError) throw segmentsError;
+   233→        
+   234→        if (segmentsData && segmentsData.length > 0) {
+   235→          setPrizes(segmentsData.map((s: any) => ({
+   236→            id: s.id,
+   237→            label: s.label,
+   238→            color: s.background_color,
+   239→            textColor: s.text_color,
+   240→            weight: s.weight ?? 1,
+   241→            description: s.description,
+   242→            rewardType: s.reward_type,
+   243→            rewardValue: s.reward_value,
+   244→            rewardImageUrl: s.reward_image_url,
+   245→            maxWinsPerDay: s.max_wins_per_day,
+   246→            maxWinsTotal: s.max_wins_total,
+   247→            currentWinsToday: s.current_wins_today,
+   248→            currentWinsTotal: s.current_wins_total,
+   249→            effectType: s.effect_type,
+   250→            segment_number: s.segment_number,
+   251→          })));
+   252→        }
+   253→      } catch (error) {
+   254→        console.error("Error fetching game:", error);
+   255→        toast.error("Erro ao carregar jogo");
+   256→      } finally {
+   257→        setLoading(false);
+   258→      }
+   259→    };
+   260→    
+   261→    fetchGame();
+   262→  }, [gameId]);
+   263→
+   264→  const segmentAngle = 360 / Math.max(1, prizes.length);
+   265→
+   266→  const drawWheel = useCallback(() => {
+   267→    const canvas = canvasRef.current;
+   268→    if (!canvas || prizes.length === 0) return;
+   269→
+   270→    const ctx = canvas.getContext("2d");
+   271→    if (!ctx) return;
+   272→
+   273→    const centerX = canvas.width / 2;
+   274→    const centerY = canvas.height / 2;
+   275→    const radius = Math.min(centerX, centerY) - 15;
+   276→    const arc = (2 * Math.PI) / prizes.length;
+   277→
+   278→    ctx.clearRect(0, 0, canvas.width, canvas.height);
+   279→
+   280→    ctx.shadowBlur = 15;
+   281→    ctx.shadowColor = "rgba(0,0,0,0.5)";
+   282→
+   283→    prizes.forEach((seg, i) => {
+   284→      const angle = i * arc - (Math.PI / 2);
+   285→      ctx.beginPath();
+   286→      ctx.fillStyle = seg.color;
+   287→      ctx.moveTo(centerX, centerY);
+   288→      ctx.arc(centerX, centerY, radius, angle, angle + arc, false);
+   289→      ctx.lineTo(centerX, centerY);
+   290→      ctx.fill();
+   291→
+   292→      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+   293→      ctx.lineWidth = 2;
+   294→      ctx.stroke();
+   295→
+   296→      ctx.save();
+   297→      ctx.fillStyle = seg.textColor || "#FFFFFF";
+   298→      ctx.translate(centerX, centerY);
+   299→      ctx.rotate(angle + arc / 2);
+   300→      ctx.textAlign = "right";
+   301→      ctx.font = "bold 16px Inter, sans-serif";
+   302→      ctx.shadowBlur = 2;
+   303→      ctx.shadowColor = "rgba(0,0,0,0.4)";
+   304→      ctx.fillText(seg.label.length > 12 ? seg.label.slice(0, 11) + "…" : seg.label, radius - 40, 6);
+   305→      ctx.restore();
+   306→    });
+   307→
+   308→    ctx.shadowBlur = 20;
+   309→    ctx.shadowColor = wheelConfig?.wheel_border_color || branding?.primaryColor || "#FFD700";
+   310→    ctx.beginPath();
+   311→    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+   312→    ctx.strokeStyle = wheelConfig?.wheel_border_color || branding?.primaryColor || "#FFD700";
+   313→    ctx.lineWidth = 12;
+   314→    ctx.stroke();
+   315→
+   316→    ctx.shadowBlur = 10;
+   317→    ctx.beginPath();
+   318→    ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+   319→    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 40);
+   320→    gradient.addColorStop(0, "#FFFFFF");
+   321→    gradient.addColorStop(1, wheelConfig?.wheel_background_color || branding?.primaryColor || "#FFD700");
+   322→    ctx.fillStyle = gradient;
+   323→    ctx.fill();
+   324→    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+   325→    ctx.lineWidth = 4;
+   326→    ctx.stroke();
+   327→
+   328→    ctx.shadowBlur = 0;
+   329→    ctx.fillStyle = "#000000";
+   330→    ctx.textAlign = "center";
+   331→    ctx.font = "900 14px Inter, sans-serif";
+   332→    ctx.fillText("BATEU", centerX, centerY + 5);
+   333→  }, [prizes, branding?.backgroundColor, wheelConfig]);
+   334→
+   335→  useEffect(() => {
+   336→    drawWheel();
+   337→  }, [drawWheel, rotation]);
+   338→
+   339→  const spin = async () => {
+   340→    if (spinning || prizes.length < 2) return;
+   341→
+   342→    if (gameId && !user) {
+   343→      toast.error(t("wheel.loginToSpin"));
+   344→      sfx.error();
+   345→      return;
+   346→    }
+   347→    if (gameId && user && !region?.id) {
+   348→      toast.error(t("error"));
+   349→      sfx.error();
+   350→      return;
+   351→    }
+   352→
+   353→    sfx.battleStart();
+   354→    setSpinning(true);
+   355→    setResult(null);
+   356→    setLoading(true);
+   357→
+   358→    try {
+   359→      let winner: WheelPrize;
+   360→      let winningIndex: number;
+   361→
+   362→      if (gameId && user && region) {
+   363→        const { data: spinResult, error: spinError } = await supabase.functions.invoke(
+   364→          "spin-wheel-spin",
+   365→          { body: { wheel_id: gameId, region_id: region.id } },
+   366→        );
+   367→        if (spinError) throw spinError;
+   368→
+   369→        const rawWinner = spinResult?.data?.winner || spinResult?.winner;
+   370→        if (!rawWinner) throw new Error("Invalid spin response");
+   371→
+   372→        winningIndex = findPrizeIndex(prizes, rawWinner);
+   373→        if (winningIndex < 0) {
+   374→          winningIndex = pickWeighted(prizes);
+   375→        }
+   376→        winner = {
+   377→          ...prizes[winningIndex],
+   378→          label: rawWinner.label ?? prizes[winningIndex].label,
+   379→          rewardValue: rawWinner.reward_value ?? prizes[winningIndex].rewardValue,
+   380→          rewardType: rawWinner.reward_type ?? prizes[winningIndex].rewardType,
+   381→          effectType: rawWinner.effect_type ?? prizes[winningIndex].effectType,
+   382→        };
+   383→      } else {
+   384→        winningIndex = pickWeighted(prizes);
+   385→        winner = prizes[winningIndex];
+   386→      }
+   387→
+   388→      const finalRotation = computeFinalRotation(rotation, winningIndex, prizes.length);
+   389→      const startTime = Date.now();
+   390→      const durationMs = (wheelConfig?.rotation_duration || rotationDuration) * 1000;
+   391→      const initialRotation = rotation;
+   392→      const segmentAngleDeg = getSegmentAngle(prizes.length);
+   393→      let lastSegment = -1;
+   394→
+   395→      const getCurrentSegment = (angle: number) => getSegmentAtPointer(angle, prizes.length);
+   396→
+   397→      const animate = () => {
+   398→        const elapsed = Date.now() - startTime;
+   399→        const progress = Math.min(elapsed / durationMs, 1);
+   400→        const ease = 1 - Math.pow(1 - progress, 4);
+   401→        const currentRot = initialRotation + (finalRotation - initialRotation) * ease;
+   402→
+   403→        setRotation(currentRot);
+   404→
+   405→        if (soundEnabled) {
+   406→          const currentSeg = getCurrentSegment(currentRot);
+   407→          if (currentSeg !== lastSegment && lastSegment !== -1) {
+   408→            sfx.pop();
+   409→          }
+   410→          lastSegment = currentSeg;
+   411→        }
+   412→
+   413→        if (progress < 1) {
+   414→          requestAnimationFrame(animate);
+   415→        } else {
+   416→          setRotation(finalRotation);
+   417→          setSpinning(false);
+   418→          setResult(winner);
+   419→          onWin?.(winner);
+   420→
+   421→          // Sound feedback based on result
+   422→          if (isNoWinLabel(winner.label) || winner.rewardType === "none") {
+   423→            sfx.lose();
+   424→          } else {
+   425→            sfx.win();
+   426→          }
+   427→
+   428→          const landed = getSegmentAtPointer(finalRotation, prizes.length);
+   429→          if (landed !== winningIndex) {
+   430→            console.warn("Wheel alignment check:", { landed, winningIndex, segmentAngleDeg });
+   431→          }
+   432→
+   433→          if (particleEffects && !isNoWinLabel(winner.label) && winner.rewardType !== "none") {
+   434→            fireConfetti(winner.effectType || defaultEffect || "confetti");
+   435→          }
+   436→        }
+   437→      };
+   438→
+   439→      requestAnimationFrame(animate);
+   440→    } catch (error) {
+   441→      console.error("Erro ao girar roda:", error);
+   442→      setSpinning(false);
+   443→      sfx.error();
+   444→      toast.error(t("wheel.errorSpin"));
+   445→    } finally {
+   446→      setLoading(false);
+   447→    }
+   448→  };
+   449→
+   450→  const update = (next: WheelPrize[]) => onChange?.(next);
+   451→  const addPrize = () =>
+   452→    update([
+   453→      ...prizes,
+   454→      { id: `p${Date.now()}`, label: "Novo Prémio", color: palette[prizes.length % palette.length], textColor: "#fff", weight: 10 },
+   455→    ]);
+   456→  const removePrize = (id: string) => update(prizes.filter((p) => p.id !== id));
+   457→  const patchPrize = (id: string, patch: Partial<WheelPrize>) =>
+   458→    update(prizes.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+   459→
+   460→  const totalWeight = prizes.reduce((s, p) => s + Math.max(0, p.weight), 0) || 1;
+   461→
+   462→  return (
+   463→    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center font-sans"
+   464→         style={{ 
+   465→           backgroundColor: currentTheme.backgroundColor,
+   466→           backgroundImage: branding?.backgroundImageUrl ? `url(${branding.backgroundImageUrl})` : 'none',
+   467→           backgroundSize: 'cover',
+   468→           backgroundPosition: 'center',
+   469→           color: currentTheme.textColor
+   470→         }}>
+   471→      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
+   472→      
+   473→      <div className={`relative z-10 w-full max-w-7xl px-4 py-8 flex ${mode === "horizontal" ? "flex-col md:flex-row" : "flex-col"} items-center gap-8`}>
+   474→        {editable && (
+   475→          <div className="absolute top-4 left-4 z-50 flex gap-3">
+   476→            <Button
+   477→              variant="secondary"
+   478→              size="sm"
+   479→              onClick={() => setMode(mode === "horizontal" ? "vertical" : "horizontal")}
+   480→            >
+   481→              {mode === "horizontal" ? <Smartphone className="h-4 w-4 mr-2" /> : <Monitor className="h-4 w-4 mr-2" />}
+   482→              {mode === "horizontal" ? t("wheel.modeVertical") : t("wheel.modeHorizontal")}
+   483→            </Button>
+   484→            <div className="flex gap-1">
+   485→              {Object.entries(PRESET_THEMES).map(([key, theme]) => (
+   486→                <button
+   487→                  key={key}
+   488→                  onClick={() => setCurrentTheme(theme)}
+   489→                  className="w-8 h-8 rounded-full border-2 border-white/50 hover:scale-110 transition-transform"
+   490→                  style={{ backgroundColor: theme.primaryColor }}
+   491→                  title={theme.name}
+   492→                />
+   493→              ))}
+   494→            </div>
+   495→          </div>
+   496→        )}
+   497→
+   498→        {mode === "horizontal" && (
+   499→          <div className="flex-1 space-y-6 text-center md:text-left" style={{ color: currentTheme.textColor }}>
+   500→            <div className="w-48 h-48 rounded-2xl bg-black/30 border-2 border-white/20 flex items-center justify-center">
+   501→              <p className="text-white/50 text-sm">{t("wheel.webcam")}</p>
+   502→            </div>
+   503→            {(branding?.companyLogoUrl || branding?.companySlogan) && (
+   504→              <motion.div
+   505→                initial={{ y: -20, opacity: 0 }}
+   506→                animate={{ y: 0, opacity: 1 }}
+   507→                className="flex flex-col items-center md:items-start animate-in fade-in slide-in-from-top duration-1000 mb-6"
+   508→              >
+   509→                {branding?.companyLogoUrl && (
+   510→                  <img src={branding.companyLogoUrl} alt="Logo" className="h-16 object-contain mb-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
+   511→                )}
+   512→                {branding?.companySlogan && (
+   513→                  <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: `${currentTheme.primaryColor}80` }}>{branding.companySlogan}</p>
+   514→                )}
+   515→              </motion.div>
+   516→            )}
+   517→            
+   518→            <div className="inline-block px-4 py-1 rounded-full bg-primary/20 text-primary border border-primary/30 mb-2">
+   519→              <span className="text-xs font-bold">{t("wheel.premiumBadge")}</span>
+   520→            </div>
+   521→            
+   522→            <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic">{gameName}</h1>
+   523→            <p className="text-xl text-white/70 max-w-md mx-auto md:mx-0">{t("wheel.subtitle")}</p>
+   524→            
+   525→            {spinCost > 0 && (
+   526→              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10 backdrop-blur-md text-white">
+   527→                <span className="text-xs uppercase opacity-60 font-bold">{t("wheel.cost")}</span>
+   528→                <span className="text-2xl font-black">{spinCost} MZN</span>
+   529→              </div>
+   530→            )}
+   531→          </div>
+   532→        )}
+   533→
+   534→        {mode === "vertical" && (
+   535→          <div className="w-full max-w-md space-y-4 text-center">
+   536→            <div className="w-full h-40 rounded-2xl bg-black/30 border-2 border-white/20 flex items-center justify-center">
+   537→              <p className="text-white/50 text-sm">{t("wheel.webcam")}</p>
+   538→            </div>
+   539→            {(branding?.companyLogoUrl || branding?.companySlogan) && (
+   540→              <div className="flex flex-col items-center gap-2">
+   541→                {branding?.companyLogoUrl && (
+   542→                  <img src={branding.companyLogoUrl} alt="Logo" className="h-12 object-contain" />
+   543→                )}
+   544→                {branding?.companySlogan && (
+   545→                  <p className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: `${currentTheme.primaryColor}80` }}>{branding.companySlogan}</p>
+   546→                )}
+   547→              </div>
+   548→            )}
+   549→          </div>
+   550→        )}
+   551→
+   552→        <div className="relative group">
+   553→          <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20 drop-shadow-2xl">
+   554→            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-4 border-primary shadow-lg relative" style={{ borderColor: currentTheme.primaryColor }}>
+   555→              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+   556→                <div className="w-0 h-0 border-l-[16px] border-r-[16px] border-t-[28px] border-l-transparent border-r-transparent" style={{ borderTopColor: currentTheme.primaryColor }} />
+   557→              </div>
+   558→              <Sparkles className="w-6 h-6" style={{ color: currentTheme.primaryColor }} />
+   559→            </div>
+   560→          </div>
+   561→
+   562→          <div className="relative p-6 rounded-full bg-white/5 border-2 border-white/10 backdrop-blur-sm shadow-[0_0_80px_rgba(0,0,0,0.6)]" style={{ borderColor: `${currentTheme.primaryColor}40` }}>
+   563→            <canvas
+   564→              ref={canvasRef}
+   565→              width="600"
+   566→              height="600"
+   567→              className="max-w-[300px] sm:max-w-[400px] md:max-w-[600px] h-auto rounded-full"
+   568→              style={{
+   569→                transform: `rotate(${rotation}deg)`,
+   570→                transition: spinning ? 'none' : 'transform 0.5s cubic-bezier(0.1, 0, 0.3, 1)'
+   571→              }}
+   572→            />
+   573→            
+   574→            <button
+   575→                onClick={spin}
+   576→                disabled={spinning || loading}
+   577→                className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full 
+   578→                flex flex-col items-center justify-center font-black text-sm transition-all duration-300 z-20
+   579→                ${spinning || loading ? 'bg-gray-500 scale-95 opacity-50 cursor-not-allowed' : 'bg-white hover:scale-110 shadow-2xl active:scale-90 cursor-pointer'}`}
+   580→                style={{ color: wheelConfig?.wheel_background_color || currentTheme.primaryColor }}
+   581→              >
+   582→                {loading || spinning ? (
+   583→                  <span className="flex items-center gap-2">
+   584→                    <Sparkles className="w-6 h-6 animate-spin" />
+   585→                    {t("wheel.spinning")}
+   586→                  </span>
+   587→                ) : (
+   588→                  <span className="flex items-center gap-2">
+   589→                    <PartyPopper className="w-6 h-6" />
+   590→                    {t("wheel.spin")}
+   591→                  </span>
+   592→                )}
+   593→              </button>
+   594→          </div>
+   595→        </div>
+   596→
+   597→        <div className={`${mode === "horizontal" ? "w-full md:w-96" : "w-full max-w-md"} space-y-6`}>
+   598→          <AnimatePresence>
+   599→            {result && (
+   600→              <motion.div
+   601→                initial={{ opacity: 0, scale: 0.3, y: 100 }}
+   602→                animate={{ opacity: 1, scale: 1, y: 0 }}
+   603→                exit={{ opacity: 0, scale: 0.3, y: -100 }}
+   604→                transition={{ type: "spring", bounce: 0.6, duration: 0.8 }}
+   605→                className={`rounded-3xl p-8 text-center space-y-4 shadow-2xl border-2 ${
+   606→                  result.rewardType === "none" || isNoWinLabel(result.label)
+   607→                    ? "bg-secondary/90 text-muted-foreground border-white/20"
+   608→                    : "border-white/20"
+   609→                }`}
+   610→                style={
+   611→                  result.rewardType !== "none" && !isNoWinLabel(result.label)
+   612→                    ? {
+   613→                        background: `linear-gradient(135deg, ${currentTheme.primaryColor}66, ${currentTheme.primaryColor}22)`,
+   614→                        borderColor: `${currentTheme.primaryColor}66`,
+   615→                        color: currentTheme.textColor,
+   616→                      }
+   617→                    : undefined
+   618→                }
+   619→              >
+   620→                {result.rewardType !== "none" && !isNoWinLabel(result.label) ? (
+   621→                  <div className="flex flex-col items-center gap-4">
+   622→                    <motion.div
+   623→                      animate={{
+   624→                        rotate: [0, 15, -15, 0],
+   625→                        scale: [1, 1.4, 1],
+   626→                      }}
+   627→                      transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
+   628→                      className="text-yellow-400"
+   629→                    >
+   630→                      {getResultIcon(result)}
+   631→                    </motion.div>
+   632→                    <motion.p
+   633→                      initial={{ y: 40, opacity: 0 }}
+   634→                      animate={{ y: 0, opacity: 1 }}
+   635→                      transition={{ delay: 0.2 }}
+   636→                      className="font-black text-3xl"
+   637→                    >
+   638→                      🎉 {t("wheel.win")}! 🎉
+   639→                    </motion.p>
+   640→                    <motion.p
+   641→                      initial={{ scale: 0 }}
+   642→                      animate={{ scale: 1 }}
+   643→                      transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+   644→                      className="text-6xl font-black tracking-tighter"
+   645→                    >
+   646→                      {result.rewardValue || result.label}
+   647→                    </motion.p>
+   648→                    {result.description && (
+   649→                      <p className="opacity-90 text-lg">{result.description}</p>
+   650→                    )}
+   651→                    {result.rewardImageUrl && (
+   652→                      <img 
+   653→                        src={result.rewardImageUrl} 
+   654→                        alt="Prémio" 
+   655→                        className="w-32 h-32 object-cover rounded-2xl shadow-lg"
+   656→                      />
+   657→                    )}
+   658→                  </div>
+   659→                ) : (
+   660→                  <p className="font-bold text-3xl flex items-center gap-3 justify-center">
+   661→                    😅 {t("tryAgain")}
+   662→                  </p>
+   663→                )}
+   664→              </motion.div>
+   665→            )}
+   666→          </AnimatePresence>
+   667→
+   668→          {prizes.length < 4 && (
+   669→            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
+   670→              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400" />
+   671→              <p className="text-sm">{t("wheel.minSegmentsWarning")}</p>
+   672→            </div>
+   673→          )}
+   674→
+   675→          <div className="rounded-2xl bg-black/20 border border-white/10 backdrop-blur-xl text-white overflow-hidden">
+   676→            <div className="bg-white/5 p-4 border-b border-white/10 flex items-center justify-between">
+   677→              <span className="text-xs uppercase tracking-wider opacity-70 font-bold">{t("wheel.prizes")}</span>
+   678→              {editable && onChange && (
+   679→                <Sheet>
+   680→                  <SheetTrigger asChild>
+   681→                    <button className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-card border border-border text-[11px] font-medium hover:bg-secondary">
+   682→                      <Settings2 className="h-3.5 w-3.5" /> {t("wheel.config")}
+   683→                    </button>
+   684→                  </SheetTrigger>
+   685→                  <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
+   686→                    <SheetHeader className="mb-4"><SheetTitle>{t("wheel.configureTitle")}</SheetTitle></SheetHeader>
+   687→                    <div className="space-y-4 pb-6">
+   688→                      {prizes.map((p) => {
+   689→                        const pct = ((Math.max(0, p.weight) / totalWeight) * 100).toFixed(1);
+   690→                        return (
+   691→                          <div key={p.id} className="rounded-2xl border border-border p-3 space-y-2">
+   692→                            <div className="flex items-center gap-2">
+   693→                              <input
+   694→                                type="color"
+   695→                                value={p.color}
+   696→                                onChange={(e) => patchPrize(p.id, { color: e.target.value })}
+   697→                                className="h-9 w-9 rounded-md border border-border bg-transparent cursor-pointer"
+   698→                              />
+   699→                              <Input
+   700→                                value={p.label}
+   701→                                onChange={(e) => patchPrize(p.id, { label: e.target.value })}
+   702→                                placeholder={t("wheel.prizeName")}
+   703→                                className="flex-1"
+   704→                              />
+   705→                              <button
+   706→                                onClick={() => removePrize(p.id)}
+   707→                                className="p-2 rounded-md hover:bg-destructive/10 text-destructive"
+   708→                                aria-label="Remove"
+   709→                              >
+   710→                                <Trash2 className="h-4 w-4" />
+   711→                              </button>
+   712→                            </div>
+   713→                            <div className="grid grid-cols-2 gap-2">
+   714→                              <div className="space-y-1">
+   715→                                <Label className="text-[11px] text-muted-foreground">{t("wheel.prizeValue")}</Label>
+   716→                                <Input
+   717→                                  value={p.rewardValue || ""}
+   718→                                  onChange={(e) => patchPrize(p.id, { rewardValue: e.target.value })}
+   719→                                  placeholder="Ex: 100 MZN"
+   720→                                  className="text-xs"
+   721→                                />
+   722→                              </div>
+   723→                              <div className="space-y-1">
+   724→                                <Label className="text-[11px] text-muted-foreground">{t("wheel.weight")} ({pct}%)</Label>
+   725→                                <Input
+   726→                                  type="number"
+   727→                                  min={0}
+   728→                                  max={1000}
+   729→                                  value={p.weight}
+   730→                                  onChange={(e) => patchPrize(p.id, { weight: Math.max(0, Number(e.target.value) || 0) })}
+   731→                                  className="text-xs"
+   732→                                />
+   733→                              </div>
+   734→                            </div>
+   735→                            <div className="space-y-1">
+   736→                              <Label className="text-[11px] text-muted-foreground">{t("wheel.effectType")}</Label>
+   737→                              <select
+   738→                                value={p.effectType || "confetti"}
+   739→                                onChange={(e) => patchPrize(p.id, { effectType: e.target.value as any })}
+   740→                                className="w-full px-3 py-2 rounded-xl bg-card border border-border text-xs"
+   741→                              >
+   742→                                <option value="confetti">Confetti</option>
+   743→                                <option value="fireworks">Fireworks</option>
+   744→                                <option value="stars">Stars</option>
+   745→                                <option value="poppers">Poppers</option>
+   746→                                <option value="zap">Zap</option>
+   747→                              </select>
+   748→                            </div>
+   749→                          </div>
+   750→                        );
+   751→                      })}
+   752→                      <button
+   753→                        onClick={addPrize}
+   754→                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-border text-sm text-muted-foreground hover:bg-secondary"
+   755→                      >
+   756→                        <Plus className="h-4 w-4" /> {t("wheel.addPrize")}
+   757→                      </button>
+   758→                      <p className="text-[11px] text-muted-foreground text-center">
+   759→                        {t("wheel.weightHint")}
+   760→                      </p>
+   761→                    </div>
+   762→                  </SheetContent>
+   763→                </Sheet>
+   764→              )}
+   765→            </div>
+   766→            <div className="p-0 max-h-[300px] overflow-y-auto custom-scrollbar">
+   767→              {prizes.map((p, i) => (
+   768→                <div key={i} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+   769→                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
+   770→                  <div className="flex-1">
+   771→                    <p className="font-bold text-sm">{p.label}</p>
+   772→                    {p.rewardValue && <p className="text-xs opacity-50">{p.rewardValue}</p>}
+   773→                  </div>
+   774→                  {p.rewardImageUrl && (
+   775→                    <img src={p.rewardImageUrl} alt="" className="w-8 h-8 rounded object-cover" />
+   776→                  )}
+   777→                </div>
+   778→              ))}
+   779→            </div>
+   780→          </div>
+   781→        </div>
+   782→      </div>
+   783→
+   784→      <div className="fixed bottom-8 right-8 flex gap-3 z-50">
+   785→        <button 
+   786→          onClick={() => setSoundEnabled(!soundEnabled)}
+   787→          className="p-3 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all"
+   788→        >
+   789→          {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+   790→        </button>
+   791→        <button className="p-3 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all">
+   792→          <Share2 className="h-5 w-5" />
+   793→        </button>
+   794→      </div>
+   795→    </div>
+   796→  );
+   797→};
+   798→
+   799→export default PrizeWheel;
+   800→
