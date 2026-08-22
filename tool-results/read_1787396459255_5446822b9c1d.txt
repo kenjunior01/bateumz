@@ -1,0 +1,999 @@
+  1184→        <div className="mb-3 sm:mb-4">
+  1185→          <label className="text-xs text-muted-foreground block mb-1">Nome do personagem</label>
+  1186→          <input
+  1187→            value={charNameInput} onChange={e => setCharNameInput(e.target.value.slice(0, 16))}
+  1188→            placeholder={placeholderName}
+  1189→            className="w-full px-3 py-2.5 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+  1190→            maxLength={16}
+  1191→          />
+  1192→        </div>
+  1193→
+  1194→
+  1195→        {/* Enhanced Class Preview */}
+  1196→        <AnimatePresence>
+  1197→          {activePreview && (
+  1198→            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+  1199→              className="mb-3 rounded-xl overflow-hidden"
+  1200→              style={{ border: `1.5px solid ${activePreview.color}40` }}>
+  1201→              <div className="p-3 bg-gradient-to-br from-card to-muted/30">
+  1202→                <div className="flex items-center gap-3">
+  1203→                  <motion.span className="text-4xl" animate={{ rotate: [0, -5, 5, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+  1204→                    {activePreview.emoji}
+  1205→                  </motion.span>
+  1206→                  <div className="flex-1">
+  1207→                    <p className="font-bold text-sm" style={{ color: activePreview.color }}>{activePreview.name}</p>
+  1208→                    <p className="text-[10px] text-muted-foreground">{activePreview.desc}</p>
+  1209→                    <div className="grid grid-cols-5 gap-1.5 mt-2 text-[9px]">
+  1210→                      <div className="text-center p-1 rounded bg-red-500/10"><p className="text-red-400 font-bold">❤️ {activePreview.baseHp}</p><p className="text-muted-foreground">Vida</p></div>
+  1211→                      <div className="text-center p-1 rounded bg-orange-500/10"><p className="text-orange-400 font-bold">⚔️ {activePreview.baseAtk}</p><p className="text-muted-foreground">Ataque</p></div>
+  1212→                      <div className="text-center p-1 rounded bg-blue-500/10"><p className="text-blue-400 font-bold">🛡️ {activePreview.baseDef}</p><p className="text-muted-foreground">Defesa</p></div>
+  1213→                      <div className="text-center p-1 rounded bg-green-500/10"><p className="text-green-400 font-bold">💨 {activePreview.baseSpd}</p><p className="text-muted-foreground">Veloc.</p></div>
+  1214→                      <div className="text-center p-1 rounded bg-indigo-500/10"><p className="text-indigo-400 font-bold">🔮 {activePreview.baseMp}</p><p className="text-muted-foreground">Mana</p></div>
+  1215→                    </div>
+  1216→                    {classSkills && classSkills.length > 0 && (
+  1217→                      <div className="mt-2 pt-2 border-t border-border">
+  1218→                        <p className="text-[9px] text-muted-foreground mb-1 font-medium">Habilidades:</p>
+  1219→                        <div className="flex gap-2">
+  1220→                          {classSkills.map((sk, si) => (
+  1221→                            <div key={si} className="flex-1 p-1.5 rounded-lg bg-background/50 border border-border text-center">
+  1222→                              <span className="text-sm">{sk.emoji}</span>
+  1223→                              <p className="text-[8px] font-bold mt-0.5">{sk.name}</p>
+  1224→                              <p className="text-[7px] text-muted-foreground">{sk.mpCost} MP • {sk.desc}</p>
+  1225→                            </div>
+  1226→                          ))}
+  1227→                        </div>
+  1228→                      </div>
+  1229→                    )}
+  1230→                  </div>
+  1231→                </div>
+  1232→              </div>
+  1233→            </motion.div>
+  1234→          )}
+  1235→        </AnimatePresence>
+  1236→
+  1237→        <p className="text-xs text-muted-foreground mb-2 font-medium">Escolhe a tua classe:</p>
+  1238→        <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-3">
+  1239→          {CLASSES.map((c, i) => (
+  1240→            <motion.button
+  1241→              key={i}
+  1242→              whileHover={{ scale: 1.05, y: -3 }}
+  1243→              whileTap={{ scale: 0.95 }}
+  1244→              onHoverStart={() => { setHoveredClass(i); setSelectedClass(i); }}
+  1245→              onHoverEnd={() => setHoveredClass(null)}
+  1246→              onClick={() => { setSelectedClass(i); createCharacter(i, charNameInput); }}
+  1247→              className={`rounded-xl border-2 p-2.5 sm:p-4 text-left transition-all relative overflow-hidden ${
+  1248→                selectedClass === i ? `bg-gradient-to-br from-background to-muted/50 shadow-lg` : hoveredClass === i ? "border-primary/60 bg-primary/5 shadow-lg" : "border-border bg-card hover:border-primary/30"
+  1249→              }`}
+  1250→              style={selectedClass === i ? { borderColor: c.color } : {}}>
+  1251→              {selectedClass === i && (
+  1252→                <motion.div className="absolute inset-0 opacity-20 rounded-xl" style={{ background: `radial-gradient(circle at 50% 0%, ${c.color}, transparent 70%)` }}
+  1253→                  animate={{ opacity: [0.15, 0.25, 0.15] }} transition={{ duration: 2, repeat: Infinity }} />
+  1254→              )}
+  1255→              <span className="text-2xl sm:text-3xl relative z-10">{c.emoji}</span>
+  1256→              <p className="font-bold text-xs sm:text-sm mt-0.5 sm:mt-1 relative z-10" style={{ color: c.color }}>{c.name}</p>
+  1257→              <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 line-clamp-2 relative z-10">{c.desc}</p>
+  1258→              <div className="flex gap-1 sm:gap-2 mt-1.5 sm:mt-2 text-[8px] sm:text-[9px] text-muted-foreground relative z-10">
+  1259→                <span>❤️{c.baseHp}</span><span>⚔️{c.baseAtk}</span><span>🛡️{c.baseDef}</span><span>💨{c.baseSpd}</span>
+  1260→              </div>
+  1261→            </motion.button>
+  1262→          ))}
+  1263→        </div>
+  1264→      </div>
+  1265→    );
+  1266→  }
+  1267→
+  1268→  if (!char) return null;
+  1269→  const cl = CLASSES[char.classId];
+  1270→  const skills = SKILLS[char.classId] || [];
+  1271→
+  1272→  // ============================================================
+  1273→  // RENDER: PVE Battle
+  1274→  // ============================================================
+  1275→
+  1276→  if (screen === "battle" && battleEnemy) {
+  1277→    return (
+  1278→      <div className={`max-w-lg mx-auto p-4 relative ${screenShake ? "animate-pulse" : ""}`}>
+  1279→        {/* Floating Damage Numbers */}
+  1280→        <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
+  1281→          <AnimatePresence>
+  1282→            {floatingDmg.map(d => (
+  1283→              <motion.div key={d.id} initial={{ opacity: 1, y: 0, scale: 1.2 }} animate={{ opacity: 0, y: -60, scale: 0.8 }} exit={{ opacity: 0 }}
+  1284→                className="absolute font-black text-xl sm:text-2xl"
+  1285→                style={{ left: `${d.x}%`, top: `${d.y}%`, color: d.type === "player" ? "#fbbf24" : d.type === "heal" ? "#34d399" : "#f87171", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
+  1286→                {d.type === "heal" ? "+" : "-"}{d.value}
+  1287→              </motion.div>
+  1288→            ))}
+  1289→          </AnimatePresence>
+  1290→        </div>
+  1291→
+  1292→        {/* Level Up Effect */}
+  1293→        <AnimatePresence>
+  1294→          {levelUpEffect && (
+  1295→            <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.5 }}
+  1296→              className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+  1297→              <div className="text-center">
+  1298→                <p className="text-5xl font-black bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 bg-clip-text text-transparent animate-pulse">LEVEL UP!</p>
+  1299→                <p className="text-2xl mt-1">\u2B50 Nivel {char.level + 1} \u2B50</p>
+  1300→              </div>
+  1301→            </motion.div>
+  1302→          )}
+  1303→        </AnimatePresence>
+  1304→
+  1305→        {/* Critical Hit Flash */}
+  1306→        <AnimatePresence>
+  1307→          {criticalHit && (
+  1308→            <motion.div initial={{ opacity: 0.8 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }}
+  1309→              className="absolute inset-0 z-45 pointer-events-none bg-yellow-400/15 rounded-xl" />
+  1310→          )}
+  1311→        </AnimatePresence>
+  1312→
+  1313→        {/* Combo Counter */}
+  1314→        <AnimatePresence>
+  1315→          {combo >= 2 && (
+  1316→            <motion.div initial={{ opacity: 0, scale: 0.5, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.5 }}
+  1317→              className="absolute top-16 right-4 z-40 text-right pointer-events-none">
+  1318→              <p className="text-3xl font-black bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent"
+  1319→                style={{ textShadow: "0 0 20px rgba(249,115,22,0.5)" }}>
+  1320→                x{combo}
+  1321→              </p>
+  1322→              <p className="text-[10px] font-bold text-orange-400">COMBO</p>
+  1323→              {combo >= 5 && <motion.p animate={{ opacity: [0.5, 1, 0.5] }} className="text-[9px] text-amber-300">+{(combo * 10)}% bonus!</motion.p>}
+  1324→            </motion.div>
+  1325→          )}
+  1326→        </AnimatePresence>
+  1327→
+  1328→        {/* Loot Drop Modal */}
+  1329→        <AnimatePresence>
+  1330→          {showLoot && lootDrop && (
+  1331→            <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }}
+  1332→              className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  1333→              onClick={() => setShowLoot(false)}>
+  1334→              <div className={`p-5 rounded-2xl bg-card border-2 text-center max-w-xs mx-4 ${LOOT_RARITY[lootDrop.rarity]?.glow || ""}`}
+  1335→                style={{ borderColor: LOOT_RARITY[lootDrop.rarity]?.color || "#9ca3af" }}
+  1336→                onClick={e => e.stopPropagation()}>
+  1337→                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: LOOT_RARITY[lootDrop.rarity]?.color }}>
+  1338→                  {LOOT_RARITY[lootDrop.rarity]?.label}
+  1339→                </p>
+  1340→                <motion.span className="text-5xl block mb-2" animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 0.5 }}>
+  1341→                  {lootDrop.item.icon}
+  1342→                </motion.span>
+  1343→                <p className="font-bold text-sm" style={{ color: LOOT_RARITY[lootDrop.rarity]?.color }}>{lootDrop.item.name}</p>
+  1344→                <p className="text-[10px] text-muted-foreground mt-1">
+  1345→                  {lootDrop.item.atk ? `\u2694\uFE0F+${lootDrop.item.atk} ` : ""}
+  1346→                  {lootDrop.item.def ? `\uD83D\uDEE1\uFE0F+${lootDrop.item.def} ` : ""}
+  1347→                  {lootDrop.item.hp ? `\u2764\uFE0F+${lootDrop.item.hp} ` : ""}
+  1348→                  {lootDrop.item.spd ? `\uD83D\uDCA8+${lootDrop.item.spd} ` : ""}
+  1349→                  {lootDrop.item.mp ? `\uD83D\uDD2E+${lootDrop.item.mp}` : ""}
+  1350→                </p>
+  1351→                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowLoot(false)}
+  1352→                  className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+  1353→                  Recolher!
+  1354→                </motion.button>
+  1355→              </div>
+  1356→            </motion.div>
+  1357→          )}
+  1358→        </AnimatePresence>
+  1359→
+  1360→        <div className="flex items-center gap-2 mb-3">
+  1361→          <button onClick={() => setScreen("world")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+  1362→          <span className="font-bold text-sm">Combate - {ZONES[char.currentZone]?.name}</span>
+  1363→        </div>
+  1364→
+  1365→        {/* Enemy */}
+  1366→        <motion.div className={`text-center p-4 rounded-xl bg-card border border-border mb-3 ${battleEnemy.hp <= 0 ? "opacity-40" : ""}`} animate={battleEnemy.hp > 0 ? { x: [0, -3, 3, 0] } : {}} transition={{ duration: 0.3 }}>
+  1367→          <span className="text-5xl">{battleEnemy.emoji}</span>
+  1368→          <p className="font-bold text-sm mt-1" style={{ color: battleEnemy.color }}>{battleEnemy.name}</p>
+  1369→          <div className="w-40 mx-auto mt-2 h-3 rounded-full bg-gray-800 overflow-hidden border border-gray-700">
+  1370→            <motion.div className="h-full rounded-full" style={{ width: `${(battleEnemy.hp / battleEnemy.maxHp) * 100}%`, backgroundColor: battleEnemy.color }}
+  1371→              animate={{ width: `${(battleEnemy.hp / battleEnemy.maxHp) * 100}%` }} transition={{ duration: 0.3 }} />
+  1372→          </div>
+  1373→          <p className="text-[10px] text-muted-foreground mt-1">{Math.ceil(battleEnemy.hp)}/{battleEnemy.maxHp} HP</p>
+  1374→        </motion.div>
+  1375→
+  1376→        {/* Player HP/MP */}
+  1377→        <div className="flex gap-3 mb-3 text-[11px]">
+  1378→          <div className="flex-1 p-2 rounded-lg bg-card border border-border">
+  1379→            <div className="flex items-center justify-between mb-1"><span>\u2764\uFE0F HP</span><span>{Math.ceil(battleHp)}/{stats.maxHp}</span></div>
+  1380→            <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-red-500 transition-all" style={{ width: `${(battleHp / stats.maxHp) * 100}%` }} /></div>
+  1381→          </div>
+  1382→          <div className="flex-1 p-2 rounded-lg bg-card border border-border">
+  1383→            <div className="flex items-center justify-between mb-1"><span>\uD83D\uDD2E MP</span><span>{Math.ceil(battleMp)}/{stats.maxMp}</span></div>
+  1384→            <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-indigo-500 transition-all" style={{ width: `${(battleMp / stats.maxMp) * 100}%` }} /></div>
+  1385→          </div>
+  1386→        </div>
+  1387→
+  1388→        {/* Actions */}
+  1389→        {!battleOver && (
+  1390→          <div className="space-y-2">
+  1391→            <motion.button whileTap={{ scale: 0.95 }} disabled={!isPlayerTurn} onClick={pveAttack}
+  1392→              className="w-full py-2.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
+  1393→              \u2694\uFE0F Ataque Basico
+  1394→            </motion.button>
+  1395→            <div className="flex gap-2">
+  1396→              {skills.map((sk, i) => (
+  1397→                <motion.button key={i} whileTap={{ scale: 0.95 }} disabled={!isPlayerTurn || battleMp < sk.mpCost} onClick={() => pveSkill(i)}
+  1398→                  className="flex-1 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-xs font-bold disabled:opacity-30">
+  1399→                  {sk.emoji} {sk.name} ({sk.mpCost})
+  1400→                </motion.button>
+  1401→              ))}
+  1402→            </div>
+  1403→          </div>
+  1404→        )}
+  1405→
+  1406→        {battleOver && (
+  1407→          <div className="text-center p-4 rounded-xl bg-card border border-border">
+  1408→            <span className="text-4xl">{battleWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+  1409→            <p className="font-bold mt-2">{battleWon ? "Vitoria!" : "Derrotado!"}</p>
+  1410→            {battleWon && <p className="text-xs text-muted-foreground">+{battleEnemy.xpReward} XP  +{battleEnemy.goldReward} \uD83D\uDCB0</p>}
+  1411→            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
+  1412→              className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+  1413→              Voltar
+  1414→            </motion.button>
+  1415→          </div>
+  1416→        )}
+  1417→
+  1418→        {/* Battle Log */}
+  1419→        <div className="h-20 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 mt-3 text-[11px] text-muted-foreground space-y-0.5">
+  1420→          {battleLog.map((l, i) => <p key={i}>{l}</p>)}
+  1421→          <div ref={battleLogRef} />
+  1422→        </div>
+  1423→      </div>
+  1424→    );
+  1425→  }
+  1426→
+  1427→  // ============================================================
+  1428→  // RENDER: PVP Battle
+  1429→  // ============================================================
+  1430→
+  1431→  if (screen === "pvpBattle" && pvpOpponent) {
+  1432→    const oppClass = CLASSES[pvpOpponent.classId];
+  1433→    return (
+  1434→      <div className="max-w-lg mx-auto p-4">
+  1435→        <div className="flex items-center gap-2 mb-3">
+  1436→          <button onClick={() => setScreen("world")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+  1437→          <span className="font-bold text-sm">\u2694\uFE0F Duelo PVP</span>
+  1438→          <span className="ml-auto text-xs text-yellow-400 font-bold">Aposta: {pvpStake} \uD83D\uDCB0</span>
+  1439→        </div>
+  1440→
+  1441→        <div className="grid grid-cols-2 gap-3 mb-3">
+  1442→          {/* Player side */}
+  1443→          <div className="text-center p-3 rounded-xl bg-card border border-primary/20">
+  1444→            <span className="text-3xl">{cl.emoji}</span>
+  1445→            <p className="font-bold text-xs mt-1" style={{ color: cl.color }}>{char.name}</p>
+  1446→            <p className="text-[10px] text-muted-foreground">Nv.{char.level}</p>
+  1447→            <div className="w-full mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
+  1448→              <div className="h-full bg-green-500 transition-all" style={{ width: `${(pvpHp / stats.maxHp) * 100}%` }} />
+  1449→            </div>
+  1450→            <p className="text-[10px] mt-0.5">{Math.ceil(pvpHp)}/{stats.maxHp}</p>
+  1451→          </div>
+  1452→          {/* Opponent side */}
+  1453→          <div className="text-center p-3 rounded-xl bg-card border border-red-500/20">
+  1454→            <span className="text-3xl">{oppClass.emoji}</span>
+  1455→            <p className="font-bold text-xs mt-1" style={{ color: oppClass.color }}>{pvpOpponent.name}</p>
+  1456→            <p className="text-[10px] text-muted-foreground">Nv.{pvpOpponent.level}</p>
+  1457→            <div className="w-full mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
+  1458→              <div className="h-full bg-red-500 transition-all" style={{ width: `${(pvpEnemyHp / (oppClass.baseHp + pvpOpponent.level * 12 + 50)) * 100}%` }} />
+  1459→            </div>
+  1460→            <p className="text-[10px] mt-0.5">{Math.ceil(pvpEnemyHp)}</p>
+  1461→          </div>
+  1462→        </div>
+  1463→
+  1464→        {!pvpOver ? (
+  1465→          <motion.button whileTap={{ scale: 0.95 }} disabled={!pvpTurn} onClick={pvpAttack}
+  1466→            className="w-full py-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
+  1467→            \u2694\uFE0F Atacar!
+  1468→          </motion.button>
+  1469→        ) : (
+  1470→          <div className="text-center p-4 rounded-xl bg-card border border-border">
+  1471→            <span className="text-5xl">{pvpWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+  1472→            <p className="font-bold text-lg mt-2">{pvpWon ? "Venceste!" : "Perdeste!"}</p>
+  1473→            <p className="text-sm text-yellow-400">{pvpWon ? `+${pvpStake} \uD83D\uDCB0` : `-${pvpStake} \uD83D\uDCB0`}</p>
+  1474→            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
+  1475→              className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+  1476→              Continuar
+  1477→            </motion.button>
+  1478→          </div>
+  1479→        )}
+  1480→
+  1481→        <div className="h-20 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 mt-3 text-[11px] text-muted-foreground space-y-0.5">
+  1482→          {pvpLog.map((l, i) => <p key={i}>{l}</p>)}
+  1483→        </div>
+  1484→      </div>
+  1485→    );
+  1486→  }
+  1487→
+  1488→  // ============================================================
+  1489→  // RENDER: World Hub
+  1490→  // ============================================================
+  1491→
+  1492→  const tabs: { id: Tab; label: string; icon: any; badge?: number }[] = [
+  1493→    { id: "map", label: "Mundo", icon: MapIcon },
+  1494→    { id: "arena", label: "Arena", icon: Swords },
+  1495→    { id: "quests", label: "Quests", icon: Star, badge: quests.filter(q => !q.completed).length },
+  1496→    { id: "shop", label: "Loja", icon: ShoppingBag },
+  1497→    { id: "chat", label: "Chat", icon: MessageCircle },
+  1498→    { id: "rank", label: "Ranking", icon: Trophy },
+  1499→    { id: "economy", label: "Economia", icon: Coins },
+  1500→    { id: "profile", label: "Perfil", icon: Shield },
+  1501→    { id: "market", label: "Mercado", icon: TrendingUp },
+  1502→  ];
+  1503→
+  1504→  return (
+  1505→    <div className="max-w-lg mx-auto">
+  1506→      {/* Notification */}
+  1507→      <AnimatePresence>
+  1508→        {notification && (
+  1509→          <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }}
+  1510→            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-card border border-primary/30 text-sm font-medium shadow-lg">
+  1511→            {notification}
+  1512→          </motion.div>
+  1513→        )}
+  1514→      </AnimatePresence>
+  1515→
+  1516→      {/* Top Bar */}
+  1517→      <div className="px-3 pt-2 pb-2 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-30">
+  1518→        <div className="flex items-center gap-1.5 mb-1.5">
+  1519→          <span className="text-xl sm:text-2xl">{cl.emoji}</span>
+  1520→          <div className="flex-1 min-w-0">
+  1521→            <div className="flex items-center gap-2">
+  1522→              <p className="font-bold text-sm truncate" style={{ color: cl.color }}>{char.name}</p>
+  1523→              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">Nv.{char.level}</span>
+  1524→              {onlinePlayers.length > 0 && <span className="flex items-center gap-0.5 text-[10px] text-green-400"><Users className="h-3 w-3" />{onlinePlayers.length}</span>}
+  1525→            </div>
+  1526→            <div className="flex gap-3 text-[10px] text-muted-foreground">
+  1527→              <span>\u2B50{char.totalKills} abates</span>
+  1528→              <span>\uD83C\uDFC6{char.duelsWon}W</span>
+  1529→              <span>\uD83D\uDCB5{char.duelsLost}L</span>
+  1530→            </div>
+  1531→          </div>
+  1532→          <div className="text-right">
+  1533→            <p className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</p>
+  1534→            <div className="w-20 h-1.5 rounded-full bg-gray-800 overflow-hidden mt-0.5">
+  1535→              <motion.div className="h-full bg-blue-400 rounded-full" animate={{ width: `${(char.xp / xpForLevel(char.level)) * 100}%` }} transition={{ duration: 0.5 }} />
+  1536→            </div>
+  1537→            <p className="text-[9px] text-muted-foreground">{char.xp}/{xpForLevel(char.level)} XP</p>
+  1538→          </div>
+  1539→        </div>
+  1540→
+  1541→        {/* Daily Reward */}
+  1542→        {!dailyCollected && (
+  1543→          <motion.button whileTap={{ scale: 0.95 }} onClick={collectDaily}
+  1544→            className="w-full py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold mb-1.5">
+  1545→            \uD83C\uDF81 Recompensa Diaria - Clica para reclamar!
+  1546→          </motion.button>
+  1547→        )}
+  1548→
+  1549→        {/* Tabs */}
+  1550→        <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+  1551→          {tabs.map(t => (
+  1552→            <button key={t.id} onClick={() => setTab(t.id)}
+  1553→              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all relative ${
+  1554→                tab === t.id ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted"
+  1555→              }`}>
+  1556→              <t.icon className="h-3.5 w-3.5" />{t.label}
+  1557→              {t.badge && t.badge > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[8px] font-black text-white flex items-center justify-center">{t.badge}</span>}
+  1558→            </button>
+  1559→          ))}
+  1560→        </div>
+  1561→      </div>
+  1562→
+  1563→      {/* Tab Content */}
+  1564→      <div className="p-3 min-h-[60vh]">
+  1565→        {/* Event Bonus Banner */}
+  1566→        {eventBonus && (
+  1567→          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+  1568→            className="mb-3 p-2 rounded-lg bg-gradient-to-r from-yellow-500/15 to-amber-500/15 border border-yellow-500/30 text-center">
+  1569→            <p className="text-xs font-bold text-yellow-400">{eventBonus.label}</p>
+  1570→          </motion.div>
+  1571→        )}
+  1572→
+  1573→        {/* ---- MAP TAB ---- */}
+  1574→        {tab === "map" && (
+  1575→          <div className="space-y-3">
+  1576→            {/* Auto-Grind Toggle */}
+  1577→            <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  1578→              <div className="flex-1">
+  1579→                <p className="text-xs font-bold">\uD83E\uDD16 Auto-Grind {autoGrind && "\u2705"}</p>
+  1580→                <p className="text-[10px] text-muted-foreground">Luta automatica na zona actual</p>
+  1581→                {autoGrind && <p className="text-[10px] text-green-400 mt-0.5">{grindStats.kills} kills | +{grindStats.gold}\uD83D\uDCB0 | +{grindStats.xp}XP | {grindStats.deaths} mortes</p>}
+  1582→              </div>
+  1583→              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setAutoGrind(!autoGrind); if (!autoGrind) { setGrindStats({ kills: 0, gold: 0, xp: 0, deaths: 0 }); setGrindLog([]); } }}
+  1584→                className={`px-4 py-2 rounded-lg text-xs font-bold ${autoGrind ? "bg-red-500/15 border border-red-500/30 text-red-400" : "bg-green-500/15 border border-green-500/30 text-green-400"}`}>
+  1585→                {autoGrind ? "Parar" : "Iniciar"}
+  1586→              </motion.button>
+  1587→            </div>
+  1588→
+  1589→            {/* Grind Log */}
+  1590→            {autoGrind && (
+  1591→              <div className="h-24 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 text-[10px] text-muted-foreground space-y-0.5">
+  1592→                {grindLog.length === 0 && <p className="text-center py-4 opacity-50">A iniciar auto-grind...</p>}
+  1593→                {grindLog.map((l, i) => <p key={i}>{l}</p>)}
+  1594→                <div ref={grindLogRef} />
+  1595→              </div>
+  1596→            )}
+  1597→
+  1598→            {/* World Boss */}
+  1599→            {worldBoss?.isActive && (
+  1600→              <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 2, repeat: Infinity }}
+  1601→                className="p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+  1602→                <div className="flex items-center gap-2 mb-2">
+  1603→                  <Skull className="h-4 w-4 text-red-400" />
+  1604→                  <span className="font-bold text-sm text-red-400">BOSS MUNDIAL</span>
+  1605→                  <span className="ml-auto text-[10px] text-yellow-400">Recompensa: {worldBoss.rewardsPool} \uD83D\uDCB0</span>
+  1606→                </div>
+  1607→                <div className="flex items-center gap-3">
+  1608→                  <span className="text-3xl">{worldBoss.emoji}</span>
+  1609→                  <div className="flex-1">
+  1610→                    <p className="text-xs font-bold">{worldBoss.name}</p>
+  1611→                    <div className="w-full h-2.5 rounded-full bg-gray-800 overflow-hidden mt-1">
+  1612→                      <div className="h-full bg-red-500 transition-all" style={{ width: `${(worldBoss.hp / worldBoss.maxHp) * 100}%` }} />
+  1613→                    </div>
+  1614→                    <p className="text-[10px] text-muted-foreground mt-0.5">{Math.ceil(worldBoss.hp)}/{worldBoss.maxHp} | {Math.floor(bossTimer / 60)}:{String(bossTimer % 60).padStart(2, '0')}</p>
+  1615→                  </div>
+  1616→                  <motion.button whileTap={{ scale: 0.9 }} onClick={attackBoss}
+  1617→                    className="px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold">
+  1618→                    Atacar!
+  1619→                  </motion.button>
+  1620→                </div>
+  1621→              </motion.div>
+  1622→            )}
+  1623→
+  1624→            {/* Zone selection */}
+  1625→            {ZONES.map((zone, zi) => {
+  1626→              const unlocked = char.level >= zone.minLevel;
+  1627→              const isCurrent = zi === char.currentZone;
+  1628→              return (
+  1629→                <div key={zi}>
+  1630→                  <div className={`flex items-center gap-2 mb-2 ${unlocked ? "" : "opacity-40"}`}>
+  1631→                    <span className="text-lg">{zone.emoji}</span>
+  1632→                    <span className="font-bold text-xs" style={{ color: zone.color }}>{zone.name}</span>
+  1633→                    {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+  1634→                    <span className="ml-auto text-[10px] text-muted-foreground">Nv.{zone.minLevel}+</span>
+  1635→                    <button onClick={() => unlocked && updateChar(c => ({ ...c, currentZone: zi }))}
+  1636→                      className={`text-[10px] px-2 py-0.5 rounded-full ${isCurrent ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}>
+  1637→                      {isCurrent ? "Aqui" : "Ir"}
+  1638→                    </button>
+  1639→                  </div>
+  1640→                  {unlocked && isCurrent && (
+  1641→                    <div className="grid grid-cols-3 gap-2 mb-2">
+  1642→                      {zone.enemies.map((enemy, ei) => (
+  1643→                        <motion.button key={ei} whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }} onClick={() => startPVE(zi, ei)}
+  1644→                          className="p-3 rounded-xl bg-card border border-border hover:border-primary/40 text-center transition-all relative overflow-hidden group">
+  1645→                          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5" />
+  1646→                          <motion.span className="text-3xl block relative z-10" animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity, delay: ei * 0.4 }}>{enemy.emoji}</motion.span>
+  1647→                          <p className="text-[10px] font-bold mt-1 truncate relative z-10" style={{ color: enemy.color }}>{enemy.name}</p>
+  1648→                          <div className="flex justify-center gap-1.5 mt-1 text-[8px] relative z-10">
+  1649→                            <span className="text-blue-400">+{enemy.xp}XP</span>
+  1650→                            <span className="text-yellow-400">+{enemy.gold}💰</span>
+  1651→                          </div>
+  1652→                        </motion.button>
+  1653→                      ))}
+  1654→                    </div>
+  1655→                  )}
+  1656→                </div>
+  1657→              );
+  1658→            })}
+  1659→          </div>
+  1660→        )}
+  1661→
+  1662→        {/* ---- QUESTS TAB ---- */}
+  1663→        {tab === "quests" && (
+  1664→          <div className="space-y-3">
+  1665→            <div className="flex items-center gap-2 mb-2">
+  1666→              <Star className="h-4 w-4 text-amber-400" />
+  1667→              <span className="font-bold text-sm">Missoes Diarias</span>
+  1668→              <span className="ml-auto text-[10px] text-amber-400 font-medium">⏰ Reset em {new Date(new Date().setHours(24,0,0,0)).toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit'})}</span>
+  1669→            </div>
+  1670→
+  1671→            {/* Quest Progress Bar */}
+  1672→            <div className="relative w-full h-3 rounded-full bg-gray-800 overflow-hidden">
+  1673→              <motion.div className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 rounded-full"
+  1674→                animate={{ width: `${(quests.filter(q => q.completed).length / Math.max(1, quests.length)) * 100}%` }} />
+  1675→              <p className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white drop-shadow">{quests.filter(q => q.completed).length}/{quests.length}</p>
+  1676→            </div>
+  1677→
+  1678→            {quests.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">A carregar missoes...</p>}
+  1679→
+  1680→            {quests.map((q, i) => {
+  1681→              const pct = Math.min(100, (q.progress / q.target) * 100);
+  1682→              return (
+  1683→                <motion.div key={q.id} whileTap={{ scale: 0.98 }}
+  1684→                  className={`p-3 rounded-xl border transition-all relative overflow-hidden ${q.completed ? "bg-green-500/5 border-green-500/30" : "bg-card border-border"}`}>
+  1685→                  {q.completed && <div className="absolute top-0 right-0 px-2 py-0.5 bg-green-500 text-[8px] font-bold text-white rounded-bl-lg">COMPLETA</div>}
+  1686→                  <div className="flex items-center gap-2.5">
+  1687→                    <motion.span className="text-2xl" animate={q.completed ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.5 }}>{q.completed ? "✅" : q.emoji}</motion.span>
+  1688→                    <div className="flex-1 min-w-0">
+  1689→                      <p className={`text-xs font-bold ${q.completed ? "text-green-400" : ""}`}>{q.name}</p>
+  1690→                      <p className="text-[10px] text-muted-foreground">{q.desc}</p>
+  1691→                      <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden mt-1.5">
+  1692→                        <motion.div className="h-full rounded-full" style={{ backgroundColor: q.completed ? "#22c55e" : pct > 70 ? "#f59e0b" : "#3b82f6" }}
+  1693→                          animate={{ width: `${pct}%` }} />
+  1694→                      </div>
+  1695→                      <div className="flex items-center justify-between mt-1">
+  1696→                        <p className="text-[9px] text-muted-foreground">{q.progress}/{q.target}</p>
+  1697→                        <p className="text-[9px] font-bold" style={{ color: q.rewardType === "gold" ? "#fbbf24" : "#60a5fa" }}>{q.reward} {q.rewardType === "gold" ? "💰" : "✨"}</p>
+  1698→                      </div>
+  1699→                    </div>
+  1700→                  </div>
+  1701→                </motion.div>
+  1702→              );
+  1703→            })}
+  1704→
+  1705→            {/* Achievements Section */}
+  1706→            <div className="mt-6 pt-4 border-t border-border">
+  1707→              <div className="flex items-center gap-2 mb-3">
+  1708→                <Crown className="h-4 w-4 text-amber-400" />
+  1709→                <span className="font-bold text-sm">Conquistas</span>
+  1710→                <div className="ml-auto flex items-center gap-1">
+  1711→                  <div className="w-16 h-1.5 rounded-full bg-gray-800 overflow-hidden">
+  1712→                    <div className="h-full bg-amber-400 rounded-full" style={{ width: `${(achievements.filter(a => a.unlocked).length / Math.max(1, achievements.length)) * 100}%` }} />
+  1713→                  </div>
+  1714→                  <span className="text-[10px] text-muted-foreground">{achievements.filter(a => a.unlocked).length}/{achievements.length}</span>
+  1715→                </div>
+  1716→              </div>
+  1717→              <div className="grid grid-cols-2 gap-2">
+  1718→                {achievements.map((a, i) => (
+  1719→                  <motion.div key={a.id} whileHover={a.unlocked ? { scale: 1.03 } : {}}
+  1720→                    className={`p-2.5 rounded-xl border text-center transition-all ${a.unlocked ? "bg-amber-500/10 border-amber-500/30 shadow-sm" : "bg-card/50 border-border opacity-40"}`}>
+  1721→                    <motion.span className="text-2xl block" animate={a.unlocked ? { rotate: [0, -10, 10, 0] } : {}} transition={{ duration: 3, repeat: Infinity, delay: i * 0.3 }}>{a.unlocked ? a.emoji : "🔒"}</motion.span>
+  1722→                    <p className="text-[9px] font-bold mt-1">{a.name}</p>
+  1723→                    <p className="text-[8px] text-muted-foreground leading-tight">{a.desc}</p>
+  1724→                  </motion.div>
+  1725→                ))}
+  1726→              </div>
+  1727→            </div>
+  1728→          </div>
+  1729→        )}
+  1730→
+  1731→        {/* ---- ARENA TAB ---- */}
+  1732→        {tab === "arena" && (
+  1733→          <div className="space-y-3">
+  1734→            <div className="flex items-center gap-2 mb-2">
+  1735→              <Swords className="h-4 w-4 text-red-400" />
+  1736→              <span className="font-bold text-sm">Arena PVP</span>
+  1737→              <span className="ml-auto text-[10px] text-muted-foreground">{onlinePlayers.length} jogadores online</span>
+  1738→            </div>
+  1739→
+  1740→            {/* Challenge specific player */}
+  1741→            {selectedOpponent ? (
+  1742→              <div className="p-3 rounded-xl bg-card border border-border">
+  1743→                <div className="flex items-center gap-2 mb-3">
+  1744→                  <span className="text-2xl">{CLASSES[selectedOpponent.classId].emoji}</span>
+  1745→                  <div>
+  1746→                    <p className="font-bold text-sm" style={{ color: CLASSES[selectedOpponent.classId].color }}>{selectedOpponent.name}</p>
+  1747→                    <p className="text-[10px] text-muted-foreground">Nv.{selectedOpponent.level} | {selectedOpponent.gold} \uD83D\uDCB0</p>
+  1748→                  </div>
+  1749→                </div>
+  1750→                <div className="mb-3">
+  1751→                  <label className="text-[10px] text-muted-foreground block mb-1">Aposta (\uD83D\uDCB0):</label>
+  1752→                  <input type="number" value={stakeInput} onChange={e => setStakeInput(e.target.value)}
+  1753→                    placeholder="100" min="1" max={char.gold}
+  1754→                    className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  1755→                </div>
+  1756→                <div className="flex gap-2">
+  1757→                  <motion.button whileTap={{ scale: 0.95 }} onClick={() => { const s = parseInt(stakeInput) || 0; challengePlayer(selectedOpponent, s); setSelectedOpponent(null); }}
+  1758→                    className="flex-1 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold">
+  1759→                    \u2694\uFE0F Desafiar!
+  1760→                  </motion.button>
+  1761→                  <button onClick={() => setSelectedOpponent(null)} className="px-4 py-2 rounded-lg bg-muted text-sm">Cancelar</button>
+  1762→                </div>
+  1763→              </div>
+  1764→            ) : (
+  1765→              <>
+  1766→                <p className="text-[10px] text-muted-foreground mb-2">Seleciona um jogador para desafiar. O vencedor fica com a aposta!</p>
+  1767→                <div className="space-y-2">
+  1768→                  {onlinePlayers.length === 0 && (
+  1769→                    <div className="text-center py-8">
+  1770→                      <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  1771→                      <p className="text-xs text-muted-foreground">Nenhum jogador online agora</p>
+  1772→                      <p className="text-[10px] text-muted-foreground/60">Convida amigos para jogar!</p>
+  1773→                    </div>
+  1774→                  )}
+  1775→                  {onlinePlayers.map(p => (
+  1776→                    <motion.button key={p.charId} whileTap={{ scale: 0.98 }} onClick={() => setSelectedOpponent(p)}
+  1777→                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all">
+  1778→                      <span className="text-xl">{CLASSES[p.classId].emoji}</span>
+  1779→                      <div className="flex-1 text-left">
+  1780→                        <p className="text-sm font-bold" style={{ color: CLASSES[p.classId].color }}>{p.name}</p>
+  1781→                        <p className="text-[10px] text-muted-foreground">Nv.{p.level} | {ZONES[p.zone]?.emoji || "\uD83C\uDF0D"} {ZONES[p.zone]?.name || "Desconhecido"}</p>
+  1782→                      </div>
+  1783→                      <div className="text-right">
+  1784→                        <p className="text-xs font-bold text-yellow-400">{p.gold} \uD83D\uDCB0</p>
+  1785→                        <div className="w-2 h-2 rounded-full bg-green-400 ml-auto mt-1" />
+  1786→                      </div>
+  1787→                    </motion.button>
+  1788→                  ))}
+  1789→                </div>
+  1790→              </>
+  1791→            )}
+  1792→
+  1793→            {/* Quick PVP (random opponent) */}
+  1794→            {onlinePlayers.length > 0 && !selectedOpponent && (
+  1795→              <motion.button whileTap={{ scale: 0.95 }} onClick={() => {
+  1796→                const random = onlinePlayers[Math.floor(Math.random() * onlinePlayers.length)];
+  1797→                const stake = Math.min(50, char.gold);
+  1798→                if (stake > 0) challengePlayer(random, stake);
+  1799→              }} className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 text-sm font-bold">
+  1800→                \uD83C\uDFB2 Duelo Rapido (50 \uD83D\uDCB0)
+  1801→              </motion.button>
+  1802→            )}
+  1803→          </div>
+  1804→        )}
+  1805→
+  1806→        {/* ---- ECONOMY TAB ---- */}
+  1807→        {tab === "economy" && (
+  1808→          <div className="space-y-4">
+  1809→            <div className="flex items-center gap-2">
+  1810→              <Coins className="h-4 w-4 text-yellow-400" />
+  1811→              <span className="font-bold text-sm">Economia P2P</span>
+  1812→            </div>
+  1813→
+  1814→            {/* Balance */}
+  1815→            <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-center">
+  1816→              <p className="text-[10px] text-muted-foreground">Teu saldo</p>
+  1817→              <p className="text-2xl font-bold text-yellow-400">{char.gold} <span className="text-sm">\uD83D\uDCB0</span></p>
+  1818→              <p className="text-[10px] text-muted-foreground mt-1">Ganho total: {char.totalEarned} \uD83D\uDCB0</p>
+  1819→            </div>
+  1820→
+  1821→            {/* P2P Transfer */}
+  1822→            <div className="p-3 rounded-xl bg-card border border-border">
+  1823→              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Enviar Ouro (P2P)</p>
+  1824→              <div className="space-y-2">
+  1825→                <select value={transferTarget} onChange={e => setTransferTarget(e.target.value)}
+  1826→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
+  1827→                  <option value="">Seleciona jogador...</option>
+  1828→                  {onlinePlayers.map(p => (
+  1829→                    <option key={p.charId} value={`${p.charId}|${p.name}`}>{CLASSES[p.classId].emoji} {p.name} (Nv.{p.level})</option>
+  1830→                  ))}
+  1831→                </select>
+  1832→                <input type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)}
+  1833→                  placeholder="Quantidade" min="1" max={char.gold}
+  1834→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  1835→                <motion.button whileTap={{ scale: 0.95 }}
+  1836→                  disabled={!transferTarget || !transferAmount || parseInt(transferAmount) <= 0}
+  1837→                  onClick={() => {
+  1838→                    const [tid, tname] = transferTarget.split("|");
+  1839→                    sendGold(tid, tname, parseInt(transferAmount));
+  1840→                    setTransferTarget(""); setTransferAmount("");
+  1841→                  }}
+  1842→                  className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
+  1843→                  Enviar \uD83D\uDCE8
+  1844→                </motion.button>
+  1845→              </div>
+  1846→            </div>
+  1847→
+  1848→            {/* Economy info */}
+  1849→            <div className="p-3 rounded-xl bg-card border border-border">
+  1850→              <p className="text-xs font-bold mb-2">\uD83D\uDCCA Como ganhar ouro</p>
+  1851→              <div className="space-y-1.5 text-[11px] text-muted-foreground">
+  1852→                <p>\u2694\uFE0F <b>Derrota monstros</b> nos mapas - ganha XP e ouro</p>
+  1853→                <p>\uD83C\uDFC6 <b> Duelos PVP</b> - aposta ouro, vence e fica com tudo</p>
+  1854→                <p>\uD83D\uDCB0 <b>Recompensa diaria</b> - clica todos os dias</p>
+  1855→                <p>\uD83E\uDDD1\u200D\uD83E\uDD1D <b>Transferencias P2P</b> - envia e recebe de outros jogadores</p>
+  1856→                <p>\uD83C\uDF81 <b>World Boss</b> - contribui para derrotar e ganha recompensas</p>
+  1857→              </div>
+  1858→            </div>
+  1859→          </div>
+  1860→        )}
+  1861→
+  1862→        {/* ---- SHOP TAB ---- */}
+  1863→        {tab === "shop" && (
+  1864→          <div className="space-y-3">
+  1865→            <div className="flex items-center justify-between">
+  1866→              <div className="flex items-center gap-2">
+  1867→                <ShoppingBag className="h-4 w-4 text-yellow-400" />
+  1868→                <span className="font-bold text-sm">Loja</span>
+  1869→              </div>
+  1870→              <span className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+  1871→            </div>
+  1872→
+  1873→            {/* Current equipment */}
+  1874→            <div className="flex gap-2">
+  1875→              {char.equipment.map((eq, i) => (
+  1876→                <div key={i} className="flex-1 p-2 rounded-lg bg-primary/5 border border-primary/20 text-center">
+  1877→                  <p className="text-[9px] text-muted-foreground">{["Arma", "Armadura", "Acessorio"][i]}</p>
+  1878→                  {eq ? <><span className="text-lg">{eq.icon}</span><p className="text-[9px] font-medium truncate">{eq.name}</p></> : <span className="text-xs text-muted-foreground">Vazio</span>}
+  1879→                </div>
+  1880→              ))}
+  1881→            </div>
+  1882→
+  1883→            {/* Items for sale */}
+  1884→            {SHOP_ITEMS.map(item => {
+  1885→              const owned = char.inventory.some(i => i.id === item.id) || char.equipment.some(e => e?.id === item.id);
+  1886→              return (
+  1887→                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  1888→                  <span className="text-2xl">{item.icon}</span>
+  1889→                  <div className="flex-1 min-w-0">
+  1890→                    <p className="text-sm font-medium truncate">{item.name}</p>
+  1891→                    <p className="text-[10px] text-muted-foreground">
+  1892→                      {item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.spd ? `\uD83D\uDCA8+${item.spd} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp} ` : ""}{item.mp ? `\uD83D\uDD2E+${item.mp}` : ""}
+  1893→                    </p>
+  1894→                  </div>
+  1895→                  <motion.button whileTap={{ scale: 0.9 }} disabled={owned || char.gold < item.price} onClick={() => buyItem(item)}
+  1896→                    className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold disabled:opacity-30">
+  1897→                    {owned ? "\u2705" : `${item.price} \uD83D\uDCB0`}
+  1898→                  </motion.button>
+  1899→                </div>
+  1900→              );
+  1901→            })}
+  1902→
+  1903→            {/* Inventory */}
+  1904→            {char.inventory.length > 0 && (
+  1905→              <div className="mt-4">
+  1906→                <p className="text-xs font-bold mb-2">\uD83D\uDCBC Mochila ({char.inventory.length})</p>
+  1907→                <div className="space-y-2">
+  1908→                  {char.inventory.map((item, i) => (
+  1909→                    <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-card border border-border">
+  1910→                      <span className="text-xl">{item.icon}</span>
+  1911→                      <div className="flex-1 min-w-0">
+  1912→                        <p className="text-xs font-medium truncate">{item.name}</p>
+  1913→                        <p className="text-[9px] text-muted-foreground">{item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp}` : ""}</p>
+  1914→                      </div>
+  1915→                      <button onClick={() => equipItem(i)} className="px-2 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold">Equipar</button>
+  1916→                      <button onClick={() => sellItem(i)} className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold">Vender</button>
+  1917→                    </div>
+  1918→                  ))}
+  1919→                </div>
+  1920→              </div>
+  1921→            )}
+  1922→          </div>
+  1923→        )}
+  1924→
+  1925→        {/* ---- CHAT TAB ---- */}
+  1926→        {tab === "chat" && (
+  1927→          <div className="flex flex-col h-[55vh]">
+  1928→            <div className="flex items-center gap-2 mb-2">
+  1929→              <MessageCircle className="h-4 w-4 text-blue-400" />
+  1930→              <span className="font-bold text-sm">Chat Global</span>
+  1931→              <span className="ml-auto text-[10px] text-muted-foreground">{onlinePlayers.length + 1} online</span>
+  1932→            </div>
+  1933→
+  1934→            <div className="flex-1 overflow-y-auto rounded-xl bg-card border border-border p-3 space-y-2">
+  1935→              {chatMessages.length === 0 && <p className="text-xs text-muted-foreground text-center py-8">Nenhuma mensagem ainda. Sê o primeiro!</p>}
+  1936→              {chatMessages.map(msg => {
+  1937→                const isMe = msg.charName === char.name;
+  1938→                return (
+  1939→                  <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+  1940→                    <span className="text-lg flex-shrink-0">{CLASSES[msg.classId]?.emoji || "\uD83D\uDC64"}</span>
+  1941→                    <div className={`max-w-[75%] ${isMe ? "text-right" : ""}`}>
+  1942→                      <p className="text-[10px] font-bold" style={{ color: CLASSES[msg.classId]?.color }}>{msg.charName}</p>
+  1943→                      <p className="text-xs bg-muted rounded-lg px-2.5 py-1.5 inline-block text-left">{msg.message}</p>
+  1944→                      <p className="text-[9px] text-muted-foreground/60 mt-0.5">{timeAgo(msg.time)}</p>
+  1945→                    </div>
+  1946→                  </div>
+  1947→                );
+  1948→              })}
+  1949→              <div ref={chatEndRef} />
+  1950→            </div>
+  1951→
+  1952→            <div className="flex gap-2 mt-2">
+  1953→              <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()}
+  1954→                placeholder="Mensagem..." maxLength={200}
+  1955→                className="flex-1 px-3 py-2 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary" />
+  1956→              <motion.button whileTap={{ scale: 0.9 }} onClick={sendChat} disabled={!chatInput.trim()}
+  1957→                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-30">
+  1958→                <Send className="h-4 w-4" />
+  1959→              </motion.button>
+  1960→            </div>
+  1961→          </div>
+  1962→        )}
+  1963→
+  1964→        {/* ---- RANK TAB ---- */}
+  1965→        {tab === "rank" && (
+  1966→          <div className="space-y-3">
+  1967→            <div className="flex items-center gap-2">
+  1968→              <Trophy className="h-4 w-4 text-yellow-400" />
+  1969→              <span className="font-bold text-sm">Ranking Global</span>
+  1970→            </div>
+  1971→
+  1972→            {/* Build ranking from online + leaderboard data */}
+  1973→            {[...leaderboard, ...onlinePlayers.map(p => ({ charId: p.charId, name: p.name, classId: p.classId, level: p.level, gold: p.gold, kills: 0, wins: 0 }))]
+  1974→              .reduce((acc, entry) => { if (!acc.find(e => e.charId === entry.charId)) acc.push(entry); return acc; }, [] as LeaderboardEntry[])
+  1975→              .sort((a, b) => b.level - a.level || b.gold - a.gold)
+  1976→              .slice(0, 20)
+  1977→              .map((entry, i) => {
+  1978→                const isMe = entry.charId === guestId || entry.name === char.name;
+  1979→                return (
+  1980→                  <div key={entry.charId + i} className={`flex items-center gap-3 p-2.5 rounded-xl ${isMe ? "bg-primary/5 border border-primary/20" : "bg-card border border-border"}`}>
+  1981→                    <span className={`w-6 text-center font-bold text-sm ${i < 3 ? "text-yellow-400" : "text-muted-foreground"}`}>{i < 3 ? ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"][i] : i + 1}</span>
+  1982→                    <span className="text-xl">{CLASSES[entry.classId]?.emoji || "\uD83D\uDC64"}</span>
+  1983→                    <div className="flex-1">
+  1984→                      <p className="text-sm font-bold" style={{ color: isMe ? cl.color : CLASSES[entry.classId]?.color }}>{entry.name} {isMe && "(tu)"}</p>
+  1985→                    </div>
+  1986→                    <div className="text-right text-[10px]">
+  1987→                      <p className="font-bold">Nv.{entry.level}</p>
+  1988→                      <p className="text-muted-foreground">{entry.gold} \uD83D\uDCB0</p>
+  1989→                    </div>
+  1990→                  </div>
+  1991→                );
+  1992→              })}
+  1993→
+  1994→            {leaderboard.length === 0 && onlinePlayers.length === 0 && (
+  1995→              <div className="text-center py-8">
+  1996→                <Trophy className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  1997→                <p className="text-xs text-muted-foreground">Nenhum jogador no ranking ainda</p>
+  1998→              </div>
+  1999→            )}
+  2000→          </div>
+  2001→        )}
+  2002→
+  2003→        {/* ---- PROFILE TAB ---- */}
+  2004→        {tab === "profile" && (
+  2005→          <div className="space-y-4">
+  2006→            <div className="text-center">
+  2007→              <span className="text-5xl">{cl.emoji}</span>
+  2008→              <p className="font-bold text-lg mt-2" style={{ color: cl.color }}>{char.name}</p>
+  2009→              <p className="text-xs text-muted-foreground">{cl.name} - Nivel {char.level}</p>
+  2010→              <p className="text-[10px] text-muted-foreground">XP: {char.xp}/{xpForLevel(char.level)}</p>
+  2011→              <div className="w-40 mx-auto mt-1 h-2 rounded-full bg-gray-800 overflow-hidden">
+  2012→                <div className="h-full bg-blue-500" style={{ width: `${(char.xp / xpForLevel(char.level)) * 100}%` }} />
+  2013→              </div>
+  2014→            </div>
+  2015→
+  2016→            {/* Stats */}
+  2017→            <div className="grid grid-cols-3 gap-2">
+  2018→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2019→                <p className="text-[10px] text-muted-foreground">\u2764\uFE0F HP</p>
+  2020→                <p className="font-bold text-sm text-red-400">{stats.maxHp}</p>
+  2021→              </div>
+  2022→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2023→                <p className="text-[10px] text-muted-foreground">\u2694\uFE0F ATK</p>
+  2024→                <p className="font-bold text-sm text-orange-400">{stats.atk}</p>
+  2025→              </div>
+  2026→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2027→                <p className="text-[10px] text-muted-foreground">\uD83D\uDEE1\uFE0F DEF</p>
+  2028→                <p className="font-bold text-sm text-blue-400">{stats.def}</p>
+  2029→              </div>
+  2030→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2031→                <p className="text-[10px] text-muted-foreground">\uD83D\uDCA8 SPD</p>
+  2032→                <p className="font-bold text-sm text-green-400">{stats.spd}</p>
+  2033→              </div>
+  2034→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2035→                <p className="text-[10px] text-muted-foreground">\uD83D\uDD2E MP</p>
+  2036→                <p className="font-bold text-sm text-indigo-400">{stats.maxMp}</p>
+  2037→              </div>
+  2038→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  2039→                <p className="text-[10px] text-muted-foreground">\uD83D\uDCB0 Gold</p>
+  2040→                <p className="font-bold text-sm text-yellow-400">{char.gold}</p>
+  2041→              </div>
+  2042→            </div>
+  2043→
+  2044→            {/* Record */}
+  2045→            <div className="grid grid-cols-2 gap-2">
+  2046→              <div className="p-3 rounded-lg bg-card border border-border">
+  2047→                <p className="text-[10px] text-muted-foreground">Vitorias PVP</p>
+  2048→                <p className="text-xl font-bold text-green-400">{char.duelsWon}</p>
+  2049→              </div>
+  2050→              <div className="p-3 rounded-lg bg-card border border-border">
+  2051→                <p className="text-[10px] text-muted-foreground">Derrotas PVP</p>
+  2052→                <p className="text-xl font-bold text-red-400">{char.duelsLost}</p>
+  2053→              </div>
+  2054→              <div className="p-3 rounded-lg bg-card border border-border">
+  2055→                <p className="text-[10px] text-muted-foreground">Monstros Mortos</p>
+  2056→                <p className="text-xl font-bold text-orange-400">{char.totalKills}</p>
+  2057→              </div>
+  2058→              <div className="p-3 rounded-lg bg-card border border-border">
+  2059→                <p className="text-[10px] text-muted-foreground">Ganho Total</p>
+  2060→                <p className="text-xl font-bold text-yellow-400">{char.totalEarned}</p>
+  2061→              </div>
+  2062→            </div>
+  2063→
+  2064→            {/* Equipment detail */}
+  2065→            <div className="p-3 rounded-xl bg-card border border-border">
+  2066→              <p className="text-xs font-bold mb-2">Equipamento</p>
+  2067→              <div className="space-y-2">
+  2068→                {char.equipment.map((eq, i) => (
+  2069→                  <div key={i} className="flex items-center gap-2">
+  2070→                    <span className="text-xs text-muted-foreground w-16">{["Arma", "Armadura", "Acessorio"][i]}</span>
+  2071→                    {eq ? <><span className="text-lg">{eq.icon}</span><span className="text-xs font-medium">{eq.name}</span></> : <span className="text-xs text-muted-foreground">--</span>}
+  2072→                  </div>
+  2073→                ))}
+  2074→              </div>
+  2075→            </div>
+  2076→
+  2077→            {/* Actions */}
+  2078→            <div className="flex gap-2">
+  2079→              <motion.button whileTap={{ scale: 0.95 }} onClick={deleteCharacter}
+  2080→                className="flex-1 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold">
+  2081→                Apagar Personagem
+  2082→              </motion.button>
+  2083→            </div>
+  2084→          </div>
+  2085→        )}
+  2086→
+  2087→        {/* ---- MARKET TAB ---- */}
+  2088→        {tab === "market" && (
+  2089→          <div className="space-y-4">
+  2090→            <div className="flex items-center gap-2">
+  2091→              <TrendingUp className="h-4 w-4 text-green-400" />
+  2092→              <span className="font-bold text-sm">Mercado P2P</span>
+  2093→              <span className="ml-auto text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+  2094→            </div>
+  2095→
+  2096→            {/* Sell item */}
+  2097→            <div className="p-3 rounded-xl bg-card border border-border">
+  2098→              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Vender Item</p>
+  2099→              <div className="space-y-2">
+  2100→                <select value={marketSellItem} onChange={e => setMarketSellItem(e.target.value)}
+  2101→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
+  2102→                  <option value="">Seleciona item da mochila...</option>
+  2103→                  {char.inventory.map((item, i) => (
+  2104→                    <option key={i} value={`${i}`}>{item.icon} {item.name}</option>
+  2105→                  ))}
+  2106→                </select>
+  2107→                <input type="number" value={marketSellPrice} onChange={e => setMarketSellPrice(e.target.value)}
+  2108→                  placeholder="Preco" min="1"
+  2109→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  2110→                <motion.button whileTap={{ scale: 0.95 }}
+  2111→                  disabled={!marketSellItem || !marketSellPrice || parseInt(marketSellPrice) <= 0}
+  2112→                  onClick={() => {
+  2113→                    const idx = parseInt(marketSellItem);
+  2114→                    const item = char.inventory[idx];
+  2115→                    if (!item) return;
+  2116→                    const price = parseInt(marketSellPrice);
+  2117→                    const listing = { id: genId(), sellerId: guestId, sellerName: char.name, item: { ...item }, price, time: new Date().toISOString() };
+  2118→                    setMarketListings(prev => [...prev, listing]);
+  2119→                    updateChar(c => { const inv = [...c.inventory]; inv.splice(idx, 1); return { ...c, inventory: inv }; });
+  2120→                    setMarketSellItem(""); setMarketSellPrice("");
+  2121→                    notify(`Item listado por ${price} \uD83D\uDCB0`);
+  2122→                  }}
+  2123→                  className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
+  2124→                  Listar no Mercado
+  2125→                </motion.button>
+  2126→              </div>
+  2127→            </div>
+  2128→
+  2129→            {/* Listings */}
+  2130→            <p className="text-xs font-bold">\uD83D\uDCCA Itens a Venda ({marketListings.length})</p>
+  2131→            {marketListings.length === 0 && (
+  2132→              <div className="text-center py-8">
+  2133→                <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  2134→                <p className="text-xs text-muted-foreground">Nenhum item listado ainda</p>
+  2135→                <p className="text-[10px] text-muted-foreground/60">Vende itens da tua mochila!</p>
+  2136→              </div>
+  2137→            )}
+  2138→            <div className="space-y-2">
+  2139→              {marketListings.map(listing => (
+  2140→                <div key={listing.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  2141→                  <span className="text-2xl">{listing.item.icon}</span>
+  2142→                  <div className="flex-1 min-w-0">
+  2143→                    <p className="text-sm font-medium truncate">{listing.item.name}</p>
+  2144→                    <p className="text-[10px] text-muted-foreground">
+  2145→                      {listing.item.atk ? `\u2694\uFE0F+${listing.item.atk} ` : ""}{listing.item.def ? `\uD83D\uDEE1\uFE0F+${listing.item.def} ` : ""}{listing.item.hp ? `\u2764\uFE0F+${listing.item.hp}` : ""}
+  2146→                    </p>
+  2147→                    <p className="text-[9px] text-muted-foreground">por {listing.sellerName}</p>
+  2148→                  </div>
+  2149→                  <div className="text-right">
+  2150→                    <p className="text-sm font-bold text-yellow-400">{listing.price} \uD83D\uDCB0</p>
+  2151→                    {listing.sellerId !== guestId ? (
+  2152→                      <motion.button whileTap={{ scale: 0.9 }}
+  2153→                        disabled={char.gold < listing.price}
+  2154→                        onClick={() => {
+  2155→                          updateChar(c => ({ ...c, gold: c.gold - listing.price, inventory: [...c.inventory, { ...listing.item }] }));
+  2156→                          setMarketListings(prev => prev.filter(l => l.id !== listing.id));
+  2157→                          notify(`\u2705 Compraste ${listing.item.name}!`);
+  2158→                          dbSendTransfer(guestId, char!.name, listing.sellerId, listing.sellerName, listing.price, `Mercado: ${listing.item.name}`);
+  2159→                        }}
+  2160→                        className="mt-1 px-3 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-[10px] font-bold disabled:opacity-30">
+  2161→                        Comprar
+  2162→                      </motion.button>
+  2163→                    ) : (
+  2164→                      <button onClick={() => {
+  2165→                        updateChar(c => ({ ...c, inventory: [...c.inventory, { ...listing.item }] }));
+  2166→                        setMarketListings(prev => prev.filter(l => l.id !== listing.id));
+  2167→                        notify("Item cancelado do mercado");
+  2168→                      }} className="mt-1 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-[10px] font-bold">
+  2169→                        Cancelar
+  2170→                      </button>
+  2171→                    )}
+  2172→                  </div>
+  2173→                </div>
+  2174→              ))}
+  2175→            </div>
+  2176→          </div>
+  2177→        )}
+  2178→      </div>
+  2179→    </div>
+  2180→  );
+  2181→}
+  2182→

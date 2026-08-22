@@ -1,0 +1,502 @@
+     1→     1→import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+     2→     2→import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+     3→     3→import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+     4→     4→import { supabase } from "@/integrations/supabase/client";
+     5→     5→import {
+     6→     6→  Share2, ExternalLink, Gamepad2, Trophy, Users, Clock, Flame,
+     7→     7→  Calendar, Star, Zap, Award, ChevronRight, MapPin, Globe,
+     8→     8→  CheckCircle2, Copy, Check, ArrowRight, Heart, Play,
+     9→     9→  Music, UtensilsCrossed, Dumbbell, GraduationCap, ShoppingBag,
+    10→    10→  Palette, Mic2, Sparkles, TrendingUp, Eye, Crown, Radio,
+    11→    11→  Gift, Target, BarChart3, Ticket, Building2, ArrowLeft,
+    12→    12→  Phone, CalendarDays, GiftIcon, Megaphone, Wallet, Calculator,
+    13→    13→  Medal, Instagram, Facebook, Youtube, Twitter, MessageSquare,
+    14→    14→  Quote, ThumbsUp, Shield, Rocket
+    15→    15→} from "lucide-react";
+    16→    16→import { Card, CardContent } from "@/components/ui/card";
+    17→    17→import { Button } from "@/components/ui/button";
+    18→    18→import { Badge } from "@/components/ui/badge";
+    19→    19→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    20→    20→import { Input } from "@/components/ui/input";
+    21→    21→import { Skeleton } from "@/components/ui/skeleton";
+    22→    22→import { useToast } from "@/hooks/use-toast";
+    23→    23→import { useSEO } from "@/hooks/useSEO";
+    24→    24→import { useCurrency } from "@/contexts/CurrencyContext";
+    25→    25→import { getPublicBaseUrl } from "@/lib/publicUrl";
+    26→    26→import Footer from "@/components/Footer";
+    27→    27→import BusinessLivesTab from "@/components/business/BusinessLivesTab";
+    28→    28→import BusinessTimeline from "@/components/business/BusinessTimeline";
+    29→    29→import AnimatedNumber from "@/components/ui/AnimatedNumber";
+    30→    30→import HolographicCard from "@/components/ui/HolographicCard";
+    31→    31→import ShimmerText from "@/components/ui/ShimmerText";
+    32→    32→import GlowPulse from "@/components/ui/GlowPulse";
+    33→    33→
+    34→    34→/* ─── Types ──────────────────────────────────── */
+    35→    35→interface CompanyInfo {
+    36→    36→  user_id: string;
+    37→    37→  display_name: string | null;
+    38→    38→  company_name: string | null;
+    39→    39→  avatar_url: string | null;
+    40→    40→  is_verified: boolean | null;
+    41→    41→  city: string | null;
+    42→    42→  province: string | null;
+    43→    43→  created_at: string | null;
+    44→    44→  phone: string | null;
+    45→    45→}
+    46→    46→
+    47→    47→interface CompanyBranding {
+    48→    48→  primary_color: string;
+    49→    49→  secondary_color: string;
+    50→    50→  accent_color: string;
+    51→    51→  background_color: string;
+    52→    52→  text_color: string;
+    53→    53→  company_logo_url: string | null;
+    54→    54→  background_image_url: string | null;
+    55→    55→  company_name: string | null;
+    56→    56→  company_slogan: string | null;
+    57→    57→  niche?: string;
+    58→    58→  hero_title?: string;
+    59→    59→  hero_subtitle?: string;
+    60→    60→  hero_cta_text?: string;
+    61→    61→  hero_cta_link?: string;
+    62→    62→  about_text?: string;
+    63→    63→  social_links?: Record<string, string>;
+    64→    64→  homepage_layout?: string;
+    65→    65→  featured_badge?: string;
+    66→    66→  show_leaderboard?: boolean;
+    67→    67→  show_games?: boolean;
+    68→    68→  show_lives?: boolean;
+    69→    69→  show_stats?: boolean;
+    70→    70→}
+    71→    71→
+    72→    72→interface GameItem {
+    73→    73→  id: string;
+    74→    74→  name: string;
+    75→    75→  type: "wheel" | "millionaire" | "custom";
+    76→    76→  is_published?: boolean;
+    77→    77→  segment_count?: number;
+    78→    78→  created_at: string;
+    79→    79→  is_active?: boolean;
+    80→    80→}
+    81→    81→
+    82→    82→interface LiveSession {
+    83→    83→  code: string;
+    84→    84→  title?: string;
+    85→    85→  started_at: number;
+    86→    86→  ended_at: number;
+    87→    87→  duration_sec: number;
+    88→    88→  players_count: number;
+    89→    89→  games_count: number;
+    90→    90→  winners: string[];
+    91→    91→}
+    92→    92→
+    93→    93→interface Raffle {
+    94→    94→  id: string;
+    95→    95→  title: string;
+    96→    96→  prize_title: string;
+    97→    97→  prize_value: number;
+    98→    98→  ticket_price: number;
+    99→    99→  total_tickets: number;
+   100→   100→  sold_tickets: number;
+   101→   101→  status: string;
+   102→   102→  image_url: string | null;
+   103→   103→  slug: string | null;
+   104→   104→  end_date: string | null;
+   105→   105→  category: string | null;
+   106→   106→}
+   107→   107→
+   108→   108→interface Contest {
+   109→   109→  id: string;
+   110→   110→  title: string;
+   111→   111→  description: string | null;
+   112→   112→  prize_description: string | null;
+   113→   113→  image_url: string | null;
+   114→   114→  status: string;
+   115→   115→  end_date: string | null;
+   116→   116→}
+   117→   117→
+   118→   118→interface RaffleWinner {
+   119→   119→  raffle_title: string;
+   120→   120→  prize_title: string;
+   121→   121→  display_name: string | null;
+   122→   122→  slug: string | null;
+   123→   123→}
+   124→   124→
+   125→   125→interface PrestacaoProduct {
+   126→   126→  id: string;
+   127→   127→  title: string;
+   128→   128→  brand: string | null;
+   129→   129→  model: string | null;
+   130→   130→  category: string;
+   131→   131→  total_price: number;
+   132→   132→  min_down_payment: number;
+   133→   133→  max_months: number;
+   134→   134→  images: any;
+   135→   135→  city: string | null;
+   136→   136→  province: string | null;
+   137→   137→  views_count: number | null;
+   138→   138→  status: string;
+   139→   139→}
+   140→   140→
+   141→   141→interface ContestRanking {
+   142→   142→  contest_id: string;
+   143→   143→  contest_title: string;
+   144→   144→  evaluation_type: string;
+   145→   145→  status: string;
+   146→   146→  top: {
+   147→   147→    submission_id: string;
+   148→   148→    name: string;
+   149→   149→    photo_url: string | null;
+   150→   150→    score: number;
+   151→   151→  }[];
+   152→   152→}
+   153→   153→
+   154→   154→/* ─── Niche System ───────────────────────────── */
+   155→   155→type NicheId = "entertainment" | "gaming" | "restaurant" | "retail" | "education" | "fitness" | "music" | "fashion" | "tech" | "food" | "beauty" | "sports" | "casino" | "charity" | "other";
+   156→   156→
+   157→   157→const NICHE_META: Record<string, {
+   158→   158→  icon: any; label: string; gradient: string; particleColor: string;
+   159→   159→  heroGlow: string; badge: string; defaultTitle: string; defaultCta: string;
+   160→   160→  gradientColors: string[];
+   161→   161→}> = {
+   162→   162→  entertainment: { icon: Sparkles, label: "Entretenimento", gradient: "from-violet-600 via-fuchsia-500 to-pink-500", particleColor: "#d946ef", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(217,70,239,0.25), transparent 70%)", badge: "Show de Entretenimento", defaultTitle: "Vem divertir-te connosco", defaultCta: "Entrar no Jogo", gradientColors: ["#7c3aed", "#d946ef", "#ec4899"] },
+   163→   163→  gaming: { icon: Gamepad2, label: "Gaming", gradient: "from-emerald-600 via-cyan-500 to-blue-500", particleColor: "#06b6d4", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.25), transparent 70%)", badge: "Gaming Zone", defaultTitle: "Arena de Jogos", defaultCta: "Come\u00e7ar a Jogar", gradientColors: ["#059669", "#06b6d4", "#3b82f6"] },
+   164→   164→  restaurant: { icon: UtensilsCrossed, label: "Restaura\u00e7\u00e3o", gradient: "from-orange-600 via-red-500 to-rose-500", particleColor: "#f97316", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.25), transparent 70%)", badge: "Sabor & Divers\u00e3o", defaultTitle: "Joga e Ganha Pr\u00e9mios", defaultCta: "Ver Card\u00e1pio de Jogos", gradientColors: ["#ea580c", "#ef4444", "#f43f5e"] },
+   165→   165→  retail: { icon: ShoppingBag, label: "Retalho", gradient: "from-blue-600 via-indigo-500 to-violet-500", particleColor: "#6366f1", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.25), transparent 70%)", badge: "Loja Interativa", defaultTitle: "Descontos exclusivos", defaultCta: "Aproveitar Agora", gradientColors: ["#2563eb", "#6366f1", "#7c3aed"] },
+   166→   166→  education: { icon: GraduationCap, label: "Educa\u00e7\u00e3o", gradient: "from-teal-600 via-emerald-500 to-green-500", particleColor: "#14b8a6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(20,184,166,0.25), transparent 70%)", badge: "Aprende & Joga", defaultTitle: "Aprende brincando", defaultCta: "Come\u00e7ar a Aprender", gradientColors: ["#0d9488", "#10b981", "#22c55e"] },
+   167→   167→  fitness: { icon: Dumbbell, label: "Fitness", gradient: "from-lime-500 via-green-500 to-emerald-600", particleColor: "#22c55e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.25), transparent 70%)", badge: "Desafio Fitness", defaultTitle: "Desafia os teus limites", defaultCta: "Iniciar Desafio", gradientColors: ["#65a30d", "#22c55e", "#059669"] },
+   168→   168→  music: { icon: Music, label: "M\u00fasica", gradient: "from-purple-600 via-pink-500 to-rose-500", particleColor: "#ec4899", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.25), transparent 70%)", badge: "Vibe Musical", defaultTitle: "Sente o ritmo", defaultCta: "Tocar Agora", gradientColors: ["#9333ea", "#ec4899", "#f43f5e"] },
+   169→   169→  fashion: { icon: Palette, label: "Moda", gradient: "from-pink-500 via-fuchsia-500 to-purple-600", particleColor: "#c026d3", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(192,38,211,0.25), transparent 70%)", badge: "Estilo & Divers\u00e3o", defaultTitle: "Desfiles de estilo", defaultCta: "Explorar Cole\u00e7\u00e3o", gradientColors: ["#ec4899", "#c026d3", "#9333ea"] },
+   170→   170→  tech: { icon: Zap, label: "Tecnologia", gradient: "from-cyan-500 via-blue-600 to-indigo-600", particleColor: "#0ea5e9", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(14,165,233,0.25), transparent 70%)", badge: "Tech Hub", defaultTitle: "Inova\u00e7\u00e3o em tempo real", defaultCta: "Explorar", gradientColors: ["#06b6d4", "#2563eb", "#4f46e5"] },
+   171→   171→  food: { icon: UtensilsCrossed, label: "Food & Bebidas", gradient: "from-amber-500 via-orange-500 to-red-500", particleColor: "#f59e0b", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.25), transparent 70%)", badge: "Sabores & Jogos", defaultTitle: "Prova a tua sorte", defaultCta: "Degustar & Jogar", gradientColors: ["#d97706", "#f97316", "#ef4444"] },
+   172→   172→  beauty: { icon: Star, label: "Beleza", gradient: "from-rose-400 via-pink-500 to-fuchsia-500", particleColor: "#f472b6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,114,182,0.25), transparent 70%)", badge: "Beleza & Sorte", defaultTitle: "Brilha & Ganha", defaultCta: "Descobrir", gradientColors: ["#fb7185", "#ec4899", "#d946ef"] },
+   173→   173→  sports: { icon: Target, label: "Desporto", gradient: "from-green-500 via-emerald-600 to-teal-600", particleColor: "#10b981", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.25), transparent 70%)", badge: "Zona Desportiva", defaultTitle: "Compete em tempo real", defaultCta: "Entrar no Jogo", gradientColors: ["#22c55e", "#059669", "#0d9488"] },
+   174→   174→  casino: { icon: Crown, label: "Casino", gradient: "from-yellow-500 via-amber-500 to-orange-600", particleColor: "#eab308", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(234,179,8,0.3), transparent 70%)", badge: "Casino Premium", defaultTitle: "A sorte sorri-te", defaultCta: "Jogar Agora", gradientColors: ["#eab308", "#f59e0b", "#ea580c"] },
+   175→   175→  charity: { icon: Heart, label: "Solidariedade", gradient: "from-rose-500 via-pink-500 to-red-500", particleColor: "#f43f5e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,63,94,0.25), transparent 70%)", badge: "Causa Solid\u00e1ria", defaultTitle: "Joga por uma causa", defaultCta: "Apoiar Agora", gradientColors: ["#f43f5e", "#ec4899", "#ef4444"] },
+   176→   176→  other: { icon: Sparkles, label: "Personalizado", gradient: "from-slate-600 via-gray-500 to-zinc-600", particleColor: "#94a3b8", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(148,163,184,0.2), transparent 70%)", badge: "Experi\u00eancia \u00danica", defaultTitle: "Bem-vindo", defaultCta: "Explorar", gradientColors: ["#475569", "#64748b", "#71717a"] },
+   177→   177→};
+   178→   178→
+   179→   179→/* ─── Spring configs ──────────────────── */
+   180→   180→const springUp = { type: "spring" as const, stiffness: 180, damping: 22 };
+   181→   181→const springBounce = { type: "spring" as const, stiffness: 300, damping: 20 };
+   182→   182→
+   183→   183→/* ─── Animated Gradient Mesh ──────────────────── */
+   184→   184→const AnimatedGradientMesh = ({ colors }: { colors: string[] }) => {
+   185→   185→  const orbs = useMemo(() => [
+   186→   186→    { id: 1, x: 20, y: 20, size: 500, color: colors[0], duration: 12 },
+   187→   187→    { id: 2, x: 80, y: 30, size: 400, color: colors[1], duration: 15 },
+   188→   188→    { id: 3, x: 50, y: 80, size: 350, color: colors[2], duration: 18 },
+   189→   189→    { id: 4, x: 10, y: 60, size: 300, color: colors[0], duration: 20 },
+   190→   190→  ], [colors]);
+   191→   191→  return (
+   192→   192→    <div className="absolute inset-0 overflow-hidden">
+   193→   193→      {orbs.map((orb) => (
+   194→   194→        <motion.div
+   195→   195→          key={orb.id}
+   196→   196→          className="absolute rounded-full"
+   197→   197→          style={{
+   198→   198→            left: `${orb.x}%`, top: `${orb.y}%`, width: orb.size, height: orb.size,
+   199→   199→            background: `radial-gradient(circle, ${orb.color}40, ${orb.color}10, transparent 70%)`,
+   200→   200→            filter: "blur(40px)", transform: "translate(-50%, -50%)",
+   201→   201→          }}
+   202→   202→          animate={{ x: [0, 60, -40, 20, 0], y: [0, -50, 30, -20, 0], scale: [1, 1.2, 0.9, 1.1, 1] }}
+   203→   203→          transition={{ duration: orb.duration, repeat: Infinity, ease: "easeInOut" }}
+   204→   204→        />
+   205→   205→      ))}
+   206→   206→    </div>
+   207→   207→  );
+   208→   208→};
+   209→   209→
+   210→   210→/* ─── Floating Particles ────────────────────── */
+   211→   211→const FloatingParticles = ({ color, count = 30 }: { color: string; count?: number }) => {
+   212→   212→  const particles = useMemo(
+   213→   213→    () => Array.from({ length: count }, (_, i) => ({
+   214→   214→      id: i, x: Math.random() * 100, y: Math.random() * 100,
+   215→   215→      size: 2 + Math.random() * 4, duration: 6 + Math.random() * 8,
+   216→   216→      delay: Math.random() * 4, opacity: 0.15 + Math.random() * 0.35,
+   217→   217→    })),
+   218→   218→    [count],
+   219→   219→  );
+   220→   220→  return (
+   221→   221→    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+   222→   222→      {particles.map((p) => (
+   223→   223→        <motion.div key={p.id} className="absolute rounded-full"
+   224→   224→          style={{ left: `${p.x}%`, width: p.size, height: p.size, backgroundColor: color }}
+   225→   225→          animate={{ y: [0, -30, 0, 20, 0], x: [0, 10, -10, 5, 0], opacity: [p.opacity, p.opacity * 1.5, p.opacity * 0.5, p.opacity] }}
+   226→   226→          transition={{ duration: p.duration, repeat: Infinity, delay: p.delay, ease: "easeInOut" }}
+   227→   227→        />
+   228→   228→      ))}
+   229→   229→    </div>
+   230→   230→  );
+   231→   231→};
+   232→   232→
+   233→   233→/* ─── Enhanced Stat Card ──────────────────── */
+   234→   234→const EnhancedStatCard = ({ icon: Icon, label, value, sub, color, delay, suffix }: {
+   235→   235→  icon: any; label: string; value: number; sub?: string; color: string; delay: number; suffix?: string;
+   236→   236→}) => (
+   237→   237→  <motion.div
+   238→   238→    initial={{ y: 40, opacity: 0, scale: 0.85 }}
+   239→   239→    whileInView={{ y: 0, opacity: 1, scale: 1 }}
+   240→   240→    viewport={{ once: true }}
+   241→   241→    transition={{ ...springUp, delay }}
+   242→   242→    className="relative group"
+   243→   243→  >
+   244→   244→    <HolographicCard glowColor={color} intensity="low" className="relative border-border/40 bg-card/60 backdrop-blur-sm rounded-2xl overflow-hidden">
+   245→   245→      <div className="p-5 flex flex-col items-center text-center gap-2">
+   246→   246→        <motion.div
+   247→   247→          className="relative p-3 rounded-2xl"
+   248→   248→          style={{ backgroundColor: `${color}12` }}
+   249→   249→          whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+   250→   250→          transition={{ duration: 0.4 }}
+   251→   251→        >
+   252→   252→          <Icon className="h-6 w-6" style={{ color }} />
+   253→   253→          <motion.div
+   254→   254→            className="absolute inset-0 rounded-2xl"
+   255→   255→            style={{ backgroundColor: `${color}08` }}
+   256→   256→            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+   257→   257→            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+   258→   258→          />
+   259→   259→        </motion.div>
+   260→   260→        <div>
+   261→   261→          <p className="text-3xl font-black tabular-nums leading-none">
+   262→   262→            <AnimatedNumber value={value} duration={1.2} className="font-black" />
+   263→   263→            {suffix && <span className="text-lg ml-0.5 opacity-70">{suffix}</span>}
+   264→   264→          </p>
+   265→   265→          <p className="text-[11px] text-muted-foreground mt-1.5 font-semibold uppercase tracking-wider">{label}</p>
+   266→   266→          {sub && <p className="text-[10px] mt-0.5 opacity-50 font-medium">{sub}</p>}
+   267→   267→        </div>
+   268→   268→      </div>
+   269→   269→    </HolographicCard>
+   270→   270→  </motion.div>
+   271→   271→);
+   272→   272→
+   273→   273→/* ─── Testimonials Data ──────────────────── */
+   274→   274→const TESTIMONIALS = [
+   275→   275→  { name: "Ana S.", role: "Participante frequente", text: "Os jogos s\u00e3o super divertidos e os pr\u00e9mios s\u00e3o reais! Ganhei duas vezes j\u00e1.", rating: 5 },
+   276→   276→  { name: "Carlos M.", role: "Seguidor", text: "A melhor plataforma para quem gosta de se divertir e ganhar pr\u00e9mios. Recomendo!", rating: 5 },
+   277→   277→  { name: "Maria L.", role: "Vencedora de sorteio", text: "Nunca pensei que ia ganhar, mas recebi o meu pr\u00e9mio em menos de uma semana.", rating: 4 },
+   278→   278→];
+   279→   279→
+   280→   280→const TestimonialCard = ({ t, index, primary }: { t: typeof TESTIMONIALS[0]; index: number; primary: string }) => (
+   281→   281→  <motion.div
+   282→   282→    initial={{ y: 30, opacity: 0 }}
+   283→   283→    whileInView={{ y: 0, opacity: 1 }}
+   284→   284→    viewport={{ once: true }}
+   285→   285→    transition={{ ...springUp, delay: index * 0.1 }}
+   286→   286→  >
+   287→   287→    <HolographicCard glowColor={primary} intensity="low" className="rounded-2xl border-border/30 bg-card/50 backdrop-blur-sm">
+   288→   288→      <div className="p-6">
+   289→   289→        <div className="flex items-center gap-1 mb-3">
+   290→   290→          {Array.from({ length: 5 }).map((_, i) => (
+   291→   291→            <Star key={i} className={`h-4 w-4 ${i < t.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+   292→   292→          ))}
+   293→   293→        </div>
+   294→   294→        <Quote className="h-5 w-5 mb-2 opacity-20" style={{ color: primary }} />
+   295→   295→        <p className="text-sm text-muted-foreground leading-relaxed italic">&ldquo;{t.text}&rdquo;</p>
+   296→   296→        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/30">
+   297→   297→          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${primary}, ${primary}99)` }}>
+   298→   298→            {t.name.charAt(0)}
+   299→   299→          </div>
+   300→   300→          <div>
+   301→   301→            <p className="font-bold text-sm">{t.name}</p>
+   302→   302→            <p className="text-[11px] text-muted-foreground">{t.role}</p>
+   303→   303→          </div>
+   304→   304→        </div>
+   305→   305→      </div>
+   306→   306→    </HolographicCard>
+   307→   307→  </motion.div>
+   308→   308→);
+   309→   309→
+   310→   310→/* ─── Game Type Icon (no emoji) ─────────────────── */
+   311→   311→const GameTypeIcon = ({ type }: { type: string }) => {
+   312→   312→  switch (type) {
+   313→   313→    case "wheel": return <Sparkles className="h-6 w-6" />;
+   314→   314→    case "millionaire": return <Trophy className="h-6 w-6" />;
+   315→   315→    default: return <Target className="h-6 w-6" />;
+   316→   316→  }
+   317→   317→};
+   318→   318→
+   319→   319→const GameTypeLabel = ({ type }: { type: string }) => {
+   320→   320→  switch (type) {
+   321→   321→    case "wheel": return <span>Roda de Pr\u00e9mios</span>;
+   322→   322→    case "millionaire": return <span>Quem Quer Ser Milion\u00e1rio</span>;
+   323→   323→    default: return <span>Roleta de Desafios</span>;
+   324→   324→  }
+   325→   325→};
+   326→   326→
+   327→   327→/* ═══════════════════════════════════════════════════════
+   328→   328→   MAIN COMPONENT
+   329→   329→   ═══════════════════════════════════════════════════════ */
+   330→   330→const sb: any = supabase;
+   331→   331→
+   332→   332→const SOCIAL_ICONS: Record<string, any> = {
+   333→   333→  instagram: Instagram, facebook: Facebook, youtube: Youtube, tiktok: Play, twitter: Twitter, x: Twitter, whatsapp: Phone, website: Globe,
+   334→   334→};
+   335→   335→
+   336→   336→const isUuid = (v: string) =>
+   337→   337→  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+   338→   338→
+   339→   339→const CompanyPublicProfile = () => {
+   340→   340→  const { id } = useParams<{ id: string }>();
+   341→   341→  const navigate = useNavigate();
+   342→   342→  const location = useLocation();
+   343→   343→  const { toast } = useToast();
+   344→   344→  const { formatMoney } = useCurrency();
+   345→   345→  const [company, setCompany] = useState<CompanyInfo | null>(null);
+   346→   346→  const [branding, setBranding] = useState<CompanyBranding | null>(null);
+   347→   347→  const [games, setGames] = useState<GameItem[]>([]);
+   348→   348→  const [sessions, setSessions] = useState<LiveSession[]>([]);
+   349→   349→  const [raffles, setRaffles] = useState<Raffle[]>([]);
+   350→   350→  const [contests, setContests] = useState<Contest[]>([]);
+   351→   351→  const [winners, setWinners] = useState<RaffleWinner[]>([]);
+   352→   352→  const [products, setProducts] = useState<PrestacaoProduct[]>([]);
+   353→   353→  const [rankings, setRankings] = useState<ContestRanking[]>([]);
+   354→   354→  const [resolvedId, setResolvedId] = useState<string | null>(null);
+   355→   355→  const [loading, setLoading] = useState(true);
+   356→   356→  const [copied, setCopied] = useState(false);
+   357→   357→  const [playerName, setPlayerName] = useState("");
+   358→   358→  const [hasJoined, setHasJoined] = useState(false);
+   359→   359→  const [activeTab, setActiveTab] = useState("games");
+   360→   360→  const [liked, setLiked] = useState(false);
+   361→   361→  const heroRef = useRef<HTMLDivElement>(null);
+   362→   362→  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+   363→   363→  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+   364→   364→  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.92]);
+   365→   365→
+   366→   366→  /* ─── Data Loading ──────────────────── */
+   367→   367→  useEffect(() => {
+   368→   368→    if (!id) return;
+   369→   369→    const load = async () => {
+   370→   370→      setLoading(true);
+   371→   371→      try {
+   372→   372→        let bizId = id;
+   373→   373→        if (!isUuid(id)) {
+   374→   374→          const { data: bySlug } = await sb.from("profiles_public").select("user_id").eq("slug", id).maybeSingle();
+   375→   375→          if (!bySlug) { setCompany(null); setLoading(false); return; }
+   376→   376→          bizId = bySlug.user_id;
+   377→   377→        }
+   378→   378→        setResolvedId(bizId);
+   379→   379→
+   380→   380→        const [profileRes, brandRes, wheelsRes, milsRes, roulettesRes, livesRes, rafflesRes, contestsRes, productsRes] = await Promise.all([
+   381→   381→          sb.from("profiles_public").select("*").eq("user_id", bizId).single(),
+   382→   382→          sb.from("company_branding").select("*").eq("user_id", bizId).single(),
+   383→   383→          sb.from("spin_wheel_games").select("*").eq("business_user_id", bizId).order("created_at", { ascending: false }),
+   384→   384→          sb.from("millionaire_games").select("*").eq("business_user_id", bizId).order("created_at", { ascending: false }),
+   385→   385→          sb.from("challenge_roulettes").select("id, title, is_published, created_at").eq("business_user_id", bizId).order("created_at", { ascending: false }).limit(20),
+   386→   386→          sb.from("scheduled_lives").select("*").eq("business_user_id", bizId).neq("status", "draft").order("scheduled_at", { ascending: false }).limit(20),
+   387→   387→          sb.from("raffles").select("*").eq("business_user_id", bizId).in("status", ["active", "completed", "drawn"]).order("created_at", { ascending: false }),
+   388→   388→          sb.from("contests").select("*").eq("created_by", bizId).in("status", ["active", "voting", "completed"]).order("created_at", { ascending: false }),
+   389→   389→          sb.from("prestacao_products").select("*").eq("business_user_id", bizId).eq("status", "active").order("created_at", { ascending: false }),
+   390→   390→        ]);
+   391→   391→        if (profileRes.data) {
+   392→   392→          const p = profileRes.data;
+   393→   393→          setCompany({ user_id: p.user_id, display_name: p.display_name, company_name: p.company_name, avatar_url: p.avatar_url, is_verified: p.is_verified, city: p.city, province: p.province, created_at: p.created_at, phone: p.phone });
+   394→   394→        }
+   395→   395→        if (brandRes.data) setBranding(brandRes.data as any);
+   396→   396→        const allGames: GameItem[] = [];
+   397→   397→        (wheelsRes.data || []).forEach((w: any) => allGames.push({ id: w.id, name: w.name, type: "wheel", is_published: w.is_published, segment_count: w.segment_count, created_at: w.created_at, is_active: w.is_active }));
+   398→   398→        (milsRes.data || []).forEach((m: any) => allGames.push({ id: m.id, name: m.name || "Quem Quer Ser Milion\u00e1rio", type: "millionaire", is_published: m.is_active, created_at: m.created_at, is_active: m.is_active }));
+   399→   399→        (roulettesRes.data || []).forEach((r: any) => allGames.push({ id: r.id, name: r.title || "Roleta de Desafios", type: "custom", is_published: r.is_published, created_at: r.created_at }));
+   400→   400→        setGames(allGames);
+   401→   401→        setProducts((productsRes.data as PrestacaoProduct[]) || []);
+   402→   402→        if (livesRes.data) {
+   403→   403→          setSessions((livesRes.data || []).map((l: any) => ({ code: l.slug || l.id, title: l.title, started_at: new Date(l.scheduled_at).getTime(), ended_at: l.ends_at ? new Date(l.ends_at).getTime() : Date.now(), duration_sec: l.ends_at ? Math.round((new Date(l.ends_at).getTime() - new Date(l.scheduled_at).getTime()) / 1000) : 0, players_count: 0, games_count: 0, winners: [] })));
+   404→   404→        }
+   405→   405→        setRaffles((rafflesRes.data as Raffle[]) || []);
+   406→   406→        setContests((contestsRes.data as Contest[]) || []);
+   407→   407→
+   408→   408→        const rafflesData = (rafflesRes.data as Raffle[]) || [];
+   409→   409→        const contestsData = (contestsRes.data as Contest[]) || [];
+   410→   410→        const finishedIds = rafflesData.filter(r => r.status === "completed" || r.status === "drawn").map(r => r.id);
+   411→   411→        if (finishedIds.length > 0) {
+   412→   412→          const { data: winnerRows } = await sb.from("participants").select("raffle_id, ticket_number, user_id").in("raffle_id", finishedIds).eq("status", "winner");
+   413→   413→          if (winnerRows && winnerRows.length > 0) {
+   414→   414→            const raffleMap = new Map(rafflesData.map((r: any) => [r.id, r]));
+   415→   415→            const userIds = [...new Set(winnerRows.map((w: any) => w.user_id))];
+   416→   416→            const { data: profs } = await sb.from("profiles_public").select("user_id, display_name").in("user_id", userIds);
+   417→   417→            const profMap = new Map((profs || []).map((p: any) => [p.user_id, p.display_name]));
+   418→   418→            setWinners(winnerRows.map((w: any) => {
+   419→   419→              const r = raffleMap.get(w.raffle_id);
+   420→   420→              return { raffle_title: r?.title || "Sorteio", prize_title: r?.prize_title || "Pr\u00e9mio", display_name: profMap.get(w.user_id) || null, slug: r?.slug || null };
+   421→   421→            }));
+   422→   422→          }
+   423→   423→        }
+   424→   424→
+   425→   425→        const liveContests = contestsData.filter(c => c.status === "active" || c.status === "voting");
+   426→   426→        if (liveContests.length > 0) {
+   427→   427→          const rankResults: ContestRanking[] = [];
+   428→   428→          await Promise.all(liveContests.map(async (c) => {
+   429→   429→            const orderCol = c.evaluation_type === "views" ? "views_count" : "votes_count";
+   430→   430→            const { data } = await sb.from("contest_submissions").select("id, participant_name, photo_url, votes_count, views_count").eq("contest_id", c.id).eq("status", "approved").order(orderCol, { ascending: false }).limit(3);
+   431→   431→            rankResults.push({
+   432→   432→              contest_id: c.id, contest_title: c.title, evaluation_type: c.evaluation_type, status: c.status,
+   433→   433→              top: (data || []).map((s: any) => ({ submission_id: s.id, name: s.participant_name, photo_url: s.photo_url, score: c.evaluation_type === "views" ? s.views_count : s.votes_count })),
+   434→   434→            });
+   435→   435→          }));
+   436→   436→          setRankings(rankResults.filter(r => r.top.length > 0));
+   437→   437→        }
+   438→   438→      } catch (e) { console.error(e); }
+   439→   439→      setLoading(false);
+   440→   440→    };
+   441→   441→    load();
+   442→   442→  }, [id]);
+   443→   443→
+   444→   444→  /* ─── Player Join ──────────────────── */
+   445→   445→  const joinGame = useCallback(() => {
+   446→   446→    if (!playerName.trim()) return;
+   447→   447→    setHasJoined(true);
+   448→   448→    try {
+   449→   449→      const key = `companyPlayer:${id}`;
+   450→   450→      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+   451→   451→      if (!existing.includes(playerName.trim())) { existing.push(playerName.trim()); localStorage.setItem(key, JSON.stringify(existing)); }
+   452→   452→      toast({ title: `Bem-vindo, ${playerName.trim()}!`, description: "Agora podes participar nos jogos desta empresa." });
+   453→   453→    } catch {}
+   454→   454→  }, [playerName, id, toast]);
+   455→   455→
+   456→   456→  useEffect(() => {
+   457→   457→    if (!id) return;
+   458→   458→    try {
+   459→   459→      const key = `companyPlayer:${id}`;
+   460→   460→      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+   461→   461→      if (existing.length > 0) { setPlayerName(existing[0]); setHasJoined(true); }
+   462→   462→    } catch {}
+   463→   463→  }, [id]);
+   464→   464→
+   465→   465→  const copyLink = async () => { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+   466→   466→
+   467→   467→  /* ─── Derived Values ──────────────────── */
+   468→   468→  const primary = branding?.primary_color || "#fbbf24";
+   469→   469→  const secondary = branding?.secondary_color || "#3b82f6";
+   470→   470→  const accent = branding?.accent_color || "#8b5cf6";
+   471→   471→  const bgColor = branding?.background_color || undefined;
+   472→   472→  const companyName = company?.company_name || company?.display_name || "Empresa";
+   473→   473→  const nicheKey = branding?.niche || "entertainment";
+   474→   474→  const niche = NICHE_META[nicheKey] || NICHE_META.entertainment;
+   475→   475→  const NicheIcon = niche.icon;
+   476→   476→  const totalGames = games.length;
+   477→   477→  const publishedGames = games.filter((g) => g.is_published || g.is_active).length;
+   478→   478→  const totalLives = sessions.length;
+   479→   479→  const totalRaffles = raffles.length;
+   480→   480→  const totalWinners = winners.length;
+   481→   481→  const totalContests = contests.length;
+   482→   482→  const activeRaffles = raffles.filter(r => r.status === "active").length;
+   483→   483→  const totalSold = raffles.reduce((acc, r) => acc + (r.sold_tickets || 0), 0);
+   484→   484→  const heroTitle = branding?.hero_title || niche.defaultTitle;
+   485→   485→  const heroSubtitle = branding?.hero_subtitle || branding?.company_slogan || `Descobre os jogos e lives de ${companyName}`;
+   486→   486→  const ctaText = branding?.hero_cta_text || niche.defaultCta;
+   487→   487→  const ctaLink = branding?.hero_cta_link || "/lives";
+   488→   488→  const aboutText = branding?.about_text || null;
+   489→   489→  const socialLinks = branding?.social_links || {};
+   490→   490→  const layout = branding?.homepage_layout || "showcase";
+   491→   491→  const ogImage = branding?.company_logo_url || company?.avatar_url || undefined;
+   492→   492→
+   493→   493→  useSEO({
+   494→   494→    title: `${companyName} \u2014 Jogos, Lives e Sorteios | Bateu`,
+   495→   495→    description: branding?.about_text
+   496→   496→      ? branding.about_text.slice(0, 160)
+   497→   497→      : `Descobre os jogos interativos, sorteios, lives e pr\u00e9mios de ${companyName} na Bateu. Entra e participa!`,
+   498→   498→    canonicalPath: location.pathname,
+   499→   499→    ogType: "profile",
+   500→   500→    ogImage,
+
+[showing lines 1-500 of 1183; use offset=501 with limit to continue reading]

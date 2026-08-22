@@ -1,0 +1,930 @@
+     1→import { useState, useCallback, useEffect, useRef } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { RotateCcw, Coins } from "lucide-react";
+     4→import { Button } from "@/components/ui/button";
+     5→import { Badge } from "@/components/ui/badge";
+     6→import { cn } from "@/lib/utils";
+     7→
+     8→interface Props {
+     9→  onScore?: (name: string, score: number) => void;
+    10→  liveCode?: string;
+    11→}
+    12→
+    13→interface Star {
+    14→  x: number;
+    15→  y: number;
+    16→  speed: number;
+    17→  size: number;
+    18→  brightness: number;
+    19→}
+    20→
+    21→interface Bullet {
+    22→  x: number;
+    23→  y: number;
+    24→  speed: number;
+    25→  owner: 1 | 2;
+    26→}
+    27→
+    28→interface Enemy {
+    29→  x: number;
+    30→  y: number;
+    31→  speed: number;
+    32→  size: number;
+    33→  type: "triangle" | "diamond";
+    34→  color: string;
+    35→  hp: number;
+    36→  bonus: boolean;
+    37→  rotation: number;
+    38→  rotSpeed: number;
+    39→  wobble: number;
+    40→  wobbleSpeed: number;
+    41→}
+    42→
+    43→interface Particle {
+    44→  x: number;
+    45→  y: number;
+    46→  vx: number;
+    47→  vy: number;
+    48→  life: number;
+    49→  maxLife: number;
+    50→  color: string;
+    51→  size: number;
+    52→}
+    53→
+    54→interface PlayerState {
+    55→  x: number;
+    56→  y: number;
+    57→  score: number;
+    58→  lives: number;
+    59→  color: string;
+    60→  bulletColor: string;
+    61→  shootCooldown: number;
+    62→  invincible: number;
+    63→  name: string;
+    64→}
+    65→
+    66→const CANVAS_W = 600;
+    67→const CANVAS_H = 500;
+    68→const SHIP_SIZE = 18;
+    69→const BULLET_SPEED = 7;
+    70→const BULLET_COOLDOWN = 12;
+    71→const PLAYER_SPEED = 5;
+    72→const STAR_COUNT = 120;
+    73→const INITIAL_ENEMY_INTERVAL = 60;
+    74→const MIN_ENEMY_INTERVAL = 15;
+    75→const INITIAL_ENEMY_SPEED = 1.5;
+    76→const MAX_ENEMY_SPEED = 4.5;
+    77→const BONUS_CHANCE = 0.08;
+    78→const WAVE_DURATION = 900;
+    79→const POINTS_NORMAL = 10;
+    80→const POINTS_BONUS = 30;
+    81→
+    82→const createStars = (): Star[] =>
+    83→  Array.from({ length: STAR_COUNT }, () => ({
+    84→    x: Math.random() * CANVAS_W,
+    85→    y: Math.random() * CANVAS_H,
+    86→    speed: 0.2 + Math.random() * 1.2,
+    87→    size: 0.5 + Math.random() * 1.8,
+    88→    brightness: 0.3 + Math.random() * 0.7,
+    89→  }));
+    90→
+    91→interface FloatingText {
+    92→  x: number; y: number; text: string; color: string; life: number; maxLife: number; vy: number; }
+    93→
+    94→const createExplosion = (x: number, y: number, color: string, isBonus: boolean = false): Particle[] => {
+    95→  const count = isBonus ? 30 : 14;
+    96→  return Array.from({ length: count }, () => {
+    97→    const angle = Math.random() * Math.PI * 2;
+    98→    const speed = (isBonus ? 2 : 1) + Math.random() * (isBonus ? 5 : 3.5);
+    99→    return {
+   100→      x, y,
+   101→      vx: Math.cos(angle) * speed,
+   102→      vy: Math.sin(angle) * speed,
+   103→      life: (isBonus ? 30 : 20) + Math.random() * 20,
+   104→      maxLife: isBonus ? 50 : 40,
+   105→      color: isBonus ? (Math.random() < 0.5 ? '#fbbf24' : '#fef08a') : color,
+   106→      size: (isBonus ? 2 : 1.5) + Math.random() * (isBonus ? 4 : 2.5),
+   107→    };
+   108→  });
+   109→};
+   110→
+   111→const createScoreText = (x: number, y: number, points: number, isBonus: boolean): FloatingText => ({
+   112→  x, y, text: `+${points}`, color: isBonus ? '#fbbf24' : '#ffffff', life: 40, maxLife: 40, vy: -1.5,
+   113→});
+   114→
+   115→interface GameState {
+   116→  players: PlayerState[];
+   117→  bullets: Bullet[];
+   118→  enemies: Enemy[];
+   119→  particles: Particle[];
+   120→  floatingTexts: FloatingText[];
+   121→  stars: Star[];
+   122→  keys: Set<string>;
+   123→  frame: number;
+   124→  wave: number;
+   125→  waveFrame: number;
+   126→  running: boolean;
+   127→  screenFlash: number;
+   128→  killStreaks: [number, number];
+   129→  animId: number;
+   130→}
+   131→
+   132→const SpaceShooter = ({ onScore, liveCode }: Props) => {
+   133→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   134→  const gameRef = useRef<GameState | null>(null);
+   135→  const touchRef = useRef<Record<string, boolean>>({});
+   136→
+   137→  const [gameStatus, setGameStatus] = useState<"idle" | "playing" | "over">("idle");
+   138→  const [scores, setScores] = useState({ p1: 0, p2: 0 });
+   139→  const [lives, setLives] = useState({ p1: 3, p2: 3 });
+   140→  const [wave, setWave] = useState(1);
+   141→  const [winner, setWinner] = useState<string | null>(null);
+   142→  const [forceTick, setForceTick] = useState(0);
+   143→
+   144→  const triggerUI = () => setForceTick((t) => t + 1);
+   145→
+   146→  const endGame = useCallback(
+   147→    (p1Score: number, p2Score: number) => {
+   148→      setGameStatus("over");
+   149→      setScores({ p1: p1Score, p2: p2Score });
+   150→      const w = p1Score > p2Score ? "Jogador 1" : p2Score > p1Score ? "Jogador 2" : null;
+   151→      setWinner(w);
+   152→      onScore?.("Jogador 1", p1Score);
+   153→      onScore?.("Jogador 2", p2Score);
+   154→    },
+   155→    [onScore]
+   156→  );
+   157→
+   158→  const spawnEnemy = useCallback((g: GameState) => {
+   159→    const waveMultiplier = 1 + (g.wave - 1) * 0.15;
+   160→    const speed = Math.min(INITIAL_ENEMY_SPEED * waveMultiplier + Math.random() * 0.8, MAX_ENEMY_SPEED);
+   161→    const isBonus = Math.random() < BONUS_CHANCE + g.wave * 0.005;
+   162→    const type = Math.random() < 0.5 ? ("triangle" as const) : ("diamond" as const);
+   163→
+   164→    g.enemies.push({
+   165→      x: 30 + Math.random() * (CANVAS_W - 60),
+   166→      y: -20,
+   167→      speed,
+   168→      size: isBonus ? 16 : 12 + Math.random() * 6,
+   169→      type,
+   170→      color: isBonus ? "#fbbf24" : Math.random() < 0.5 ? "#ef4444" : "#f97316",
+   171→      hp: 1,
+   172→      bonus: isBonus,
+   173→      rotation: 0,
+   174→      rotSpeed: (Math.random() - 0.5) * 0.06,
+   175→      wobble: Math.random() * Math.PI * 2,
+   176→      wobbleSpeed: 0.02 + Math.random() * 0.03,
+   177→    });
+   178→  }, []);
+   179→
+   180→  const gameLoop = useCallback(
+   181→    (g: GameState) => {
+   182→      const canvas = canvasRef.current;
+   183→      if (!canvas || !g.running) return;
+   184→      const ctx = canvas.getContext("2d");
+   185→      if (!ctx) return;
+   186→
+   187→      g.frame++;
+   188→      g.waveFrame++;
+   189→
+   190→      if (g.waveFrame >= WAVE_DURATION) {
+   191→        g.wave++;
+   192→        g.waveFrame = 0;
+   193→        setWave(g.wave);
+   194→      }
+   195→
+   196→      const spawnInterval = Math.max(MIN_ENEMY_INTERVAL, INITIAL_ENEMY_INTERVAL - (g.wave - 1) * 5);
+   197→      if (g.frame % Math.round(spawnInterval) === 0) {
+   198→        const count = g.wave >= 5 ? 2 : 1;
+   199→        for (let i = 0; i < count; i++) spawnEnemy(g);
+   200→      }
+   201→
+   202→      const keys = new Set(g.keys);
+   203→      for (const [k, v] of Object.entries(touchRef.current)) {
+   204→        if (v) keys.add(k);
+   205→      }
+   206→
+   207→      const p1 = g.players[0];
+   208→      const p2 = g.players[1];
+   209→
+   210→      if (keys.has("a") || keys.has("A")) p1.x = Math.max(SHIP_SIZE, p1.x - PLAYER_SPEED);
+   211→      if (keys.has("d") || keys.has("D")) p1.x = Math.min(CANVAS_W - SHIP_SIZE, p1.x + PLAYER_SPEED);
+   212→      if (p1.shootCooldown > 0) p1.shootCooldown--;
+   213→      if (
+   214→        (keys.has("w") || keys.has("W") || keys.has("p1shoot")) &&
+   215→        p1.shootCooldown <= 0 &&
+   216→        p1.lives > 0
+   217→      ) {
+   218→        g.bullets.push({ x: p1.x, y: p1.y - SHIP_SIZE, speed: BULLET_SPEED, owner: 1 });
+   219→        p1.shootCooldown = BULLET_COOLDOWN;
+   220→      }
+   221→      if (p1.invincible > 0) p1.invincible--;
+   222→
+   223→      if (keys.has("ArrowLeft")) p2.x = Math.max(SHIP_SIZE, p2.x - PLAYER_SPEED);
+   224→      if (keys.has("ArrowRight")) p2.x = Math.min(CANVAS_W - SHIP_SIZE, p2.x + PLAYER_SPEED);
+   225→      if (p2.shootCooldown > 0) p2.shootCooldown--;
+   226→      if (
+   227→        (keys.has("ArrowUp") || keys.has("p2shoot")) &&
+   228→        p2.shootCooldown <= 0 &&
+   229→        p2.lives > 0
+   230→      ) {
+   231→        g.bullets.push({ x: p2.x, y: p2.y - SHIP_SIZE, speed: BULLET_SPEED, owner: 2 });
+   232→        p2.shootCooldown = BULLET_COOLDOWN;
+   233→      }
+   234→      if (p2.invincible > 0) p2.invincible--;
+   235→
+   236→      g.bullets = g.bullets.filter((b) => {
+   237→        b.y -= b.speed;
+   238→        return b.y > -10;
+   239→      });
+   240→
+   241→      g.enemies = g.enemies.filter((e) => {
+   242→        e.y += e.speed;
+   243→        e.rotation += e.rotSpeed;
+   244→        e.wobble += e.wobbleSpeed;
+   245→        e.x += Math.sin(e.wobble) * 0.5;
+   246→        e.x = Math.max(e.size, Math.min(CANVAS_W - e.size, e.x));
+   247→
+   248→        if (e.y > CANVAS_H + 10) {
+   249→          const midX = CANVAS_W / 2;
+   250→          if (e.x < midX) {
+   251→            if (p1.lives > 0 && p1.invincible <= 0) {
+   252→              p1.lives--;
+   253→              p1.invincible = 60;
+   254→              setLives({ p1: p1.lives, p2: p2.lives });
+   255→            }
+   256→          } else {
+   257→            if (p2.lives > 0 && p2.invincible <= 0) {
+   258→              p2.lives--;
+   259→              p2.invincible = 60;
+   260→              setLives({ p1: p1.lives, p2: p2.lives });
+   261→            }
+   262→          }
+   263→          return false;
+   264→        }
+   265→        return true;
+   266→      });
+   267→
+   268→      const bulletsToRemove = new Set<number>();
+   269→      const enemiesToRemove = new Set<number>();
+   270→      let scoreChanged = false;
+   271→
+   272→      for (let bi = 0; bi < g.bullets.length; bi++) {
+   273→        const b = g.bullets[bi];
+   274→        for (let ei = 0; ei < g.enemies.length; ei++) {
+   275→          if (enemiesToRemove.has(ei)) continue;
+   276→          const e = g.enemies[ei];
+   277→          const dx = b.x - e.x;
+   278→          const dy = b.y - e.y;
+   279→          const dist = Math.sqrt(dx * dx + dy * dy);
+   280→          if (dist < e.size + 4) {
+   281→            e.hp--;
+   282→            bulletsToRemove.add(bi);
+   283→            if (e.hp <= 0) {
+   284→              enemiesToRemove.add(ei);
+   285→              const isBonus = e.bonus;
+   286→              const pts = isBonus ? POINTS_BONUS : POINTS_NORMAL;
+   287→              const streakIdx = b.owner === 1 ? 0 : 1;
+   288→              g.killStreaks[streakIdx]++;
+   289→              const streak = g.killStreaks[streakIdx];
+   290→              const streakBonus = streak >= 10 ? 3 : streak >= 5 ? 2 : 0;
+   291→              const totalPts = pts + streakBonus * 5;
+   292→              if (b.owner === 1) p1.score += totalPts;
+   293→              else p2.score += totalPts;
+   294→              g.particles.push(...createExplosion(e.x, e.y, e.color, isBonus));
+   295→              g.floatingTexts.push(createScoreText(e.x, e.y - 10, totalPts, isBonus));
+   296→              if (isBonus) g.screenFlash = 8;
+   297→              scoreChanged = true;
+   298→            }
+   299→            break;
+   300→          }
+   301→        }
+   302→      }
+   303→
+   304→      if (scoreChanged) {
+   305→        setScores({ p1: p1.score, p2: p2.score });
+   306→      }
+   307→
+   308→      g.bullets = g.bullets.filter((_, i) => !bulletsToRemove.has(i));
+   309→      g.enemies = g.enemies.filter((_, i) => !enemiesToRemove.has(i));
+   310→
+   311→      g.particles = g.particles.filter((p) => {
+   312→        p.x += p.vx;
+   313→        p.y += p.vy;
+   314→        p.vy += 0.05;
+   315→        p.vx *= 0.98;
+   316→        p.life--;
+   317→        return p.life > 0;
+   318→      });
+   319→
+   320→      g.floatingTexts = g.floatingTexts.filter((ft) => {
+   321→        ft.y += ft.vy;
+   322→        ft.life--;
+   323→        return ft.life > 0;
+   324→      });
+   325→
+   326→      if (g.screenFlash > 0) g.screenFlash--;
+   327→
+   328→      g.stars.forEach((s) => {
+   329→        s.y += s.speed;
+   330→        if (s.y > CANVAS_H) {
+   331→          s.y = 0;
+   332→          s.x = Math.random() * CANVAS_W;
+   333→        }
+   334→      });
+   335→
+   336→      if (p1.lives <= 0 && p2.lives <= 0) {
+   337→        g.running = false;
+   338→        endGame(p1.score, p2.score);
+   339→        return;
+   340→      }
+   341→
+   342→      ctx.fillStyle = "#05080f";
+   343→      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+   344→
+   345→      // Screen flash
+   346→      if (g.screenFlash > 0) {
+   347→        ctx.fillStyle = `rgba(251, 191, 36, ${g.screenFlash * 0.03})`;
+   348→        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+   349→      }
+   350→
+   351→      g.stars.forEach((s) => {
+   352→        const twinkle = 0.6 + 0.4 * Math.sin(g.frame * 0.03 + s.x);
+   353→        const alpha = s.brightness * twinkle;
+   354→        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+   355→        ctx.beginPath();
+   356→        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+   357→        ctx.fill();
+   358→      });
+   359→
+   360→      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+   361→      ctx.setLineDash([4, 8]);
+   362→      ctx.beginPath();
+   363→      ctx.moveTo(CANVAS_W / 2, 0);
+   364→      ctx.lineTo(CANVAS_W / 2, CANVAS_H);
+   365→      ctx.stroke();
+   366→      ctx.setLineDash([]);
+   367→
+   368→      g.enemies.forEach((e) => {
+   369→        ctx.save();
+   370→        ctx.translate(e.x, e.y);
+   371→        ctx.rotate(e.rotation);
+   372→
+   373→        if (e.bonus) {
+   374→          const glowSize = e.size + 6 + Math.sin(g.frame * 0.1) * 3;
+   375→          const glow = ctx.createRadialGradient(0, 0, e.size * 0.3, 0, 0, glowSize);
+   376→          glow.addColorStop(0, "rgba(251, 191, 36, 0.4)");
+   377→          glow.addColorStop(1, "rgba(251, 191, 36, 0)");
+   378→          ctx.fillStyle = glow;
+   379→          ctx.beginPath();
+   380→          ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+   381→          ctx.fill();
+   382→
+   383→          const sparkleAngle = g.frame * 0.15;
+   384→          for (let i = 0; i < 4; i++) {
+   385→            const a = sparkleAngle + (i * Math.PI) / 2;
+   386→            const sx = Math.cos(a) * (e.size + 8);
+   387→            const sy = Math.sin(a) * (e.size + 8);
+   388→            ctx.fillStyle = "rgba(255, 255, 200, 0.8)";
+   389→            ctx.beginPath();
+   390→            ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+   391→            ctx.fill();
+   392→          }
+   393→        }
+   394→
+   395→        ctx.fillStyle = e.color;
+   396→        ctx.strokeStyle = e.bonus ? "#fef08a" : "#fca5a5";
+   397→        ctx.lineWidth = 1.5;
+   398→
+   399→        if (e.type === "triangle") {
+   400→          ctx.beginPath();
+   401→          ctx.moveTo(0, -e.size);
+   402→          ctx.lineTo(-e.size * 0.8, e.size * 0.7);
+   403→          ctx.lineTo(e.size * 0.8, e.size * 0.7);
+   404→          ctx.closePath();
+   405→          ctx.fill();
+   406→          ctx.stroke();
+   407→        } else {
+   408→          ctx.beginPath();
+   409→          ctx.moveTo(0, -e.size);
+   410→          ctx.lineTo(e.size * 0.7, 0);
+   411→          ctx.lineTo(0, e.size);
+   412→          ctx.lineTo(-e.size * 0.7, 0);
+   413→          ctx.closePath();
+   414→          ctx.fill();
+   415→          ctx.stroke();
+   416→        }
+   417→
+   418→        ctx.restore();
+   419→      });
+   420→
+   421→      g.bullets.forEach((b) => {
+   422→        const player = b.owner === 1 ? p1 : p2;
+   423→        const bGlow = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6);
+   424→        bGlow.addColorStop(0, player.bulletColor);
+   425→        bGlow.addColorStop(1, "rgba(0,0,0,0)");
+   426→        ctx.fillStyle = bGlow;
+   427→        ctx.beginPath();
+   428→        ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+   429→        ctx.fill();
+   430→
+   431→        ctx.fillStyle = "#fff";
+   432→        ctx.beginPath();
+   433→        ctx.arc(b.x, b.y, 2, 0, Math.PI * 2);
+   434→        ctx.fill();
+   435→
+   436→        ctx.fillStyle = player.bulletColor;
+   437→        ctx.globalAlpha = 0.3;
+   438→        ctx.beginPath();
+   439→        ctx.arc(b.x, b.y + 4, 1.5, 0, Math.PI * 2);
+   440→        ctx.fill();
+   441→        ctx.globalAlpha = 1;
+   442→      });
+   443→
+   444→      const drawShip = (p: PlayerState) => {
+   445→        if (p.lives <= 0) return;
+   446→        if (p.invincible > 0 && Math.floor(p.invincible / 4) % 2 === 0) return;
+   447→
+   448→        ctx.save();
+   449→        ctx.translate(p.x, p.y);
+   450→
+   451→        const engineGlow = ctx.createRadialGradient(0, SHIP_SIZE * 0.6, 0, 0, SHIP_SIZE * 0.6, SHIP_SIZE);
+   452→        engineGlow.addColorStop(0, p.color + "60");
+   453→        engineGlow.addColorStop(1, "rgba(0,0,0,0)");
+   454→        ctx.fillStyle = engineGlow;
+   455→        ctx.beginPath();
+   456→        ctx.arc(0, SHIP_SIZE * 0.6, SHIP_SIZE, 0, Math.PI * 2);
+   457→        ctx.fill();
+   458→
+   459→        const flameH = 8 + Math.sin(g.frame * 0.4) * 4;
+   460→        ctx.fillStyle = p.color;
+   461→        ctx.globalAlpha = 0.6;
+   462→        ctx.beginPath();
+   463→        ctx.moveTo(-5, SHIP_SIZE * 0.4);
+   464→        ctx.lineTo(0, SHIP_SIZE * 0.4 + flameH);
+   465→        ctx.lineTo(5, SHIP_SIZE * 0.4);
+   466→        ctx.closePath();
+   467→        ctx.fill();
+   468→        ctx.globalAlpha = 1;
+   469→
+   470→        ctx.fillStyle = p.color;
+   471→        ctx.strokeStyle = "#fff";
+   472→        ctx.lineWidth = 1;
+   473→        ctx.beginPath();
+   474→        ctx.moveTo(0, -SHIP_SIZE);
+   475→        ctx.lineTo(-SHIP_SIZE * 0.8, SHIP_SIZE * 0.5);
+   476→        ctx.lineTo(-SHIP_SIZE * 0.3, SHIP_SIZE * 0.3);
+   477→        ctx.lineTo(0, SHIP_SIZE * 0.45);
+   478→        ctx.lineTo(SHIP_SIZE * 0.3, SHIP_SIZE * 0.3);
+   479→        ctx.lineTo(SHIP_SIZE * 0.8, SHIP_SIZE * 0.5);
+   480→        ctx.closePath();
+   481→        ctx.fill();
+   482→        ctx.stroke();
+   483→
+   484→        ctx.fillStyle = "rgba(255,255,255,0.5)";
+   485→        ctx.beginPath();
+   486→        ctx.arc(0, -SHIP_SIZE * 0.15, 3, 0, Math.PI * 2);
+   487→        ctx.fill();
+   488→
+   489→        ctx.restore();
+   490→      };
+   491→
+   492→      drawShip(p1);
+   493→      drawShip(p2);
+   494→
+   495→      g.particles.forEach((pt) => {
+   496→        const alpha = pt.life / pt.maxLife;
+   497→        ctx.globalAlpha = alpha;
+   498→        ctx.fillStyle = pt.color;
+   499→        ctx.beginPath();
+   500→        ctx.arc(pt.x, pt.y, pt.size * alpha, 0, Math.PI * 2);
+   501→        ctx.fill();
+   502→        // Glow for larger particles
+   503→        if (pt.size > 3) {
+   504→          ctx.globalAlpha = alpha * 0.3;
+   505→          ctx.beginPath();
+   506→          ctx.arc(pt.x, pt.y, pt.size * alpha * 2, 0, Math.PI * 2);
+   507→          ctx.fill();
+   508→        }
+   509→      });
+   510→      ctx.globalAlpha = 1;
+   511→
+   512→      // Floating score texts
+   513→      g.floatingTexts.forEach((ft) => {
+   514→        const alpha = ft.life / ft.maxLife;
+   515→        const scale = 0.8 + (1 - alpha) * 0.5;
+   516→        ctx.save();
+   517→        ctx.globalAlpha = alpha;
+   518→        ctx.font = `bold ${Math.round(14 * scale)}px sans-serif`;
+   519→        ctx.textAlign = 'center';
+   520→        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+   521→        ctx.lineWidth = 3;
+   522→        ctx.strokeText(ft.text, ft.x, ft.y);
+   523→        ctx.fillStyle = ft.color;
+   524→        ctx.fillText(ft.text, ft.x, ft.y);
+   525→        ctx.restore();
+   526→      });
+   527→
+   528→      const drawDangerZone = (leftX: number, rightX: number, color: string) => {
+   529→        const grad = ctx.createLinearGradient(leftX, CANVAS_H - 30, leftX, CANVAS_H);
+   530→        grad.addColorStop(0, "rgba(0,0,0,0)");
+   531→        grad.addColorStop(1, color + "15");
+   532→        ctx.fillStyle = grad;
+   533→        ctx.fillRect(leftX, CANVAS_H - 30, rightX - leftX, 30);
+   534→      };
+   535→      drawDangerZone(0, CANVAS_W / 2, "#22d3ee");
+   536→      drawDangerZone(CANVAS_W / 2, CANVAS_W, "#f472b6");
+   537→
+   538→      g.animId = requestAnimationFrame(() => gameLoop(g));
+   539→    },
+   540→    [endGame, spawnEnemy]
+   541→  );
+   542→
+   543→  const initGame = useCallback(
+   544→    (carryScores: { p1: number; p2: number }, startWave: number) => {
+   545→      const g: GameState = {
+   546→        players: [
+   547→          {
+   548→            x: CANVAS_W * 0.3,
+   549→            y: CANVAS_H - 40,
+   550→            score: carryScores.p1,
+   551→            lives: 3,
+   552→            color: "#22d3ee",
+   553→            bulletColor: "#67e8f9",
+   554→            shootCooldown: 0,
+   555→            invincible: 0,
+   556→            name: "Jogador 1",
+   557→          },
+   558→          {
+   559→            x: CANVAS_W * 0.7,
+   560→            y: CANVAS_H - 40,
+   561→            score: carryScores.p2,
+   562→            lives: 3,
+   563→            color: "#f472b6",
+   564→            bulletColor: "#f9a8d4",
+   565→            shootCooldown: 0,
+   566→            invincible: 0,
+   567→            name: "Jogador 2",
+   568→          },
+   569→        ],
+   570→        bullets: [],
+   571→        enemies: [],
+   572→        particles: [],
+   573→        floatingTexts: [],
+   574→        stars: createStars(),
+   575→        keys: new Set<string>(),
+   576→        frame: 0,
+   577→        wave: startWave,
+   578→        waveFrame: 0,
+   579→        running: true,
+   580→        screenFlash: 0,
+   581→        killStreaks: [0, 0],
+   582→        animId: 0,
+   583→      };
+   584→      gameRef.current = g;
+   585→      setLives({ p1: 3, p2: 3 });
+   586→      setWave(startWave);
+   587→      setGameStatus("playing");
+   588→      return g;
+   589→    },
+   590→    []
+   591→  );
+   592→
+   593→  const startGame = useCallback(() => {
+   594→    if (gameRef.current) cancelAnimationFrame(gameRef.current.animId);
+   595→    const g = initGame({ p1: 0, p2: 0 }, 1);
+   596→    g.animId = requestAnimationFrame(() => gameLoop(g));
+   597→  }, [initGame, gameLoop]);
+   598→
+   599→  const nextRound = useCallback(() => {
+   600→    if (gameRef.current) cancelAnimationFrame(gameRef.current.animId);
+   601→    const newWave = wave + 1;
+   602→    const g = initGame({ p1: scores.p1, p2: scores.p2 }, newWave);
+   603→    g.animId = requestAnimationFrame(() => gameLoop(g));
+   604→  }, [initGame, gameLoop, wave, scores]);
+   605→
+   606→  const resetAll = useCallback(() => {
+   607→    if (gameRef.current) {
+   608→      cancelAnimationFrame(gameRef.current.animId);
+   609→      gameRef.current = null;
+   610→    }
+   611→    setScores({ p1: 0, p2: 0 });
+   612→    setLives({ p1: 3, p2: 3 });
+   613→    setWave(1);
+   614→    setWinner(null);
+   615→    setGameStatus("idle");
+   616→  }, []);
+   617→
+   618→  useEffect(() => {
+   619→    const down = (e: KeyboardEvent) => {
+   620→      if (gameRef.current) gameRef.current.keys.add(e.key);
+   621→      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+   622→        e.preventDefault();
+   623→      }
+   624→    };
+   625→    const up = (e: KeyboardEvent) => {
+   626→      if (gameRef.current) gameRef.current.keys.delete(e.key);
+   627→    };
+   628→    window.addEventListener("keydown", down);
+   629→    window.addEventListener("keyup", up);
+   630→    return () => {
+   631→      window.removeEventListener("keydown", down);
+   632→      window.removeEventListener("keyup", up);
+   633→    };
+   634→  }, []);
+   635→
+   636→  useEffect(() => {
+   637→    return () => {
+   638→      if (gameRef.current) cancelAnimationFrame(gameRef.current.animId);
+   639→    };
+   640→  }, []);
+   641→
+   642→  const renderLives = (count: number, color: string) =>
+   643→    Array.from({ length: 3 }, (_, i) => (
+   644→      <span
+   645→        key={i}
+   646→        className={cn(
+   647→          "inline-block w-3 h-3 rounded-full border transition-all",
+   648→          i < count
+   649→            ? cn(
+   650→                "border-transparent",
+   651→                color === "cyan"
+   652→                  ? "bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]"
+   653→                  : "bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]"
+   654→              )
+   655→            : "border-zinc-600 bg-transparent"
+   656→        )}
+   657→      />
+   658→    ));
+   659→
+   660→  const handleTouch = (key: string, pressed: boolean) => {
+   661→    touchRef.current[key] = pressed;
+   662→    triggerUI();
+   663→  };
+   664→
+   665→  void forceTick;
+   666→  void liveCode;
+   667→
+   668→  return (
+   669→    <div className="flex flex-col items-center gap-3 w-full max-w-[620px] mx-auto">
+   670→      <motion.div
+   671→        initial={{ opacity: 0, y: -20 }}
+   672→        animate={{ opacity: 1, y: 0 }}
+   673→        className="w-full rounded-xl bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 p-3"
+   674→      >
+   675→        <div className="flex items-center justify-between">
+   676→          <div className="flex flex-col items-center gap-1 flex-1">
+   677→            <span className="text-cyan-400 text-sm font-bold tracking-wide">Jogador 1</span>
+   678→            <div className="flex items-center gap-2">
+   679→              <Coins className="w-4 h-4 text-cyan-400" />
+   680→              <span className="text-cyan-300 text-xl font-mono font-bold">{scores.p1}</span>
+   681→            </div>
+   682→            <div className="flex gap-1">{renderLives(lives.p1, "cyan")}</div>
+   683→            <span className="text-[10px] text-zinc-500">A/D mover · W atirar</span>
+   684→          </div>
+   685→
+   686→          <div className="flex flex-col items-center gap-1 px-3">
+   687→            <Badge
+   688→              variant="outline"
+   689→              className="border-amber-500/40 text-amber-400 text-xs bg-amber-500/10"
+   690→            >
+   691→              Onda {wave}
+   692→            </Badge>
+   693→            <div className="w-16 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+   694→              <motion.div
+   695→                className="h-full bg-gradient-to-r from-cyan-500 to-pink-500 rounded-full"
+   696→                animate={{ x: ["-100%", "100%"] }}
+   697→                transition={{ duration: WAVE_DURATION / 60, ease: "linear", repeat: Infinity }}
+   698→                style={{ width: "50%" }}
+   699→              />
+   700→            </div>
+   701→          </div>
+   702→
+   703→          <div className="flex flex-col items-center gap-1 flex-1">
+   704→            <span className="text-pink-400 text-sm font-bold tracking-wide">Jogador 2</span>
+   705→            <div className="flex items-center gap-2">
+   706→              <Coins className="w-4 h-4 text-pink-400" />
+   707→              <span className="text-pink-300 text-xl font-mono font-bold">{scores.p2}</span>
+   708→            </div>
+   709→            <div className="flex gap-1">{renderLives(lives.p2, "pink")}</div>
+   710→            <span className="text-[10px] text-zinc-500">
+   711→              ← → mover · ↑ atirar
+   712→            </span>
+   713→          </div>
+   714→        </div>
+   715→      </motion.div>
+   716→
+   717→      <motion.div
+   718→        initial={{ opacity: 0, scale: 0.95 }}
+   719→        animate={{ opacity: 1, scale: 1 }}
+   720→        transition={{ delay: 0.1 }}
+   721→        className="relative rounded-xl overflow-hidden border border-zinc-800 shadow-lg shadow-black/50"
+   722→        style={{ maxWidth: CANVAS_W, width: "100%" }}
+   723→      >
+   724→        <canvas
+   725→          ref={canvasRef}
+   726→          width={CANVAS_W}
+   727→          height={CANVAS_H}
+   728→          className="w-full h-auto block"
+   729→          style={{ imageRendering: "auto" }}
+   730→        />
+   731→
+   732→        <AnimatePresence>
+   733→          {gameStatus === "idle" && (
+   734→            <motion.div
+   735→              key="idle-overlay"
+   736→              initial={{ opacity: 0 }}
+   737→              animate={{ opacity: 1 }}
+   738→              exit={{ opacity: 0 }}
+   739→              className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm"
+   740→            >
+   741→              <motion.div
+   742→                animate={{ y: [0, -8, 0] }}
+   743→                transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+   744→                className="mb-4"
+   745→              >
+   746→                <span className="text-5xl">🚀</span>
+   747→              </motion.div>
+   748→              <h2 className="text-white text-xl font-bold mb-2">Space Shooter</h2>
+   749→              <p className="text-zinc-400 text-sm mb-6 text-center px-4">
+   750→                Destrua os inimigos e acumule pontos!
+   751→                <br />
+   752→                Inimigos dourados valem mais!
+   753→              </p>
+   754→              <Button
+   755→                onClick={startGame}
+   756→                className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8"
+   757→              >
+   758→                Iniciar Jogo
+   759→              </Button>
+   760→            </motion.div>
+   761→          )}
+   762→        </AnimatePresence>
+   763→
+   764→        <AnimatePresence>
+   765→          {gameStatus === "over" && (
+   766→            <motion.div
+   767→              key="over-overlay"
+   768→              initial={{ opacity: 0, scale: 0.9 }}
+   769→              animate={{ opacity: 1, scale: 1 }}
+   770→              exit={{ opacity: 0, scale: 0.9 }}
+   771→              className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm"
+   772→            >
+   773→              <motion.div
+   774→                initial={{ scale: 0 }}
+   775→                animate={{ scale: 1, rotate: [0, -5, 5, 0] }}
+   776→                transition={{ delay: 0.2, duration: 0.5 }}
+   777→                className="mb-2"
+   778→              >
+   779→                <span className="text-4xl">🏆</span>
+   780→              </motion.div>
+   781→              <h2 className="text-white text-2xl font-bold mb-1">Fim de Jogo!</h2>
+   782→              {winner && (
+   783→                <p
+   784→                  className={cn(
+   785→                    "text-lg font-bold mb-3",
+   786→                    winner === "Jogador 1" ? "text-cyan-400" : "text-pink-400"
+   787→                  )}
+   788→                >
+   789→                  {winner} venceu!
+   790→                </p>
+   791→              )}
+   792→              {!winner && <p className="text-amber-400 text-lg font-bold mb-3">Empate!</p>}
+   793→              <div className="flex gap-6 mb-5">
+   794→                <div className="text-center">
+   795→                  <p className="text-cyan-400 text-sm">Jogador 1</p>
+   796→                  <p className="text-white text-2xl font-mono font-bold">{scores.p1}</p>
+   797→                </div>
+   798→                <div className="text-zinc-600 text-2xl font-light">vs</div>
+   799→                <div className="text-center">
+   800→                  <p className="text-pink-400 text-sm">Jogador 2</p>
+   801→                  <p className="text-white text-2xl font-mono font-bold">{scores.p2}</p>
+   802→                </div>
+   803→              </div>
+   804→              <div className="flex gap-3">
+   805→                <Button
+   806→                  onClick={nextRound}
+   807→                  variant="outline"
+   808→                  className="border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10"
+   809→                >
+   810→                  Próximo Round
+   811→                </Button>
+   812→                <Button
+   813→                  onClick={resetAll}
+   814→                  variant="outline"
+   815→                  className="border-zinc-600 text-zinc-400 hover:bg-zinc-700"
+   816→                >
+   817→                  <RotateCcw className="w-4 h-4 mr-1" />
+   818→                  Reiniciar Tudo
+   819→                </Button>
+   820→              </div>
+   821→            </motion.div>
+   822→          )}
+   823→        </AnimatePresence>
+   824→      </motion.div>
+   825→
+   826→      <AnimatePresence>
+   827→        {gameStatus === "playing" && (
+   828→          <motion.div
+   829→            initial={{ opacity: 0, y: 20 }}
+   830→            animate={{ opacity: 1, y: 0 }}
+   831→            exit={{ opacity: 0, y: 20 }}
+   832→            className="w-full max-w-[620px] grid grid-cols-2 gap-4 mt-1"
+   833→          >
+   834→            <div className="flex items-center justify-center gap-2">
+   835→              <button
+   836→                onTouchStart={(e) => { e.preventDefault(); handleTouch("a", true); }}
+   837→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("a", false); }}
+   838→                onMouseDown={() => handleTouch("a", true)}
+   839→                onMouseUp={() => handleTouch("a", false)}
+   840→                onMouseLeave={() => handleTouch("a", false)}
+   841→                className="w-14 h-14 rounded-xl bg-cyan-900/40 border border-cyan-500/30 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 select-none touch-none"
+   842→              >
+   843→                ◀
+   844→              </button>
+   845→              <button
+   846→                onTouchStart={(e) => { e.preventDefault(); handleTouch("p1shoot", true); }}
+   847→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("p1shoot", false); }}
+   848→                onMouseDown={() => handleTouch("p1shoot", true)}
+   849→                onMouseUp={() => handleTouch("p1shoot", false)}
+   850→                onMouseLeave={() => handleTouch("p1shoot", false)}
+   851→                className="w-14 h-14 rounded-xl bg-cyan-900/40 border border-cyan-500/30 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 select-none touch-none"
+   852→              >
+   853→                🔫
+   854→              </button>
+   855→              <button
+   856→                onTouchStart={(e) => { e.preventDefault(); handleTouch("d", true); }}
+   857→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("d", false); }}
+   858→                onMouseDown={() => handleTouch("d", true)}
+   859→                onMouseUp={() => handleTouch("d", false)}
+   860→                onMouseLeave={() => handleTouch("d", false)}
+   861→                className="w-14 h-14 rounded-xl bg-cyan-900/40 border border-cyan-500/30 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 select-none touch-none"
+   862→              >
+   863→                ▶
+   864→              </button>
+   865→            </div>
+   866→
+   867→            <div className="flex items-center justify-center gap-2">
+   868→              <button
+   869→                onTouchStart={(e) => { e.preventDefault(); handleTouch("ArrowLeft", true); }}
+   870→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("ArrowLeft", false); }}
+   871→                onMouseDown={() => handleTouch("ArrowLeft", true)}
+   872→                onMouseUp={() => handleTouch("ArrowLeft", false)}
+   873→                onMouseLeave={() => handleTouch("ArrowLeft", false)}
+   874→                className="w-14 h-14 rounded-xl bg-pink-900/40 border border-pink-500/30 text-pink-400 text-xl font-bold active:bg-pink-800/50 select-none touch-none"
+   875→              >
+   876→                ◀
+   877→              </button>
+   878→              <button
+   879→                onTouchStart={(e) => { e.preventDefault(); handleTouch("p2shoot", true); }}
+   880→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("p2shoot", false); }}
+   881→                onMouseDown={() => handleTouch("p2shoot", true)}
+   882→                onMouseUp={() => handleTouch("p2shoot", false)}
+   883→                onMouseLeave={() => handleTouch("p2shoot", false)}
+   884→                className="w-14 h-14 rounded-xl bg-pink-900/40 border border-pink-500/30 text-pink-400 text-xl font-bold active:bg-pink-800/50 select-none touch-none"
+   885→              >
+   886→                🔫
+   887→              </button>
+   888→              <button
+   889→                onTouchStart={(e) => { e.preventDefault(); handleTouch("ArrowRight", true); }}
+   890→                onTouchEnd={(e) => { e.preventDefault(); handleTouch("ArrowRight", false); }}
+   891→                onMouseDown={() => handleTouch("ArrowRight", true)}
+   892→                onMouseUp={() => handleTouch("ArrowRight", false)}
+   893→                onMouseLeave={() => handleTouch("ArrowRight", false)}
+   894→                className="w-14 h-14 rounded-xl bg-pink-900/40 border border-pink-500/30 text-pink-400 text-xl font-bold active:bg-pink-800/50 select-none touch-none"
+   895→              >
+   896→                ▶
+   897→              </button>
+   898→            </div>
+   899→          </motion.div>
+   900→        )}
+   901→      </AnimatePresence>
+   902→
+   903→      <AnimatePresence>
+   904→        {gameStatus === "idle" && (
+   905→          <motion.div
+   906→            initial={{ opacity: 0 }}
+   907→            animate={{ opacity: 1 }}
+   908→            exit={{ opacity: 0 }}
+   909→            className="text-center text-zinc-500 text-xs space-y-1 mt-1"
+   910→          >
+   911→            <p>
+   912→              <span className="inline-block w-2.5 h-2.5 bg-cyan-400 rounded-sm mr-1" />
+   913→              Triângulos / Diamantes = {POINTS_NORMAL} pts
+   914→            </p>
+   915→            <p>
+   916→              <span className="inline-block w-2.5 h-2.5 bg-amber-400 rounded-sm mr-1" />
+   917→              Inimigo Dourado = {POINTS_BONUS} pts
+   918→            </p>
+   919→            <p className="text-zinc-600">
+   920→              Inimigos que passam roubam uma vida do jogador daquele lado
+   921→            </p>
+   922→          </motion.div>
+   923→        )}
+   924→      </AnimatePresence>
+   925→    </div>
+   926→  );
+   927→};
+   928→
+   929→export default SpaceShooter;
+   930→

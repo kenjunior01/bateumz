@@ -1,0 +1,650 @@
+     1→import { useState, useEffect, useRef, useCallback } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { Play, RotateCcw, Trophy, User, Bot } from "lucide-react";
+     4→import confetti from "canvas-confetti";
+     5→
+     6→interface Props {
+     7→  onScore?: (name: string, score: number) => void;
+     8→  liveCode?: string;
+     9→}
+    10→
+    11→type Phase = "idle" | "countdown" | "playing" | "done";
+    12→type Mode = "bot" | "vs";
+    13→
+    14→type MoleState = "hidden" | "showing" | "hit" | "missed";
+    15→
+    16→interface FloatingScore {
+    17→  id: number;
+    18→  value: number;
+    19→  row: number;
+    20→  col: number;
+    21→  player: 1 | 2;
+    22→  combo: number;
+    23→}
+    24→
+    25→interface HitParticle {
+    26→  id: number;
+    27→  x: number;
+    28→  y: number;
+    29→  emoji: string;
+    30→}
+    31→
+    32→const GRID_SIZE = 9; // 3x3
+    33→const GAME_DURATION = 30;
+    34→const MOLE_SHOW_MIN = 600;
+    35→const MOLE_SHOW_MAX = 1400;
+    36→const MOLE_INTERVAL_MIN = 400;
+    37→const MOLE_INTERVAL_MAX = 900;
+    38→const HIT_POINTS = 1;
+    39→
+    40→const MOLE_EMOJIS = ["🐹", "🦁", "🐾", "🦇", "🐯", "🐰"];
+    41→const HIT_EMOJIS = ["💥","💥","💥","⚡","🔥","✨"];
+    42→
+    43→const WhackAMole = ({ onScore, liveCode }: Props) => {
+    44→  const [phase, setPhase] = useState<Phase>("idle");
+    45→  const [mode, setMode] = useState<Mode>("bot");
+    46→  const [p1Score, setP1Score] = useState(0);
+    47→  const [p2Score, setP2Score] = useState(0);
+    48→  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+    49→  const [countdown, setCountdown] = useState(3);
+    50→  const [winner, setWinner] = useState("");
+    51→  const [p1Name, setP1Name] = useState("Jogador 1");
+    52→  const [p2Name, setP2Name] = useState("Jogador 2");
+    53→  const [p1Combo, setP1Combo] = useState(0);
+    54→  const [p2Combo, setP2Combo] = useState(0);
+    55→  const [lastHit, setLastHit] = useState<"p1" | "p2" | null>(null);
+    56→  const [screenShake, setScreenShake] = useState(false);
+    57→  const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
+    58→  const [hitParticles, setHitParticles] = useState<HitParticle[]>([]);
+    59→  const [p1BestCombo, setP1BestCombo] = useState(0);
+    60→  const [p2BestCombo, setP2BestCombo] = useState(0);
+    61→  const [totalHits, setTotalHits] = useState(0);
+    62→
+    63→  // Each cell: which player's mole is showing (null = empty)
+    64→  const [cells, setCells] = useState<(null | { player: 1 | 2; state: MoleState; emoji: string; id: number })[]>(
+    65→    Array(GRID_SIZE).fill(null)
+    66→  );
+    67→
+    68→  const moleIdRef = useRef(0);
+    69→  const timerRef = useRef<number>(0);
+    70→  const spawnRef = useRef<number>(0);
+    71→  const p2ScoreRef = useRef(0);
+    72→  const phaseRef = useRef<Phase>("idle");
+    73→  const modeRef = useRef<Mode>("bot");
+    74→  const pendingTimeoutsRef = useRef<number[]>([]);
+    75→  const floatIdRef = useRef(0);
+    76→  const particleIdRef = useRef(0);
+    77→  const p1ComboRef = useRef(0);
+    78→  const p2ComboRef = useRef(0);
+    79→  const totalHitsRef = useRef(0);
+    80→
+    81→  const trackTimeout = useCallback((id: number) => {
+    82→    pendingTimeoutsRef.current.push(id);
+    83→  }, []);
+    84→
+    85→  const clearAllPendingTimeouts = useCallback(() => {
+    86→    pendingTimeoutsRef.current.forEach(clearTimeout);
+    87→    pendingTimeoutsRef.current = [];
+    88→    clearTimeout(spawnRef.current);
+    89→    clearInterval(timerRef.current);
+    90→  }, []);
+    91→
+    92→  useEffect(() => { modeRef.current = mode; }, [mode]);
+    93→  useEffect(() => { phaseRef.current = phase; }, [phase]);
+    94→  useEffect(() => { p2ScoreRef.current = p2Score; }, [p2Score]);
+    95→
+    96→  const triggerShake = useCallback(() => {
+    97→    setScreenShake(true);
+    98→    setTimeout(() => setScreenShake(false), 150);
+    99→  }, []);
+   100→
+   101→  const spawnFloatingScore = useCallback((row: number, col: number, player: 1 | 2, value: number, combo: number) => {
+   102→    const id = ++floatIdRef.current;
+   103→    setFloatingScores(prev => [...prev, { id, value, row, col, player, combo }]);
+   104→    setTimeout(() => {
+   105→      setFloatingScores(prev => prev.filter(f => f.id !== id));
+   106→    }, 800);
+   107→  }, []);
+   108→
+   109→  const spawnHitParticles = useCallback((row: number, col: number) => {
+   110→    const newParticles: HitParticle[] = [];
+   111→    for (let i = 0; i < 4; i++) {
+   112→      newParticles.push({
+   113→        id: ++particleIdRef.current,
+   114→        x: col * 33.3 + Math.random() * 33.3,
+   115→        y: row * 33.3 + Math.random() * 33.3,
+   116→        emoji: HIT_EMOJIS[Math.floor(Math.random() * HIT_EMOJIS.length)],
+   117→      });
+   118→    }
+   119→    setHitParticles(prev => [...prev, ...newParticles]);
+   120→    setTimeout(() => {
+   121→      setHitParticles(prev => prev.filter(p => !newParticles.find(np => np.id === p.id)));
+   122→    }, 700);
+   123→  }, []);
+   124→
+   125→  const playTapSound = useCallback((combo: number) => {
+   126→    try {
+   127→      const ctx = new AudioContext();
+   128→      const osc = ctx.createOscillator();
+   129→      const gain = ctx.createGain();
+   130→      osc.connect(gain);
+   131→      gain.connect(ctx.destination);
+   132→      osc.frequency.value = 300 + Math.min(combo, 10) * 60;
+   133→      osc.type = 'sine';
+   134→      gain.gain.value = 0.08;
+   135→      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+   136→      osc.start();
+   137→      osc.stop(ctx.currentTime + 0.1);
+   138→    } catch {}
+   139→  }, []);
+   140→
+   141→  const hideMole = useCallback((index: number) => {
+   142→    setCells((prev) => {
+   143→      const next = [...prev];
+   144→      if (next[index] && next[index]!.state === "showing") {
+   145→        next[index] = { ...next[index]!, state: "missed" };
+   146→        const tid = window.setTimeout(() => {
+   147→          setCells((p) => {
+   148→            const n = [...p];
+   149→            if (n[index] && n[index]!.state === "missed") n[index] = null;
+   150→            return n;
+   151→          });
+   152→        }, 300);
+   153→        trackTimeout(tid);
+   154→      }
+   155→      return next;
+   156→    });
+   157→  }, [trackTimeout]);
+   158→
+   159→  const spawnMole = useCallback(() => {
+   160→    if (phaseRef.current !== "playing") return;
+   161→
+   162→    setCells((prev) => {
+   163→      const emptyIndices = prev.reduce<number[]>((acc, c, i) => { if (!c) acc.push(i); return acc; }, []);
+   164→      if (emptyIndices.length === 0) return prev;
+   165→
+   166→      const next = [...prev];
+   167→      const idx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+   168→      const emoji = MOLE_EMOJIS[Math.floor(Math.random() * MOLE_EMOJIS.length)];
+   169→      const id = ++moleIdRef.current;
+   170→
+   171→      next[idx] = { player: 1, state: "showing", emoji, id };
+   172→
+   173→      const showTime = MOLE_SHOW_MIN + Math.random() * (MOLE_SHOW_MAX - MOLE_SHOW_MIN);
+   174→      const tid = window.setTimeout(() => hideMole(idx), showTime);
+   175→      trackTimeout(tid);
+   176→
+   177→      return next;
+   178→    });
+   179→
+   180→    const nextInterval = MOLE_INTERVAL_MIN + Math.random() * (MOLE_INTERVAL_MAX - MOLE_INTERVAL_MIN);
+   181→    spawnRef.current = window.setTimeout(spawnMole, nextInterval);
+   182→  }, [hideMole, trackTimeout]);
+   183→
+   184→  const botTick = useCallback(() => {
+   185→    if (phaseRef.current !== "playing" || modeRef.current !== "bot") return;
+   186→
+   187→    setCells((prev) => {
+   188→      const showingIdx = prev.findIndex((c) => c && c.state === "showing" && c.player === 1);
+   189→      if (showingIdx === -1) return prev;
+   190→
+   191→      if (Math.random() < 0.6) {
+   192→        const next = [...prev];
+   193→        next[showingIdx] = { ...next[showingIdx]!, state: "hit" };
+   194→        p2ScoreRef.current += 1;
+   195→        const row = Math.floor(showingIdx / 3);
+   196→        const col = showingIdx % 3;
+   197→        spawnHitParticles(row, col);
+   198→        spawnFloatingScore(row, col, 2, 1, p2ComboRef.current + 1);
+   199→        p2ComboRef.current++;
+   200→        if (p2ComboRef.current > 2) setP2BestCombo(prev2 => Math.max(prev2, p2ComboRef.current));
+   201→        const tid = window.setTimeout(() => {
+   202→          setP2Score(p2ScoreRef.current);
+   203→          setP2Combo(p2ComboRef.current);
+   204→          setCells((p) => {
+   205→            const n = [...p];
+   206→            if (n[showingIdx] && n[showingIdx]!.state === "hit") n[showingIdx] = null;
+   207→            return n;
+   208→          });
+   209→        }, 300);
+   210→        trackTimeout(tid);
+   211→        return next;
+   212→      }
+   213→      return prev;
+   214→    });
+   215→  }, [trackTimeout, spawnHitParticles, spawnFloatingScore]);
+   216→
+   217→  useEffect(() => {
+   218→    if (phase !== "playing") return;
+   219→    const botInterval = window.setInterval(botTick, 700 + Math.random() * 500);
+   220→    return () => clearInterval(botInterval);
+   221→  }, [phase, botTick]);
+   222→
+   223→  const hitCell = useCallback((index: number, player: 1 | 2) => {
+   224→    setCells((prev) => {
+   225→      const cell = prev[index];
+   226→      if (!cell || cell.state !== "showing") return prev;
+   227→
+   228→      const next = [...prev];
+   229→      next[index] = { ...cell, state: "hit" };
+   230→
+   231→      const row = Math.floor(index / 3);
+   232→      const col = index % 3;
+   233→
+   234→      if (player === 1) {
+   235→        p1ComboRef.current++;
+   236→        p2ComboRef.current = 0;
+   237→        setP2Combo(0);
+   238→        const currentCombo = p1ComboRef.current;
+   239→        if (currentCombo > 2) setP1BestCombo(prev1 => Math.max(prev1, currentCombo));
+   240→        setP1Combo(currentCombo);
+   241→        const bonus = Math.min(Math.floor(currentCombo / 3), 3);
+   242→        const points = HIT_POINTS + bonus;
+   243→        setP1Score((s) => s + points);
+   244→        setLastHit("p1");
+   245→        playTapSound(currentCombo);
+   246→        spawnFloatingScore(row, col, 1, points, currentCombo);
+   247→        if (currentCombo >= 3) triggerShake();
+   248→        if (currentCombo >= 5) {
+   249→          confetti({ particleCount: 15, spread: 30, origin: { x: 0.2 + col * 0.3, y: 0.4 + row * 0.2 }, colors: ['#3b82f6', '#8b5cf6', '#06b6d4'] });
+   250→        }
+   251→      } else {
+   252→        p2ComboRef.current++;
+   253→        p1ComboRef.current = 0;
+   254→        setP1Combo(0);
+   255→        const currentCombo = p2ComboRef.current;
+   256→        if (currentCombo > 2) setP2BestCombo(prev2 => Math.max(prev2, currentCombo));
+   257→        setP2Combo(currentCombo);
+   258→        setP2Score((s) => s + HIT_POINTS);
+   259→        setLastHit("p2");
+   260→        spawnFloatingScore(row, col, 2, 1, currentCombo);
+   261→      }
+   262→
+   263→      spawnHitParticles(row, col);
+   264→      totalHitsRef.current++;
+   265→      setTotalHits(totalHitsRef.current);
+   266→
+   267→      const tid = window.setTimeout(() => {
+   268→        setCells((p) => {
+   269→          const n = [...p];
+   270→          if (n[index] && n[index]!.state === "hit") n[index] = null;
+   271→          return n;
+   272→        });
+   273→      }, 300);
+   274→      trackTimeout(tid);
+   275→
+   276→      return next;
+   277→    });
+   278→  }, [trackTimeout, triggerShake, playTapSound, spawnFloatingScore, spawnHitParticles]);
+   279→
+   280→  const startGame = () => {
+   281→    clearAllPendingTimeouts();
+   282→    setP1Score(0); setP2Score(0);
+   283→    setTimeLeft(GAME_DURATION);
+   284→    setP1Combo(0); setP2Combo(0);
+   285→    p1ComboRef.current = 0; p2ComboRef.current = 0;
+   286→    totalHitsRef.current = 0;
+   287→    setLastHit(null);
+   288→    setWinner("");
+   289→    setP1BestCombo(0); setP2BestCombo(0);
+   290→    setTotalHits(0);
+   291→    setCells(Array(GRID_SIZE).fill(null));
+   292→    setFloatingScores([]);
+   293→    setHitParticles([]);
+   294→    setPhase("countdown");
+   295→    setCountdown(3);
+   296→  };
+   297→
+   298→  // Countdown
+   299→  useEffect(() => {
+   300→    if (phase !== "countdown") return;
+   301→    if (countdown <= 0) {
+   302→      setPhase("playing");
+   303→      return;
+   304→    }
+   305→    const t = setTimeout(() => setCountdown((c) => c - 1), 800);
+   306→    return () => clearTimeout(t);
+   307→  }, [phase, countdown]);
+   308→
+   309→  // Game timer
+   310→  useEffect(() => {
+   311→    if (phase !== "playing") return;
+   312→    const start = Date.now();
+   313→    timerRef.current = window.setInterval(() => {
+   314→      const elapsed = (Date.now() - start) / 1000;
+   315→      const remaining = Math.max(0, GAME_DURATION - elapsed);
+   316→      setTimeLeft(Number(remaining.toFixed(1)));
+   317→      if (remaining <= 0) {
+   318→        clearInterval(timerRef.current);
+   319→        clearTimeout(spawnRef.current);
+   320→        setPhase("done");
+   321→      }
+   322→    }, 50);
+   323→
+   324→    const firstSpawn = window.setTimeout(spawnMole, 500);
+   325→
+   326→    return () => {
+   327→      clearInterval(timerRef.current);
+   328→      clearTimeout(spawnRef.current);
+   329→      clearTimeout(firstSpawn);
+   330→    };
+   331→  }, [phase, spawnMole]);
+   332→
+   333→  // Determine winner
+   334→  useEffect(() => {
+   335→    if (phase !== "done") return;
+   336→    if (p1Score > p2Score) {
+   337→      const w = p1Name;
+   338→      setWinner(w);
+   339→      onScore?.(w, p1Score);
+   340→      confetti({ particleCount: 150, spread: 100, origin: { x: 0.3, y: 0.6 } });
+   341→    } else if (p2Score > p1Score) {
+   342→      const w = mode === "bot" ? "Bot" : p2Name;
+   343→      setWinner(w);
+   344→      onScore?.(w, p2Score);
+   345→      confetti({ particleCount: 150, spread: 100, origin: { x: 0.7, y: 0.6 } });
+   346→    }
+   347→  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+   348→
+   349→  const getCellVisual = (cell: typeof cells[0]) => {
+   350→    if (!cell) return null;
+   351→    const colors = cell.player === 1
+   352→      ? { bg: "from-blue-500 to-indigo-600", border: "border-blue-400" }
+   353→      : { bg: "from-amber-500 to-orange-600", border: "border-amber-400" };
+   354→    return { ...cell, colors };
+   355→  };
+   356→
+   357→  return (
+   358→    <div className={`max-w-lg mx-auto flex flex-col items-center gap-4 transition-transform ${screenShake ? "scale-[0.98]" : ""}`}>
+   359→      {phase === "idle" && (
+   360→        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="w-full flex flex-col gap-4">
+   361→          {/* Epic Header */}
+   362→          <div className="text-center relative">
+   363→            <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent rounded-2xl pointer-events-none" />
+   364→            <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+   365→              <span className="text-6xl block mb-2">🐹</span>
+   366→            </motion.div>
+   367→            <h2 className="text-2xl font-black bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-500 bg-clip-text text-transparent">
+   368→              Whack-a-Mole
+   369→            </h2>
+   370→            <p className="text-[11px] text-muted-foreground mt-1">Bate nas criaturas o mais rapido que puderes!</p>
+   371→            <div className="flex justify-center gap-3 mt-2 text-[10px] text-muted-foreground">
+   372→              <span className="flex items-center gap-1">🔥 Combos</span>
+   373→              <span className="flex items-center gap-1">⚡ Bonus</span>
+   374→              <span className="flex items-center gap-1">🏆 {GAME_DURATION}s</span>
+   375→            </div>
+   376→          </div>
+   377→
+   378→          <div className="flex gap-2 w-full">
+   379→            <button
+   380→              onClick={() => setMode("bot")}
+   381→              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === "bot" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-card border border-border hover:border-primary/40"}`}
+   382→            >
+   383→              <Bot className="h-4 w-4" /> vs Bot
+   384→            </button>
+   385→            <button
+   386→              onClick={() => setMode("vs")}
+   387→              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${mode === "vs" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-card border border-border hover:border-primary/40"}`}
+   388→            >
+   389→              <User className="h-4 w-4" /> 2 Jogadores
+   390→            </button>
+   391→          </div>
+   392→
+   393→          {mode === "vs" && (
+   394→            <div className="grid grid-cols-2 gap-2 w-full">
+   395→              <input value={p1Name} onChange={(e) => setP1Name(e.target.value)} placeholder="Jogador 1" className="px-3 py-2 rounded-xl bg-card border border-border text-sm text-center" />
+   396→              <input value={p2Name} onChange={(e) => setP2Name(e.target.value)} placeholder="Jogador 2" className="px-3 py-2 rounded-xl bg-card border border-border text-sm text-center" />
+   397→            </div>
+   398→          )}
+   399→
+   400→          <motion.button
+   401→            whileHover={{ scale: 1.02 }}
+   402→            whileTap={{ scale: 0.97 }}
+   403→            onClick={startGame}
+   404→            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 hover:shadow-xl hover:shadow-emerald-500/30 transition-all"
+   405→          >
+   406→            <Play className="h-4 w-4 fill-current" /> Começar Jogo
+   407→          </motion.button>
+   408→
+   409→          <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+   410→            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Como Jogar</p>
+   411→            <p className="text-xs text-muted-foreground">Toque nas criaturas que aparecem o mais rápido possível!</p>
+   412→            <p className="text-xs text-muted-foreground mt-1">🔥 Acertos seguidos = combo com bonus de pontos!</p>
+   413→            <p className="text-xs text-muted-foreground mt-0.5">{mode === "vs" ? "Cada jogador toca no seu lado" : "Toque rápido antes que o bot alcance!"} | {GAME_DURATION}s</p>
+   414→          </div>
+   415→        </motion.div>
+   416→      )}
+   417→
+   418→      {phase !== "idle" && (
+   419→        <div className="w-full flex items-center justify-between px-2">
+   420→          <div className={`flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all ${lastHit === "p1" ? "bg-blue-500/20 border border-blue-500/30 shadow-sm shadow-blue-500/10" : "bg-muted/40 border border-transparent"}`}>
+   421→            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+   422→            <span className="text-xs font-bold text-muted-foreground">{p1Name}</span>
+   423→            <span className="font-display text-xl font-bold text-foreground">{p1Score}</span>
+   424→            {p1Combo >= 3 && (
+   425→              <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.3 }} className="text-[10px] text-blue-400 font-bold">
+   426→                x{p1Combo}🔥
+   427→              </motion.span>
+   428→            )}
+   429→          </div>
+   430→          <div className="text-center relative">
+   431→            <p className="text-[10px] text-muted-foreground uppercase font-bold">Tempo</p>
+   432→            <motion.p
+   433→              className={`font-mono text-lg font-bold ${timeLeft <= 5 ? "text-red-500" : timeLeft <= 10 ? "text-amber-400" : "text-foreground"}`}
+   434→              animate={timeLeft <= 5 ? { scale: [1, 1.1, 1] } : {}}
+   435→              transition={{ duration: 0.5 }}
+   436→            >{timeLeft}s</motion.p>
+   437→            <div className="w-20 h-1 rounded-full bg-muted mt-0.5 overflow-hidden">
+   438→              <motion.div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full"
+   439→                animate={{ width: `${(timeLeft / GAME_DURATION) * 100}%` }} transition={{ duration: 0.1 }} />
+   440→            </div>
+   441→          </div>
+   442→          <div className={`flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all ${lastHit === "p2" ? "bg-amber-500/20 border border-amber-500/30 shadow-sm shadow-amber-500/10" : "bg-muted/40 border border-transparent"}`}>
+   443→            {p2Combo >= 3 && (
+   444→              <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.3 }} className="text-[10px] text-amber-400 font-bold">
+   445→                x{p2Combo}🔥
+   446→              </motion.span>
+   447→            )}
+   448→            <span className="font-display text-xl font-bold text-foreground">{p2Score}</span>
+   449→            <span className="text-xs font-bold text-muted-foreground">{mode === "bot" ? "Bot" : p2Name}</span>
+   450→            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+   451→          </div>
+   452→        </div>
+   453→      )}
+   454→
+   455→      {phase !== "idle" && (
+   456→        <div className="relative w-full">
+   457→          <AnimatePresence>
+   458→            {phase === "countdown" && (
+   459→              <motion.div
+   460→                key={countdown}
+   461→                initial={{ scale: 2, opacity: 0 }}
+   462→                animate={{ scale: 1, opacity: 1 }}
+   463→                exit={{ scale: 0.5, opacity: 0 }}
+   464→                className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl"
+   465→              >
+   466→                <span className={`font-display text-7xl font-bold ${countdown > 0 ? "text-white" : "text-emerald-400"}`}>{countdown > 0 ? countdown : "GO!"}</span>
+   467→              </motion.div>
+   468→            )}
+   469→          </AnimatePresence>
+   470→
+   471→          {/* Floating scores overlay */}
+   472→          <div className="absolute inset-0 pointer-events-none z-10">
+   473→            <AnimatePresence>
+   474→              {floatingScores.map(f => (
+   475→                <motion.div
+   476→                  key={f.id}
+   477→                  initial={{ opacity: 1, y: 0, scale: 1.3 }}
+   478→                  animate={{ opacity: 0, y: -50, scale: 0.8 }}
+   479→                  exit={{ opacity: 0 }}
+   480→                  transition={{ duration: 0.7, ease: "easeOut" }}
+   481→                  className="absolute font-black text-lg"
+   482→                  style={{
+   483→                    left: `${f.col * 33.3 + 16.6}%`,
+   484→                    top: `${f.row * 33.3 + 20}%`,
+   485→                    color: f.player === 1 ? (f.combo >= 5 ? '#fbbf24' : '#60a5fa') : (f.combo >= 5 ? '#fbbf24' : '#fbbf24'),
+   486→                    textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+   487→                  }}
+   488→                >
+   489→                  +{f.value}{f.combo >= 3 ? ` x${f.combo}` : ''}
+   490→                </motion.div>
+   491→              ))}
+   492→            </AnimatePresence>
+   493→            {/* Hit particles */}
+   494→            <AnimatePresence>
+   495→              {hitParticles.map(p => (
+   496→                <motion.div
+   497→                  key={p.id}
+   498→                  initial={{ opacity: 1, scale: 0.5 }}
+   499→                  animate={{ opacity: 0, scale: 1.5, y: -20 }}
+   500→                  exit={{ opacity: 0 }}
+   501→                  transition={{ duration: 0.6, ease: "easeOut" }}
+   502→                  className="absolute text-xl pointer-events-none"
+   503→                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
+   504→                >
+   505→                  {p.emoji}
+   506→                </motion.div>
+   507→              ))}
+   508→            </AnimatePresence>
+   509→          </div>
+   510→
+   511→          <div className="grid grid-cols-3 gap-2">
+   512→            {cells.map((cell, i) => {
+   513→              const visual = getCellVisual(cell);
+   514→              const row = Math.floor(i / 3);
+   515→              const col = i % 3;
+   516→              return (
+   517→                <motion.button
+   518→                  key={i}
+   519→                  whileTap={{ scale: cell ? 0.8 : 1 }}
+   520→                  onClick={() => cell && cell.state === "showing" && hitCell(i, cell.player)}
+   521→                  className={`relative aspect-square rounded-2xl border-2 transition-all overflow-hidden ${
+   522→                    cell
+   523→                      ? cell.state === "showing"
+   524→                        ? `border-yellow-400 bg-gradient-to-br ${visual?.colors.bg} shadow-lg ${visual?.colors.border}`
+   525→                        : cell.state === "hit"
+   526→                        ? "border-green-400 bg-green-500/30"
+   527→                        : "border-red-400/50 bg-red-500/10"
+   528→                      : "border-border bg-muted/30"
+   529→                  } ${cell && cell.state === "showing" ? "cursor-pointer" : "cursor-default"}`}
+   530→                  disabled={!cell || cell.state !== "showing"}
+   531→                >
+   532→                  {/* Hole shadow */}
+   533→                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[70%] h-[25%] rounded-[50%] bg-black/30" />
+   534→
+   535→                  <AnimatePresence mode="popLayout">
+   536→                    {cell && cell.state === "showing" && (
+   537→                      <motion.div
+   538→                        initial={{ scale: 0, y: 40, rotate: -10 }}
+   539→                        animate={{ scale: 1, y: 0, rotate: 0 }}
+   540→                        exit={{ scale: 0, y: -20, rotate: 10 }}
+   541→                        transition={{ type: "spring", stiffness: 500, damping: 18 }}
+   542→                        className="absolute inset-0 flex items-center justify-center"
+   543→                      >
+   544→                        <motion.span
+   545→                          className="text-4xl sm:text-5xl drop-shadow-lg"
+   546→                          animate={{ y: [0, -4, 0] }}
+   547→                          transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
+   548→                        >
+   549→                          {cell.emoji}
+   550→                        </motion.span>
+   551→                      </motion.div>
+   552→                    )}
+   553→                    {cell && cell.state === "hit" && (
+   554→                      <motion.div
+   555→                        initial={{ scale: 1.5, rotate: -15 }}
+   556→                        animate={{ scale: 1, rotate: 0 }}
+   557→                        exit={{ scale: 0, opacity: 0 }}
+   558→                        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+   559→                        className="absolute inset-0 flex items-center justify-center"
+   560→                      >
+   561→                        <span className="text-3xl">💥</span>
+   562→                      </motion.div>
+   563→                    )}
+   564→                    {cell && cell.state === "missed" && (
+   565→                      <motion.div
+   566→                        initial={{ opacity: 1, scale: 1 }}
+   567→                        animate={{ opacity: 0, scale: 0.5 }}
+   568→                        exit={{ opacity: 0 }}
+   569→                        transition={{ duration: 0.3 }}
+   570→                        className="absolute inset-0 flex items-center justify-center"
+   571→                      >
+   572→                        <span className="text-xl opacity-60">❌</span>
+   573→                      </motion.div>
+   574→                    )}
+   575→                  </AnimatePresence>
+   576→
+   577→                  {!cell && (
+   578→                    <div className="absolute inset-0 flex items-center justify-center">
+   579→                      <div className="h-10 w-10 rounded-full bg-black/15 border-2 border-dashed border-black/10" />
+   580→                    </div>
+   581→                  )}
+   582→                </motion.button>
+   583→              );
+   584→            })}
+   585→          </div>
+   586→
+   587→          <AnimatePresence>
+   588→            {phase === "done" && (
+   589→              <motion.div
+   590→                initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+   591→                animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
+   592→                exit={{ opacity: 0 }}
+   593→                className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 rounded-2xl gap-3"
+   594→              >
+   595→                <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", delay: 0.1 }}>
+   596→                  <Trophy className="h-12 w-12 text-yellow-400 drop-shadow-[0_0_16px_rgba(250,204,21,0.6)]" />
+   597→                </motion.div>
+   598→                <motion.p
+   599→                  initial={{ opacity: 0, y: 10 }}
+   600→                  animate={{ opacity: 1, y: 0 }}
+   601→                  transition={{ delay: 0.25 }}
+   602→                  className="font-display text-2xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]"
+   603→                >
+   604→                  {winner ? `${winner} venceu!` : "Empate!"}
+   605→                </motion.p>
+   606→                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="text-lg font-bold text-white/80">
+   607→                  {p1Score} - {p2Score}
+   608→                </motion.p>
+   609→
+   610→                {/* Stats grid */}
+   611→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="grid grid-cols-3 gap-2 mt-2">
+   612→                  <div className="bg-white/10 rounded-lg px-3 py-2 text-center">
+   613→                    <p className="text-[9px] text-white/50 uppercase">Acertos</p>
+   614→                    <p className="text-lg font-bold text-white">{totalHits}</p>
+   615→                  </div>
+   616→                  <div className="bg-blue-500/20 rounded-lg px-3 py-2 text-center">
+   617→                    <p className="text-[9px] text-blue-300/70 uppercase">Melhor Combo P1</p>
+   618→                    <p className="text-lg font-bold text-blue-300">{p1BestCombo}</p>
+   619→                  </div>
+   620→                  <div className="bg-amber-500/20 rounded-lg px-3 py-2 text-center">
+   621→                    <p className="text-[9px] text-amber-300/70 uppercase">Melhor Combo P2</p>
+   622→                    <p className="text-lg font-bold text-amber-300">{p2BestCombo}</p>
+   623→                  </div>
+   624→                </motion.div>
+   625→
+   626→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} className="flex gap-3 mt-2">
+   627→                  <button
+   628→                    onClick={startGame}
+   629→                    className="px-6 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl transition-shadow"
+   630→                  >
+   631→                    <RotateCcw className="h-4 w-4" /> Jogar Novamente
+   632→                  </button>
+   633→                  <button
+   634→                    onClick={() => setPhase("idle")}
+   635→                    className="px-4 py-2.5 rounded-full bg-white/10 text-white/80 text-xs font-medium hover:bg-white/20 transition"
+   636→                  >
+   637→                    Menu
+   638→                  </button>
+   639→                </motion.div>
+   640→              </motion.div>
+   641→            )}
+   642→          </AnimatePresence>
+   643→        </div>
+   644→      )}
+   645→    </div>
+   646→  );
+   647→};
+   648→
+   649→export default WhackAMole;
+   650→
