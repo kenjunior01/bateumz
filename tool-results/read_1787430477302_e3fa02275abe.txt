@@ -1,0 +1,765 @@
+    80→    reactionMs: 20,
+    81→    noisePx: 4,
+    82→    missChance: 0.02,
+    83→    predictAhead: true,
+    84→    deadzonePx: 6,
+    85→    label: "Difícil",
+    86→  },
+    87→};
+    88→
+    89→const DIFFICULTY_STYLES: Record<
+    90→  BotDifficulty,
+    91→  { bg: string; border: string; icon: string; desc: string }
+    92→> = {
+    93→  facil: {
+    94→    bg: "from-emerald-500/20 to-emerald-600/10",
+    95→    border: "border-emerald-500/50",
+    96→    icon: "text-emerald-400",
+    97→    desc: "Lento, comete erros frequentemente",
+    98→  },
+    99→  medio: {
+   100→    bg: "from-amber-500/20 to-amber-600/10",
+   101→    border: "border-amber-500/50",
+   102→    icon: "text-amber-400",
+   103→    desc: "Reage bem, comete alguns erros",
+   104→  },
+   105→  dificil: {
+   106→    bg: "from-red-500/20 to-red-600/10",
+   107→    border: "border-red-500/50",
+   108→    icon: "text-red-400",
+   109→    desc: "Quase perfeito, raramente erra",
+   110→  },
+   111→};
+   112→
+   113→/** Predict where the ball will be when it reaches targetX */
+   114→function predictBallY(ball: Ball, targetX: number): number {
+   115→  if (
+   116→    (targetX > ball.x && ball.vx <= 0) ||
+   117→    (targetX < ball.x && ball.vx >= 0)
+   118→  ) {
+   119→    return ball.y;
+   120→  }
+   121→
+   122→  let x = ball.x;
+   123→  let y = ball.y;
+   124→  let vy = ball.vy;
+   125→  const step = Math.abs(ball.vx) || 1;
+   126→  const dir = ball.vx > 0 ? 1 : -1;
+   127→
+   128→  for (let i = 0; i < 2000; i++) {
+   129→    x += dir * step;
+   130→    y += vy;
+   131→
+   132→    if (y <= BALL_R) {
+   133→      y = BALL_R;
+   134→      vy = Math.abs(vy);
+   135→    }
+   136→    if (y >= CANVAS_H - BALL_R) {
+   137→      y = CANVAS_H - BALL_R;
+   138→      vy = -Math.abs(vy);
+   139→    }
+   140→
+   141→    if ((dir > 0 && x >= targetX) || (dir < 0 && x <= targetX)) {
+   142→      return y;
+   143→    }
+   144→  }
+   145→
+   146→  return ball.y;
+   147→}
+   148→
+   149→const PongVS = ({ onScore, liveCode }: PongVSProps) => {
+   150→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   151→  const rafRef = useRef<number>(0);
+   152→  const [phase, setPhase] = useState<GamePhase>("idle");
+   153→  const [mode, setMode] = useState<GameMode>("bot");
+   154→  const [difficulty, setDifficulty] = useState<BotDifficulty>("medio");
+   155→  const [p1Score, setP1Score] = useState(0);
+   156→  const [p2Score, setP2Score] = useState(0);
+   157→  const [countdown, setCountdown] = useState(3);
+   158→  const [winner, setWinner] = useState("");
+   159→  const [p1Name, setP1Name] = useState("Jogador 1");
+   160→  const [p2Name, setP2Name] = useState("Jogador 2");
+   161→
+   162→  const ballRef = useRef<Ball>({
+   163→    x: CANVAS_W / 2,
+   164→    y: CANVAS_H / 2,
+   165→    vx: BALL_SPEED_INIT,
+   166→    vy: 0,
+   167→    speed: BALL_SPEED_INIT,
+   168→  });
+   169→  const p1Ref = useRef<Paddle>({
+   170→    x: 20,
+   171→    y: CANVAS_H / 2 - PADDLE_H / 2,
+   172→    score: 0,
+   173→  });
+   174→  const p2Ref = useRef<Paddle>({
+   175→    x: CANVAS_W - 20 - PADDLE_W,
+   176→    y: CANVAS_H / 2 - PADDLE_H / 2,
+   177→    score: 0,
+   178→  });
+   179→  const keysRef = useRef<Set<string>>(new Set());
+   180→  const phaseRef = useRef<GamePhase>("idle");
+   181→  const modeRef = useRef<GameMode>("bot");
+   182→  const difficultyRef = useRef<BotDifficulty>("medio");
+   183→  const onScoreRef = useRef(onScore);
+   184→  const p1NameRef = useRef(p1Name);
+   185→  const p2NameRef = useRef(p2Name);
+   186→
+   187→  // Bot AI refs
+   188→  const botTargetRef = useRef<number>(CANVAS_H / 2);
+   189→  const botLastUpdateRef = useRef<number>(0);
+   190→  const botMovingRef = useRef<boolean>(true);
+   191→
+   192→  useEffect(() => { modeRef.current = mode; }, [mode]);
+   193→  useEffect(() => { phaseRef.current = phase; }, [phase]);
+   194→  useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
+   195→  useEffect(() => { onScoreRef.current = onScore; }, [onScore]);
+   196→  useEffect(() => { p1NameRef.current = p1Name; }, [p1Name]);
+   197→  useEffect(() => { p2NameRef.current = p2Name; }, [p2Name]);
+   198→
+   199→  const resetBall = useCallback((direction: 1 | -1) => {
+   200→    const b = ballRef.current;
+   201→    b.x = CANVAS_W / 2;
+   202→    b.y = CANVAS_H / 2;
+   203→    b.speed = BALL_SPEED_INIT;
+   204→    const angle = Math.random() * (Math.PI / 3) - Math.PI / 6;
+   205→    b.vx = Math.cos(angle) * b.speed * direction;
+   206→    b.vy = Math.sin(angle) * b.speed;
+   207→  }, []);
+   208→
+   209→  const botAI = useCallback(() => {
+   210→    const p = p2Ref.current;
+   211→    const b = ballRef.current;
+   212→    const cfg = BOT_CONFIGS[difficultyRef.current];
+   213→    const now = performance.now();
+   214→
+   215→    // Only recalculate target at reaction interval
+   216→    if (now - botLastUpdateRef.current >= cfg.reactionMs) {
+   217→      botLastUpdateRef.current = now;
+   218→
+   219→      // Decide whether to "miss" this update cycle
+   220→      const shouldMiss = Math.random() < cfg.missChance;
+   221→      if (shouldMiss) {
+   222→        botMovingRef.current = false;
+   223→        return;
+   224→      }
+   225→      botMovingRef.current = true;
+   226→
+   227→      // Calculate target y position
+   228→      let targetY: number;
+   229→      if (cfg.predictAhead) {
+   230→        targetY = predictBallY(b, p.x);
+   231→      } else {
+   232→        // Only track when ball is heading toward the bot
+   233→        if (b.vx > 0) {
+   234→          targetY = b.y;
+   235→        } else {
+   236→          // Ball going away, drift toward center slowly
+   237→          targetY = CANVAS_H / 2;
+   238→        }
+   239→      }
+   240→
+   241→      // Add noise
+   242→      const noise = (Math.random() - 0.5) * 2 * cfg.noisePx;
+   243→      botTargetRef.current = Math.max(
+   244→        PADDLE_H / 2,
+   245→        Math.min(CANVAS_H - PADDLE_H / 2, targetY + noise)
+   246→      );
+   247→    }
+   248→
+   249→    // Move paddle toward target
+   250→    if (!botMovingRef.current) return;
+   251→
+   252→    const center = p.y + PADDLE_H / 2;
+   253→    const diff = botTargetRef.current - center;
+   254→
+   255→    if (Math.abs(diff) > cfg.deadzonePx) {
+   256→      const moveAmount = Math.min(
+   257→        Math.abs(diff),
+   258→        cfg.speed * PADDLE_SPEED
+   259→      );
+   260→      p.y += diff > 0 ? moveAmount : -moveAmount;
+   261→    }
+   262→
+   263→    p.y = Math.max(0, Math.min(CANVAS_H - PADDLE_H, p.y));
+   264→  }, []);
+   265→
+   266→  const draw = useCallback((ctx: CanvasRenderingContext2D) => {
+   267→    const b = ballRef.current;
+   268→    const p1 = p1Ref.current;
+   269→    const p2 = p2Ref.current;
+   270→
+   271→    // Background
+   272→    ctx.fillStyle = "#0f172a";
+   273→    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+   274→
+   275→    // Center line
+   276→    ctx.setLineDash([8, 8]);
+   277→    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+   278→    ctx.lineWidth = 2;
+   279→    ctx.beginPath();
+   280→    ctx.moveTo(CANVAS_W / 2, 0);
+   281→    ctx.lineTo(CANVAS_W / 2, CANVAS_H);
+   282→    ctx.stroke();
+   283→    ctx.setLineDash([]);
+   284→
+   285→    // Center circle
+   286→    ctx.beginPath();
+   287→    ctx.arc(CANVAS_W / 2, CANVAS_H / 2, 40, 0, Math.PI * 2);
+   288→    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+   289→    ctx.lineWidth = 2;
+   290→    ctx.stroke();
+   291→
+   292→    // Paddles
+   293→    const grad1 = ctx.createLinearGradient(p1.x, p1.y, p1.x + PADDLE_W, p1.y);
+   294→    grad1.addColorStop(0, "#3b82f6");
+   295→    grad1.addColorStop(1, "#6366f1");
+   296→    ctx.fillStyle = grad1;
+   297→    ctx.beginPath();
+   298→    ctx.roundRect(p1.x, p1.y, PADDLE_W, PADDLE_H, 6);
+   299→    ctx.fill();
+   300→
+   301→    const grad2 = ctx.createLinearGradient(p2.x, p2.y, p2.x + PADDLE_W, p2.y);
+   302→    grad2.addColorStop(0, "#f59e0b");
+   303→    grad2.addColorStop(1, "#ef4444");
+   304→    ctx.fillStyle = grad2;
+   305→    ctx.beginPath();
+   306→    ctx.roundRect(p2.x, p2.y, PADDLE_W, PADDLE_H, 6);
+   307→    ctx.fill();
+   308→
+   309→    // Ball glow
+   310→    ctx.shadowColor = "#ffffff";
+   311→    ctx.shadowBlur = 15;
+   312→    ctx.fillStyle = "#ffffff";
+   313→    ctx.beginPath();
+   314→    ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2);
+   315→    ctx.fill();
+   316→    ctx.shadowBlur = 0;
+   317→
+   318→    // Scores
+   319→    ctx.font = "bold 48px monospace";
+   320→    ctx.textAlign = "center";
+   321→    ctx.fillStyle = "rgba(59,130,246,0.3)";
+   322→    ctx.fillText(String(p1.score), CANVAS_W / 4, 60);
+   323→    ctx.fillStyle = "rgba(245,158,11,0.3)";
+   324→    ctx.fillText(String(p2.score), (CANVAS_W * 3) / 4, 60);
+   325→  }, []);
+   326→
+   327→  const update = useCallback(() => {
+   328→    if (phaseRef.current !== "playing") return;
+   329→
+   330→    const b = ballRef.current;
+   331→    const p1 = p1Ref.current;
+   332→    const p2 = p2Ref.current;
+   333→    const keys = keysRef.current;
+   334→
+   335→    // Player 1 controls: W/S or ArrowUp/ArrowDown (only in bot mode)
+   336→    if (modeRef.current === "bot") {
+   337→      if (keys.has("w") || keys.has("W") || keys.has("ArrowUp"))
+   338→        p1.y -= PADDLE_SPEED;
+   339→      if (keys.has("s") || keys.has("S") || keys.has("ArrowDown"))
+   340→        p1.y += PADDLE_SPEED;
+   341→    } else {
+   342→      // VS mode: P1 uses W/S
+   343→      if (keys.has("w") || keys.has("W")) p1.y -= PADDLE_SPEED;
+   344→      if (keys.has("s") || keys.has("S")) p1.y += PADDLE_SPEED;
+   345→    }
+   346→    p1.y = Math.max(0, Math.min(CANVAS_H - PADDLE_H, p1.y));
+   347→
+   348→    // Player 2 or bot
+   349→    if (modeRef.current === "bot") {
+   350→      botAI();
+   351→    } else {
+   352→      if (keys.has("ArrowUp")) p2.y -= PADDLE_SPEED;
+   353→      if (keys.has("ArrowDown")) p2.y += PADDLE_SPEED;
+   354→      p2.y = Math.max(0, Math.min(CANVAS_H - PADDLE_H, p2.y));
+   355→    }
+   356→
+   357→    // Ball movement
+   358→    b.x += b.vx;
+   359→    b.y += b.vy;
+   360→
+   361→    // Top/bottom bounce
+   362→    if (b.y - BALL_R <= 0) {
+   363→      b.y = BALL_R;
+   364→      b.vy = Math.abs(b.vy);
+   365→    }
+   366→    if (b.y + BALL_R >= CANVAS_H) {
+   367→      b.y = CANVAS_H - BALL_R;
+   368→      b.vy = -Math.abs(b.vy);
+   369→    }
+   370→
+   371→    // Paddle 1 collision (left)
+   372→    if (
+   373→      b.vx < 0 &&
+   374→      b.x - BALL_R <= p1.x + PADDLE_W &&
+   375→      b.x - BALL_R >= p1.x &&
+   376→      b.y >= p1.y &&
+   377→      b.y <= p1.y + PADDLE_H
+   378→    ) {
+   379→      b.x = p1.x + PADDLE_W + BALL_R;
+   380→      const relY = (b.y - (p1.y + PADDLE_H / 2)) / (PADDLE_H / 2);
+   381→      const angle = relY * (Math.PI / 3);
+   382→      b.speed = Math.min(b.speed + BALL_SPEED_INC, 10);
+   383→      b.vx = Math.cos(angle) * b.speed;
+   384→      b.vy = Math.sin(angle) * b.speed;
+   385→    }
+   386→
+   387→    // Paddle 2 collision (right)
+   388→    if (
+   389→      b.vx > 0 &&
+   390→      b.x + BALL_R >= p2.x &&
+   391→      b.x + BALL_R <= p2.x + PADDLE_W &&
+   392→      b.y >= p2.y &&
+   393→      b.y <= p2.y + PADDLE_H
+   394→    ) {
+   395→      b.x = p2.x - BALL_R;
+   396→      const relY = (b.y - (p2.y + PADDLE_H / 2)) / (PADDLE_H / 2);
+   397→      const angle = relY * (Math.PI / 3);
+   398→      b.speed = Math.min(b.speed + BALL_SPEED_INC, 10);
+   399→      b.vx = -Math.cos(angle) * b.speed;
+   400→      b.vy = Math.sin(angle) * b.speed;
+   401→    }
+   402→
+   403→    // Score detection
+   404→    if (b.x < -BALL_R * 2) {
+   405→      p2.score++;
+   406→      setP2Score(p2.score);
+   407→      if (p2.score >= WIN_SCORE) {
+   408→        const w = modeRef.current === "bot" ? "Adversário IA" : p2NameRef.current;
+   409→        setWinner(w);
+   410→        setPhase("done");
+   411→        onScoreRef.current?.(w, p2.score);
+   412→        confetti({
+   413→          particleCount: 100,
+   414→          spread: 70,
+   415→          origin: { x: 0.7, y: 0.5 },
+   416→        });
+   417→      } else {
+   418→        resetBall(1);
+   419→      }
+   420→    }
+   421→    if (b.x > CANVAS_W + BALL_R * 2) {
+   422→      p1.score++;
+   423→      setP1Score(p1.score);
+   424→      if (p1.score >= WIN_SCORE) {
+   425→        const n = p1NameRef.current;
+   426→        setWinner(n);
+   427→        setPhase("done");
+   428→        onScoreRef.current?.(n, p1.score);
+   429→        confetti({
+   430→          particleCount: 100,
+   431→          spread: 70,
+   432→          origin: { x: 0.3, y: 0.5 },
+   433→        });
+   434→      } else {
+   435→        resetBall(-1);
+   436→      }
+   437→    }
+   438→  }, [botAI, resetBall]);
+   439→
+   440→  const gameLoop = useCallback(() => {
+   441→    const canvas = canvasRef.current;
+   442→    if (!canvas) return;
+   443→    const ctx = canvas.getContext("2d");
+   444→    if (!ctx) return;
+   445→    update();
+   446→    draw(ctx);
+   447→    rafRef.current = requestAnimationFrame(gameLoop);
+   448→  }, [update, draw]);
+   449→
+   450→  // Key handlers
+   451→  useEffect(() => {
+   452→    const down = (e: KeyboardEvent) => {
+   453→      keysRef.current.add(e.key);
+   454→      if (
+   455→        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(
+   456→          e.key
+   457→        )
+   458→      )
+   459→        e.preventDefault();
+   460→    };
+   461→    const up = (e: KeyboardEvent) => {
+   462→      keysRef.current.delete(e.key);
+   463→    };
+   464→    window.addEventListener("keydown", down);
+   465→    window.addEventListener("keyup", up);
+   466→    return () => {
+   467→      window.removeEventListener("keydown", down);
+   468→      window.removeEventListener("keyup", up);
+   469→    };
+   470→  }, []);
+   471→
+   472→  // Game loop
+   473→  useEffect(() => {
+   474→    if (phase === "playing") {
+   475→      rafRef.current = requestAnimationFrame(gameLoop);
+   476→    }
+   477→    return () => {
+   478→      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+   479→    };
+   480→  }, [phase, gameLoop]);
+   481→
+   482→  // Draw idle/paused states
+   483→  useEffect(() => {
+   484→    if (phase === "idle" || phase === "done") {
+   485→      const canvas = canvasRef.current;
+   486→      if (!canvas) return;
+   487→      const ctx = canvas.getContext("2d");
+   488→      if (!ctx) return;
+   489→      draw(ctx);
+   490→    }
+   491→  }, [phase, draw]);
+   492→
+   493→  const startGame = () => {
+   494→    p1Ref.current = {
+   495→      x: 20,
+   496→      y: CANVAS_H / 2 - PADDLE_H / 2,
+   497→      score: 0,
+   498→    };
+   499→    p2Ref.current = {
+   500→      x: CANVAS_W - 20 - PADDLE_W,
+   501→      y: CANVAS_H / 2 - PADDLE_H / 2,
+   502→      score: 0,
+   503→    };
+   504→    resetBall(Math.random() > 0.5 ? 1 : -1);
+   505→    setP1Score(0);
+   506→    setP2Score(0);
+   507→    setWinner("");
+   508→    // Reset bot state
+   509→    botTargetRef.current = CANVAS_H / 2;
+   510→    botLastUpdateRef.current = 0;
+   511→    botMovingRef.current = true;
+   512→    setPhase("countdown");
+   513→    setCountdown(3);
+   514→  };
+   515→
+   516→  useEffect(() => {
+   517→    if (phase !== "countdown") return;
+   518→    if (countdown <= 0) {
+   519→      setPhase("playing");
+   520→      return;
+   521→    }
+   522→    const t = setTimeout(() => setCountdown((c) => c - 1), 800);
+   523→    return () => clearTimeout(t);
+   524→  }, [phase, countdown]);
+   525→
+   526→  return (
+   527→    <div className="max-w-2xl mx-auto flex flex-col items-center gap-4">
+   528→      {phase === "idle" && (
+   529→        <motion.div
+   530→          initial={{ opacity: 0, y: -10 }}
+   531→          animate={{ opacity: 1, y: 0 }}
+   532→          transition={{ duration: 0.35, ease: "easeOut" }}
+   533→          className="w-full flex flex-col gap-4"
+   534→        >
+   535→          <div className="text-center">
+   536→            <motion.h2
+   537→              initial={{ opacity: 0, y: -8 }}
+   538→              animate={{ opacity: 1, y: 0 }}
+   539→              transition={{ delay: 0.05 }}
+   540→              className="text-lg font-bold text-foreground flex items-center justify-center gap-2"
+   541→            >
+   542→              <Swords className="h-5 w-5 text-primary" />
+   543→              Escolha o Modo de Jogo
+   544→            </motion.h2>
+   545→            <motion.p
+   546→              initial={{ opacity: 0 }}
+   547→              animate={{ opacity: 1 }}
+   548→              transition={{ delay: 0.15 }}
+   549→              className="text-xs text-muted-foreground mt-1"
+   550→            >
+   551→              Selecione como deseja jogar
+   552→            </motion.p>
+   553→          </div>
+   554→
+   555→          <div className="grid grid-cols-2 gap-3 w-full">
+   556→            <motion.button
+   557→              whileHover={{ scale: 1.02 }}
+   558→              whileTap={{ scale: 0.98 }}
+   559→              onClick={() => setMode("bot")}
+   560→              className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer ${
+   561→                mode === "bot"
+   562→                  ? "border-primary bg-primary/5 shadow-lg shadow-primary/20"
+   563→                  : "border-border bg-card hover:border-primary/30"
+   564→              }`}
+   565→            >
+   566→              <div
+   567→                className={`p-3 rounded-xl transition-colors ${
+   568→                  mode === "bot" ? "bg-primary/10" : "bg-muted"
+   569→                }`}
+   570→              >
+   571→                <Cpu
+   572→                  className={`h-6 w-6 transition-colors ${
+   573→                    mode === "bot" ? "text-primary" : "text-muted-foreground"
+   574→                  }`}
+   575→                />
+   576→              </div>
+   577→              <span
+   578→                className={`text-sm font-bold transition-colors ${
+   579→                  mode === "bot" ? "text-foreground" : "text-muted-foreground"
+   580→                }`}
+   581→              >
+   582→                Contra IA
+   583→              </span>
+   584→              <span className="text-[10px] text-muted-foreground text-center leading-tight">
+   585→                Jogue contra o computador
+   586→              </span>
+   587→              {mode === "bot" && (
+   588→                <motion.div
+   589→                  layoutId="mode-indicator"
+   590→                  className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center"
+   591→                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+   592→                >
+   593→                  <ChevronRight className="h-3 w-3 text-primary-foreground" />
+   594→                </motion.div>
+   595→              )}
+   596→            </motion.button>
+   597→
+   598→            <motion.button
+   599→              whileHover={{ scale: 1.02 }}
+   600→              whileTap={{ scale: 0.98 }}
+   601→              onClick={() => setMode("vs")}
+   602→              className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer ${
+   603→                mode === "vs"
+   604→                  ? "border-primary bg-primary/5 shadow-lg shadow-primary/20"
+   605→                  : "border-border bg-card hover:border-primary/30"
+   606→              }`}
+   607→            >
+   608→              <div
+   609→                className={`p-3 rounded-xl transition-colors ${
+   610→                  mode === "vs" ? "bg-primary/10" : "bg-muted"
+   611→                }`}
+   612→              >
+   613→                <Users
+   614→                  className={`h-6 w-6 transition-colors ${
+   615→                    mode === "vs" ? "text-primary" : "text-muted-foreground"
+   616→                  }`}
+   617→                />
+   618→              </div>
+   619→              <span
+   620→                className={`text-sm font-bold transition-colors ${
+   621→                  mode === "vs" ? "text-foreground" : "text-muted-foreground"
+   622→                }`}
+   623→              >
+   624→                Contra Amigo
+   625→              </span>
+   626→              <span className="text-[10px] text-muted-foreground text-center leading-tight">
+   627→                Dois jogadores no mesmo dispositivo
+   628→              </span>
+   629→              {mode === "vs" && (
+   630→                <motion.div
+   631→                  layoutId="mode-indicator"
+   632→                  className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center"
+   633→                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+   634→                >
+   635→                  <ChevronRight className="h-3 w-3 text-primary-foreground" />
+   636→                </motion.div>
+   637→              )}
+   638→            </motion.button>
+   639→          </div>
+   640→
+   641→          <AnimatePresence mode="wait">
+   642→            {mode === "bot" && (
+   643→              <motion.div
+   644→                key="difficulty-panel"
+   645→                initial={{ opacity: 0, height: 0, y: -8 }}
+   646→                animate={{ opacity: 1, height: "auto", y: 0 }}
+   647→                exit={{ opacity: 0, height: 0, y: -8 }}
+   648→                transition={{ duration: 0.25, ease: "easeOut" }}
+   649→                className="overflow-hidden"
+   650→              >
+   651→                <div className="flex items-center gap-2 mb-2">
+   652→                  <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+   653→                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+   654→                    Dificuldade
+   655→                  </span>
+   656→                </div>
+   657→                <div className="grid grid-cols-3 gap-2">
+   658→                  {(["facil", "medio", "dificil"] as BotDifficulty[]).map(
+   659→                    (d) => {
+   660→                      const style = DIFFICULTY_STYLES[d];
+   661→                      const cfg = BOT_CONFIGS[d];
+   662→                      return (
+   663→                        <motion.button
+   664→                          key={d}
+   665→                          whileHover={{ scale: 1.03 }}
+   666→                          whileTap={{ scale: 0.97 }}
+   667→                          onClick={() => setDifficulty(d)}
+   668→                          className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+   669→                            difficulty === d
+   670→                              ? `border-current bg-gradient-to-br ${style.bg} shadow-md`
+   671→                              : "border-border bg-card hover:border-border/80"
+   672→                          }`}
+   673→                        >
+   674→                          <span
+   675→                            className={`text-sm font-bold ${
+   676→                              difficulty === d
+   677→                                ? style.icon
+   678→                                : "text-muted-foreground"
+   679→                            }`}
+   680→                          >
+   681→                            {cfg.label}
+   682→                          </span>
+   683→                          <span className="text-[9px] text-muted-foreground text-center leading-tight">
+   684→                            {style.desc}
+   685→                          </span>
+   686→                        </motion.button>
+   687→                      );
+   688→                    }
+   689→                  )}
+   690→                </div>
+   691→              </motion.div>
+   692→            )}
+   693→          </AnimatePresence>
+   694→
+   695→          <motion.div
+   696→            initial={{ opacity: 0 }}
+   697→            animate={{ opacity: 1 }}
+   698→            transition={{ delay: 0.1 }}
+   699→            className="grid grid-cols-2 gap-2 w-full"
+   700→          >
+   701→            <input
+   702→              value={p1Name}
+   703→              onChange={(e) => setP1Name(e.target.value)}
+   704→              placeholder="Jogador 1"
+   705→              className="px-3 py-2.5 rounded-xl bg-card border border-border text-sm text-center focus:border-primary/50 focus:outline-none transition-colors"
+   706→            />
+   707→            {mode === "vs" ? (
+   708→              <input
+   709→                value={p2Name}
+   710→                onChange={(e) => setP2Name(e.target.value)}
+   711→                placeholder="Jogador 2"
+   712→                className="px-3 py-2.5 rounded-xl bg-card border border-border text-sm text-center focus:border-primary/50 focus:outline-none transition-colors"
+   713→              />
+   714→            ) : (
+   715→              <div className="px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-center text-muted-foreground flex items-center justify-center gap-1.5">
+   716→                <Bot className="h-3.5 w-3.5" />
+   717→                <span>
+   718→                  IA — {BOT_CONFIGS[difficulty].label}
+   719→                </span>
+   720→              </div>
+   721→            )}
+   722→          </motion.div>
+   723→
+   724→          <motion.button
+   725→            whileHover={{ scale: 1.01 }}
+   726→            whileTap={{ scale: 0.99 }}
+   727→            onClick={startGame}
+   728→            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 hover:shadow-xl transition-shadow cursor-pointer"
+   729→          >
+   730→            <Play className="h-4 w-4 fill-current" /> Começar Jogo
+   731→          </motion.button>
+   732→
+   733→          <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+   734→            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">
+   735→              Controles
+   736→            </p>
+   737→            <p className="text-xs text-muted-foreground">
+   738→              {mode === "vs"
+   739→                ? "Jogador 1: W/S  •  Jogador 2: ↑/↓"
+   740→                : "W/S ou ↑/↓ para mover a raquete"}
+   741→            </p>
+   742→            <p className="text-xs text-muted-foreground mt-1">
+   743→              Primeiro a {WIN_SCORE} pontos vence!
+   744→            </p>
+   745→          </div>
+   746→        </motion.div>
+   747→      )}
+   748→
+   749→      {phase !== "idle" && (
+   750→        <div className="w-full flex items-center justify-between px-2">
+   751→          <div className="flex items-center gap-2">
+   752→            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+   753→            <span className="text-xs font-bold text-muted-foreground">
+   754→              {p1Name}
+   755→            </span>
+   756→            <span className="font-display text-xl font-bold text-foreground">
+   757→              {p1Score}
+   758→            </span>
+   759→          </div>
+   760→          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+   761→            vs
+   762→          </span>
+   763→          <div className="flex items-center gap-2">
+   764→            <span className="font-display text-xl font-bold text-foreground">
+   765→              {p2Score}
+   766→            </span>
+   767→            <span className="text-xs font-bold text-muted-foreground">
+   768→              {mode === "bot" ? `IA (${BOT_CONFIGS[difficulty].label})` : p2Name}
+   769→            </span>
+   770→            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-red-500" />
+   771→          </div>
+   772→        </div>
+   773→      )}
+   774→
+   775→      <div className="relative w-full" style={{ maxWidth: CANVAS_W }}>
+   776→        <canvas
+   777→          ref={canvasRef}
+   778→          width={CANVAS_W}
+   779→          height={CANVAS_H}
+   780→          className="w-full rounded-2xl border-2 border-border shadow-xl"
+   781→          tabIndex={0}
+   782→        />
+   783→
+   784→        <AnimatePresence>
+   785→          {phase === "countdown" && (
+   786→            <motion.div
+   787→              key={countdown}
+   788→              initial={{ scale: 2, opacity: 0 }}
+   789→              animate={{ scale: 1, opacity: 1 }}
+   790→              exit={{ scale: 0.5, opacity: 0 }}
+   791→              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl"
+   792→            >
+   793→              <span className="font-display text-7xl font-bold text-white">
+   794→                {countdown > 0 ? countdown : "GO!"}
+   795→              </span>
+   796→            </motion.div>
+   797→          )}
+   798→        </AnimatePresence>
+   799→
+   800→        <AnimatePresence>
+   801→          {phase === "done" && (
+   802→            <motion.div
+   803→              initial={{ opacity: 0 }}
+   804→              animate={{ opacity: 1 }}
+   805→              className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl gap-3"
+   806→            >
+   807→              <Trophy className="h-10 w-10 text-yellow-400" />
+   808→              <p className="font-display text-2xl font-bold text-white">
+   809→                {winner} venceu!
+   810→              </p>
+   811→              <p className="text-sm text-white/70">
+   812→                {p1Score} - {p2Score}
+   813→              </p>
+   814→              <button
+   815→                onClick={startGame}
+   816→                className="mt-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+   817→              >
+   818→                <RotateCcw className="h-4 w-4" /> Jogar Novamente
+   819→              </button>
+   820→              <button
+   821→                onClick={() => setPhase("idle")}
+   822→                className="px-4 py-2 rounded-full bg-white/10 text-white/80 text-xs font-medium hover:bg-white/20 transition cursor-pointer"
+   823→              >
+   824→                Voltar ao Menu
+   825→              </button>
+   826→            </motion.div>
+   827→          )}
+   828→        </AnimatePresence>
+   829→      </div>
+   830→
+   831→      {phase === "playing" && (
+   832→        <p className="text-[10px] text-muted-foreground text-center">
+   833→          {mode === "vs"
+   834→            ? "P1: W/S  •  P2: ↑/↓"
+   835→            : "W/S ou ↑/↓ para mover"}{" "}
+   836→          | Clique no canvas para focar
+   837→        </p>
+   838→      )}
+   839→    </div>
+   840→  );
+   841→};
+   842→
+   843→export default PongVS;
+   844→
