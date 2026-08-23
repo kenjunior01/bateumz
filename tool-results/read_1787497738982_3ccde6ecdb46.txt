@@ -1,0 +1,983 @@
+     1→     1→import { useState, useCallback, useEffect, useRef } from "react";
+     2→     2→import { motion, AnimatePresence } from "framer-motion";
+     3→     3→import { RotateCcw, Eye, Grid3X3 } from "lucide-react";
+     4→     4→import { Button } from "@/components/ui/button";
+     5→     5→import { Badge } from "@/components/ui/badge";
+     6→     6→import { cn } from "@/lib/utils";
+     7→     7→
+     8→     8→/* ------------------------------------------------------------------ */
+     9→     9→/*  Types                                                              */
+    10→    10→/* ------------------------------------------------------------------ */
+    11→    11→
+    12→    12→interface Props {
+    13→    13→  onScore?: (name: string, score: number) => void;
+    14→    14→  liveCode?: string;
+    15→    15→}
+    16→    16→
+    17→    17→type Phase =
+    18→    18→  | "idle"
+    19→    19→  | "memorize"
+    20→    20→  | "recall_p1"
+    21→    21→  | "feedback_p1"
+    22→    22→  | "recall_p2"
+    23→    23→  | "feedback_p2"
+    24→    24→  | "round_result"
+    25→    25→  | "game_over";
+    26→    26→
+    27→    27→interface RoundConfig {
+    28→    28→  gridSize: number;
+    29→    29→  patternSize: number;
+    30→    30→  memorizeTime: number;
+    31→    31→}
+    32→    32→
+    33→    33→/* ------------------------------------------------------------------ */
+    34→    34→/*  Constants                                                          */
+    35→    35→/* ------------------------------------------------------------------ */
+    36→    36→
+    37→    37→const TOTAL_ROUNDS = 8;
+    38→    38→
+    39→    39→const ROUNDS: RoundConfig[] = [
+    40→    40→  { gridSize: 3, patternSize: 3, memorizeTime: 3.0 },
+    41→    41→  { gridSize: 3, patternSize: 4, memorizeTime: 2.79 },
+    42→    42→  { gridSize: 4, patternSize: 5, memorizeTime: 2.57 },
+    43→    43→  { gridSize: 4, patternSize: 6, memorizeTime: 2.36 },
+    44→    44→  { gridSize: 4, patternSize: 7, memorizeTime: 2.14 },
+    45→    45→  { gridSize: 5, patternSize: 8, memorizeTime: 1.93 },
+    46→    46→  { gridSize: 5, patternSize: 9, memorizeTime: 1.71 },
+    47→    47→  { gridSize: 5, patternSize: 10, memorizeTime: 1.5 },
+    48→    48→];
+    49→    49→
+    50→    50→/* ------------------------------------------------------------------ */
+    51→    51→/*  Helpers                                                            */
+    52→    52→/* ------------------------------------------------------------------ */
+    53→    53→
+    54→    54→function pickPattern(total: number, count: number): Set<number> {
+    55→    55→  const set = new Set<number>();
+    56→    56→  while (set.size < count) set.add(Math.floor(Math.random() * total));
+    57→    57→  return set;
+    58→    58→}
+    59→    59→
+    60→    60→function calcRoundScore(taps: Set<number>, pattern: Set<number>): number {
+    61→    61→  let correct = 0;
+    62→    62→  let wrong = 0;
+    63→    63→  taps.forEach((c) => (pattern.has(c) ? correct++ : wrong++));
+    64→    64→  return Math.max(0, correct * 10 - wrong * 5);
+    65→    65→}
+    66→    66→
+    67→    67→/* ------------------------------------------------------------------ */
+    68→    68→/*  Animation presets                                                  */
+    69→    69→/* ------------------------------------------------------------------ */
+    70→    70→
+    71→    71→const fadeUp = {
+    72→    72→  initial: { opacity: 0, y: 16 },
+    73→    73→  animate: { opacity: 1, y: 0 },
+    74→    74→  exit: { opacity: 0, y: -10 },
+    75→    75→};
+    76→    76→
+    77→    77→const popIn = {
+    78→    78→  initial: { opacity: 0, scale: 0.88 },
+    79→    79→  animate: { opacity: 1, scale: 1 },
+    80→    80→  exit: { opacity: 0, scale: 0.92 },
+    81→    81→};
+    82→    82→
+    83→    83→const shakeKeyframes = { x: [0, -8, 8, -8, 8, -4, 4, 0] };
+    84→    84→
+    85→    85→/* ------------------------------------------------------------------ */
+    86→    86→/*  Scoreboard                                                         */
+    87→    87→/* ------------------------------------------------------------------ */
+    88→    88→
+    89→    89→function ScoreBar({
+    90→    90→  p1,
+    91→    91→  p2,
+    92→    92→  round,
+    93→    93→  highlight,
+    94→    94→}: {
+    95→    95→  p1: number;
+    96→    96→  p2: number;
+    97→    97→  round: number;
+    98→    98→  highlight?: 1 | 2;
+    99→    99→}) {
+   100→   100→  return (
+   101→   101→    <div className="flex w-full max-w-md items-center justify-between gap-2">
+   102→   102→      <motion.div
+   103→   103→        animate={{ scale: highlight === 1 ? 1.06 : 1 }}
+   104→   104→        transition={{ type: "spring", stiffness: 300 }}
+   105→   105→      >
+   106→   106→        <Badge
+   107→   107→          variant="outline"
+   108→   108→          className={cn(
+   109→   109→            "px-3 py-1 text-sm font-bold transition-colors",
+   110→   110→            highlight === 1
+   111→   111→              ? "text-cyan-300 border-cyan-400 bg-cyan-500/20 shadow-md shadow-cyan-500/20"
+   112→   112→              : "text-cyan-400 border-cyan-500/50 bg-cyan-500/10"
+   113→   113→          )}
+   114→   114→        >
+   115→   115→          Jogador 1: {p1}
+   116→   116→        </Badge>
+   117→   117→      </motion.div>
+   118→   118→
+   119→   119→      <Badge
+   120→   120→        variant="secondary"
+   121→   121→        className="text-zinc-400 bg-zinc-800/80 px-2.5 py-1 text-xs font-medium"
+   122→   122→      >
+   123→   123→        Rodada {round + 1}/{TOTAL_ROUNDS}
+   124→   124→      </Badge>
+   125→   125→
+   126→   126→      <motion.div
+   127→   127→        animate={{ scale: highlight === 2 ? 1.06 : 1 }}
+   128→   128→        transition={{ type: "spring", stiffness: 300 }}
+   129→   129→      >
+   130→   130→        <Badge
+   131→   131→          variant="outline"
+   132→   132→          className={cn(
+   133→   133→            "px-3 py-1 text-sm font-bold transition-colors",
+   134→   134→            highlight === 2
+   135→   135→              ? "text-pink-300 border-pink-400 bg-pink-500/20 shadow-md shadow-pink-500/20"
+   136→   136→              : "text-pink-400 border-pink-500/50 bg-pink-500/10"
+   137→   137→          )}
+   138→   138→        >
+   139→   139→          Jogador 2: {p2}
+   140→   140→        </Badge>
+   141→   141→      </motion.div>
+   142→   142→    </div>
+   143→   143→  );
+   144→   144→}
+   145→   145→
+   146→   146→/* ------------------------------------------------------------------ */
+   147→   147→/*  Grid cell component                                                */
+   148→   148→/* ------------------------------------------------------------------ */
+   149→   149→
+   150→   150→function Cell({
+   151→   151→  index,
+   152→   152→  inPattern,
+   153→   153→  patternStaggerIndex,
+   154→   154→  isTapped,
+   155→   155→  isWrongTap,
+   156→   156→  isCorrectTap,
+   157→   157→  isMissed,
+   158→   158→  showPattern,
+   159→   159→  interactive,
+   160→   160→  tapColor,
+   161→   161→  phase,
+   162→   162→  onTap,
+   163→   163→}: {
+   164→   164→  index: number;
+   165→   165→  inPattern: boolean;
+   166→   166→  patternStaggerIndex: number;
+   167→   167→  isTapped: boolean;
+   168→   168→  isWrongTap: boolean;
+   169→   169→  isCorrectTap: boolean;
+   170→   170→  isMissed: boolean;
+   171→   171→  showPattern: boolean;
+   172→   172→  interactive: boolean;
+   173→   173→  tapColor: "cyan" | "pink" | null;
+   174→   174→  phase: Phase;
+   175→   175→  onTap: (i: number) => void;
+   176→   176→}) {
+   177→   177→  /* bg class */
+   178→   178→  let bg = "bg-zinc-800/70 border-zinc-700/40";
+   179→   179→  let glow = "";
+   180→   180→  let shouldShake = false;
+   181→   181→  let shouldPulse = false;
+   182→   182→  let animDelay = 0;
+   183→   183→
+   184→   184→  if (phase === "memorize") {
+   185→   185→    if (inPattern) {
+   186→   186→      bg = "bg-violet-500 border-violet-400/60";
+   187→   187→      glow = "shadow-[0_0_22px_4px_rgba(139,92,246,0.55)]";
+   188→   188→      shouldPulse = true;
+   189→   189→      animDelay = patternStaggerIndex * 0.07;
+   190→   190→    } else {
+   191→   191→      bg = "bg-zinc-800/50 border-zinc-700/30";
+   192→   192→    }
+   193→   193→  } else if (phase === "recall_p1" || phase === "recall_p2") {
+   194→   194→    if (isTapped && tapColor === "cyan") {
+   195→   195→      bg = "bg-cyan-500 border-cyan-400/60";
+   196→   196→      glow = "shadow-[0_0_16px_3px_rgba(6,182,212,0.45)]";
+   197→   197→    } else if (isTapped && tapColor === "pink") {
+   198→   198→      bg = "bg-pink-500 border-pink-400/60";
+   199→   199→      glow = "shadow-[0_0_16px_3px_rgba(236,72,153,0.45)]";
+   200→   200→    } else {
+   201→   201→      bg = "bg-zinc-800/70 border-zinc-700/40";
+   202→   202→    }
+   203→   203→  } else if (phase === "feedback_p1" || phase === "feedback_p2") {
+   204→   204→    if (isCorrectTap) {
+   205→   205→      bg = "bg-emerald-500 border-emerald-400/60";
+   206→   206→      glow = "shadow-[0_0_16px_3px_rgba(16,185,129,0.5)]";
+   207→   207→    } else if (isWrongTap) {
+   208→   208→      bg = "bg-red-500 border-red-400/60";
+   209→   209→      shouldShake = true;
+   210→   210→    } else if (isMissed) {
+   211→   211→      bg = "bg-violet-700/35 border-violet-600/30";
+   212→   212→    } else {
+   213→   213→      bg = "bg-zinc-800/40 border-zinc-700/20";
+   214→   214→    }
+   215→   215→  } else if (phase === "round_result" || phase === "game_over") {
+   216→   216→    if (showPattern && inPattern) {
+   217→   217→      bg = "bg-violet-600/40 border-violet-500/30";
+   218→   218→    } else {
+   219→   219→      bg = "bg-zinc-800/30 border-zinc-700/20";
+   220→   220→    }
+   221→   221→  } else {
+   222→   222→    bg = "bg-zinc-800/70 border-zinc-700/40";
+   223→   223→  }
+   224→   224→
+   225→   225→  return (
+   226→   226→    <motion.button
+   227→   227→      type="button"
+   228→   228→      onClick={() => interactive && onTap(index)}
+   229→   229→      className={cn(
+   230→   230→        "w-14 h-14 sm:w-18 sm:h-18 rounded-xl border-2 transition-[background-color,border-color,box-shadow] duration-150",
+   231→   231→        bg,
+   232→   232→        glow,
+   233→   233→        interactive && "cursor-pointer hover:brightness-125",
+   234→   234→        !interactive && "cursor-default",
+   235→   235→        shouldPulse && phase === "memorize" && "animate-pulse"
+   236→   236→      )}
+   237→   237→      animate={{
+   238→   238→        ...(shouldShake ? shakeKeyframes : { x: 0 }),
+   239→   239→        scale: phase === "memorize" && inPattern
+   240→   240→          ? [0.6, 1.08, 1]
+   241→   241→          : shouldShake
+   242→   242→            ? [1, 0.95, 1.02, 0.98, 1]
+   243→   243→            : 1,
+   244→   244→      }}
+   245→   245→      transition={{
+   246→   246→        x: shouldShake ? { duration: 0.5, ease: "easeOut" } : { duration: 0.1 },
+   247→   247→        scale: { duration: 0.35, ease: "easeOut" },
+   248→   248→        delay: animDelay,
+   249→   249→      }}
+   250→   250→      whileTap={interactive ? { scale: 0.82 } : undefined}
+   251→   251→      whileHover={interactive ? { scale: 1.06 } : undefined}
+   252→   252→    />
+   253→   253→  );
+   254→   254→}
+   255→   255→
+   256→   256→/* ================================================================== */
+   257→   257→/*  Main Component                                                     */
+   258→   258→/* ================================================================== */
+   259→   259→
+   260→   260→export default function PatternMemory({ onScore, liveCode }: Props) {
+   261→   261→  /* ── state ── */
+   262→   262→  const [phase, setPhase] = useState<Phase>("idle");
+   263→   263→  const [round, setRound] = useState(0);
+   264→   264→  const [pattern, setPattern] = useState<Set<number>>(new Set());
+   265→   265→  const [p1Taps, setP1Taps] = useState<Set<number>>(new Set());
+   266→   266→  const [p2Taps, setP2Taps] = useState<Set<number>>(new Set());
+   267→   267→  const [p1Total, setP1Total] = useState(0);
+   268→   268→  const [p2Total, setP2Total] = useState(0);
+   269→   269→  const [p1RoundPts, setP1RoundPts] = useState(0);
+   270→   270→  const [p2RoundPts, setP2RoundPts] = useState(0);
+   271→   271→  const [memProgress, setMemProgress] = useState(100);
+   272→   272→
+   273→   273→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   274→   274→  const onScoreFired = useRef(false);
+   275→   275→  const scoresRef = useRef({ p1: 0, p2: 0 });
+   276→   276→
+   277→   277→  const cfg = ROUNDS[round] ?? ROUNDS[0];
+   278→   278→  const totalCells = cfg.gridSize * cfg.gridSize;
+   279→   279→  const patternArr = Array.from(pattern).sort((a, b) => a - b);
+   280→   280→
+   281→   281→  const recalling = phase === "recall_p1" || phase === "recall_p2";
+   282→   282→  const isP1 = phase === "recall_p1";
+   283→   283→
+   284→   284→  /* ── timer cleanup ── */
+   285→   285→  const clearTimer = useCallback(() => {
+   286→   286→    if (timerRef.current) {
+   287→   287→      clearInterval(timerRef.current);
+   288→   288→      timerRef.current = null;
+   289→   289→    }
+   290→   290→  }, []);
+   291→   291→
+   292→   292→  useEffect(() => clearTimer, [clearTimer]);
+   293→   293→
+   294→   294→  /* ── memorize timer ── */
+   295→   295→  useEffect(() => {
+   296→   296→    if (phase !== "memorize") return;
+   297→   297→    clearTimer();
+   298→   298→    const start = Date.now();
+   299→   299→    const durationMs = cfg.memorizeTime * 1000;
+   300→   300→    timerRef.current = setInterval(() => {
+   301→   301→      const elapsed = Date.now() - start;
+   302→   302→      const pct = Math.max(0, 100 - (elapsed / durationMs) * 100);
+   303→   303→      setMemProgress(pct);
+   304→   304→      if (elapsed >= durationMs) {
+   305→   305→        clearTimer();
+   306→   306→        setPhase("recall_p1");
+   307→   307→      }
+   308→   308→    }, 40);
+   309→   309→    return clearTimer;
+   310→   310→  }, [phase, cfg.memorizeTime, clearTimer]);
+   311→   311→
+   312→   312→  /* ── feedback auto-advance timers ── */
+   313→   313→  useEffect(() => {
+   314→   314→    if (phase === "feedback_p1") {
+   315→   315→      const id = setTimeout(() => setPhase("recall_p2"), 1800);
+   316→   316→      return () => clearTimeout(id);
+   317→   317→    }
+   318→   318→    if (phase === "feedback_p2") {
+   319→   319→      const id = setTimeout(() => setPhase("round_result"), 1800);
+   320→   320→      return () => clearTimeout(id);
+   321→   321→    }
+   322→   322→  }, [phase]);
+   323→   323→
+   324→   324→  /* ── start round ── */
+   325→   325→  const startRound = useCallback(() => {
+   326→   326→    const pat = pickPattern(totalCells, cfg.patternSize);
+   327→   327→    setPattern(pat);
+   328→   328→    setP1Taps(new Set());
+   329→   329→    setP2Taps(new Set());
+   330→   330→    setP1RoundPts(0);
+   331→   331→    setP2RoundPts(0);
+   332→   332→    setMemProgress(100);
+   333→   333→    setPhase("memorize");
+   334→   334→  }, [totalCells, cfg.patternSize]);
+   335→   335→
+   336→   336→  /* ── begin full game ── */
+   337→   337→  const handleStart = useCallback(() => {
+   338→   338→    scoresRef.current = { p1: 0, p2: 0 };
+   339→   339→    onScoreFired.current = false;
+   340→   340→    setRound(0);
+   341→   341→    setP1Total(0);
+   342→   342→    setP2Total(0);
+   343→   343→    setP1Taps(new Set());
+   344→   344→    setP2Taps(new Set());
+   345→   345→    setP1RoundPts(0);
+   346→   346→    setP2RoundPts(0);
+   347→   347→    setPattern(new Set());
+   348→   348→    setPhase("idle");
+   349→   349→    // Use round 0 config values directly instead of stale closure
+   350→   350→    const r0Cells = 3;
+   351→   351→    const r0Size = 2;
+   352→   352→    const pat = pickPattern(r0Cells * r0Cells, r0Size);
+   353→   353→    setPattern(pat);
+   354→   354→    setP1Taps(new Set());
+   355→   355→    setP2Taps(new Set());
+   356→   356→    setP1RoundPts(0);
+   357→   357→    setP2RoundPts(0);
+   358→   358→    setMemProgress(100);
+   359→   359→    setTimeout(() => setPhase("memorize"), 50);
+   360→   360→  }, []);
+   361→   361→
+   362→   362→  /* ── tap cell ── */
+   363→   363→  const handleTap = useCallback(
+   364→   364→    (idx: number) => {
+   365→   365→      if (phase === "recall_p1") {
+   366→   366→        setP1Taps((prev) => {
+   367→   367→          const next = new Set(prev);
+   368→   368→          next.has(idx) ? next.delete(idx) : next.add(idx);
+   369→   369→          return next;
+   370→   370→        });
+   371→   371→      } else if (phase === "recall_p2") {
+   372→   372→        setP2Taps((prev) => {
+   373→   373→          const next = new Set(prev);
+   374→   374→          next.has(idx) ? next.delete(idx) : next.add(idx);
+   375→   375→          return next;
+   376→   376→        });
+   377→   377→      }
+   378→   378→    },
+   379→   379→    [phase]
+   380→   380→  );
+   381→   381→
+   382→   382→  /* ── confirm recall ── */
+   383→   383→  const handleConfirm = useCallback(() => {
+   384→   384→    if (phase === "recall_p1") {
+   385→   385→      const pts = calcRoundScore(p1Taps, pattern);
+   386→   386→      setP1RoundPts(pts);
+   387→   387→      scoresRef.current.p1 += pts;
+   388→   388→      setP1Total(scoresRef.current.p1);
+   389→   389→      setPhase("feedback_p1");
+   390→   390→    } else if (phase === "recall_p2") {
+   391→   391→      const pts = calcRoundScore(p2Taps, pattern);
+   392→   392→      setP2RoundPts(pts);
+   393→   393→      scoresRef.current.p2 += pts;
+   394→   394→      setP2Total(scoresRef.current.p2);
+   395→   395→      setPhase("feedback_p2");
+   396→   396→    }
+   397→   397→  }, [phase, p1Taps, p2Taps, pattern]);
+   398→   398→
+   399→   399→  /* ── next round / game over ── */
+   400→   400→  const handleNextRound = useCallback(() => {
+   401→   401→    const nextRound = round + 1;
+   402→   402→    if (nextRound >= TOTAL_ROUNDS) {
+   403→   403→      setPhase("game_over");
+   404→   404→      if (onScore && !onScoreFired.current) {
+   405→   405→        onScoreFired.current = true;
+   406→   406→        const { p1, p2 } = scoresRef.current;
+   407→   407→        if (p1 > p2) {
+   408→   408→          onScore("Jogador 1", p1);
+   409→   409→        } else if (p2 > p1) {
+   410→   410→          onScore("Jogador 2", p2);
+   411→   411→        } else {
+   412→   412→          onScore("Jogador 1", p1);
+   413→   413→          onScore("Jogador 2", p2);
+   414→   414→        }
+   415→   415→      }
+   416→   416→    } else {
+   417→   417→      setRound(nextRound);
+   418→   418→      setPhase("idle");
+   419→   419→      setTimeout(() => startRound(), 0);
+   420→   420→    }
+   421→   421→  }, [round, onScore, startRound]);
+   422→   422→
+   423→   423→  /* ── restart ── */
+   424→   424→  const handleRestart = useCallback(() => {
+   425→   425→    clearTimer();
+   426→   426→    handleStart();
+   427→   427→  }, [clearTimer, handleStart]);
+   428→   428→
+   429→   429→  /* ── derived sets for feedback ── */
+   430→   430→  const fbTaps =
+   431→   431→    phase === "feedback_p1" ? p1Taps : phase === "feedback_p2" ? p2Taps : null;
+   432→   432→  const correctSet = new Set<number>();
+   433→   433→  const wrongSet = new Set<number>();
+   434→   434→  const missedSet = new Set<number>();
+   435→   435→  if (fbTaps) {
+   436→   436→    fbTaps.forEach((c) => (pattern.has(c) ? correctSet.add(c) : wrongSet.add(c)));
+   437→   437→    pattern.forEach((c) => {
+   438→   438→      if (!fbTaps.has(c)) missedSet.add(c);
+   439→   439→    });
+   440→   440→  }
+   441→   441→
+   442→   442→  const currentTaps =
+   443→   443→    phase === "recall_p1" ? p1Taps : phase === "recall_p2" ? p2Taps : new Set<number>();
+   444→   444→  const activePlayer: 1 | 2 = phase === "recall_p1" ? 1 : 2;
+   445→   445→
+   446→   446→  /* ================================================================ */
+   447→   447→  /*  RENDER                                                           */
+   448→   448→  /* ================================================================ */
+   449→   449→
+   450→   450→  return (
+   451→   451→    <div className="min-h-[540px] bg-gradient-to-b from-zinc-900 to-zinc-950 text-white flex flex-col items-center justify-center p-4 select-none overflow-hidden rounded-2xl border border-zinc-800/60 shadow-2xl">
+   452→   452→      <AnimatePresence>
+   453→   453→        {phase !== "idle" && (
+   454→   454→          <motion.div
+   455→   455→            initial={{ opacity: 0, y: -12 }}
+   456→   456→            animate={{ opacity: 1, y: 0 }}
+   457→   457→            exit={{ opacity: 0 }}
+   458→   458→            className="w-full flex justify-center mb-4"
+   459→   459→          >
+   460→   460→            <ScoreBar
+   461→   461→              p1={p1Total}
+   462→   462→              p2={p2Total}
+   463→   463→              round={round}
+   464→   464→              highlight={phase === "recall_p1" ? 1 : phase === "recall_p2" ? 2 : undefined}
+   465→   465→            />
+   466→   466→          </motion.div>
+   467→   467→        )}
+   468→   468→      </AnimatePresence>
+   469→   469→
+   470→   470→      <AnimatePresence mode="wait">
+   471→   471→        {phase === "idle" && (
+   472→   472→          <motion.div
+   473→   473→            key="idle"
+   474→   474→            {...fadeUp}
+   475→   475→            transition={{ duration: 0.35 }}
+   476→   476→            className="flex flex-col items-center gap-5 text-center max-w-sm"
+   477→   477→          >
+   478→   478→            <motion.div
+   479→   479→              initial={{ scale: 0, rotate: -15 }}
+   480→   480→              animate={{ scale: 1, rotate: 0 }}
+   481→   481→              transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
+   482→   482→              className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-zinc-700/60 flex items-center justify-center"
+   483→   483→            >
+   484→   484→              <Grid3X3 className="w-10 h-10 text-violet-400" />
+   485→   485→            </motion.div>
+   486→   486→
+   487→   487→            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+   488→   488→              <span className="bg-gradient-to-r from-cyan-400 to-cyan-300 bg-clip-text text-transparent">
+   489→   489→                Memória
+   490→   490→              </span>{" "}
+   491→   491→              <span className="bg-gradient-to-r from-pink-400 to-pink-300 bg-clip-text text-transparent">
+   492→   492→                de Padrão
+   493→   493→              </span>
+   494→   494→            </h1>
+   495→   495→
+   496→   496→            <p className="text-zinc-400 text-sm leading-relaxed">
+   497→   497→              Um padrão acende brevemente na grade.
+   498→   498→              <br />
+   499→   499→              Cada jogador recria de memória.
+   500→   500→              <br />
+   501→   501→              <span className="text-emerald-400/80">Acerto = +10 pts</span>{" "}
+   502→   502→              <span className="text-zinc-600">•</span>{" "}
+   503→   503→              <span className="text-red-400/80">Erro = −5 pts</span>
+   504→   504→            </p>
+   505→   505→
+   506→   506→            <div className="flex items-center gap-3 text-xs">
+   507→   507→              <Badge className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5">
+   508→   508→                Jogador 1
+   509→   509→              </Badge>
+   510→   510→              <span className="text-zinc-500 font-extrabold text-sm">VS</span>
+   511→   511→              <Badge className="bg-pink-500/20 text-pink-300 border border-pink-500/30 px-3 py-0.5">
+   512→   512→                Jogador 2
+   513→   513→              </Badge>
+   514→   514→            </div>
+   515→   515→
+   516→   516→            <div className="flex flex-col gap-0.5 text-[11px] text-zinc-500 mt-1">
+   517→   517→              <span>
+   518→   518→                {TOTAL_ROUNDS} rodadas • Grade 3×3 → 5×5
+   519→   519→              </span>
+   520→   520→              <span>
+   521→   521→                Padrão cresce de {ROUNDS[0].patternSize} a {ROUNDS[ROUNDS.length - 1].patternSize}{" "}
+   522→   522→                células
+   523→   523→              </span>
+   524→   524→              <span>
+   525→   525→                Memorização: {ROUNDS[0].memorizeTime}s → {ROUNDS[ROUNDS.length - 1].memorizeTime}s
+   526→   526→              </span>
+   527→   527→            </div>
+   528→   528→
+   529→   529→            <Button
+   530→   530→              size="lg"
+   531→   531→              onClick={handleStart}
+   532→   532→              className="mt-2 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 shadow-lg shadow-cyan-500/20 transition-all"
+   533→   533→            >
+   534→   534→              <Grid3X3 className="w-5 h-5 mr-2" />
+   535→   535→              Iniciar Jogo
+   536→   536→            </Button>
+   537→   537→          </motion.div>
+   538→   538→        )}
+   539→   539→
+   540→   540→        {phase === "memorize" && (
+   541→   541→          <motion.div
+   542→   542→            key={`mem-${round}`}
+   543→   543→            {...popIn}
+   544→   544→            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+   545→   545→            className="flex flex-col items-center gap-4"
+   546→   546→          >
+   547→   547→            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+   548→   548→              <div className="flex items-center justify-center gap-2 mb-1">
+   549→   549→                <Eye className="w-5 h-5 text-violet-400" />
+   550→   550→                <p className="text-violet-300 font-bold text-lg">
+   551→   551→                  Memorize o padrão! ({cfg.memorizeTime.toFixed(1)}s)
+   552→   552→                </p>
+   553→   553→              </div>
+   554→   554→              <p className="text-zinc-500 text-xs">
+   555→   555→                {cfg.gridSize}×{cfg.gridSize} • {cfg.patternSize} células
+   556→   556→              </p>
+   557→   557→            </motion.div>
+   558→   558→
+   559→   559→            <div className="w-full max-w-xs flex items-center gap-2">
+   560→   560→              <div className="flex-1 h-2.5 bg-zinc-800 rounded-full overflow-hidden">
+   561→   561→                <motion.div
+   562→   562→                  className="h-full bg-gradient-to-r from-violet-500 to-violet-400 rounded-full"
+   563→   563→                  initial={{ width: "100%" }}
+   564→   564→                  animate={{ width: `${memProgress}%` }}
+   565→   565→                  transition={{ duration: 0.05 }}
+   566→   566→                />
+   567→   567→              </div>
+   568→   568→              <span className="text-xs text-violet-300 tabular-nums w-8 text-right">
+   569→   569→                {((memProgress / 100) * cfg.memorizeTime).toFixed(1)}s
+   570→   570→              </span>
+   571→   571→            </div>
+   572→   572→
+   573→   573→            <div
+   574→   574→              className="grid gap-2"
+   575→   575→              style={{
+   576→   576→                gridTemplateColumns: `repeat(${cfg.gridSize}, 1fr)`,
+   577→   577→              }}
+   578→   578→            >
+   579→   579→              {Array.from({ length: totalCells }).map((_, i) => (
+   580→   580→                <Cell
+   581→   581→                  key={i}
+   582→   582→                  index={i}
+   583→   583→                  inPattern={pattern.has(i)}
+   584→   584→                  patternStaggerIndex={patternArr.indexOf(i)}
+   585→   585→                  isTapped={false}
+   586→   586→                  isWrongTap={false}
+   587→   587→                  isCorrectTap={false}
+   588→   588→                  isMissed={false}
+   589→   589→                  showPattern={false}
+   590→   590→                  interactive={false}
+   591→   591→                  tapColor={null}
+   592→   592→                  phase={phase}
+   593→   593→                  onTap={handleTap}
+   594→   594→                />
+   595→   595→              ))}
+   596→   596→            </div>
+   597→   597→          </motion.div>
+   598→   598→        )}
+   599→   599→
+   600→   600→        {(phase === "recall_p1" || phase === "recall_p2") && (
+   601→   601→          <motion.div
+   602→   602→            key={phase}
+   603→   603→            {...popIn}
+   604→   604→            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+   605→   605→            className="flex flex-col items-center gap-3"
+   606→   606→          >
+   607→   607→            <motion.div
+   608→   608→              initial={{ opacity: 0, y: -10 }}
+   609→   609→              animate={{ opacity: 1, y: 0 }}
+   610→   610→              className={cn(
+   611→   611→                "rounded-xl px-5 py-2.5 text-center font-bold text-lg border",
+   612→   612→                isP1
+   613→   613→                  ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+   614→   614→                  : "bg-pink-500/15 text-pink-300 border-pink-500/30 shadow-lg shadow-pink-500/10"
+   615→   615→              )}
+   616→   616→            >
+   617→   617→              {isP1 ? "Jogador 1" : "Jogador 2"} — Selecione as células lembradas (
+   618→   618→              {currentTaps.size}/{cfg.patternSize})
+   619→   619→            </motion.div>
+   620→   620→
+   621→   621→            <p className="text-zinc-500 text-xs">
+   622→   622→              Toque nas células que se lembra do padrão
+   623→   623→            </p>
+   624→   624→
+   625→   625→            <div
+   626→   626→              className="grid gap-2"
+   627→   627→              style={{
+   628→   628→                gridTemplateColumns: `repeat(${cfg.gridSize}, 1fr)`,
+   629→   629→              }}
+   630→   630→            >
+   631→   631→              {Array.from({ length: totalCells }).map((_, i) => (
+   632→   632→                <Cell
+   633→   633→                  key={i}
+   634→   634→                  index={i}
+   635→   635→                  inPattern={false}
+   636→   636→                  patternStaggerIndex={-1}
+   637→   637→                  isTapped={currentTaps.has(i)}
+   638→   638→                  isWrongTap={false}
+   639→   639→                  isCorrectTap={false}
+   640→   640→                  isMissed={false}
+   641→   641→                  showPattern={false}
+   642→   642→                  interactive={true}
+   643→   643→                  tapColor={isP1 ? "cyan" : "pink"}
+   644→   644→                  phase={phase}
+   645→   645→                  onTap={handleTap}
+   646→   646→                />
+   647→   647→              ))}
+   648→   648→            </div>
+   649→   649→
+   650→   650→            <Button
+   651→   651→              size="lg"
+   652→   652→              onClick={handleConfirm}
+   653→   653→              className={cn(
+   654→   654→                "mt-3 font-bold px-8 shadow-lg transition-all",
+   655→   655→                activePlayer === 1
+   656→   656→                  ? "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25"
+   657→   657→                  : "bg-pink-600 hover:bg-pink-500 text-white shadow-pink-500/25"
+   658→   658→              )}
+   659→   659→            >
+   660→   660→              <Eye className="w-4 h-4 mr-2" />
+   661→   661→              Confirmar ({currentTaps.size})
+   662→   662→            </Button>
+   663→   663→          </motion.div>
+   664→   664→        )}
+   665→   665→
+   666→   666→        {phase === "feedback_p1" && (
+   667→   667→          <motion.div
+   668→   668→            key="feedback_p1"
+   669→   669→            {...popIn}
+   670→   670→            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+   671→   671→            className="flex flex-col items-center gap-3"
+   672→   672→          >
+   673→   673→            <motion.div
+   674→   674→              initial={{ opacity: 0, scale: 0.9 }}
+   675→   675→              animate={{ opacity: 1, scale: 1 }}
+   676→   676→              className="bg-cyan-500/15 border border-cyan-500/40 rounded-xl px-5 py-2 text-center"
+   677→   677→            >
+   678→   678→              <p className="text-cyan-300 font-bold text-lg">
+   679→   679→                Jogador 1 — +{p1RoundPts} pontos
+   680→   680→              </p>
+   681→   681→            </motion.div>
+   682→   682→
+   683→   683→            <div
+   684→   684→              className="grid gap-2"
+   685→   685→              style={{
+   686→   686→                gridTemplateColumns: `repeat(${cfg.gridSize}, 1fr)`,
+   687→   687→              }}
+   688→   688→            >
+   689→   689→              {Array.from({ length: totalCells }).map((_, i) => (
+   690→   690→                <Cell
+   691→   691→                  key={i}
+   692→   692→                  index={i}
+   693→   693→                  inPattern={pattern.has(i)}
+   694→   694→                  patternStaggerIndex={-1}
+   695→   695→                  isTapped={p1Taps.has(i)}
+   696→   696→                  isWrongTap={wrongSet.has(i)}
+   697→   697→                  isCorrectTap={correctSet.has(i)}
+   698→   698→                  isMissed={missedSet.has(i)}
+   699→   699→                  showPattern={true}
+   700→   700→                  interactive={false}
+   701→   701→                  tapColor="cyan"
+   702→   702→                  phase={phase}
+   703→   703→                  onTap={handleTap}
+   704→   704→                />
+   705→   705→              ))}
+   706→   706→            </div>
+   707→   707→          </motion.div>
+   708→   708→        )}
+   709→   709→
+   710→   710→        {phase === "feedback_p2" && (
+   711→   711→          <motion.div
+   712→   712→            key="feedback_p2"
+   713→   713→            {...popIn}
+   714→   714→            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+   715→   715→            className="flex flex-col items-center gap-3"
+   716→   716→          >
+   717→   717→            <motion.div
+   718→   718→              initial={{ opacity: 0, scale: 0.9 }}
+   719→   719→              animate={{ opacity: 1, scale: 1 }}
+   720→   720→              className="bg-pink-500/15 border border-pink-500/40 rounded-xl px-5 py-2 text-center"
+   721→   721→            >
+   722→   722→              <p className="text-pink-300 font-bold text-lg">
+   723→   723→                Jogador 2 — +{p2RoundPts} pontos
+   724→   724→              </p>
+   725→   725→            </motion.div>
+   726→   726→
+   727→   727→            <div
+   728→   728→              className="grid gap-2"
+   729→   729→              style={{
+   730→   730→                gridTemplateColumns: `repeat(${cfg.gridSize}, 1fr)`,
+   731→   731→              }}
+   732→   732→            >
+   733→   733→              {Array.from({ length: totalCells }).map((_, i) => (
+   734→   734→                <Cell
+   735→   735→                  key={i}
+   736→   736→                  index={i}
+   737→   737→                  inPattern={pattern.has(i)}
+   738→   738→                  patternStaggerIndex={-1}
+   739→   739→                  isTapped={p2Taps.has(i)}
+   740→   740→                  isWrongTap={wrongSet.has(i)}
+   741→   741→                  isCorrectTap={correctSet.has(i)}
+   742→   742→                  isMissed={missedSet.has(i)}
+   743→   743→                  showPattern={true}
+   744→   744→                  interactive={false}
+   745→   745→                  tapColor="pink"
+   746→   746→                  phase={phase}
+   747→   747→                  onTap={handleTap}
+   748→   748→                />
+   749→   749→              ))}
+   750→   750→            </div>
+   751→   751→          </motion.div>
+   752→   752→        )}
+   753→   753→
+   754→   754→        {phase === "round_result" && (
+   755→   755→          <motion.div
+   756→   756→            key={`result-${round}`}
+   757→   757→            {...popIn}
+   758→   758→            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+   759→   759→            className="flex flex-col items-center gap-4 w-full max-w-sm"
+   760→   760→          >
+   761→   761→            <p className="text-zinc-300 font-bold text-base">
+   762→   762→              Resultado da Rodada {round + 1}
+   763→   763→            </p>
+   764→   764→
+   765→   765→            <AnimatePresence>
+   766→   766→              <motion.div
+   767→   767→                initial={{ opacity: 0, y: -8 }}
+   768→   768→                animate={{ opacity: 1, y: 0 }}
+   769→   769→                className={cn(
+   770→   770→                  "rounded-xl px-5 py-2 text-center font-bold text-lg border",
+   771→   771→                  p1RoundPts > p2RoundPts
+   772→   772→                    ? "bg-cyan-500/15 border-cyan-500/40 text-cyan-300"
+   773→   773→                    : p2RoundPts > p1RoundPts
+   774→   774→                      ? "bg-pink-500/15 border-pink-500/40 text-pink-300"
+   775→   775→                      : "bg-zinc-500/15 border-zinc-500/40 text-zinc-200"
+   776→   776→                )}
+   777→   777→              >
+   778→   778→                {p1RoundPts > p2RoundPts
+   779→   779→                  ? "🏆 Jogador 1 venceu a rodada!"
+   780→   780→                  : p2RoundPts > p1RoundPts
+   781→   781→                    ? "🏆 Jogador 2 venceu a rodada!"
+   782→   782→                    : "🤝 Empate na rodada!"}
+   783→   783→              </motion.div>
+   784→   784→            </AnimatePresence>
+   785→   785→
+   786→   786→            <div
+   787→   787→              className="grid gap-1.5"
+   788→   788→              style={{
+   789→   789→                gridTemplateColumns: `repeat(${cfg.gridSize}, 32px)`,
+   790→   790→              }}
+   791→   791→            >
+   792→   792→              {Array.from({ length: totalCells }).map((_, i) => (
+   793→   793→                <motion.div
+   794→   794→                  key={i}
+   795→   795→                  initial={{ opacity: 0, scale: 0.5 }}
+   796→   796→                  animate={{ opacity: 1, scale: 1 }}
+   797→   797→                  transition={{ delay: i * 0.02 }}
+   798→   798→                  className={cn(
+   799→   799→                    "w-8 h-8 rounded-md border",
+   800→   800→                    pattern.has(i)
+   801→   801→                      ? "bg-violet-500/40 border-violet-400/60 shadow-sm shadow-violet-500/20"
+   802→   802→                      : "bg-zinc-800/50 border-zinc-700/30"
+   803→   803→                  )}
+   804→   804→                />
+   805→   805→              ))}
+   806→   806→            </div>
+   807→   807→            <p className="text-zinc-500 text-[11px]">Padrão correto</p>
+   808→   808→
+   809→   809→            <div className="grid grid-cols-2 gap-3 w-full">
+   810→   810→              {(
+   811→   811→                [
+   812→   812→                  {
+   813→   813→                    label: "Jogador 1",
+   814→   814→                    pts: p1RoundPts,
+   815→   815→                    color: "cyan" as "cyan" | "pink",
+   816→   816→                  },
+   817→   817→                  {
+   818→   818→                    label: "Jogador 2",
+   819→   819→                    pts: p2RoundPts,
+   820→   820→                    color: "pink" as "cyan" | "pink",
+   821→   821→                  },
+   822→   822→                ]
+   823→   823→              ).map(({ label, pts, color }) => (
+   824→   824→                <motion.div
+   825→   825→                  key={label}
+   826→   826→                  initial={{ opacity: 0, x: color === "cyan" ? -20 : 20 }}
+   827→   827→                  animate={{ opacity: 1, x: 0 }}
+   828→   828→                  transition={{ delay: 0.3 }}
+   829→   829→                  className={cn(
+   830→   830→                    "rounded-xl border p-3 text-center",
+   831→   831→                    color === "cyan"
+   832→   832→                      ? "bg-cyan-500/10 border-cyan-500/30"
+   833→   833→                      : "bg-pink-500/10 border-pink-500/30"
+   834→   834→                  )}
+   835→   835→                >
+   836→   836→                  <p
+   837→   837→                    className={cn(
+   838→   838→                      "text-xs font-bold mb-2",
+   839→   839→                      color === "cyan" ? "text-cyan-400" : "text-pink-400"
+   840→   840→                    )}
+   841→   841→                  >
+   842→   842→                    {label}
+   843→   843→                  </p>
+   844→   844→                  <p
+   845→   845→                    className={cn(
+   846→   846→                      "text-2xl font-extrabold",
+   847→   847→                      pts > 0
+   848→   848→                        ? "text-emerald-400"
+   849→   849→                        : pts === 0
+   850→   850→                          ? "text-zinc-400"
+   851→   851→                          : "text-red-400"
+   852→   852→                    )}
+   853→   853→                  >
+   854→   854→                    {pts > 0 ? "+" : ""}
+   855→   855→                    {pts}
+   856→   856→                  </p>
+   857→   857→                </motion.div>
+   858→   858→              ))}
+   859→   859→            </div>
+   860→   860→
+   861→   861→            <div className="flex items-center gap-4 text-sm mt-1">
+   862→   862→              <span className="text-cyan-400 font-bold">J1: {p1Total}</span>
+   863→   863→              <span className="text-zinc-600">—</span>
+   864→   864→              <span className="text-pink-400 font-bold">J2: {p2Total}</span>
+   865→   865→            </div>
+   866→   866→
+   867→   867→            <Button
+   868→   868→              size="lg"
+   869→   869→              onClick={handleNextRound}
+   870→   870→              className="mt-1 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 shadow-lg"
+   871→   871→            >
+   872→   872→              {round + 1 < TOTAL_ROUNDS ? "Próxima Rodada" : "Ver Resultado Final"}
+   873→   873→            </Button>
+   874→   874→          </motion.div>
+   875→   875→        )}
+   876→   876→
+   877→   877→        {phase === "game_over" && (
+   878→   878→          <motion.div
+   879→   879→            key="game_over"
+   880→   880→            {...fadeUp}
+   881→   881→            transition={{ duration: 0.4 }}
+   882→   882→            className="flex flex-col items-center gap-5 text-center max-w-sm"
+   883→   883→          >
+   884→   884→            <motion.div
+   885→   885→              initial={{ scale: 0, rotate: -30 }}
+   886→   886→              animate={{ scale: 1, rotate: 0 }}
+   887→   887→              transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 12 }}
+   888→   888→              className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/30 flex items-center justify-center"
+   889→   889→            >
+   890→   890→              <Grid3X3 className="w-10 h-10 text-amber-400" />
+   891→   891→            </motion.div>
+   892→   892→
+   893→   893→            <h2 className="text-2xl sm:text-3xl font-extrabold">Resultado Final</h2>
+   894→   894→
+   895→   895→            {p1Total > p2Total && (
+   896→   896→              <motion.div
+   897→   897→                initial={{ opacity: 0, scale: 0.8 }}
+   898→   898→                animate={{ opacity: 1, scale: 1 }}
+   899→   899→                transition={{ delay: 0.4 }}
+   900→   900→                className="bg-cyan-500/15 border border-cyan-500/40 rounded-xl px-6 py-3"
+   901→   901→              >
+   902→   902→                <p className="text-cyan-300 font-extrabold text-xl">🏆 Jogador 1 Venceu!</p>
+   903→   903→                <p className="text-cyan-400/80 text-sm mt-1">Com {p1Total} pontos</p>
+   904→   904→              </motion.div>
+   905→   905→            )}
+   906→   906→            {p2Total > p1Total && (
+   907→   907→              <motion.div
+   908→   908→                initial={{ opacity: 0, scale: 0.8 }}
+   909→   909→                animate={{ opacity: 1, scale: 1 }}
+   910→   910→                transition={{ delay: 0.4 }}
+   911→   911→                className="bg-pink-500/15 border border-pink-500/40 rounded-xl px-6 py-3"
+   912→   912→              >
+   913→   913→                <p className="text-pink-300 font-extrabold text-xl">🏆 Jogador 2 Venceu!</p>
+   914→   914→                <p className="text-pink-400/80 text-sm mt-1">Com {p2Total} pontos</p>
+   915→   915→              </motion.div>
+   916→   916→            )}
+   917→   917→            {p1Total === p2Total && (
+   918→   918→              <motion.div
+   919→   919→                initial={{ opacity: 0, scale: 0.8 }}
+   920→   920→                animate={{ opacity: 1, scale: 1 }}
+   921→   921→                transition={{ delay: 0.4 }}
+   922→   922→                className="bg-zinc-500/15 border border-zinc-500/40 rounded-xl px-6 py-3"
+   923→   923→              >
+   924→   924→                <p className="text-zinc-200 font-extrabold text-xl">🤝 Empate!</p>
+   925→   925→                <p className="text-zinc-400 text-sm mt-1">Ambos com {p1Total} pontos</p>
+   926→   926→              </motion.div>
+   927→   927→            )}
+   928→   928→
+   929→   929→            <div className="flex items-center gap-6 mt-1">
+   930→   930→              <motion.div
+   931→   931→                initial={{ opacity: 0, x: -30 }}
+   932→   932→                animate={{ opacity: 1, x: 0 }}
+   933→   933→                transition={{ delay: 0.5 }}
+   934→   934→                className="text-center"
+   935→   935→              >
+   936→   936→                <p className="text-cyan-400 text-3xl font-black tabular-nums">{p1Total}</p>
+   937→   937→                <p className="text-cyan-400/60 text-xs font-bold mt-1">Jogador 1</p>
+   938→   938→              </motion.div>
+   939→   939→              <div className="text-zinc-600 font-black text-lg">VS</div>
+   940→   940→              <motion.div
+   941→   941→                initial={{ opacity: 0, x: 30 }}
+   942→   942→                animate={{ opacity: 1, x: 0 }}
+   943→   943→                transition={{ delay: 0.5 }}
+   944→   944→                className="text-center"
+   945→   945→              >
+   946→   946→                <p className="text-pink-400 text-3xl font-black tabular-nums">{p2Total}</p>
+   947→   947→                <p className="text-pink-400/60 text-xs font-bold mt-1">Jogador 2</p>
+   948→   948→              </motion.div>
+   949→   949→            </div>
+   950→   950→
+   951→   951→            {p1Total + p2Total > 0 && (
+   952→   952→              <div className="w-full max-w-xs h-3 bg-zinc-800 rounded-full overflow-hidden flex mt-1">
+   953→   953→                <motion.div
+   954→   954→                  initial={{ width: 0 }}
+   955→   955→                  animate={{ width: `${(p1Total / (p1Total + p2Total)) * 100}%` }}
+   956→   956→                  transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
+   957→   957→                  className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400"
+   958→   958→                />
+   959→   959→                <motion.div
+   960→   960→                  initial={{ width: 0 }}
+   961→   961→                  animate={{ width: `${(p2Total / (p1Total + p2Total)) * 100}%` }}
+   962→   962→                  transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
+   963→   963→                  className="h-full bg-gradient-to-r from-pink-400 to-pink-500"
+   964→   964→                />
+   965→   965→              </div>
+   966→   966→            )}
+   967→   967→
+   968→   968→            <Button
+   969→   969→              variant="outline"
+   970→   970→              size="lg"
+   971→   971→              onClick={handleRestart}
+   972→   972→              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white font-bold px-6 mt-2"
+   973→   973→            >
+   974→   974→              <RotateCcw className="w-4 h-4 mr-2" />
+   975→   975→              Jogar Novamente
+   976→   976→            </Button>
+   977→   977→          </motion.div>
+   978→   978→        )}
+   979→   979→      </AnimatePresence>
+   980→   980→    </div>
+   981→   981→  );
+   982→   982→}
+   983→   983→

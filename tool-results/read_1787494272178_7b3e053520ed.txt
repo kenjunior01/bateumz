@@ -1,0 +1,1051 @@
+     1→import { useEffect, useState, useCallback, useRef } from 'react';
+     2→import { motion, AnimatePresence } from 'framer-motion';
+     3→import { RotateCcw, Timer, Grid3X3, Bot } from 'lucide-react';
+     4→import { Button } from '@/components/ui/button';
+     5→import { Badge } from '@/components/ui/badge';
+     6→import { cn } from '@/lib/utils';
+     7→
+     8→/* ------------------------------------------------------------------ */
+     9→/*  Types                                                              */
+    10→/* ------------------------------------------------------------------ */
+    11→
+    12→interface Props {
+    13→  onScore?: (name: string, score: number) => void;
+    14→  liveCode?: string;
+    15→}
+    16→
+    17→type GridSize = '4x4' | '4x5';
+    18→type TimerOption = 0 | 60 | 90 | 120;
+    19→type GameState = 'idle' | 'playing' | 'ended';
+    20→type CardStatus = 'hidden' | 'flipping' | 'matched' | 'shaking';
+    21→type GameMode = 'player' | 'bot';
+    22→type BotDifficulty = 'Fácil' | 'Médio' | 'Difícil';
+    23→
+    24→interface CardData {
+    25→  id: number;
+    26→  pairId: number;
+    27→  shape: ShapeName;
+    28→  color: string;
+    29→  status: CardStatus;
+    30→}
+    31→
+    32→/* ------------------------------------------------------------------ */
+    33→/*  Shape definitions – SVG path-based geometric patterns              */
+    34→/* ------------------------------------------------------------------ */
+    35→
+    36→type ShapeName =
+    37→  | 'circle'
+    38→  | 'star'
+    39→  | 'diamond'
+    40→  | 'heart'
+    41→  | 'triangle'
+    42→  | 'square'
+    43→  | 'hexagon'
+    44→  | 'cross'
+    45→  | 'moon'
+    46→  | 'lightning';
+    47→
+    48→const SHAPE_DEFS: Record<ShapeName, { color: string; label: string }> = {
+    49→  circle:    { color: '#06b6d4', label: 'Círculo' },
+    50→  star:      { color: '#eab308', label: 'Estrela' },
+    51→  diamond:   { color: '#ec4899', label: 'Diamante' },
+    52→  heart:     { color: '#ef4444', label: 'Coração' },
+    53→  triangle:  { color: '#22c55e', label: 'Triângulo' },
+    54→  square:    { color: '#3b82f6', label: 'Quadrado' },
+    55→  hexagon:   { color: '#a855f7', label: 'Hexágono' },
+    56→  cross:     { color: '#f97316', label: 'Cruz' },
+    57→  moon:      { color: '#6366f1', label: 'Lua' },
+    58→  lightning: { color: '#f59e0b', label: 'Raio' },
+    59→};
+    60→
+    61→const ALL_SHAPES: ShapeName[] = [
+    62→  'circle', 'star', 'diamond', 'heart', 'triangle',
+    63→  'square', 'hexagon', 'cross', 'moon', 'lightning',
+    64→];
+    65→
+    66→/* ------------------------------------------------------------------ */
+    67→/*  SVG shape renderer                                                 */
+    68→/* ------------------------------------------------------------------ */
+    69→
+    70→function ShapeSVG({ shape, color }: { shape: ShapeName; color: string }) {
+    71→  const c = color;
+    72→  switch (shape) {
+    73→    case 'circle':
+    74→      return (
+    75→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    76→          <circle cx="20" cy="20" r="16" fill={c} />
+    77→        </svg>
+    78→      );
+    79→    case 'star':
+    80→      return (
+    81→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    82→          <polygon
+    83→            points="20,2 25.09,14.59 38.18,15.78 28.5,24.39 31.18,37.22 20,30.5 8.82,37.22 11.5,24.39 1.82,15.78 14.91,14.59"
+    84→            fill={c}
+    85→          />
+    86→        </svg>
+    87→      );
+    88→    case 'diamond':
+    89→      return (
+    90→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    91→          <polygon points="20,2 38,20 20,38 2,20" fill={c} />
+    92→        </svg>
+    93→      );
+    94→    case 'heart':
+    95→      return (
+    96→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+    97→          <path
+    98→            d="M20 35 C10 27, 0 20, 0 13 A8 8 0 0 1 20 8 A8 8 0 0 1 40 13 C40 20, 30 27, 20 35Z"
+    99→            fill={c}
+   100→          />
+   101→        </svg>
+   102→      );
+   103→    case 'triangle':
+   104→      return (
+   105→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   106→          <polygon points="20,3 38,37 2,37" fill={c} />
+   107→        </svg>
+   108→      );
+   109→    case 'square':
+   110→      return (
+   111→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   112→          <rect x="5" y="5" width="30" height="30" rx="3" fill={c} />
+   113→        </svg>
+   114→      );
+   115→    case 'hexagon':
+   116→      return (
+   117→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   118→          <polygon
+   119→            points="20,2 36.66,11 36.66,29 20,38 3.34,29 3.34,11"
+   120→            fill={c}
+   121→          />
+   122→        </svg>
+   123→      );
+   124→    case 'cross':
+   125→      return (
+   126→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   127→          <path d="M14,2 H26 V14 H38 V26 H26 V38 H14 V26 H2 V14 H14Z" fill={c} />
+   128→        </svg>
+   129→      );
+   130→    case 'moon':
+   131→      return (
+   132→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   133→          <path
+   134→            d="M28 20 A12 12 0 1 1 20 4 A9 9 0 0 0 28 20Z"
+   135→            fill={c}
+   136→          />
+   137→        </svg>
+   138→      );
+   139→    case 'lightning':
+   140→      return (
+   141→        <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10">
+   142→          <polygon
+   143→            points="22,2 8,22 17,22 14,38 32,16 23,16"
+   144→            fill={c}
+   145→          />
+   146→        </svg>
+   147→      );
+   148→    default:
+   149→      return null;
+   150→  }
+   151→}
+   152→
+   153→/* ------------------------------------------------------------------ */
+   154→/*  Helpers                                                            */
+   155→/* ------------------------------------------------------------------ */
+   156→
+   157→function shuffle<T>(arr: T[]): T[] {
+   158→  const a = [...arr];
+   159→  for (let i = a.length - 1; i > 0; i--) {
+   160→    const j = Math.floor(Math.random() * (i + 1));
+   161→    [a[i], a[j]] = [a[j], a[i]];
+   162→  }
+   163→  return a;
+   164→}
+   165→
+   166→const GRID_CONFIG: Record<GridSize, { cols: number; rows: number; pairs: number }> = {
+   167→  '4x4': { cols: 4, rows: 4, pairs: 8 },
+   168→  '4x5': { cols: 5, rows: 4, pairs: 10 },
+   169→};
+   170→
+   171→/* ------------------------------------------------------------------ */
+   172→/*  Face-down pattern SVG (decorative back of card)                    */
+   173→/* ------------------------------------------------------------------ */
+   174→
+   175→function CardBackPattern() {
+   176→  return (
+   177→    <svg
+   178→      viewBox="0 0 40 50"
+   179→      className="w-full h-full opacity-20"
+   180→      xmlns="http://www.w3.org/2000/svg"
+   181→    >
+   182→      <rect width="40" height="50" rx="4" fill="none" stroke="currentColor" strokeWidth="0.8" />
+   183→      <line x1="0" y1="25" x2="40" y2="25" stroke="currentColor" strokeWidth="0.4" />
+   184→      <line x1="20" y1="0" x2="20" y2="50" stroke="currentColor" strokeWidth="0.4" />
+   185→      <line x1="0" y1="0" x2="40" y2="50" stroke="currentColor" strokeWidth="0.3" />
+   186→      <line x1="40" y1="0" x2="0" y2="50" stroke="currentColor" strokeWidth="0.3" />
+   187→      <circle cx="20" cy="25" r="6" fill="none" stroke="currentColor" strokeWidth="0.5" />
+   188→    </svg>
+   189→  );
+   190→}
+   191→
+   192→/* ------------------------------------------------------------------ */
+   193→/*  Match / Mismatch toast                                             */
+   194→/* ------------------------------------------------------------------ */
+   195→
+   196→function FeedbackToast({ message, color }: { message: string; color: string }) {
+   197→  return (
+   198→    <motion.div
+   199→      initial={{ opacity: 0, y: 10, scale: 0.8 }}
+   200→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   201→      exit={{ opacity: 0, y: -20, scale: 0.8 }}
+   202→      transition={{ duration: 0.3 }}
+   203→      className={cn(
+   204→        'absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold z-30 whitespace-nowrap pointer-events-none',
+   205→        color,
+   206→      )}
+   207→    >
+   208→      {message}
+   209→    </motion.div>
+   210→  );
+   211→}
+   212→
+   213→/* ------------------------------------------------------------------ */
+   214→/*  Single Card component                                              */
+   215→/* ------------------------------------------------------------------ */
+   216→
+   217→interface CardProps {
+   218→  card: CardData;
+   219→  index: number;
+   220→  disabled: boolean;
+   221→  onClick: (index: number) => void;
+   222→}
+   223→
+   224→function GameCard({ card, index, disabled, onClick }: CardProps) {
+   225→  const isFlipped = card.status === 'flipping' || card.status === 'matched';
+   226→  const isShaking = card.status === 'shaking';
+   227→  const isMatched = card.status === 'matched';
+   228→  const shapeDef = SHAPE_DEFS[card.shape];
+   229→
+   230→  return (
+   231→    <motion.div
+   232→      className="relative"
+   233→      style={{ perspective: 600 }}
+   234→      layout
+   235→    >
+   236→      <AnimatePresence>
+   237→        {isMatched && (
+   238→          <motion.div
+   239→            key={`glow-${card.id}`}
+   240→            initial={{ opacity: 0, scale: 0.8 }}
+   241→            animate={{ opacity: [0, 1, 0.6], scale: [0.8, 1.15, 1] }}
+   242→            transition={{ duration: 0.6, ease: 'easeOut' }}
+   243→            className="absolute inset-0 rounded-xl z-10 pointer-events-none"
+   244→            style={{
+   245→              boxShadow: `0 0 20px 4px ${shapeDef.color}66, 0 0 40px 8px ${shapeDef.color}33`,
+   246→            }}
+   247→          />
+   248→        )}
+   249→      </AnimatePresence>
+   250→
+   251→      <motion.button
+   252→        type="button"
+   253→        disabled={disabled || isFlipped || isMatched}
+   254→        onClick={() => onClick(index)}
+   255→        animate={
+   256→          isShaking
+   257→            ? { x: [0, -6, 6, -6, 6, -3, 3, 0] }
+   258→            : isMatched
+   259→              ? { scale: [1, 1.12, 1] }
+   260→              : {}
+   261→        }
+   262→        transition={
+   263→          isShaking
+   264→            ? { duration: 0.5, ease: 'easeInOut' }
+   265→            : isMatched
+   266→              ? { duration: 0.4, ease: 'easeOut' }
+   267→              : {}
+   268→        }
+   269→        className={cn(
+   270→          'relative w-16 h-20 sm:w-20 sm:h-24 rounded-xl cursor-pointer focus:outline-none transition-shadow',
+   271→          isMatched && 'cursor-default',
+   272→          disabled && !isFlipped && !isMatched && 'cursor-not-allowed opacity-60',
+   273→        )}
+   274→        style={{
+   275→          transformStyle: 'preserve-3d',
+   276→        }}
+   277→        aria-label={`Carta ${index + 1}`}
+   278→      >
+   279→        <motion.div
+   280→          className={cn(
+   281→            'absolute inset-0 rounded-xl border bg-slate-800 border-slate-700 flex items-center justify-center',
+   282→          )}
+   283→          style={{
+   284→            backfaceVisibility: 'hidden',
+   285→            WebkitBackfaceVisibility: 'hidden',
+   286→          }}
+   287→          animate={{ rotateY: isFlipped ? 180 : 0 }}
+   288→          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+   289→        >
+   290→          <div className="text-slate-500 flex flex-col items-center justify-center">
+   291→            <CardBackPattern />
+   292→            <span className="text-slate-500 text-lg font-bold mt-0.5">?</span>
+   293→          </div>
+   294→          <span className="absolute bottom-0.5 right-1 text-[9px] text-slate-600 font-mono">
+   295→            {index + 1 <= 9 ? index + 1 : ''}
+   296→          </span>
+   297→        </motion.div>
+   298→
+   299→        <motion.div
+   300→          className={cn(
+   301→            'absolute inset-0 rounded-xl border border-slate-300 dark:border-slate-400 bg-white dark:bg-slate-100 flex items-center justify-center',
+   302→            isMatched && 'border-green-400',
+   303→          )}
+   304→          style={{
+   305→            backfaceVisibility: 'hidden',
+   306→            WebkitBackfaceVisibility: 'hidden',
+   307→          }}
+   308→          animate={{ rotateY: isFlipped ? 0 : -180 }}
+   309→          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+   310→        >
+   311→          <ShapeSVG shape={card.shape} color={shapeDef.color} />
+   312→          {isMatched && (
+   313→            <motion.span
+   314→              initial={{ opacity: 0, scale: 0 }}
+   315→              animate={{ opacity: 1, scale: 1 }}
+   316→              transition={{ delay: 0.3, duration: 0.25 }}
+   317→              className="absolute top-0.5 right-0.5 text-green-500 text-xs"
+   318→            >
+   319→              ✓
+   320→            </motion.span>
+   321→          )}
+   322→        </motion.div>
+   323→      </motion.button>
+   324→    </motion.div>
+   325→  );
+   326→}
+   327→
+   328→/* ================================================================== */
+   329→/*  Main component                                                     */
+   330→/* ================================================================== */
+   331→
+   332→export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
+   333→  /* ---- State ---- */
+   334→  const [gameState, setGameState] = useState<GameState>('idle');
+   335→  const [mode, setMode] = useState<GameMode>('player');
+   336→  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('Médio');
+   337→  const [gridSize, setGridSize] = useState<GridSize>('4x4');
+   338→  const [timerOption, setTimerOption] = useState<TimerOption>(90);
+   339→  const [cards, setCards] = useState<CardData[]>([]);
+   340→  const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
+   341→  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+   342→  const [scores, setScores] = useState<[number, number]>([0, 0]);
+   343→  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+   344→  const [canFlip, setCanFlip] = useState(false);
+   345→  const [feedback, setFeedback] = useState<{ message: string; color: string; id: number } | null>(null);
+   346→  const [winner, setWinner] = useState<1 | 2 | 'draw' | null>(null);
+   347→  const [botThinking, setBotThinking] = useState(false);
+   348→
+   349→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   350→  const feedbackIdRef = useRef(0);
+   351→  const botTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   352→  const botMemoryRef = useRef<Map<number, number>>(new Map()); // index -> pairId
+   353→  const isProcessingRef = useRef(false);
+   354→
+   355→  const config = GRID_CONFIG[gridSize];
+   356→  const totalPairs = config.pairs;
+   357→  const matchedCount = cards.filter(c => c.status === 'matched').length / 2;
+   358→  const pairsLeft = totalPairs - matchedCount;
+   359→
+   360→  const getP2Name = () => mode === 'bot' ? 'Computador' : 'Jogador 2';
+   361→
+   362→  /* ---- Derived ---- */
+   363→  const activeGlow =
+   364→    currentPlayer === 1
+   365→      ? 'shadow-[0_0_20px_4px_rgba(6,182,212,0.35)] border-cyan-500/50'
+   366→      : 'shadow-[0_0_20px_4px_rgba(236,72,153,0.35)] border-pink-500/50';
+   367→
+   368→  /* ---- Init game ---- */
+   369→  const initGame = useCallback(() => {
+   370→    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+   371→    botMemoryRef.current = new Map();
+   372→    const shapes = shuffle(ALL_SHAPES).slice(0, totalPairs);
+   373→    const deck: CardData[] = [];
+   374→    shapes.forEach((shape, pairIdx) => {
+   375→      const color = SHAPE_DEFS[shape].color;
+   376→      deck.push({ id: deck.length, pairId: pairIdx, shape, color, status: 'hidden' });
+   377→      deck.push({ id: deck.length, pairId: pairIdx, shape, color, status: 'hidden' });
+   378→    });
+   379→    const shuffled = shuffle(deck);
+   380→    setCards(shuffled);
+   381→    setFlippedIndices([]);
+   382→    setCurrentPlayer(1);
+   383→    setScores([0, 0]);
+   384→    setCanFlip(true);
+   385→    setFeedback(null);
+   386→    setWinner(null);
+   387→    setTimeRemaining(timerOption);
+   388→    setBotThinking(false);
+   389→    isProcessingRef.current = false;
+   390→    setGameState('playing');
+   391→  }, [totalPairs, timerOption]);
+   392→
+   393→  /* ---- Timer effect ---- */
+   394→  useEffect(() => {
+   395→    if (gameState !== 'playing' || timerOption === 0) return;
+   396→    timerRef.current = setInterval(() => {
+   397→      setTimeRemaining(prev => {
+   398→        if (prev <= 1) {
+   399→          clearInterval(timerRef.current!);
+   400→          return 0;
+   401→        }
+   402→        return prev - 1;
+   403→      });
+   404→    }, 1000);
+   405→    return () => {
+   406→      if (timerRef.current) clearInterval(timerRef.current);
+   407→    };
+   408→  }, [gameState, timerOption]);
+   409→
+   410→  /* ---- End game when timer hits 0 ---- */
+   411→  const endGame = useCallback(() => {
+   412→    setGameState('ended');
+   413→    setCanFlip(false);
+   414→    setBotThinking(false);
+   415→    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+   416→    if (timerRef.current) clearInterval(timerRef.current);
+   417→
+   418→    const timeBonus = timerOption > 0 ? timeRemaining : 0;
+   419→
+   420→    if (scores[0] > scores[1]) {
+   421→      setWinner(1);
+   422→      onScore?.('Jogador 1', scores[0] * 10 + timeBonus);
+   423→    } else if (scores[1] > scores[0]) {
+   424→      setWinner(2);
+   425→      onScore?.(getP2Name(), scores[1] * 10 + timeBonus);
+   426→    } else {
+   427→      setWinner('draw');
+   428→    }
+   429→  }, [scores, timerOption, timeRemaining, onScore, mode]);
+   430→
+   431→  useEffect(() => {
+   432→    if (gameState === 'playing' && timerOption > 0 && timeRemaining === 0) {
+   433→      endGame();
+   434→    }
+   435→  }, [timeRemaining, gameState, timerOption, endGame]);
+   436→
+   437→  /* ---- Show feedback toast ---- */
+   438→  const showFeedback = useCallback((message: string, color: string) => {
+   439→    const id = ++feedbackIdRef.current;
+   440→    setFeedback({ message, color, id });
+   441→    setTimeout(() => setFeedback(prev => (prev && prev.id === id ? null : prev)), 900);
+   442→  }, []);
+   443→
+   444→  /* ---- Core card click handler (shared by player and bot) ---- */
+   445→  const processFlip = useCallback((
+   446→    index: number,
+   447→    player: 1 | 2,
+   448→    currentCards: CardData[],
+   449→    currentFlipped: number[],
+   450→    currentCanFlip: boolean,
+   451→  ) => {
+   452→    if (!currentCanFlip || gameState !== 'playing' || isProcessingRef.current) return false;
+   453→    const card = currentCards[index];
+   454→    if (card.status !== 'hidden') return false;
+   455→    if (currentFlipped.includes(index)) return false;
+   456→
+   457→    isProcessingRef.current = true;
+   458→    const newFlipped = [...currentFlipped, index];
+   459→    const updated = currentCards.map((c, i) => (i === index ? { ...c, status: 'flipping' as CardStatus } : c));
+   460→    setCards(updated);
+   461→    setFlippedIndices(newFlipped);
+   462→
+   463→    // Remember revealed cards for bot
+   464→    if (player === 1 || mode === 'bot') {
+   465→      botMemoryRef.current.set(index, updated[index].pairId);
+   466→    }
+   467→
+   468→    if (newFlipped.length === 2) {
+   469→      setCanFlip(false);
+   470→      const [a, b] = newFlipped;
+   471→      if (updated[a].pairId === updated[b].pairId) {
+   472→        setTimeout(() => {
+   473→          setCards(prev =>
+   474→            prev.map((c, i) => (i === a || i === b ? { ...c, status: 'matched' as CardStatus } : c)),
+   475→          );
+   476→          setScores(prev => {
+   477→            const next = [...prev] as [number, number];
+   478→            next[player - 1] += 1;
+   479→            return next;
+   480→          });
+   481→          showFeedback('Par!', 'bg-green-600 text-white');
+   482→          setFlippedIndices([]);
+   483→          setCanFlip(true);
+   484→          isProcessingRef.current = false;
+   485→        }, 500);
+   486→        return true;
+   487→      } else {
+   488→        showFeedback('Não é par', 'bg-red-600 text-white');
+   489→        setTimeout(() => {
+   490→          setCards(prev =>
+   491→            prev.map((c, i) =>
+   492→              i === a || i === b ? { ...c, status: 'shaking' as CardStatus } : c,
+   493→            ),
+   494→          );
+   495→        }, 400);
+   496→        setTimeout(() => {
+   497→          setCards(prev =>
+   498→            prev.map((c, i) =>
+   499→              i === a || i === b ? { ...c, status: 'hidden' as CardStatus } : c,
+   500→            ),
+   501→          );
+   502→          setFlippedIndices([]);
+   503→          setCurrentPlayer(prev => (prev === 1 ? 2 : 1));
+   504→          setCanFlip(true);
+   505→          isProcessingRef.current = false;
+   506→        }, 1000);
+   507→        return true;
+   508→      }
+   509→    }
+   510→    isProcessingRef.current = false;
+   511→    return true;
+   512→  }, [gameState, mode, showFeedback]);
+   513→
+   514→  /* ---- Player card click ---- */
+   515→  const handleCardClick = useCallback(
+   516→    (index: number) => {
+   517→      if (mode === 'bot' && currentPlayer === 2) return;
+   518→      processFlip(index, 1, cards, flippedIndices, canFlip);
+   519→    },
+   520→    [mode, currentPlayer, cards, flippedIndices, canFlip, processFlip],
+   521→  );
+   522→
+   523→  /* ---- Keyboard support ---- */
+   524→  useEffect(() => {
+   525→    if (gameState !== 'playing' || !canFlip) return;
+   526→    function handleKey(e: KeyboardEvent) {
+   527→      if (mode === 'bot' && currentPlayer === 2) return;
+   528→      let idx = -1;
+   529→      if (e.key >= '1' && e.key <= '9') idx = parseInt(e.key) - 1;
+   530→      else if (e.key === '0' && cards.length >= 10) idx = 9;
+   531→      else return;
+   532→      if (idx >= 0 && idx < cards.length) {
+   533→        handleCardClick(idx);
+   534→      }
+   535→    }
+   536→    window.addEventListener('keydown', handleKey);
+   537→    return () => window.removeEventListener('keydown', handleKey);
+   538→  }, [gameState, canFlip, cards, handleCardClick, mode, currentPlayer]);
+   539→
+   540→  /* ---- Check if all matched ---- */
+   541→  useEffect(() => {
+   542→    if (gameState !== 'playing') return;
+   543→    if (matchedCount === totalPairs) {
+   544→      endGame();
+   545→    }
+   546→  }, [matchedCount, totalPairs, gameState, endGame]);
+   547→
+   548→  /* ---- Bot AI effect ---- */
+   549→  useEffect(() => {
+   550→    if (gameState !== 'playing' || mode !== 'bot' || currentPlayer !== 2 || !canFlip) return;
+   551→
+   552→    setBotThinking(true);
+   553→
+   554→    const botMemoryPct: Record<BotDifficulty, number> = {
+   555→      'Fácil': 0.3,
+   556→      'Médio': 0.6,
+   557→      'Difícil': 0.9,
+   558→    };
+   559→    const memoryChance = botMemoryPct[botDifficulty];
+   560→    const memory = botMemoryRef.current;
+   561→
+   562→    const getAvailableCards = () => {
+   563→      return cards
+   564→        .map((c, i) => ({ index: i, pairId: c.pairId, status: c.status }))
+   565→        .filter(c => c.status === 'hidden');
+   566→    };
+   567→
+   568→    const doBotTurn = () => {
+   569→      if (gameState !== 'playing' || currentPlayer !== 2 || !canFlip) {
+   570→        setBotThinking(false);
+   571→        return;
+   572→      }
+   573→
+   574→      const available = getAvailableCards();
+   575→      if (available.length < 2) {
+   576→        setBotThinking(false);
+   577→        return;
+   578→      }
+   579→
+   580→      // First flip
+   581→      let firstPick: number;
+   582→      let secondPick: number | null = null;
+   583→
+   584→      // Check if bot remembers a matching pair
+   585→      const rememberedPairs = new Map<number, number[]>();
+   586→      for (const [idx, pairId] of memory) {
+   587→        if (cards[idx]?.status === 'hidden') {
+   588→          if (!rememberedPairs.has(pairId)) rememberedPairs.set(pairId, []);
+   589→          rememberedPairs.get(pairId)!.push(idx);
+   590→        }
+   591→      }
+   592→
+   593→      let foundMatch = false;
+   594→      for (const [, indices] of rememberedPairs) {
+   595→        if (indices.length >= 2) {
+   596→          if (Math.random() < memoryChance) {
+   597→            firstPick = indices[0];
+   598→            secondPick = indices[1];
+   599→            foundMatch = true;
+   600→            break;
+   601→          }
+   602→        }
+   603→      }
+   604→
+   605→      // Check if bot remembers one card of a pair and another is available
+   606→      if (!foundMatch) {
+   607→        for (const [pairId, indices] of rememberedPairs) {
+   608→          if (indices.length === 1 && Math.random() < memoryChance) {
+   609→            firstPick = indices[0];
+   610→            // Find the other card of this pair
+   611→            const otherIdx = available.find(
+   612→              c => c.pairId === pairId && c.index !== firstPick
+   613→            );
+   614→            if (otherIdx) {
+   615→              secondPick = otherIdx.index;
+   616→              foundMatch = true;
+   617→              break;
+   618→            }
+   619→          }
+   620→        }
+   621→      }
+   622→
+   623→      if (!foundMatch) {
+   624→        firstPick = available[Math.floor(Math.random() * available.length)].index;
+   625→      }
+   626→
+   627→      // Flip first card
+   628→      const currentCards = cards;
+   629→      const currentFlipped = flippedIndices;
+   630→
+   631→      if (currentCards[firstPick]?.status !== 'hidden') {
+   632→        setBotThinking(false);
+   633→        return;
+   634→      }
+   635→
+   636→      const newFlipped = [...currentFlipped, firstPick];
+   637→      const updated = currentCards.map((c, i) =>
+   638→        i === firstPick ? { ...c, status: 'flipping' as CardStatus } : c
+   639→      );
+   640→      setCards(updated);
+   641→      setFlippedIndices(newFlipped);
+   642→      memory.set(firstPick, updated[firstPick].pairId);
+   643→
+   644→      // After 800ms, flip second card
+   645→      botTimeoutRef.current = setTimeout(() => {
+   646→        if (gameState !== 'playing' || currentPlayer !== 2) {
+   647→          setBotThinking(false);
+   648→          return;
+   649→        }
+   650→
+   651→        const freshCards = cards; // re-read latest
+   652→        const freshAvailable = freshCards
+   653→          .map((c, i) => ({ index: i, pairId: c.pairId, status: c.status }))
+   654→          .filter(c => c.status === 'hidden');
+   655→
+   656→        let actualSecond: number;
+   657→
+   658→        if (secondPick !== null && freshCards[secondPick]?.status === 'hidden') {
+   659→          actualSecond = secondPick;
+   660→        } else {
+   661→          // Try to find a match with the first card
+   662→          const firstPairId = updated[firstPick].pairId;
+   663→          const matchIdx = freshAvailable.find(c => c.pairId === firstPairId && c.index !== firstPick);
+   664→          if (matchIdx && Math.random() < memoryChance) {
+   665→            actualSecond = matchIdx.index;
+   666→          } else {
+   667→            actualSecond = freshAvailable[Math.floor(Math.random() * freshAvailable.length)].index;
+   668→          }
+   669→        }
+   670→
+   671→        const finalFlipped = [firstPick, actualSecond];
+   672→        const finalUpdated = freshCards.map((c, i) =>
+   673→          i === actualSecond ? { ...c, status: 'flipping' as CardStatus } : c
+   674→        );
+   675→        setCards(finalUpdated);
+   676→        setFlippedIndices(finalFlipped);
+   677→        memory.set(actualSecond, finalUpdated[actualSecond].pairId);
+   678→
+   679→        setCanFlip(false);
+   680→        const [a, b] = finalFlipped;
+   681→        if (finalUpdated[a].pairId === finalUpdated[b].pairId) {
+   682→          setTimeout(() => {
+   683→            setCards(prev =>
+   684→              prev.map((c, i) => (i === a || i === b ? { ...c, status: 'matched' as CardStatus } : c)),
+   685→            );
+   686→            setScores(prev => {
+   687→              const next = [...prev] as [number, number];
+   688→              next[1] += 1;
+   689→              return next;
+   690→            });
+   691→            showFeedback('Par!', 'bg-green-600 text-white');
+   692→            setFlippedIndices([]);
+   693→            setCanFlip(true);
+   694→            setBotThinking(false);
+   695→          }, 500);
+   696→        } else {
+   697→          showFeedback('Não é par', 'bg-red-600 text-white');
+   698→          setTimeout(() => {
+   699→            setCards(prev =>
+   700→              prev.map((c, i) =>
+   701→                i === a || i === b ? { ...c, status: 'shaking' as CardStatus } : c,
+   702→              ),
+   703→            );
+   704→          }, 400);
+   705→          setTimeout(() => {
+   706→            setCards(prev =>
+   707→              prev.map((c, i) =>
+   708→                i === a || i === b ? { ...c, status: 'hidden' as CardStatus } : c,
+   709→              ),
+   710→            );
+   711→            setFlippedIndices([]);
+   712→            setCurrentPlayer(1);
+   713→            setCanFlip(true);
+   714→            setBotThinking(false);
+   715→          }, 1000);
+   716→        }
+   717→      }, 800);
+   718→    };
+   719→
+   720→    // Bot thinks for 800ms before first flip
+   721→    botTimeoutRef.current = setTimeout(doBotTurn, 800);
+   722→
+   723→    return () => {
+   724→      if (botTimeoutRef.current) {
+   725→        clearTimeout(botTimeoutRef.current);
+   726→        botTimeoutRef.current = null;
+   727→      }
+   728→      setBotThinking(false);
+   729→    };
+   730→  }, [gameState, mode, currentPlayer, canFlip, cards, flippedIndices, botDifficulty, showFeedback]);
+   731→
+   732→  /* ---- Reset to idle ---- */
+   733→  const resetAll = () => {
+   734→    if (timerRef.current) clearInterval(timerRef.current);
+   735→    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+   736→    setGameState('idle');
+   737→    setCards([]);
+   738→    setFlippedIndices([]);
+   739→    setScores([0, 0]);
+   740→    setCurrentPlayer(1);
+   741→    setTimeRemaining(0);
+   742→    setCanFlip(false);
+   743→    setFeedback(null);
+   744→    setWinner(null);
+   745→    setBotThinking(false);
+   746→    botMemoryRef.current = new Map();
+   747→    isProcessingRef.current = false;
+   748→  };
+   749→
+   750→  /* ---- Format timer ---- */
+   751→  const fmt = (s: number) => {
+   752→    const m = Math.floor(s / 60);
+   753→    const sec = s % 60;
+   754→    return `${m}:${sec.toString().padStart(2, '0')}`;
+   755→  };
+   756→
+   757→  /* ================================================================== */
+   758→  /*  Render                                                            */
+   759→  /* ================================================================== */
+   760→
+   761→  return (
+   762→    <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto select-none">
+   763→      <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">
+   764→        MEMÓRIA VS CARTAS
+   765→      </h2>
+   766→
+   767→      <div className="w-full rounded-xl bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 p-3 flex items-center justify-between">
+   768→        <div
+   769→          className={cn(
+   770→            'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all',
+   771→            currentPlayer === 1 && gameState === 'playing'
+   772→              ? 'bg-cyan-500/20 ring-1 ring-cyan-400'
+   773→              : 'opacity-70',
+   774→          )}
+   775→        >
+   776→          <div className="w-3 h-3 rounded-full bg-cyan-400" />
+   777→          <span className="text-cyan-300 font-semibold text-sm">Jogador 1</span>
+   778→          <motion.span
+   779→            key={`s1-${scores[0]}`}
+   780→            initial={{ scale: 0.5, y: -8 }}
+   781→            animate={{ scale: 1, y: 0 }}
+   782→            className="text-white font-bold text-lg"
+   783→          >
+   784→            {scores[0]}
+   785→          </motion.span>
+   786→          <span className="text-cyan-400/60 text-xs">pares</span>
+   787→        </div>
+   788→
+   789→        <div className="flex flex-col items-center gap-1">
+   790→          {gameState === 'playing' && (
+   791→            <AnimatePresence mode="wait">
+   792→              <motion.span
+   793→                key={currentPlayer}
+   794→                initial={{ opacity: 0, x: currentPlayer === 1 ? -10 : 10 }}
+   795→                animate={{ opacity: 1, x: 0 }}
+   796→                exit={{ opacity: 0 }}
+   797→                className={cn(
+   798→                  'text-xs font-semibold px-2 py-0.5 rounded-full',
+   799→                  currentPlayer === 1
+   800→                    ? 'text-cyan-300 bg-cyan-500/10'
+   801→                    : 'text-pink-300 bg-pink-500/10',
+   802→                )}
+   803→              >
+   804→                {currentPlayer === 2 && mode === 'bot' && botThinking ? 'Computador pensando...' : 'Sua vez'}
+   805→              </motion.span>
+   806→            </AnimatePresence>
+   807→          )}
+   808→          {gameState === 'idle' && (
+   809→            <span className="text-slate-400 text-xs">Pronto para jogar</span>
+   810→          )}
+   811→          {gameState === 'ended' && winner && winner !== 'draw' && (
+   812→            <motion.span
+   813→              initial={{ scale: 0 }}
+   814→              animate={{ scale: 1 }}
+   815→              className={cn(
+   816→                'text-sm font-bold',
+   817→                winner === 1 ? 'text-cyan-300' : 'text-pink-300',
+   818→              )}
+   819→            >
+   820→              {winner === 1 ? 'Jogador 1' : getP2Name()} Venceu!
+   821→            </motion.span>
+   822→          )}
+   823→          {gameState === 'ended' && winner === 'draw' && (
+   824→            <motion.span
+   825→              initial={{ scale: 0 }}
+   826→              animate={{ scale: 1 }}
+   827→              className="text-sm font-bold text-yellow-300"
+   828→            >
+   829→              Empate!
+   830→            </motion.span>
+   831→          )}
+   832→        </div>
+   833→
+   834→        <div
+   835→          className={cn(
+   836→            'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all',
+   837→            currentPlayer === 2 && gameState === 'playing'
+   838→              ? 'bg-pink-500/20 ring-1 ring-pink-400'
+   839→              : 'opacity-70',
+   840→          )}
+   841→        >
+   842→          <span className="text-pink-400/60 text-xs">pares</span>
+   843→          <motion.span
+   844→            key={`s2-${scores[1]}`}
+   845→            initial={{ scale: 0.5, y: -8 }}
+   846→            animate={{ scale: 1, y: 0 }}
+   847→            className="text-white font-bold text-lg"
+   848→          >
+   849→            {scores[1]}
+   850→          </motion.span>
+   851→          {mode === 'bot' ? (
+   852→            <span className="text-pink-300 font-semibold text-sm flex items-center gap-1">
+   853→              <Bot className="w-3.5 h-3.5" />
+   854→              <span className="hidden sm:inline">Computador</span>
+   855→            </span>
+   856→          ) : (
+   857→            <span className="text-pink-300 font-semibold text-sm">Jogador 2</span>
+   858→          )}
+   859→          <div className="w-3 h-3 rounded-full bg-pink-400" />
+   860→        </div>
+   861→      </div>
+   862→
+   863→      <div className="w-full flex flex-wrap items-center justify-center gap-2">
+   864→        <div className="flex items-center gap-1">
+   865→          <span className="text-xs text-slate-400 mr-1">Modo:</span>
+   866→          <Button
+   867→            size="sm"
+   868→            variant={mode === 'player' ? 'default' : 'outline'}
+   869→            className={cn(
+   870→              'h-7 px-2.5 text-xs',
+   871→              mode === 'player' && 'bg-slate-700 hover:bg-slate-600',
+   872→            )}
+   873→            disabled={gameState === 'playing'}
+   874→            onClick={() => setMode('player')}
+   875→          >
+   876→            👤 Jogador
+   877→          </Button>
+   878→          <Button
+   879→            size="sm"
+   880→            variant={mode === 'bot' ? 'default' : 'outline'}
+   881→            className={cn(
+   882→              'h-7 px-2.5 text-xs gap-1',
+   883→              mode === 'bot' && 'bg-slate-700 hover:bg-slate-600',
+   884→            )}
+   885→            disabled={gameState === 'playing'}
+   886→            onClick={() => setMode('bot')}
+   887→          >
+   888→            <Bot className="w-3 h-3" />
+   889→            Computador
+   890→          </Button>
+   891→        </div>
+   892→
+   893→        {mode === 'bot' && (
+   894→          <div className="flex items-center gap-1">
+   895→            <span className="text-xs text-slate-400 mr-1">IA:</span>
+   896→            {(['Fácil', 'Médio', 'Difícil'] as BotDifficulty[]).map(d => (
+   897→              <Button
+   898→                key={d}
+   899→                size="sm"
+   900→                variant={botDifficulty === d ? 'default' : 'outline'}
+   901→                className={cn(
+   902→                  'h-7 px-2.5 text-xs',
+   903→                  botDifficulty === d && 'bg-slate-700 hover:bg-slate-600',
+   904→                )}
+   905→                disabled={gameState === 'playing'}
+   906→                onClick={() => setBotDifficulty(d)}
+   907→              >
+   908→                {d}
+   909→              </Button>
+   910→            ))}
+   911→          </div>
+   912→        )}
+   913→
+   914→        <div className="flex items-center gap-1">
+   915→          <Grid3X3 className="w-3.5 h-3.5 text-slate-400" />
+   916→          <span className="text-xs text-slate-400 mr-1">Tabuleiro</span>
+   917→          {(['4x4', '4x5'] as GridSize[]).map(g => (
+   918→            <Button
+   919→              key={g}
+   920→              size="sm"
+   921→              variant={gridSize === g ? 'default' : 'outline'}
+   922→              className={cn(
+   923→                'h-7 px-2.5 text-xs',
+   924→                gridSize === g && 'bg-slate-700 hover:bg-slate-600',
+   925→              )}
+   926→              disabled={gameState === 'playing'}
+   927→              onClick={() => setGridSize(g)}
+   928→            >
+   929→              {g}
+   930→            </Button>
+   931→          ))}
+   932→        </div>
+   933→
+   934→        <div className="flex items-center gap-1">
+   935→          <Timer className="w-3.5 h-3.5 text-slate-400" />
+   936→          <span className="text-xs text-slate-400 mr-1">Tempo</span>
+   937→          {([0, 60, 90, 120] as TimerOption[]).map(t => (
+   938→            <Button
+   939→              key={t}
+   940→              size="sm"
+   941→              variant={timerOption === t ? 'default' : 'outline'}
+   942→              className={cn(
+   943→                'h-7 px-2.5 text-xs',
+   944→                timerOption === t && 'bg-slate-700 hover:bg-slate-600',
+   945→              )}
+   946→              disabled={gameState === 'playing'}
+   947→              onClick={() => setTimerOption(t)}
+   948→            >
+   949→              {t === 0 ? 'Sem timer' : `${t}s`}
+   950→            </Button>
+   951→          ))}
+   952→        </div>
+   953→      </div>
+   954→
+   955→      {timerOption > 0 && gameState === 'playing' && (
+   956→        <motion.div
+   957→          initial={{ opacity: 0, y: -5 }}
+   958→          animate={{ opacity: 1, y: 0 }}
+   959→          className="flex items-center gap-2"
+   960→        >
+   961→          <Badge
+   962→            variant="outline"
+   963→            className={cn(
+   964→              'font-mono text-sm px-3 py-0.5',
+   965→              timeRemaining <= 10
+   966→                ? 'border-red-500 text-red-400 bg-red-500/10'
+   967→                : timeRemaining <= 30
+   968→                  ? 'border-yellow-500 text-yellow-400 bg-yellow-500/10'
+   969→                  : 'border-slate-500 text-slate-300',
+   970→            )}
+   971→          >
+   972→            {fmt(timeRemaining)}
+   973→          </Badge>
+   974→        </motion.div>
+   975→      )}
+   976→
+   977→      {gameState === 'idle' && (
+   978→        <div className="flex flex-col items-center gap-4 py-8">
+   979→          <div className="text-slate-400 text-sm text-center max-w-xs">
+   980→            Jogo de memória competitivo. {mode === 'bot' ? 'Desafie o computador!' : 'Dois jogadores revezam turnos no mesmo tabuleiro.'}
+   981→            Encontre os pares para marcar pontos!
+   982→          </div>
+   983→          <Button
+   984→            onClick={initGame}
+   985→            className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white px-6"
+   986→          >
+   987→            Iniciar Jogo
+   988→          </Button>
+   989→        </div>
+   990→      )}
+   991→
+   992→      {(gameState === 'playing' || gameState === 'ended') && (
+   993→        <div
+   994→          className={cn(
+   995→            'relative rounded-xl p-3 transition-all duration-500 border-2',
+   996→            gameState === 'playing' && activeGlow,
+   997→            gameState === 'ended' && 'border-slate-700',
+   998→          )}
+   999→        >
+  1000→          <AnimatePresence>
+  1001→            {feedback && (
+  1002→              <FeedbackToast
+  1003→                key={feedback.id}
+  1004→                message={feedback.message}
+  1005→                color={feedback.color}
+  1006→              />
+  1007→            )}
+  1008→          </AnimatePresence>
+  1009→
+  1010→          <div
+  1011→            className="grid gap-2"
+  1012→            style={{
+  1013→              gridTemplateColumns: `repeat(${config.cols}, minmax(0, 1fr))`,
+  1014→            }}
+  1015→          >
+  1016→            {cards.map((card, idx) => (
+  1017→              <GameCard
+  1018→                key={card.id}
+  1019→                card={card}
+  1020→                index={idx}
+  1021→                disabled={!canFlip || (mode === 'bot' && currentPlayer === 2)}
+  1022→                onClick={handleCardClick}
+  1023→              />
+  1024→            ))}
+  1025→          </div>
+  1026→        </div>
+  1027→      )}
+  1028→
+  1029→      {(gameState === 'playing' || gameState === 'ended') && (
+  1030→        <div className="flex items-center gap-4 mt-1">
+  1031→          <Button
+  1032→            variant="outline"
+  1033→            size="sm"
+  1034→            onClick={resetAll}
+  1035→            className="gap-1.5 text-slate-300 border-slate-600 hover:bg-slate-800"
+  1036→          >
+  1037→            <RotateCcw className="w-3.5 h-3.5" />
+  1038→            Reiniciar Tudo
+  1039→          </Button>
+  1040→          <Badge
+  1041→            variant="secondary"
+  1042→            className="bg-slate-800 text-slate-300 border border-slate-700"
+  1043→          >
+  1044→            Pares restantes: {pairsLeft}
+  1045→          </Badge>
+  1046→        </div>
+  1047→      )}
+  1048→    </div>
+  1049→  );
+  1050→}
+  1051→

@@ -1,0 +1,982 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useCallback, useEffect, useRef, useState } from "react";
+     4→     4→import { motion, AnimatePresence } from "framer-motion";
+     5→     5→import { Button } from "@/components/ui/button";
+     6→     6→import { Badge } from "@/components/ui/badge";
+     7→     7→import { cn } from "@/lib/utils";
+     8→     8→import { RotateCcw, Wind, Crosshair } from "lucide-react";
+     9→     9→
+    10→    10→interface Props {
+    11→    11→  onScore?: (name: string, score: number) => void;
+    12→    12→  liveCode?: string;
+    13→    13→}
+    14→    14→
+    15→    15→interface PlayerState {
+    16→    16→  x: number;
+    17→    17→  health: number;
+    18→    18→  roundsWon: number;
+    19→    19→}
+    20→    20→
+    21→    21→interface Projectile {
+    22→    22→  x: number;
+    23→    23→  y: number;
+    24→    24→  vx: number;
+    25→    25→  vy: number;
+    26→    26→  trail: { x: number; y: number; alpha: number }[];
+    27→    27→  active: boolean;
+    28→    28→}
+    29→    29→
+    30→    30→interface ExplosionParticle {
+    31→    31→  x: number;
+    32→    32→  y: number;
+    33→    33→  vx: number;
+    34→    34→  vy: number;
+    35→    35→  size: number;
+    36→    36→  alpha: number;
+    37→    37→  color: string;
+    38→    38→}
+    39→    39→
+    40→    40→interface Explosion {
+    41→    41→  x: number;
+    42→    42→  y: number;
+    43→    43→  frame: number;
+    44→    44→  maxFrames: number;
+    45→    45→  particles: ExplosionParticle[];
+    46→    46→}
+    47→    47→
+    48→    48→interface GameState {
+    49→    49→  terrain: number[];
+    50→    50→  currentPlayer: 1 | 2;
+    51→    51→  players: [PlayerState, PlayerState];
+    52→    52→  wind: number;
+    53→    53→  projectile: Projectile | null;
+    54→    54→  explosion: Explosion | null;
+    55→    55→  phase: "aiming" | "firing" | "exploding" | "gameOver";
+    56→    56→  winner: 1 | 2 | null;
+    57→    57→  hitMessage: string | null;
+    58→    58→  turnCount: number;
+    59→    59→}
+    60→    60→
+    61→    61→const CANVAS_WIDTH = 700;
+    62→    62→const CANVAS_HEIGHT = 400;
+    63→    63→const GRAVITY = 0.12;
+    64→    64→const HIT_RADIUS = 22;
+    65→    65→const CRATER_RADIUS = 25;
+    66→    66→const DAMAGE_AMOUNT = 34;
+    67→    67→
+    68→    68→function generateTerrain(width: number, height: number): number[] {
+    69→    69→  const terrain: number[] = [];
+    70→    70→  const freq1 = 0.008 + Math.random() * 0.012;
+    71→    71→  const freq2 = 0.02 + Math.random() * 0.03;
+    72→    72→  const freq3 = 0.003 + Math.random() * 0.005;
+    73→    73→  const amp1 = 30 + Math.random() * 40;
+    74→    74→  const amp2 = 10 + Math.random() * 20;
+    75→    75→  const amp3 = 20 + Math.random() * 30;
+    76→    76→  const baseY = height * 0.65;
+    77→    77→  const phase1 = Math.random() * Math.PI * 2;
+    78→    78→  const phase2 = Math.random() * Math.PI * 2;
+    79→    79→  const phase3 = Math.random() * Math.PI * 2;
+    80→    80→
+    81→    81→  for (let x = 0; x < width; x++) {
+    82→    82→    const y =
+    83→    83→      baseY +
+    84→    84→      Math.sin(x * freq1 + phase1) * amp1 +
+    85→    85→      Math.sin(x * freq2 + phase2) * amp2 +
+    86→    86→      Math.sin(x * freq3 + phase3) * amp3;
+    87→    87→    terrain.push(Math.min(Math.max(y, height * 0.35), height * 0.9));
+    88→    88→  }
+    89→    89→  return terrain;
+    90→    90→}
+    91→    91→
+    92→    92→function generateWind(): number {
+    93→    93→  return (Math.random() - 0.5) * 6;
+    94→    94→}
+    95→    95→
+    96→    96→function createExplosion(x: number, y: number): Explosion {
+    97→    97→  const particles: ExplosionParticle[] = [];
+    98→    98→  const colors = ["#ff6600", "#ff9900", "#ffcc00", "#ff3300", "#ffffff"];
+    99→    99→  for (let i = 0; i < 20; i++) {
+   100→   100→    const ang = Math.random() * Math.PI * 2;
+   101→   101→    const speed = 1 + Math.random() * 4;
+   102→   102→    particles.push({
+   103→   103→      x,
+   104→   104→      y,
+   105→   105→      vx: Math.cos(ang) * speed,
+   106→   106→      vy: Math.sin(ang) * speed - 2,
+   107→   107→      size: 2 + Math.random() * 4,
+   108→   108→      alpha: 1,
+   109→   109→      color: colors[Math.floor(Math.random() * colors.length)],
+   110→   110→    });
+   111→   111→  }
+   112→   112→  return { x, y, frame: 0, maxFrames: 40, particles };
+   113→   113→}
+   114→   114→
+   115→   115→function createProjectile(
+   116→   116→  x: number,
+   117→   117→  y: number,
+   118→   118→  angleDeg: number,
+   119→   119→  power: number
+   120→   120→): Projectile {
+   121→   121→  const rad = (angleDeg * Math.PI) / 180;
+   122→   122→  return {
+   123→   123→    x,
+   124→   124→    y,
+   125→   125→    vx: power * Math.cos(rad) * 0.15,
+   126→   126→    vy: -power * Math.sin(rad) * 0.15,
+   127→   127→    trail: [],
+   128→   128→    active: true,
+   129→   129→  };
+   130→   130→}
+   131→   131→
+   132→   132→function initGameState(): GameState {
+   133→   133→  const terrain = generateTerrain(CANVAS_WIDTH, CANVAS_HEIGHT);
+   134→   134→  const p1X = Math.floor(CANVAS_WIDTH * 0.15);
+   135→   135→  const p2X = Math.floor(CANVAS_WIDTH * 0.85);
+   136→   136→  return {
+   137→   137→    terrain,
+   138→   138→    currentPlayer: 1,
+   139→   139→    players: [
+   140→   140→      { x: p1X, health: 100, roundsWon: 0 },
+   141→   141→      { x: p2X, health: 100, roundsWon: 0 },
+   142→   142→    ],
+   143→   143→    wind: generateWind(),
+   144→   144→    projectile: null,
+   145→   145→    explosion: null,
+   146→   146→    phase: "aiming",
+   147→   147→    winner: null,
+   148→   148→    hitMessage: null,
+   149→   149→    turnCount: 1,
+   150→   150→  };
+   151→   151→}
+   152→   152→
+   153→   153→export default function CannonBattle({ onScore, liveCode }: Props) {
+   154→   154→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   155→   155→  const gameStateRef = useRef<GameState>(initGameState());
+   156→   156→  const animFrameRef = useRef<number>(0);
+   157→   157→
+   158→   158→  const [angle, setAngle] = useState(45);
+   159→   159→  const [power, setPower] = useState(50);
+   160→   160→  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+   161→   161→  const [wind, setWind] = useState(0);
+   162→   162→  const [healthP1, setHealthP1] = useState(100);
+   163→   163→  const [healthP2, setHealthP2] = useState(100);
+   164→   164→  const [phase, setPhase] = useState<GameState["phase"]>("aiming");
+   165→   165→  const [hitMessage, setHitMessage] = useState<string | null>(null);
+   166→   166→  const [winner, setWinner] = useState<1 | 2 | null>(null);
+   167→   167→  const [turnCount, setTurnCount] = useState(1);
+   168→   168→
+   169→   169→  const syncUI = useCallback((gs: GameState) => {
+   170→   170→    setCurrentPlayer(gs.currentPlayer);
+   171→   171→    setWind(gs.wind);
+   172→   172→    setHealthP1(gs.players[0].health);
+   173→   173→    setHealthP2(gs.players[1].health);
+   174→   174→    setPhase(gs.phase);
+   175→   175→    setHitMessage(gs.hitMessage);
+   176→   176→    setWinner(gs.winner);
+   177→   177→    setTurnCount(gs.turnCount);
+   178→   178→  }, []);
+   179→   179→
+   180→   180→  const fire = useCallback(() => {
+   181→   181→    const gs = gameStateRef.current;
+   182→   182→    if (gs.phase !== "aiming") return;
+   183→   183→
+   184→   184→    const pi = gs.currentPlayer === 1 ? 0 : 1;
+   185→   185→    const player = gs.players[pi];
+   186→   186→    const playerX = player.x;
+   187→   187→    const terrainY =
+   188→   188→      gs.terrain[Math.floor(Math.max(0, Math.min(playerX, CANVAS_WIDTH - 1)))];
+   189→   189→    const startY = terrainY - 16;
+   190→   190→
+   191→   191→    const fireAngle = gs.currentPlayer === 1 ? angle : 180 - angle;
+   192→   192→    const proj = createProjectile(playerX, startY, fireAngle, power);
+   193→   193→
+   194→   194→    gs.projectile = proj;
+   195→   195→    gs.phase = "firing";
+   196→   196→    gs.hitMessage = null;
+   197→   197→    syncUI(gs);
+   198→   198→  }, [angle, power, syncUI]);
+   199→   199→
+   200→   200→  const handleKeyDown = useCallback(
+   201→   201→    (e: KeyboardEvent) => {
+   202→   202→      const gs = gameStateRef.current;
+   203→   203→      if (gs.phase !== "aiming") return;
+   204→   204→
+   205→   205→      switch (e.key) {
+   206→   206→        case "a":
+   207→   207→        case "A":
+   208→   208→          setAngle((prev) => Math.max(0, prev - 2));
+   209→   209→          break;
+   210→   210→        case "d":
+   211→   211→        case "D":
+   212→   212→          setAngle((prev) => Math.min(180, prev + 2));
+   213→   213→          break;
+   214→   214→        case "w":
+   215→   215→        case "W":
+   216→   216→          setPower((prev) => Math.min(100, prev + 2));
+   217→   217→          break;
+   218→   218→        case "s":
+   219→   219→        case "S":
+   220→   220→          setPower((prev) => Math.max(10, prev - 2));
+   221→   221→          break;
+   222→   222→        case " ":
+   223→   223→          e.preventDefault();
+   224→   224→          fire();
+   225→   225→          break;
+   226→   226→      }
+   227→   227→    },
+   228→   228→    [fire]
+   229→   229→  );
+   230→   230→
+   231→   231→  useEffect(() => {
+   232→   232→    window.addEventListener("keydown", handleKeyDown);
+   233→   233→    return () => window.removeEventListener("keydown", handleKeyDown);
+   234→   234→  }, [handleKeyDown]);
+   235→   235→
+   236→   236→  useEffect(() => {
+   237→   237→    const canvas = canvasRef.current;
+   238→   238→    if (!canvas) return;
+   239→   239→    const ctx = canvas.getContext("2d");
+   240→   240→    if (!ctx) return;
+   241→   241→
+   242→   242→    const drawSky = () => {
+   243→   243→      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+   244→   244→      grad.addColorStop(0, "#0a0a2e");
+   245→   245→      grad.addColorStop(0.5, "#1a1040");
+   246→   246→      grad.addColorStop(1, "#0d1b2a");
+   247→   247→      ctx.fillStyle = grad;
+   248→   248→      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   249→   249→
+   250→   250→      for (let i = 0; i < 60; i++) {
+   251→   251→        const sx = (i * 137 + 42 * 31) % CANVAS_WIDTH;
+   252→   252→        const sy = (i * 89 + 42 * 17) % Math.floor(CANVAS_HEIGHT * 0.5);
+   253→   253→        const brightness = 0.3 + (i % 5) * 0.15;
+   254→   254→        ctx.fillStyle = `rgba(255,255,255,${brightness})`;
+   255→   255→        ctx.beginPath();
+   256→   256→        ctx.arc(sx, sy, 0.5 + (i % 3) * 0.3, 0, Math.PI * 2);
+   257→   257→        ctx.fill();
+   258→   258→      }
+   259→   259→    };
+   260→   260→
+   261→   261→    const drawTerrain = (terrain: number[]) => {
+   262→   262→      const grad = ctx.createLinearGradient(0, CANVAS_HEIGHT * 0.4, 0, CANVAS_HEIGHT);
+   263→   263→      grad.addColorStop(0, "#2d5016");
+   264→   264→      grad.addColorStop(0.3, "#3a6b1e");
+   265→   265→      grad.addColorStop(0.6, "#4a3728");
+   266→   266→      grad.addColorStop(1, "#2a1f14");
+   267→   267→
+   268→   268→      ctx.beginPath();
+   269→   269→      ctx.moveTo(0, CANVAS_HEIGHT);
+   270→   270→      for (let x = 0; x < CANVAS_WIDTH; x++) {
+   271→   271→        ctx.lineTo(x, terrain[x]);
+   272→   272→      }
+   273→   273→      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+   274→   274→      ctx.closePath();
+   275→   275→      ctx.fillStyle = grad;
+   276→   276→      ctx.fill();
+   277→   277→
+   278→   278→      ctx.strokeStyle = "#4a8a2a";
+   279→   279→      ctx.lineWidth = 1.5;
+   280→   280→      ctx.beginPath();
+   281→   281→      for (let x = 0; x < CANVAS_WIDTH; x++) {
+   282→   282→        if (x === 0) ctx.moveTo(x, terrain[x]);
+   283→   283→        else ctx.lineTo(x, terrain[x]);
+   284→   284→      }
+   285→   285→      ctx.stroke();
+   286→   286→    };
+   287→   287→
+   288→   288→    const drawCannon = (
+   289→   289→      playerX: number,
+   290→   290→      terrainY: number,
+   291→   291→      cannonAngle: number,
+   292→   292→      color: string,
+   293→   293→      isP1: boolean
+   294→   294→    ) => {
+   295→   295→      const bodyW = 24;
+   296→   296→      const bodyH = 10;
+   297→   297→      const bodyX = playerX - bodyW / 2;
+   298→   298→      const bodyY = terrainY - bodyH;
+   299→   299→
+   300→   300→      ctx.fillStyle = color;
+   301→   301→      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+   302→   302→      ctx.lineWidth = 1;
+   303→   303→      ctx.beginPath();
+   304→   304→      const r = 2;
+   305→   305→      ctx.moveTo(bodyX + r, bodyY);
+   306→   306→      ctx.lineTo(bodyX + bodyW - r, bodyY);
+   307→   307→      ctx.quadraticCurveTo(bodyX + bodyW, bodyY, bodyX + bodyW, bodyY + r);
+   308→   308→      ctx.lineTo(bodyX + bodyW, bodyY + bodyH - r);
+   309→   309→      ctx.quadraticCurveTo(bodyX + bodyW, bodyY + bodyH, bodyX + bodyW - r, bodyY + bodyH);
+   310→   310→      ctx.lineTo(bodyX + r, bodyY + bodyH);
+   311→   311→      ctx.quadraticCurveTo(bodyX, bodyY + bodyH, bodyX, bodyY + bodyH - r);
+   312→   312→      ctx.lineTo(bodyX, bodyY + r);
+   313→   313→      ctx.quadraticCurveTo(bodyX, bodyY, bodyX + r, bodyY);
+   314→   314→      ctx.closePath();
+   315→   315→      ctx.fill();
+   316→   316→      ctx.stroke();
+   317→   317→
+   318→   318→      const wheelR = 5;
+   319→   319→      ctx.fillStyle = "#555";
+   320→   320→      ctx.beginPath();
+   321→   321→      ctx.arc(bodyX + 5, terrainY, wheelR, 0, Math.PI * 2);
+   322→   322→      ctx.fill();
+   323→   323→      ctx.beginPath();
+   324→   324→      ctx.arc(bodyX + bodyW - 5, terrainY, wheelR, 0, Math.PI * 2);
+   325→   325→      ctx.fill();
+   326→   326→
+   327→   327→      ctx.fillStyle = "#888";
+   328→   328→      ctx.beginPath();
+   329→   329→      ctx.arc(bodyX + 5, terrainY, 2, 0, Math.PI * 2);
+   330→   330→      ctx.fill();
+   331→   331→      ctx.beginPath();
+   332→   332→      ctx.arc(bodyX + bodyW - 5, terrainY, 2, 0, Math.PI * 2);
+   333→   333→      ctx.fill();
+   334→   334→
+   335→   335→      const barrelLen = 18;
+   336→   336→      const barrelW = 4;
+   337→   337→      const pivotX = playerX;
+   338→   338→      const pivotY = bodyY;
+   339→   339→      const rad = (cannonAngle * Math.PI) / 180;
+   340→   340→      const dir = isP1 ? 1 : -1;
+   341→   341→      const endX = pivotX + Math.cos(rad) * barrelLen * dir;
+   342→   342→      const endY = pivotY - Math.sin(rad) * barrelLen;
+   343→   343→
+   344→   344→      ctx.save();
+   345→   345→      ctx.translate(pivotX, pivotY);
+   346→   346→      ctx.rotate(-rad * dir);
+   347→   347→      ctx.fillStyle = color;
+   348→   348→      ctx.fillRect(0, -barrelW / 2, barrelLen * dir, barrelW);
+   349→   349→      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+   350→   350→      ctx.strokeRect(0, -barrelW / 2, barrelLen * dir, barrelW);
+   351→   351→      ctx.restore();
+   352→   352→
+   353→   353→      ctx.fillStyle = "rgba(255,255,255,0.6)";
+   354→   354→      ctx.beginPath();
+   355→   355→      ctx.arc(endX, endY, 2, 0, Math.PI * 2);
+   356→   356→      ctx.fill();
+   357→   357→    };
+   358→   358→
+   359→   359→    const drawHealthBar = (x: number, y: number, health: number) => {
+   360→   360→      const barW = 40;
+   361→   361→      const barH = 5;
+   362→   362→      const bx = x - barW / 2;
+   363→   363→
+   364→   364→      ctx.fillStyle = "rgba(0,0,0,0.6)";
+   365→   365→      ctx.fillRect(bx - 1, y - 1, barW + 2, barH + 2);
+   366→   366→      ctx.fillStyle = "#333";
+   367→   367→      ctx.fillRect(bx, y, barW, barH);
+   368→   368→
+   369→   369→      const healthPct = Math.max(0, health) / 100;
+   370→   370→      const hColor =
+   371→   371→        healthPct > 0.5 ? "#22c55e" : healthPct > 0.25 ? "#eab308" : "#ef4444";
+   372→   372→      ctx.fillStyle = hColor;
+   373→   373→      ctx.fillRect(bx, y, barW * healthPct, barH);
+   374→   374→
+   375→   375→      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+   376→   376→      ctx.lineWidth = 0.5;
+   377→   377→      ctx.strokeRect(bx, y, barW, barH);
+   378→   378→    };
+   379→   379→
+   380→   380→    const drawWindIndicator = (windVal: number) => {
+   381→   381→      const cx = CANVAS_WIDTH / 2;
+   382→   382→      const cy = 25;
+   383→   383→
+   384→   384→      ctx.fillStyle = "rgba(255,255,255,0.7)";
+   385→   385→      ctx.font = "bold 11px sans-serif";
+   386→   386→      ctx.textAlign = "center";
+   387→   387→      ctx.fillText("VENTO", cx, cy - 8);
+   388→   388→
+   389→   389→      const arrowLen = Math.abs(windVal) * 10;
+   390→   390→      const dir = windVal > 0 ? 1 : -1;
+   391→   391→      const startX = cx - (arrowLen / 2) * dir;
+   392→   392→      const endX = cx + (arrowLen / 2) * dir;
+   393→   393→
+   394→   394→      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+   395→   395→      ctx.lineWidth = 2;
+   396→   396→      ctx.beginPath();
+   397→   397→      ctx.moveTo(startX, cy);
+   398→   398→      ctx.lineTo(endX, cy);
+   399→   399→      ctx.stroke();
+   400→   400→
+   401→   401→      ctx.beginPath();
+   402→   402→      ctx.moveTo(endX, cy);
+   403→   403→      ctx.lineTo(endX - 6 * dir, cy - 4);
+   404→   404→      ctx.moveTo(endX, cy);
+   405→   405→      ctx.lineTo(endX - 6 * dir, cy + 4);
+   406→   406→      ctx.stroke();
+   407→   407→
+   408→   408→      ctx.fillStyle = "rgba(255,255,255,0.5)";
+   409→   409→      ctx.font = "10px sans-serif";
+   410→   410→      ctx.fillText(windVal.toFixed(1), cx, cy + 14);
+   411→   411→    };
+   412→   412→
+   413→   413→    const drawProjectile = (proj: Projectile) => {
+   414→   414→      for (let i = 0; i < proj.trail.length; i++) {
+   415→   415→        const t = proj.trail[i];
+   416→   416→        const alpha = t.alpha * (i / proj.trail.length) * 0.8;
+   417→   417→        const sz = 1 + (i / proj.trail.length) * 2;
+   418→   418→        ctx.fillStyle = `rgba(255,200,50,${alpha})`;
+   419→   419→        ctx.beginPath();
+   420→   420→        ctx.arc(t.x, t.y, sz, 0, Math.PI * 2);
+   421→   421→        ctx.fill();
+   422→   422→      }
+   423→   423→
+   424→   424→      ctx.fillStyle = "#ffe066";
+   425→   425→      ctx.shadowColor = "#ff8800";
+   426→   426→      ctx.shadowBlur = 8;
+   427→   427→      ctx.beginPath();
+   428→   428→      ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+   429→   429→      ctx.fill();
+   430→   430→      ctx.shadowBlur = 0;
+   431→   431→
+   432→   432→      ctx.fillStyle = "#ffffff";
+   433→   433→      ctx.beginPath();
+   434→   434→      ctx.arc(proj.x, proj.y, 1.5, 0, Math.PI * 2);
+   435→   435→      ctx.fill();
+   436→   436→    };
+   437→   437→
+   438→   438→    const drawExplosion = (exp: Explosion) => {
+   439→   439→      const progress = exp.frame / exp.maxFrames;
+   440→   440→      const baseRadius = 5 + progress * 25;
+   441→   441→
+   442→   442→      const grad = ctx.createRadialGradient(
+   443→   443→        exp.x, exp.y, 0,
+   444→   444→        exp.x, exp.y, baseRadius
+   445→   445→      );
+   446→   446→      grad.addColorStop(0, `rgba(255,255,200,${1 - progress})`);
+   447→   447→      grad.addColorStop(0.4, `rgba(255,150,0,${0.7 - progress * 0.7})`);
+   448→   448→      grad.addColorStop(0.7, `rgba(255,50,0,${0.5 - progress * 0.5})`);
+   449→   449→      grad.addColorStop(1, "rgba(100,0,0,0)");
+   450→   450→
+   451→   451→      ctx.fillStyle = grad;
+   452→   452→      ctx.beginPath();
+   453→   453→      ctx.arc(exp.x, exp.y, baseRadius, 0, Math.PI * 2);
+   454→   454→      ctx.fill();
+   455→   455→
+   456→   456→      for (const p of exp.particles) {
+   457→   457→        if (p.color.startsWith("#")) {
+   458→   458→          const r = parseInt(p.color.slice(1, 3), 16);
+   459→   459→          const g = parseInt(p.color.slice(3, 5), 16);
+   460→   460→          const b = parseInt(p.color.slice(5, 7), 16);
+   461→   461→          ctx.fillStyle = `rgba(${r},${g},${b},${p.alpha})`;
+   462→   462→        } else {
+   463→   463→          ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+   464→   464→        }
+   465→   465→        ctx.beginPath();
+   466→   466→        ctx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+   467→   467→        ctx.fill();
+   468→   468→      }
+   469→   469→    };
+   470→   470→
+   471→   471→    const drawHitMessage = (msg: string, playerColor: string) => {
+   472→   472→      if (!msg) return;
+   473→   473→      ctx.fillStyle = playerColor;
+   474→   474→      ctx.font = "bold 20px sans-serif";
+   475→   475→      ctx.textAlign = "center";
+   476→   476→      ctx.shadowColor = "rgba(0,0,0,0.8)";
+   477→   477→      ctx.shadowBlur = 6;
+   478→   478→      ctx.fillText(msg, CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4);
+   479→   479→      ctx.shadowBlur = 0;
+   480→   480→    };
+   481→   481→
+   482→   482→    const drawGameOver = (winnerNum: 1 | 2) => {
+   483→   483→      ctx.fillStyle = "rgba(0,0,0,0.5)";
+   484→   484→      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   485→   485→
+   486→   486→      const color = winnerNum === 1 ? "#22d3ee" : "#f472b6";
+   487→   487→      ctx.fillStyle = color;
+   488→   488→      ctx.font = "bold 28px sans-serif";
+   489→   489→      ctx.textAlign = "center";
+   490→   490→      ctx.shadowColor = color;
+   491→   491→      ctx.shadowBlur = 15;
+   492→   492→      ctx.fillText(
+   493→   493→        `🎉 Jogador ${winnerNum} Venceu! 🎉`,
+   494→   494→        CANVAS_WIDTH / 2,
+   495→   495→        CANVAS_HEIGHT / 2 - 10
+   496→   496→      );
+   497→   497→      ctx.shadowBlur = 0;
+   498→   498→
+   499→   499→      ctx.fillStyle = "rgba(255,255,255,0.6)";
+   500→   500→      ctx.font = "14px sans-serif";
+   501→   501→      ctx.fillText(
+   502→   502→        'Clique em "Reiniciar Tudo" para jogar novamente',
+   503→   503→        CANVAS_WIDTH / 2,
+   504→   504→        CANVAS_HEIGHT / 2 + 20
+   505→   505→      );
+   506→   506→    };
+   507→   507→
+   508→   508→    const applyCrater = (
+   509→   509→      terrain: number[],
+   510→   510→      cx: number,
+   511→   511→      radius: number
+   512→   512→    ) => {
+   513→   513→      const r2 = radius * radius;
+   514→   514→      for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
+   515→   515→        if (x < 0 || x >= CANVAS_WIDTH) continue;
+   516→   516→        const dx = x - cx;
+   517→   517→        const depth = Math.sqrt(Math.max(0, r2 - dx * dx));
+   518→   518→        terrain[x] = Math.min(CANVAS_HEIGHT - 5, terrain[x] + depth * 0.6);
+   519→   519→      }
+   520→   520→    };
+   521→   521→
+   522→   522→    const gameLoop = () => {
+   523→   523→      const gs = gameStateRef.current;
+   524→   524→
+   525→   525→      if (gs.phase === "firing" && gs.projectile) {
+   526→   526→        const proj = gs.projectile;
+   527→   527→        proj.trail.push({ x: proj.x, y: proj.y, alpha: 1 });
+   528→   528→        if (proj.trail.length > 25) proj.trail.shift();
+   529→   529→
+   530→   530→        proj.x += proj.vx + gs.wind * 0.03;
+   531→   531→        proj.vy += GRAVITY;
+   532→   532→        proj.y += proj.vy;
+   533→   533→
+   534→   534→        for (const t of proj.trail) {
+   535→   535→          t.alpha *= 0.94;
+   536→   536→        }
+   537→   537→
+   538→   538→        const oppIdx = gs.currentPlayer === 1 ? 1 : 0;
+   539→   539→        const opp = gs.players[oppIdx];
+   540→   540→        const dx = proj.x - opp.x;
+   541→   541→        const oppY =
+   542→   542→          gs.terrain[
+   543→   543→            Math.floor(Math.max(0, Math.min(opp.x, CANVAS_WIDTH - 1)))
+   544→   544→          ];
+   545→   545→        const dy = proj.y - (oppY - 10);
+   546→   546→        const dist = Math.sqrt(dx * dx + dy * dy);
+   547→   547→
+   548→   548→        if (dist < HIT_RADIUS) {
+   549→   549→          opp.health = Math.max(0, opp.health - DAMAGE_AMOUNT);
+   550→   550→          gs.explosion = createExplosion(proj.x, proj.y);
+   551→   551→          gs.projectile = null;
+   552→   552→          gs.hitMessage = "Acertou!";
+   553→   553→
+   554→   554→          if (opp.health <= 0) {
+   555→   555→            gs.phase = "gameOver";
+   556→   556→            gs.winner = gs.currentPlayer;
+   557→   557→            gs.players[gs.currentPlayer - 1].roundsWon += 1;
+   558→   558→            const winnerP = gs.players[gs.currentPlayer - 1];
+   559→   559→            const score = winnerP.health * 10 + winnerP.roundsWon * 50;
+   560→   560→            onScore?.(`Jogador ${gs.currentPlayer}`, score);
+   561→   561→          } else {
+   562→   562→            gs.phase = "exploding";
+   563→   563→          }
+   564→   564→          syncUI(gs);
+   565→   565→        } else if (
+   566→   566→          proj.y >=
+   567→   567→            gs.terrain[
+   568→   568→              Math.floor(
+   569→   569→                Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1))
+   570→   570→              )
+   571→   571→            ] ||
+   572→   572→          proj.x < -10 ||
+   573→   573→          proj.x > CANVAS_WIDTH + 10 ||
+   574→   574→          proj.y > CANVAS_HEIGHT + 10
+   575→   575→        ) {
+   576→   576→          const clampedX = Math.floor(
+   577→   577→            Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1))
+   578→   578→          );
+   579→   579→          if (proj.x >= 0 && proj.x < CANVAS_WIDTH) {
+   580→   580→            applyCrater(gs.terrain, clampedX, CRATER_RADIUS);
+   581→   581→          }
+   582→   582→          gs.explosion = createExplosion(
+   583→   583→            Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1)),
+   584→   584→            Math.min(proj.y, CANVAS_HEIGHT - 5)
+   585→   585→          );
+   586→   586→          gs.projectile = null;
+   587→   587→          gs.hitMessage = "Errou!";
+   588→   588→          gs.phase = "exploding";
+   589→   589→          syncUI(gs);
+   590→   590→        }
+   591→   591→      }
+   592→   592→
+   593→   593→      if (gs.phase === "exploding" && gs.explosion) {
+   594→   594→        const exp = gs.explosion;
+   595→   595→        exp.frame++;
+   596→   596→        for (const p of exp.particles) {
+   597→   597→          p.x += p.vx;
+   598→   598→          p.y += p.vy;
+   599→   599→          p.vy += 0.08;
+   600→   600→          p.alpha *= 0.95;
+   601→   601→        }
+   602→   602→        if (exp.frame >= exp.maxFrames) {
+   603→   603→          gs.explosion = null;
+   604→   604→          gs.currentPlayer = gs.currentPlayer === 1 ? 2 : 1;
+   605→   605→          gs.wind = generateWind();
+   606→   606→          gs.turnCount++;
+   607→   607→          gs.phase = "aiming";
+   608→   608→          setTimeout(() => {
+   609→   609→            gs.hitMessage = null;
+   610→   610→            syncUI(gs);
+   611→   611→          }, 800);
+   612→   612→          syncUI(gs);
+   613→   613→        }
+   614→   614→      }
+   615→   615→
+   616→   616→      const p1 = gs.players[0];
+   617→   617→      const p2 = gs.players[1];
+   618→   618→      const p1TerrainY =
+   619→   619→        gs.terrain[
+   620→   620→          Math.floor(Math.max(0, Math.min(p1.x, CANVAS_WIDTH - 1)))
+   621→   621→        ];
+   622→   622→      const p2TerrainY =
+   623→   623→        gs.terrain[
+   624→   624→          Math.floor(Math.max(0, Math.min(p2.x, CANVAS_WIDTH - 1)))
+   625→   625→        ];
+   626→   626→
+   627→   627→      const p1CannonAngle =
+   628→   628→        gs.currentPlayer === 1 && gs.phase === "aiming" ? angle : 45;
+   629→   629→      const p2CannonAngle =
+   630→   630→        gs.currentPlayer === 2 && gs.phase === "aiming" ? angle : 45;
+   631→   631→
+   632→   632→      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   633→   633→      drawSky();
+   634→   634→      drawTerrain(gs.terrain);
+   635→   635→      drawWindIndicator(gs.wind);
+   636→   636→
+   637→   637→      drawCannon(p1.x, p1TerrainY, p1CannonAngle, "#22d3ee", true);
+   638→   638→      drawCannon(p2.x, p2TerrainY, p2CannonAngle, "#f472b6", false);
+   639→   639→
+   640→   640→      drawHealthBar(p1.x, p1TerrainY - 30, p1.health);
+   641→   641→      drawHealthBar(p2.x, p2TerrainY - 30, p2.health);
+   642→   642→
+   643→   643→      if (gs.currentPlayer === 1 && gs.phase === "aiming") {
+   644→   644→        ctx.fillStyle = "rgba(34,211,238,0.6)";
+   645→   645→        ctx.font = "bold 10px sans-serif";
+   646→   646→        ctx.textAlign = "center";
+   647→   647→        ctx.fillText("J1", p1.x, p1TerrainY - 36);
+   648→   648→      } else if (gs.currentPlayer === 2 && gs.phase === "aiming") {
+   649→   649→        ctx.fillStyle = "rgba(244,114,182,0.6)";
+   650→   650→        ctx.font = "bold 10px sans-serif";
+   651→   651→        ctx.textAlign = "center";
+   652→   652→        ctx.fillText("J2", p2.x, p2TerrainY - 36);
+   653→   653→      }
+   654→   654→
+   655→   655→      if (gs.projectile) {
+   656→   656→        drawProjectile(gs.projectile);
+   657→   657→      }
+   658→   658→
+   659→   659→      if (gs.explosion) {
+   660→   660→        drawExplosion(gs.explosion);
+   661→   661→      }
+   662→   662→
+   663→   663→      if (gs.hitMessage && gs.phase !== "gameOver") {
+   664→   664→        const msgColor =
+   665→   665→          gs.hitMessage === "Acertou!"
+   666→   666→            ? gs.currentPlayer === 1
+   667→   667→              ? "#22d3ee"
+   668→   668→              : "#f472b6"
+   669→   669→            : "#ef4444";
+   670→   670→        drawHitMessage(gs.hitMessage, msgColor);
+   671→   671→      }
+   672→   672→
+   673→   673→      if (gs.phase === "gameOver" && gs.winner) {
+   674→   674→        drawGameOver(gs.winner);
+   675→   675→      }
+   676→   676→
+   677→   677→      animFrameRef.current = requestAnimationFrame(gameLoop);
+   678→   678→    };
+   679→   679→
+   680→   680→    animFrameRef.current = requestAnimationFrame(gameLoop);
+   681→   681→    return () => cancelAnimationFrame(animFrameRef.current);
+   682→   682→  }, [angle, onScore, syncUI]);
+   683→   683→
+   684→   684→  const resetGame = useCallback(() => {
+   685→   685→    gameStateRef.current = initGameState();
+   686→   686→    setAngle(45);
+   687→   687→    setPower(50);
+   688→   688→    const gs = gameStateRef.current;
+   689→   689→    syncUI(gs);
+   690→   690→  }, [syncUI]);
+   691→   691→
+   692→   692→  const heartsP1 = Math.ceil(healthP1 / 34);
+   693→   693→  const heartsP2 = Math.ceil(healthP2 / 34);
+   694→   694→  const maxHearts = 3;
+   695→   695→
+   696→   696→  return (
+   697→   697→    <div className="flex flex-col items-center gap-3 w-full max-w-[700px] mx-auto select-none">
+   698→   698→      <motion.div
+   699→   699→        initial={{ opacity: 0, y: -10 }}
+   700→   700→        animate={{ opacity: 1, y: 0 }}
+   701→   701→        className="w-full bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between"
+   702→   702→      >
+   703→   703→        <div className="flex items-center gap-2">
+   704→   704→          <span className="text-cyan-400 font-bold text-sm">Jogador 1</span>
+   705→   705→          <div className="flex gap-0.5">
+   706→   706→            {Array.from({ length: maxHearts }).map((_, i) => (
+   707→   707→              <motion.span
+   708→   708→                key={i}
+   709→   709→                animate={{ scale: i < heartsP1 ? [1, 1.2, 1] : 1 }}
+   710→   710→                transition={{ duration: 0.3 }}
+   711→   711→                className={i < heartsP1 ? "text-red-500" : "text-gray-600"}
+   712→   712→              >
+   713→   713→                {i < heartsP1 ? "\u2764\uFE0F" : "\u2661"}
+   714→   714→              </motion.span>
+   715→   715→            ))}
+   716→   716→          </div>
+   717→   717→        </div>
+   718→   718→
+   719→   719→        <h2 className="text-white font-bold text-base tracking-wider">
+   720→   720→          BATALHA DE CANH\u00D5ES
+   721→   721→        </h2>
+   722→   722→
+   723→   723→        <div className="flex items-center gap-2">
+   724→   724→          <div className="flex gap-0.5">
+   725→   725→            {Array.from({ length: maxHearts }).map((_, i) => (
+   726→   726→              <motion.span
+   727→   727→                key={i}
+   728→   728→                animate={{ scale: i < heartsP2 ? [1, 1.2, 1] : 1 }}
+   729→   729→                transition={{ duration: 0.3 }}
+   730→   730→                className={i < heartsP2 ? "text-red-500" : "text-gray-600"}
+   731→   731→              >
+   732→   732→                {i < heartsP2 ? "\u2764\uFE0F" : "\u2661"}
+   733→   733→              </motion.span>
+   734→   734→            ))}
+   735→   735→          </div>
+   736→   736→          <span className="text-pink-400 font-bold text-sm">Jogador 2</span>
+   737→   737→        </div>
+   738→   738→      </motion.div>
+   739→   739→
+   740→   740→      <div className="w-full flex items-center justify-between px-2">
+   741→   741→        <Badge
+   742→   742→          variant="outline"
+   743→   743→          className={cn(
+   744→   744→            "text-xs font-semibold px-3 py-1 transition-colors",
+   745→   745→            currentPlayer === 1
+   746→   746→              ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10"
+   747→   747→              : "border-pink-500/50 text-pink-400 bg-pink-500/10"
+   748→   748→          )}
+   749→   749→        >
+   750→   750→          Turno: Jogador {currentPlayer}
+   751→   751→        </Badge>
+   752→   752→        <Badge
+   753→   753→          variant="outline"
+   754→   754→          className="flex items-center gap-1.5 text-xs border-white/20 text-white/70 bg-white/5"
+   755→   755→        >
+   756→   756→          <Wind className="w-3 h-3" />
+   757→   757→          Vento: {wind > 0 ? "\u2192" : "\u2190"}
+   758→   758→          {Math.abs(wind) > 1.5 ? (wind > 0 ? "\u2192" : "\u2190") : ""}{" "}
+   759→   759→          {Math.abs(wind).toFixed(1)}
+   760→   760→        </Badge>
+   761→   761→      </div>
+   762→   762→
+   763→   763→      <motion.div
+   764→   764→        initial={{ opacity: 0, scale: 0.98 }}
+   765→   765→        animate={{ opacity: 1, scale: 1 }}
+   766→   766→        className="w-full relative rounded-xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50"
+   767→   767→        style={{ maxWidth: CANVAS_WIDTH }}
+   768→   768→      >
+   769→   769→        <div
+   770→   770→          className="w-full"
+   771→   771→          style={{ paddingBottom: `${(CANVAS_HEIGHT / CANVAS_WIDTH) * 100}%` }}
+   772→   772→        >
+   773→   773→          <canvas
+   774→   774→            ref={canvasRef}
+   775→   775→            width={CANVAS_WIDTH}
+   776→   776→            height={CANVAS_HEIGHT}
+   777→   777→            className="absolute inset-0 w-full h-full"
+   778→   778→          />
+   779→   779→        </div>
+   780→   780→      </motion.div>
+   781→   781→
+   782→   782→      <AnimatePresence mode="wait">
+   783→   783→        {hitMessage && phase !== "gameOver" && (
+   784→   784→          <motion.div
+   785→   785→            key={hitMessage}
+   786→   786→            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+   787→   787→            animate={{ opacity: 1, scale: 1, y: 0 }}
+   788→   788→            exit={{ opacity: 0, scale: 0.8, y: -10 }}
+   789→   789→            className={cn(
+   790→   790→              "text-lg font-bold px-4 py-1 rounded-full",
+   791→   791→              hitMessage === "Acertou!"
+   792→   792→                ? currentPlayer === 1
+   793→   793→                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+   794→   794→                  : "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+   795→   795→                : "bg-red-500/20 text-red-400 border border-red-500/30"
+   796→   796→            )}
+   797→   797→          >
+   798→   798→            {hitMessage}
+   799→   799→          </motion.div>
+   800→   800→        )}
+   801→   801→      </AnimatePresence>
+   802→   802→
+   803→   803→      <AnimatePresence>
+   804→   804→        {phase === "aiming" && (
+   805→   805→          <motion.div
+   806→   806→            key={`controls-${currentPlayer}`}
+   807→   807→            initial={{
+   808→   808→              opacity: 0,
+   809→   809→              x: currentPlayer === 1 ? -20 : 20,
+   810→   810→            }}
+   811→   811→            animate={{ opacity: 1, x: 0 }}
+   812→   812→            exit={{
+   813→   813→              opacity: 0,
+   814→   814→              x: currentPlayer === 1 ? 20 : -20,
+   815→   815→            }}
+   816→   816→            className="w-full flex flex-col gap-3 p-4 rounded-xl bg-white/5 border border-white/10"
+   817→   817→          >
+   818→   818→            <div className="flex items-center gap-3">
+   819→   819→              <Crosshair
+   820→   820→                className={cn(
+   821→   821→                  "w-4 h-4 shrink-0",
+   822→   822→                  currentPlayer === 1
+   823→   823→                    ? "text-cyan-400"
+   824→   824→                    : "text-pink-400"
+   825→   825→                )}
+   826→   826→              />
+   827→   827→              <div className="flex-1">
+   828→   828→                <div className="flex justify-between items-center mb-1">
+   829→   829→                  <span className="text-white/70 text-xs font-medium">
+   830→   830→                    \u00C2ngulo
+   831→   831→                  </span>
+   832→   832→                  <span
+   833→   833→                    className={cn(
+   834→   834→                      "text-xs font-bold",
+   835→   835→                      currentPlayer === 1
+   836→   836→                        ? "text-cyan-400"
+   837→   837→                        : "text-pink-400"
+   838→   838→                    )}
+   839→   839→                  >
+   840→   840→                    {angle}\u00B0
+   841→   841→                  </span>
+   842→   842→                </div>
+   843→   843→                <input
+   844→   844→                  type="range"
+   845→   845→                  min={0}
+   846→   846→                  max={180}
+   847→   847→                  value={angle}
+   848→   848→                  onChange={(e) => setAngle(Number(e.target.value))}
+   849→   849→                  disabled={phase !== "aiming"}
+   850→   850→                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-orange-500"
+   851→   851→                  style={{
+   852→   852→                    background: `linear-gradient(to right, ${currentPlayer === 1 ? "#22d3ee" : "#f472b6"} 0%, ${currentPlayer === 1 ? "#22d3ee" : "#f472b6"} ${(angle / 180) * 100}%, #333 ${(angle / 180) * 100}%, #333 100%)`,
+   853→   853→                  }}
+   854→   854→                />
+   855→   855→              </div>
+   856→   856→            </div>
+   857→   857→
+   858→   858→            <div className="flex items-center gap-3">
+   859→   859→              <span
+   860→   860→                className={cn(
+   861→   861→                  "text-sm shrink-0 w-4 text-center font-bold",
+   862→   862→                  currentPlayer === 1
+   863→   863→                    ? "text-cyan-400"
+   864→   864→                    : "text-pink-400"
+   865→   865→                )}
+   866→   866→              >
+   867→   867→                💥
+   868→   868→              </span>
+   869→   869→              <div className="flex-1">
+   870→   870→                <div className="flex justify-between items-center mb-1">
+   871→   871→                  <span className="text-white/70 text-xs font-medium">
+   872→   872→                    For\u00E7a
+   873→   873→                  </span>
+   874→   874→                  <span
+   875→   875→                    className={cn(
+   876→   876→                      "text-xs font-bold",
+   877→   877→                      currentPlayer === 1
+   878→   878→                        ? "text-cyan-400"
+   879→   879→                        : "text-pink-400"
+   880→   880→                    )}
+   881→   881→                  >
+   882→   882→                    {power}
+   883→   883→                  </span>
+   884→   884→                </div>
+   885→   885→                <input
+   886→   886→                  type="range"
+   887→   887→                  min={10}
+   888→   888→                  max={100}
+   889→   889→                  value={power}
+   890→   890→                  onChange={(e) => setPower(Number(e.target.value))}
+   891→   891→                  disabled={phase !== "aiming"}
+   892→   892→                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-orange-500"
+   893→   893→                  style={{
+   894→   894→                    background: `linear-gradient(to right, #f97316 0%, #f97316 ${((power - 10) / 90) * 100}%, #333 ${((power - 10) / 90) * 100}%, #333 100%)`,
+   895→   895→                  }}
+   896→   896→                />
+   897→   897→              </div>
+   898→   898→            </div>
+   899→   899→
+   900→   900→            <motion.div whileTap={{ scale: 0.95 }} className="w-full">
+   901→   901→              <Button
+   902→   902→                onClick={fire}
+   903→   903→                disabled={phase !== "aiming"}
+   904→   904→                className={cn(
+   905→   905→                  "w-full h-12 text-lg font-bold rounded-xl transition-all",
+   906→   906→                  currentPlayer === 1
+   907→   907→                    ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+   908→   908→                    : "bg-pink-600 hover:bg-pink-500 text-white"
+   909→   909→                )}
+   910→   910→              >
+   911→   911→                🔥 FOGO!
+   912→   912→              </Button>
+   913→   913→            </motion.div>
+   914→   914→
+   915→   915→            <p className="text-white/30 text-[10px] text-center">
+   916→   916→              Teclas: A/D = \u00C2ngulo | W/S = For\u00E7a | Espa\u00E7o = Fogo!
+   917→   917→            </p>
+   918→   918→          </motion.div>
+   919→   919→        )}
+   920→   920→      </AnimatePresence>
+   921→   921→
+   922→   922→      <AnimatePresence>
+   923→   923→        {phase === "gameOver" && winner && (
+   924→   924→          <motion.div
+   925→   925→            initial={{ opacity: 0, y: 20 }}
+   926→   926→            animate={{ opacity: 1, y: 0 }}
+   927→   927→            exit={{ opacity: 0 }}
+   928→   928→            className="w-full"
+   929→   929→          >
+   930→   930→            <motion.div
+   931→   931→              animate={{ scale: [1, 1.05, 1] }}
+   932→   932→              transition={{ repeat: Infinity, duration: 1.5 }}
+   933→   933→              className={cn(
+   934→   934→                "text-center py-4 rounded-xl font-bold text-xl mb-3",
+   935→   935→                winner === 1
+   936→   936→                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+   937→   937→                  : "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+   938→   938→              )}
+   939→   939→            >
+   940→   940→              🏆 Jogador {winner} Venceu! 🏆
+   941→   941→            </motion.div>
+   942→   942→            <Button
+   943→   943→              onClick={resetGame}
+   944→   944→              variant="outline"
+   945→   945→              className="w-full border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+   946→   946→            >
+   947→   947→              <RotateCcw className="w-4 h-4 mr-2" />
+   948→   948→              Reiniciar Tudo
+   949→   949→            </Button>
+   950→   950→          </motion.div>
+   951→   951→        )}
+   952→   952→      </AnimatePresence>
+   953→   953→
+   954→   954→      {(phase === "firing" || phase === "exploding") && (
+   955→   955→        <motion.div
+   956→   956→          initial={{ opacity: 0 }}
+   957→   957→          animate={{ opacity: 1 }}
+   958→   958→          className="text-white/40 text-xs"
+   959→   959→        >
+   960→   960→          Aguardando...
+   961→   961→        </motion.div>
+   962→   962→      )}
+   963→   963→
+   964→   964→      {phase !== "gameOver" && (
+   965→   965→        <Button
+   966→   966→          onClick={resetGame}
+   967→   967→          variant="ghost"
+   968→   968→          size="sm"
+   969→   969→          className="text-white/30 hover:text-white/60 hover:bg-white/5"
+   970→   970→        >
+   971→   971→          <RotateCcw className="w-3 h-3 mr-1" />
+   972→   972→          Reiniciar Tudo
+   973→   973→        </Button>
+   974→   974→      )}
+   975→   975→
+   976→   976→      <span className="text-white/10 text-[10px]">
+   977→   977→        Vida: {healthP1}% vs {healthP2}% | Turno #{turnCount}
+   978→   978→      </span>
+   979→   979→    </div>
+   980→   980→  );
+   981→   981→}
+   982→   982→

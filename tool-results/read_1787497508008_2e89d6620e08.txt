@@ -1,0 +1,1168 @@
+     1→import { useState, useEffect, useRef, useCallback } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { Zap, Trophy, Users, User, Flame, Swords, Crown, TrendingUp, Clock, RotateCcw } from "lucide-react";
+     4→import confetti from "canvas-confetti";
+     5→import { countdownPulse, springBouncy, popIn, shake } from "@/lib/animation-utilities";
+     6→
+     7→// ---- Types ----
+     8→interface Props {
+     9→  duration?: number;
+    10→  onScore?: (name: string, score: number) => void;
+    11→}
+    12→
+    13→type Phase = "idle" | "countdown" | "running" | "done";
+    14→type Mode = "bot" | "vs";
+    15→
+    16→// ---- Floating +1 particle ----
+    17→interface FloatingText {
+    18→  id: number;
+    19→  x: number;
+    20→  y: number;
+    21→  text: string;
+    22→  color: string;
+    23→}
+    24→
+    25→// ---- Ripple effect ----
+    26→interface Ripple {
+    27→  id: number;
+    28→  x: number;
+    29→  y: number;
+    30→  color: string;
+    31→  ring?: number;
+    32→}
+    33→
+    34→let _nextId = 0;
+    35→const nextId = () => ++_nextId;
+    36→
+    37→// ---- Tap sound via AudioContext ----
+    38→function playTapSound(pitch = 600) {
+    39→  try {
+    40→    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    41→    const osc = ctx.createOscillator();
+    42→    const gain = ctx.createGain();
+    43→    osc.type = "sine";
+    44→    osc.frequency.setValueAtTime(pitch, ctx.currentTime);
+    45→    osc.frequency.exponentialRampToValueAtTime(pitch * 1.5, ctx.currentTime + 0.05);
+    46→    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    47→    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    48→    osc.connect(gain);
+    49→    gain.connect(ctx.destination);
+    50→    osc.start(ctx.currentTime);
+    51→    osc.stop(ctx.currentTime + 0.1);
+    52→    setTimeout(() => ctx.close(), 150);
+    53→  } catch { /* silent fail */ }
+    54→}
+    55→
+    56→function playCountdownBeep(final = false) {
+    57→  try {
+    58→    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    59→    const osc = ctx.createOscillator();
+    60→    const gain = ctx.createGain();
+    61→    osc.type = "square";
+    62→    osc.frequency.setValueAtTime(final ? 880 : 440, ctx.currentTime);
+    63→    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    64→    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (final ? 0.3 : 0.15));
+    65→    osc.connect(gain);
+    66→    gain.connect(ctx.destination);
+    67→    osc.start(ctx.currentTime);
+    68→    osc.stop(ctx.currentTime + (final ? 0.3 : 0.15));
+    69→    setTimeout(() => ctx.close(), 400);
+    70→  } catch { /* silent fail */ }
+    71→}
+    72→
+    73→// ---- Helper: combo tier label ----
+    74→function comboTierLabel(c: number): { label: string; color: string } | null {
+    75→  if (c > 10) return { label: "INSANE", color: "text-yellow-300" };
+    76→  if (c > 6) return { label: "FRENZY", color: "text-orange-400" };
+    77→  if (c > 2) return { label: "COMBO", color: "text-orange-500/70" };
+    78→  return null;
+    79→}
+    80→
+    81→// ---- Component ----
+    82→const TapBattle = ({ duration = 5, onScore }: Props) => {
+    83→  const [mode, setMode] = useState<Mode>("bot");
+    84→  const [phase, setPhase] = useState<Phase>("idle");
+    85→  const [p1Taps, setP1Taps] = useState(0);
+    86→  const [p2Taps, setP2Taps] = useState(0);
+    87→  const [time, setTime] = useState(duration);
+    88→  const [p1Name, setP1Name] = useState("Jogador 1");
+    89→  const [p2Name, setP2Name] = useState("Jogador 2");
+    90→  const [countdownNum, setCountdownNum] = useState(3);
+    91→  const [p1Combos, setP1Combos] = useState(0);
+    92→  const [p2Combos, setP2Combos] = useState(0);
+    93→  const [floats, setFloats] = useState<FloatingText[]>([]);
+    94→  const [ripples, setRipples] = useState<Ripple[]>([]);
+    95→  const [shakeP1, setShakeP1] = useState(false);
+    96→  const [shakeP2, setShakeP2] = useState(false);
+    97→  const [screenFlash, setScreenFlash] = useState(false);
+    98→  const [p1Flash, setP1Flash] = useState(false);
+    99→  const [p2Flash, setP2Flash] = useState(false);
+   100→  const [p1PeakCombo, setP1PeakCombo] = useState(0);
+   101→  const [p2PeakCombo, setP2PeakCombo] = useState(0);
+   102→  const [prevP1Taps, setPrevP1Taps] = useState(0);
+   103→  const [prevP2Taps, setPrevP2Taps] = useState(0);
+   104→
+   105→  const intervalRef = useRef<number | null>(null);
+   106→  const botRef = useRef<number | null>(null);
+   107→  const countdownRef = useRef<number | null>(null);
+   108→  const p1ComboTimer = useRef<number | null>(null);
+   109→  const p2ComboTimer = useRef<number | null>(null);
+   110→  const p1LastTap = useRef(0);
+   111→  const p2LastTap = useRef(0);
+   112→  const containerRef = useRef<HTMLDivElement>(null);
+   113→
+   114→  useEffect(() => setTime(duration), [duration]);
+   115→
+   116→  // Cleanup
+   117→  useEffect(() => () => {
+   118→    if (intervalRef.current) clearInterval(intervalRef.current);
+   119→    if (botRef.current) clearInterval(botRef.current);
+   120→    if (countdownRef.current) clearInterval(countdownRef.current);
+   121→    if (p1ComboTimer.current) clearTimeout(p1ComboTimer.current);
+   122→    if (p2ComboTimer.current) clearTimeout(p2ComboTimer.current);
+   123→  }, []);
+   124→
+   125→  // Remove old floating texts
+   126→  useEffect(() => {
+   127→    if (floats.length === 0) return;
+   128→    const t = setTimeout(() => {
+   129→      setFloats((prev) => prev.filter((f) => Date.now() - f.id < 800));
+   130→    }, 800);
+   131→    return () => clearTimeout(t);
+   132→  }, [floats]);
+   133→
+   134→  // Remove old ripples
+   135→  useEffect(() => {
+   136→    if (ripples.length === 0) return;
+   137→    const t = setTimeout(() => {
+   138→      setRipples((prev) => prev.filter((r) => Date.now() - r.id < 600));
+   139→    }, 600);
+   140→    return () => clearTimeout(t);
+   141→  }, [ripples]);
+   142→
+   143→  const addFloat = useCallback((x: number, y: number, text: string, color: string) => {
+   144→    setFloats((prev) => [...prev.slice(-20), { id: Date.now() + Math.random(), x, y, text, color }]);
+   145→  }, []);
+   146→
+   147→  const addRipple = useCallback((x: number, y: number, color: string) => {
+   148→    const id = Date.now() + Math.random();
+   149→    setRipples((prev) => [...prev.slice(-15), { id, x, y, color, ring: 0 }]);
+   150→    // second concentric ring slightly delayed
+   151→    setTimeout(() => {
+   152→      setRipples((prev) => [...prev.slice(-15), { id: id + 0.01, x, y, color, ring: 1 }]);
+   153→    }, 60);
+   154→  }, []);
+   155→
+   156→  const handleP1Tap = useCallback(
+   157→    (e: React.MouseEvent | React.TouchEvent) => {
+   158→      if (phase !== "running") return;
+   159→      setP1Taps((t) => t + 1);
+   160→
+   161→      // Get tap position
+   162→      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+   163→      let cx: number, cy: number;
+   164→      if ("touches" in e) {
+   165→        cx = e.touches[0].clientX - rect.left;
+   166→        cy = e.touches[0].clientY - rect.top;
+   167→      } else {
+   168→        cx = e.clientX - rect.left;
+   169→        cy = e.clientY - rect.top;
+   170→      }
+   171→
+   172→      // Combo detection
+   173→      const now = Date.now();
+   174→      const gap = now - p1LastTap.current;
+   175→      p1LastTap.current = now;
+   176→      if (gap < 150) {
+   177→        setP1Combos((c) => Math.min(c + 1, 50));
+   178→        if (p1ComboTimer.current) clearTimeout(p1ComboTimer.current);
+   179→        p1ComboTimer.current = window.setTimeout(() => setP1Combos(0), 400);
+   180→      } else {
+   181→        setP1Combos(0);
+   182→      }
+   183→
+   184→      // Floating +1
+   185→      const comboCount = p1Combos;
+   186→      const comboText = comboCount > 2 ? `+1 x${comboCount}` : "+1";
+   187→      addFloat(cx, cy - 10, comboText, comboCount > 8 ? "#facc15" : comboCount > 5 ? "#f59e0b" : comboCount > 2 ? "#f97316" : "#60a5fa");
+   188→      addRipple(cx, cy, "rgba(96, 165, 250, 0.6)");
+   189→      setP1Flash(true);
+   190→      setTimeout(() => setP1Flash(false), 100);
+   191→      if (comboCount > p1PeakCombo) setP1PeakCombo(comboCount);
+   192→
+   193→      // Sound (pitch increases with combo)
+   194→      playTapSound(500 + Math.min(comboCount * 30, 400));
+   195→
+   196→      // Shake effect on high combos
+   197→      if (comboCount > 3 && comboCount % 3 === 0) {
+   198→        setShakeP1(true);
+   199→        setTimeout(() => setShakeP1(false), 300);
+   200→      }
+   201→    },
+   202→    [phase, p1Combos, addFloat, addRipple, p1PeakCombo]
+   203→  );
+   204→
+   205→  const handleP2Tap = useCallback(
+   206→    (e: React.MouseEvent | React.TouchEvent) => {
+   207→      if (phase !== "running") return;
+   208→      setP2Taps((t) => t + 1);
+   209→
+   210→      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+   211→      let cx: number, cy: number;
+   212→      if ("touches" in e) {
+   213→        cx = e.touches[0].clientX - rect.left;
+   214→        cy = e.touches[0].clientY - rect.top;
+   215→      } else {
+   216→        cx = e.clientX - rect.left;
+   217→        cy = e.clientY - rect.top;
+   218→      }
+   219→
+   220→      const now = Date.now();
+   221→      const gap = now - p2LastTap.current;
+   222→      p2LastTap.current = now;
+   223→      if (gap < 150) {
+   224→        setP2Combos((c) => Math.min(c + 1, 50));
+   225→        if (p2ComboTimer.current) clearTimeout(p2ComboTimer.current);
+   226→        p2ComboTimer.current = window.setTimeout(() => setP2Combos(0), 400);
+   227→      } else {
+   228→        setP2Combos(0);
+   229→      }
+   230→
+   231→      const comboCount = p2Combos;
+   232→      const comboText = comboCount > 2 ? `+1 x${comboCount}` : "+1";
+   233→      addFloat(cx, cy - 10, comboText, comboCount > 8 ? "#facc15" : comboCount > 5 ? "#f59e0b" : comboCount > 2 ? "#f97316" : "#fbbf24");
+   234→      addRipple(cx, cy, "rgba(251, 191, 36, 0.6)");
+   235→      setP2Flash(true);
+   236→      setTimeout(() => setP2Flash(false), 100);
+   237→      if (comboCount > p2PeakCombo) setP2PeakCombo(comboCount);
+   238→      playTapSound(450 + Math.min(comboCount * 30, 400));
+   239→
+   240→      if (comboCount > 3 && comboCount % 3 === 0) {
+   241→        setShakeP2(true);
+   242→        setTimeout(() => setShakeP2(false), 300);
+   243→      }
+   244→    },
+   245→    [phase, p2Combos, addFloat, addRipple, p2PeakCombo]
+   246→  );
+   247→
+   248→  const startCountdown = () => {
+   249→    setP1Taps(0);
+   250→    setP2Taps(0);
+   251→    setPrevP1Taps(0);
+   252→    setPrevP2Taps(0);
+   253→    setP1Combos(0);
+   254→    setP2Combos(0);
+   255→    setP1PeakCombo(0);
+   256→    setP2PeakCombo(0);
+   257→    p1LastTap.current = 0;
+   258→    p2LastTap.current = 0;
+   259→    setTime(duration);
+   260→    setPhase("countdown");
+   261→    setCountdownNum(3);
+   262→
+   263→    let count = 3;
+   264→    playCountdownBeep(false);
+   265→
+   266→    countdownRef.current = window.setInterval(() => {
+   267→      count--;
+   268→      if (count > 0) {
+   269→        setCountdownNum(count);
+   270→        playCountdownBeep(false);
+   271→      } else if (count === 0) {
+   272→        setCountdownNum(0); // GO!
+   273→        playCountdownBeep(true);
+   274→      } else {
+   275→        if (countdownRef.current) clearInterval(countdownRef.current);
+   276→        beginGame();
+   277→      }
+   278→    }, 700);
+   279→  };
+   280→
+   281→  const beginGame = () => {
+   282→    setPhase("running");
+   283→    const startTs = Date.now();
+   284→
+   285→    intervalRef.current = window.setInterval(() => {
+   286→      const remaining = Math.max(0, duration - (Date.now() - startTs) / 1000);
+   287→      setTime(Number(remaining.toFixed(1)));
+   288→      if (remaining <= 0) finish();
+   289→    }, 80);
+   290→
+   291→    if (mode === "bot") {
+   292→      // Bot with increasing difficulty
+   293→      const baseRate = 3 + Math.random() * 2;
+   294→      let elapsed = 0;
+   295→      botRef.current = window.setInterval(() => {
+   296→        elapsed += 16;
+   297→        const acceleration = 1 + elapsed / (duration * 500);
+   298→        const rate = baseRate * acceleration;
+   299→        setP2Taps((o) => o + 1);
+   300→      }, 1000 / baseRate);
+   301→    }
+   302→  };
+   303→
+   304→  const finish = () => {
+   305→    if (intervalRef.current) clearInterval(intervalRef.current);
+   306→    if (botRef.current) clearInterval(botRef.current);
+   307→    intervalRef.current = null;
+   308→    botRef.current = null;
+   309→    setPhase("done");
+   310→
+   311→    // Screen flash
+   312→    setScreenFlash(true);
+   313→    setTimeout(() => setScreenFlash(false), 300);
+   314→  };
+   315→
+   316→  // Confetti on winner
+   317→  useEffect(() => {
+   318→    if (phase !== "done") return;
+   319→    if (p1Taps > p2Taps) {
+   320→      confetti({ particleCount: 150, spread: 90, origin: { x: 0.3, y: 0.6 } });
+   321→      setTimeout(() => confetti({ particleCount: 80, spread: 60, origin: { x: 0.5, y: 0.4 } }), 300);
+   322→      onScore?.(p1Name, p1Taps);
+   323→    } else if (p2Taps > p1Taps) {
+   324→      if (mode === "vs") {
+   325→        confetti({ particleCount: 150, spread: 90, origin: { x: 0.7, y: 0.6 } });
+   326→        setTimeout(() => confetti({ particleCount: 80, spread: 60, origin: { x: 0.5, y: 0.4 } }), 300);
+   327→        onScore?.(p2Name, p2Taps);
+   328→      }
+   329→    } else {
+   330→      // Draw - subtle burst
+   331→      confetti({ particleCount: 40, spread: 40, origin: { x: 0.5, y: 0.5 } });
+   332→    }
+   333→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   334→  }, [phase]);
+   335→
+   336→  // Derived
+   337→  const totalTaps = Math.max(p1Taps + p2Taps, 1);
+   338→  const p1Percent = (p1Taps / totalTaps) * 100;
+   339→  const p2Percent = (p2Taps / totalTaps) * 100;
+   340→  const isDraw = p1Taps === p2Taps;
+   341→  const p1Wins = p1Taps > p2Taps;
+   342→  const p2Wins = p2Taps > p1Taps;
+   343→  const timeProgress = 1 - time / duration;
+   344→
+   345→  const winnerLabel = isDraw
+   346→    ? "Empate!"
+   347→    : p1Wins
+   348→    ? `${p1Name} venceu!`
+   349→    : mode === "vs"
+   350→    ? `${p2Name} venceu!`
+   351→    : "Adversario venceu!";
+   352→
+   353→  return (
+   354→    <div
+   355→      ref={containerRef}
+   356→      className="max-w-md mx-auto flex flex-col items-center gap-4 relative overflow-hidden"
+   357→    >
+   358→      {/* ---- Dynamic background energy field ---- */}
+   359→      {(phase === "running" || phase === "countdown") && (
+   360→        <motion.div
+   361→          className="absolute inset-0 rounded-3xl pointer-events-none"
+   362→          style={{
+   363→            background: phase === "running"
+   364→              ? "radial-gradient(ellipse at 50% 50%, rgba(59,130,246,0.06) 0%, transparent 70%)"
+   365→              : "radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.08) 0%, transparent 70%)",
+   366→            zIndex: 0,
+   367→          }}
+   368→          animate={
+   369→            phase === "running"
+   370→              ? { opacity: [0.5, 1, 0.5], scale: [1, 1.02, 1] }
+   371→              : { opacity: [0.6, 1, 0.6] }
+   372→          }
+   373→          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+   374→        />
+   375→      )}
+   376→
+   377→      {/* ---- Screen flash on finish ---- */}
+   378→      <AnimatePresence>
+   379→        {screenFlash && (
+   380→          <motion.div
+   381→            initial={{ opacity: 0.8 }}
+   382→            animate={{ opacity: 0 }}
+   383→            exit={{ opacity: 0 }}
+   384→            transition={{ duration: 0.3 }}
+   385→            className="absolute inset-0 bg-white/20 rounded-3xl pointer-events-none"
+   386→            style={{ zIndex: 40 }}
+   387→          />
+   388→        )}
+   389→      </AnimatePresence>
+   390→
+   391→      {/* ---- Content layer ---- */}
+   392→      <div className="relative z-10 w-full flex flex-col items-center gap-4">
+   393→        {/* ---- Mode selector ---- */}
+   394→        {phase === "idle" && (
+   395→          <motion.div
+   396→            initial={{ opacity: 0, y: -10 }}
+   397→            animate={{ opacity: 1, y: 0 }}
+   398→            className="flex gap-2 w-full"
+   399→          >
+   400→            <button
+   401→              onClick={() => setMode("bot")}
+   402→              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+   403→                mode === "bot"
+   404→                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]"
+   405→                  : "bg-card border border-border hover:border-blue-500/30 hover:bg-blue-500/5"
+   406→              }`}
+   407→            >
+   408→              <User className="h-3.5 w-3.5" /> vs Bot
+   409→            </button>
+   410→            <button
+   411→              onClick={() => setMode("vs")}
+   412→              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+   413→                mode === "vs"
+   414→                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 scale-[1.02]"
+   415→                  : "bg-card border border-border hover:border-amber-500/30 hover:bg-amber-500/5"
+   416→              }`}
+   417→            >
+   418→              <Users className="h-3.5 w-3.5" /> 2 Jogadores
+   419→            </button>
+   420→          </motion.div>
+   421→        )}
+   422→
+   423→        {/* ---- Player name inputs ---- */}
+   424→        {phase === "idle" && mode === "vs" && (
+   425→          <motion.div
+   426→            initial={{ opacity: 0, y: -5 }}
+   427→            animate={{ opacity: 1, y: 0 }}
+   428→            transition={{ delay: 0.1 }}
+   429→            className="grid grid-cols-2 gap-2 w-full"
+   430→          >
+   431→            <div className="relative">
+   432→              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-blue-500" />
+   433→              <input
+   434→                value={p1Name}
+   435→                onChange={(e) => setP1Name(e.target.value)}
+   436→                placeholder="Jogador 1"
+   437→                className="w-full pl-7 pr-3 py-2 rounded-xl bg-card border border-border text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition"
+   438→              />
+   439→            </div>
+   440→            <div className="relative">
+   441→              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500" />
+   442→              <input
+   443→                value={p2Name}
+   444→                onChange={(e) => setP2Name(e.target.value)}
+   445→                placeholder="Jogador 2"
+   446→                className="w-full pl-7 pr-3 py-2 rounded-xl bg-card border border-border text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition"
+   447→              />
+   448→            </div>
+   449→          </motion.div>
+   450→        )}
+   451→
+   452→        {/* ---- Score cards with VS badge ---- */}
+   453→        <div className="w-full flex items-center gap-2">
+   454→          {/* Player 1 Score Card */}
+   455→          <motion.div
+   456→            variants={shake}
+   457→            animate={shakeP1 ? "shake" : undefined}
+   458→            className={`flex-1 rounded-2xl p-3 text-center transition-all duration-300 relative overflow-hidden ${
+   459→              p1Wins && phase === "done"
+   460→                ? "bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/50 shadow-lg shadow-blue-500/10"
+   461→                : "bg-blue-500/10 border border-blue-500/20"
+   462→            }`}
+   463→          >
+   464→            {/* Glow pulse behind score on change */}
+   465→            <AnimatePresence>
+   466→              {p1Taps !== prevP1Taps && phase === "running" && (
+   467→                <motion.div
+   468→                  key={`g1-${p1Taps}`}
+   469→                  initial={{ opacity: 0.6, scale: 0.5 }}
+   470→                  animate={{ opacity: 0, scale: 1.8 }}
+   471→                  exit={{ opacity: 0 }}
+   472→                  transition={{ duration: 0.4 }}
+   473→                  className="absolute inset-0 rounded-full bg-blue-400/20 blur-xl pointer-events-none"
+   474→                  onAnimationComplete={() => setPrevP1Taps(p1Taps)}
+   475→                />
+   476→              )}
+   477→            </AnimatePresence>
+   478→            <p className="text-[10px] uppercase tracking-wider text-blue-400 font-bold truncate relative z-10">{p1Name}</p>
+   479→            <motion.p
+   480→              key={p1Taps}
+   481→              initial={{ scale: 1.4, color: "#93c5fd" }}
+   482→              animate={{ scale: 1, color: "inherit" }}
+   483→              transition={{ type: "spring", stiffness: 500, damping: 20 }}
+   484→              className="font-display text-3xl font-black text-foreground relative z-10"
+   485→            >
+   486→              {p1Taps}
+   487→            </motion.p>
+   488→            {/* Combo indicator with tier */}
+   489→            <AnimatePresence>
+   490→              {p1Combos > 2 && (() => {
+   491→                const tier = comboTierLabel(p1Combos);
+   492→                return tier ? (
+   493→                  <motion.div
+   494→                    initial={{ opacity: 0, scale: 0.5, y: 5 }}
+   495→                    animate={{ opacity: 1, scale: 1, y: 0 }}
+   496→                    exit={{ opacity: 0, scale: 0.8 }}
+   497→                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+   498→                    className="flex items-center justify-center gap-1 mt-1 relative z-10"
+   499→                  >
+   500→                    <motion.div
+   501→                      animate={{ scale: [1, 1.3, 1] }}
+   502→                      transition={{ duration: 0.3 }}
+   503→                    >
+   504→                      <Flame className={`h-3.5 w-3.5 ${tier.color}`} />
+   505→                    </motion.div>
+   506→                    <span className={`text-[10px] font-black tabular-nums ${tier.color}`}>x{p1Combos}</span>
+   507→                    <span className={`text-[8px] font-black ${tier.color} uppercase tracking-wider ml-0.5`}>{tier.label}</span>
+   508→                  </motion.div>
+   509→                ) : null;
+   510→              })()}
+   511→            </AnimatePresence>
+   512→          </motion.div>
+   513→
+   514→          {/* VS Badge */}
+   515→          <motion.div
+   516→            animate={
+   517→              phase === "running"
+   518→                ? { scale: [1, 1.15, 1], rotate: [0, -3, 3, 0] }
+   519→                : phase === "done"
+   520→                ? { scale: [1, 1.1, 1] }
+   521→                : { scale: 1 }
+   522→            }
+   523→            transition={{ duration: 1.5, repeat: phase === "running" || phase === "done" ? Infinity : 0, ease: "easeInOut" }}
+   524→            className="relative flex-shrink-0"
+   525→          >
+   526→            <div
+   527→              className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-xs transition-all duration-300 ${
+   528→                phase === "running"
+   529→                  ? "bg-gradient-to-br from-red-500 to-pink-600 text-white shadow-lg shadow-red-500/30"
+   530→                  : phase === "done"
+   531→                  ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/30"
+   532→                  : "bg-card border border-border text-muted-foreground"
+   533→              }`}
+   534→            >
+   535→              {phase === "done" ? (
+   536→                <Trophy className="h-5 w-5" />
+   537→              ) : (
+   538→                <Swords className="h-4 w-4" />
+   539→              )}
+   540→            </div>
+   541→            {phase === "done" && !isDraw && (
+   542→              <motion.div
+   543→                initial={{ scale: 0, rotate: -90 }}
+   544→                animate={{ scale: 1, rotate: 0 }}
+   545→                transition={{ type: "spring", stiffness: 300, damping: 12, delay: 0.3 }}
+   546→                className="absolute -top-1 -right-1"
+   547→              >
+   548→                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${p1Wins ? "bg-blue-500 text-white" : "bg-amber-500 text-white"}`}>
+   549→                  <Crown className="h-2.5 w-2.5" />
+   550→                </div>
+   551→              </motion.div>
+   552→            )}
+   553→          </motion.div>
+   554→
+   555→          {/* Player 2 Score Card */}
+   556→          <motion.div
+   557→            variants={shake}
+   558→            animate={shakeP2 ? "shake" : undefined}
+   559→            className={`flex-1 rounded-2xl p-3 text-center transition-all duration-300 relative overflow-hidden ${
+   560→              p2Wins && phase === "done"
+   561→                ? "bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-2 border-amber-500/50 shadow-lg shadow-amber-500/10"
+   562→                : "bg-card border border-border"
+   563→            }`}
+   564→          >
+   565→            <AnimatePresence>
+   566→              {p2Taps !== prevP2Taps && phase === "running" && (
+   567→                <motion.div
+   568→                  key={`g2-${p2Taps}`}
+   569→                  initial={{ opacity: 0.6, scale: 0.5 }}
+   570→                  animate={{ opacity: 0, scale: 1.8 }}
+   571→                  exit={{ opacity: 0 }}
+   572→                  transition={{ duration: 0.4 }}
+   573→                  className="absolute inset-0 rounded-full bg-amber-400/20 blur-xl pointer-events-none"
+   574→                  onAnimationComplete={() => setPrevP2Taps(p2Taps)}
+   575→                />
+   576→              )}
+   577→            </AnimatePresence>
+   578→            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold truncate relative z-10">
+   579→              {mode === "vs" ? p2Name : "Bot"}
+   580→            </p>
+   581→            <motion.p
+   582→              key={p2Taps}
+   583→              initial={{ scale: 1.4, color: "#fde68a" }}
+   584→              animate={{ scale: 1, color: "inherit" }}
+   585→              transition={{ type: "spring", stiffness: 500, damping: 20 }}
+   586→              className="font-display text-3xl font-black text-foreground relative z-10"
+   587→            >
+   588→              {p2Taps}
+   589→            </motion.p>
+   590→            <AnimatePresence>
+   591→              {p2Combos > 2 && (() => {
+   592→                const tier = comboTierLabel(p2Combos);
+   593→                return tier ? (
+   594→                  <motion.div
+   595→                    initial={{ opacity: 0, scale: 0.5, y: 5 }}
+   596→                    animate={{ opacity: 1, scale: 1, y: 0 }}
+   597→                    exit={{ opacity: 0, scale: 0.8 }}
+   598→                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+   599→                    className="flex items-center justify-center gap-1 mt-1 relative z-10"
+   600→                  >
+   601→                    <motion.div
+   602→                      animate={{ scale: [1, 1.3, 1] }}
+   603→                      transition={{ duration: 0.3 }}
+   604→                    >
+   605→                      <Flame className={`h-3.5 w-3.5 ${tier.color}`} />
+   606→                    </motion.div>
+   607→                    <span className={`text-[10px] font-black tabular-nums ${tier.color}`}>x{p2Combos}</span>
+   608→                    <span className={`text-[8px] font-black ${tier.color} uppercase tracking-wider ml-0.5`}>{tier.label}</span>
+   609→                  </motion.div>
+   610→                ) : null;
+   611→              })()}
+   612→            </AnimatePresence>
+   613→          </motion.div>
+   614→        </div>
+   615→
+   616→        {/* ---- Progress comparison bar ---- */}
+   617→        {(phase === "running" || phase === "done") && (
+   618→          <motion.div
+   619→            initial={{ opacity: 0, scaleX: 0.8 }}
+   620→            animate={{ opacity: 1, scaleX: 1 }}
+   621→            className="w-full relative"
+   622→          >
+   623→            <div className="w-full h-3 rounded-full bg-card border border-border overflow-hidden flex relative">
+   624→              <motion.div
+   625→                className="h-full rounded-l-full relative overflow-hidden"
+   626→                style={{ width: `${p1Percent}%`, background: "linear-gradient(90deg, #60a5fa, #3b82f6, #2563eb)" }}
+   627→                transition={{ duration: 0.15 }}
+   628→              >
+   629→                {/* Shimmer sweep on P1 bar */}
+   630→                {phase === "running" && p1Taps > 0 && (
+   631→                  <motion.div
+   632→                    className="absolute inset-0"
+   633→                    style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)", backgroundSize: "200% 100%" }}
+   634→                    animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+   635→                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+   636→                  />
+   637→                )}
+   638→              </motion.div>
+   639→              <motion.div
+   640→                className="h-full rounded-r-full relative overflow-hidden"
+   641→                style={{ width: `${p2Percent}%`, background: "linear-gradient(90deg, #f59e0b, #f97316, #ea580c)" }}
+   642→                transition={{ duration: 0.15 }}
+   643→              >
+   644→                {phase === "running" && p2Taps > 0 && (
+   645→                  <motion.div
+   646→                    className="absolute inset-0"
+   647→                    style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)", backgroundSize: "200% 100%" }}
+   648→                    animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+   649→                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear", delay: 0.3 }}
+   650→                  />
+   651→                )}
+   652→              </motion.div>
+   653→              {/* Center divider glow */}
+   654→              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-white/20 z-10" />
+   655→            </div>
+   656→            {/* Glow underneath the bar */}
+   657→            <div
+   658→              className="h-2 -mt-1 rounded-full blur-sm opacity-40"
+   659→              style={{
+   660→                background: p1Percent > p2Percent
+   661→                  ? "linear-gradient(90deg, rgba(59,130,246,0.6), rgba(59,130,246,0))"
+   662→                  : p2Percent > p1Percent
+   663→                  ? "linear-gradient(90deg, rgba(245,158,11,0), rgba(245,158,11,0.6))"
+   664→                  : "linear-gradient(90deg, rgba(59,130,246,0.3), rgba(245,158,11,0.3))",
+   665→              }}
+   666→            />
+   667→          </motion.div>
+   668→        )}
+   669→
+   670→        {/* ---- Timer ---- */}
+   671→        <div className="w-full text-center">
+   672→          {phase === "countdown" ? (
+   673→            <motion.div
+   674→              key={countdownNum}
+   675→              variants={countdownPulse}
+   676→              initial="hidden"
+   677→              animate="pulse"
+   678→              className="inline-flex"
+   679→            >
+   680→              <span
+   681→                className={`font-display text-6xl font-black ${
+   682→                  countdownNum === 0
+   683→                    ? "bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent"
+   684→                    : "bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent"
+   685→                }`}
+   686→              >
+   687→                {countdownNum === 0 ? "GO!" : countdownNum}
+   688→              </span>
+   689→            </motion.div>
+   690→          ) : (
+   691→            <>
+   692→              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+   693→                {phase === "running" ? "Tempo restante" : phase === "done" ? "Resultado" : "Preparar"}
+   694→              </p>
+   695→              <motion.p
+   696→                className="font-display text-4xl font-black tabular-nums"
+   697→                style={{
+   698→                  color: phase === "idle" ? "#3b82f6" : time <= 2 ? "#ef4444" : time <= 3.5 ? "#f59e0b" : "#3b82f6",
+   699→                }}
+   700→                animate={phase === "running" && time <= 3 ? { scale: [1, 1.12, 1] } : {}}
+   701→                transition={{ duration: 0.3 }}
+   702→              >
+   703→                {phase === "idle" ? `${duration}.0` : time.toFixed(1)}s
+   704→              </motion.p>
+   705→              {/* Time progress bar */}
+   706→              {phase === "running" && (
+   707→                <div className="mt-1.5 h-1.5 rounded-full bg-card overflow-hidden relative">
+   708→                  <motion.div
+   709→                    className="h-full rounded-full relative"
+   710→                    style={{
+   711→                      width: `${timeProgress * 100}%`,
+   712→                      background: time <= 2
+   713→                        ? "linear-gradient(90deg, #dc2626, #ef4444, #f87171)"
+   714→                        : time <= 3.5
+   715→                        ? "linear-gradient(90deg, #d97706, #f59e0b, #fbbf24)"
+   716→                        : "linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa)",
+   717→                    }}
+   718→                    transition={{ duration: 0.15 }}
+   719→                  />
+   720→                  {/* Glow pulse at the leading edge */}
+   721→                  <motion.div
+   722→                    className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full blur-sm"
+   723→                    style={{
+   724→                      left: `${timeProgress * 100}%`,
+   725→                      background: time <= 2 ? "#f87171" : time <= 3.5 ? "#fbbf24" : "#60a5fa",
+   726→                    }}
+   727→                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+   728→                    transition={{ duration: 0.5, repeat: Infinity }}
+   729→                  />
+   730→                </div>
+   731→              )}
+   732→            </>
+   733→          )}
+   734→        </div>
+   735→
+   736→        {/* ---- Tap buttons ---- */}
+   737→        {phase === "running" && (
+   738→          <div
+   739→            className={`w-full grid ${mode === "vs" ? "grid-cols-2" : "grid-cols-1 max-w-[200px] mx-auto"} gap-4 place-items-center relative`}
+   740→          >
+   741→            {/* Player 1 button */}
+   742→            <motion.div
+   743→              variants={shake}
+   744→              animate={shakeP1 ? "shake" : undefined}
+   745→              className="relative"
+   746→            >
+   747→              {/* Glow ring - intensifies with combo */}
+   748→              <motion.div
+   749→                className="absolute -inset-3 rounded-full"
+   750→                style={{
+   751→                  background: p1Combos > 10
+   752→                    ? "radial-gradient(circle, rgba(250,204,21,0.5) 0%, transparent 70%)"
+   753→                    : p1Combos > 5
+   754→                    ? "radial-gradient(circle, rgba(168,85,247,0.4) 0%, transparent 70%)"
+   755→                    : "radial-gradient(circle, rgba(59,130,246,0.3) 0%, transparent 70%)",
+   756→                }}
+   757→                animate={p1Combos > 3
+   758→                  ? { scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }
+   759→                  : { opacity: 0.3 }
+   760→                }
+   761→                transition={{ duration: 0.4, repeat: p1Combos > 3 ? Infinity : 0 }}
+   762→              />
+   763→              <motion.button
+   764→                whileTap={{ scale: 0.85 }}
+   765→                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+   766→                onClick={handleP1Tap}
+   767→                onTouchStart={handleP1Tap}
+   768→                className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white font-bold text-lg shadow-2xl select-none touch-none overflow-hidden transition-all duration-100 ${
+   769→                  p1Combos > 10
+   770→                    ? "bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 shadow-orange-500/50 border-4 border-yellow-300/40"
+   771→                    : p1Combos > 5
+   772→                    ? "bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 shadow-purple-500/40 border-4 border-purple-300/30"
+   773→                    : "bg-gradient-to-br from-blue-500 to-blue-700 shadow-blue-500/30 border-4 border-white/20"
+   774→                }`}
+   775→              >
+   776→                {/* Flash overlay on tap */}
+   777→                <AnimatePresence>
+   778→                  {p1Flash && (
+   779→                    <motion.div
+   780→                      key="p1flash"
+   781→                      initial={{ opacity: 0.7 }}
+   782→                      animate={{ opacity: 0 }}
+   783→                      exit={{ opacity: 0 }}
+   784→                      transition={{ duration: 0.15 }}
+   785→                      className="absolute inset-0 rounded-full bg-white pointer-events-none"
+   786→                    />
+   787→                  )}
+   788→                </AnimatePresence>
+   789→                {/* Inner ring animation */}
+   790→                <motion.div
+   791→                  className="absolute inset-1.5 rounded-full border-2 border-white/15"
+   792→                  animate={phase === "running" ? { scale: [1, 1.06, 1], opacity: [0.3, 0.6, 0.3] } : {}}
+   793→                  transition={{ duration: 0.8, repeat: Infinity }}
+   794→                />
+   795→                {/* Outer rotating ring at high combo */}
+   796→                {p1Combos > 5 && (
+   797→                  <motion.div
+   798→                    className="absolute inset-0 rounded-full border-2 border-dashed"
+   799→                    style={{ borderColor: p1Combos > 10 ? "rgba(250,204,21,0.4)" : "rgba(192,132,252,0.3)" }}
+   800→                    animate={{ rotate: 360 }}
+   801→                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+   802→                  />
+   803→                )}
+   804→                <span className="relative z-10 flex flex-col items-center gap-1">
+   805→                  <Zap className="h-7 w-7 drop-shadow-lg" />
+   806→                  <span className="text-sm font-semibold drop-shadow">{p1Name.split(" ")[0]}</span>
+   807→                </span>
+   808→              </motion.button>
+   809→              {/* Ripple effects - concentric rings */}
+   810→              {ripples
+   811→                .filter((r) => r.color.includes("96, 165"))
+   812→                .map((r) => (
+   813→                  <motion.div
+   814→                    key={r.id}
+   815→                    initial={{ scale: 0.3, opacity: r.ring === 1 ? 0.5 : 0.8 }}
+   816→                    animate={{ scale: r.ring === 1 ? 2.5 : 1.8, opacity: 0 }}
+   817→                    transition={{ duration: r.ring === 1 ? 0.6 : 0.45, ease: "easeOut" }}
+   818→                    className={`absolute inset-0 rounded-full pointer-events-none ${r.ring === 1 ? "border border-blue-300/30" : "border-2 border-blue-400/50"}`}
+   819→                  />
+   820→                ))}
+   821→            </motion.div>
+   822→
+   823→            {/* Player 2 button (VS mode) */}
+   824→            {mode === "vs" && (
+   825→              <motion.div
+   826→                variants={shake}
+   827→                animate={shakeP2 ? "shake" : undefined}
+   828→                className="relative"
+   829→              >
+   830→                <motion.div
+   831→                  className="absolute -inset-3 rounded-full"
+   832→                  style={{
+   833→                    background: p2Combos > 10
+   834→                      ? "radial-gradient(circle, rgba(250,204,21,0.5) 0%, transparent 70%)"
+   835→                      : p2Combos > 5
+   836→                      ? "radial-gradient(circle, rgba(234,88,12,0.4) 0%, transparent 70%)"
+   837→                      : "radial-gradient(circle, rgba(251,191,36,0.3) 0%, transparent 70%)",
+   838→                  }}
+   839→                  animate={p2Combos > 3
+   840→                    ? { scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }
+   841→                    : { opacity: 0.3 }
+   842→                  }
+   843→                  transition={{ duration: 0.4, repeat: p2Combos > 3 ? Infinity : 0 }}
+   844→                />
+   845→                <motion.button
+   846→                  whileTap={{ scale: 0.85 }}
+   847→                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+   848→                  onClick={handleP2Tap}
+   849→                  onTouchStart={handleP2Tap}
+   850→                  className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full text-white font-bold text-lg shadow-2xl select-none touch-none overflow-hidden transition-all duration-100 ${
+   851→                    p2Combos > 10
+   852→                      ? "bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 shadow-orange-500/50 border-4 border-yellow-300/40"
+   853→                      : p2Combos > 5
+   854→                      ? "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 shadow-orange-500/40 border-4 border-orange-300/30"
+   855→                      : "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/30 border-4 border-white/20"
+   856→                  }`}
+   857→                >
+   858→                  {/* Flash overlay on tap */}
+   859→                  <AnimatePresence>
+   860→                    {p2Flash && (
+   861→                      <motion.div
+   862→                        key="p2flash"
+   863→                        initial={{ opacity: 0.7 }}
+   864→                        animate={{ opacity: 0 }}
+   865→                        exit={{ opacity: 0 }}
+   866→                        transition={{ duration: 0.15 }}
+   867→                        className="absolute inset-0 rounded-full bg-white pointer-events-none"
+   868→                      />
+   869→                    )}
+   870→                  </AnimatePresence>
+   871→                  <motion.div
+   872→                    className="absolute inset-1.5 rounded-full border-2 border-white/15"
+   873→                    animate={phase === "running" ? { scale: [1, 1.06, 1], opacity: [0.3, 0.6, 0.3] } : {}}
+   874→                    transition={{ duration: 0.8, repeat: Infinity }}
+   875→                  />
+   876→                  {p2Combos > 5 && (
+   877→                    <motion.div
+   878→                      className="absolute inset-0 rounded-full border-2 border-dashed"
+   879→                      style={{ borderColor: p2Combos > 10 ? "rgba(250,204,21,0.4)" : "rgba(234,88,12,0.3)" }}
+   880→                      animate={{ rotate: -360 }}
+   881→                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+   882→                    />
+   883→                  )}
+   884→                  <span className="relative z-10 flex flex-col items-center gap-1">
+   885→                    <Zap className="h-7 w-7 drop-shadow-lg" />
+   886→                    <span className="text-sm font-semibold drop-shadow">{p2Name.split(" ")[0]}</span>
+   887→                  </span>
+   888→                </motion.button>
+   889→                {ripples
+   890→                  .filter((r) => r.color.includes("251, 191"))
+   891→                  .map((r) => (
+   892→                    <motion.div
+   893→                      key={r.id}
+   894→                      initial={{ scale: 0.3, opacity: r.ring === 1 ? 0.5 : 0.8 }}
+   895→                      animate={{ scale: r.ring === 1 ? 2.5 : 1.8, opacity: 0 }}
+   896→                      transition={{ duration: r.ring === 1 ? 0.6 : 0.45, ease: "easeOut" }}
+   897→                      className={`absolute inset-0 rounded-full pointer-events-none ${r.ring === 1 ? "border border-amber-300/30" : "border-2 border-amber-400/50"}`}
+   898→                    />
+   899→                  ))}
+   900→              </motion.div>
+   901→            )}
+   902→
+   903→            {/* Floating +1 texts */}
+   904→            {floats.map((f) => (
+   905→              <motion.div
+   906→                key={f.id}
+   907→                initial={{ opacity: 1, y: 0, scale: 1 }}
+   908→                animate={{ opacity: 0, y: -50, scale: 1.3 }}
+   909→                transition={{ duration: 0.7, ease: "easeOut" }}
+   910→                className="absolute pointer-events-none font-black text-sm"
+   911→                style={{
+   912→                  left: f.x,
+   913→                  top: f.y,
+   914→                  color: f.color,
+   915→                  textShadow: "0 0 10px currentColor",
+   916→                  zIndex: 30,
+   917→                }}
+   918→              >
+   919→                {f.text}
+   920→              </motion.div>
+   921→            ))}
+   922→          </div>
+   923→        )}
+   924→
+   925→        {/* ---- Start button ---- */}
+   926→        {phase === "idle" && (
+   927→          <motion.button
+   928→            initial={{ opacity: 0, y: 10 }}
+   929→            animate={{ opacity: 1, y: 0 }}
+   930→            whileHover={{ scale: 1.04 }}
+   931→            whileTap={{ scale: 0.96 }}
+   932→            onClick={startCountdown}
+   933→            className="px-8 py-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white font-bold text-base shadow-xl shadow-purple-500/25 flex items-center gap-2 hover:shadow-purple-500/40 transition-shadow"
+   934→          >
+   935→            <Zap className="h-5 w-5" /> Comecar Batalha
+   936→          </motion.button>
+   937→        )}
+   938→
+   939→        {/* ---- Countdown overlay ---- */}
+   940→        <AnimatePresence>
+   941→          {phase === "countdown" && (
+   942→            <motion.div
+   943→              initial={{ opacity: 0 }}
+   944→              animate={{ opacity: 1 }}
+   945→              exit={{ opacity: 0 }}
+   946→              className="absolute inset-0 flex items-center justify-center rounded-3xl z-30"
+   947→              style={{
+   948→                background: "radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%)",
+   949→                backdropFilter: "blur(2px)",
+   950→              }}
+   951→            >
+   952→              <AnimatePresence mode="wait">
+   953→                <motion.div
+   954→                  key={countdownNum}
+   955→                  initial={{ scale: 2, opacity: 0 }}
+   956→                  animate={{ scale: 1, opacity: 1 }}
+   957→                  exit={{ scale: 0.5, opacity: 0 }}
+   958→                  transition={{ duration: 0.5, type: "spring", stiffness: 300 }}
+   959→                >
+   960→                  <span
+   961→                    className={`font-display text-7xl sm:text-8xl font-black ${
+   962→                      countdownNum === 0
+   963→                        ? "bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(52,211,153,0.5)]"
+   964→                        : "bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+   965→                    }`}
+   966→                  >
+   967→                    {countdownNum === 0 ? "GO!" : countdownNum}
+   968→                  </span>
+   969→                </motion.div>
+   970→              </AnimatePresence>
+   971→            </motion.div>
+   972→          )}
+   973→        </AnimatePresence>
+   974→
+   975→        {/* ---- Winner screen ---- */}
+   976→        <AnimatePresence>
+   977→          {phase === "done" && (
+   978→            <motion.div
+   979→              variants={popIn}
+   980→              initial="hidden"
+   981→              animate="visible"
+   982→              exit="exit"
+   983→              className="w-full text-center px-5 py-6 rounded-2xl border overflow-hidden relative"
+   984→              style={{
+   985→                background: isDraw
+   986→                  ? "linear-gradient(135deg, rgba(100,100,100,0.12), rgba(150,150,150,0.08))"
+   987→                  : p1Wins
+   988→                  ? "linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.08))"
+   989→                  : "linear-gradient(135deg, rgba(251,191,36,0.15), rgba(249,115,22,0.08))",
+   990→                borderColor: isDraw
+   991→                  ? "rgba(150,150,150,0.3)"
+   992→                  : p1Wins
+   993→                  ? "rgba(59,130,246,0.3)"
+   994→                  : "rgba(251,191,36,0.3)",
+   995→              }}
+   996→            >
+   997→              {/* Shimmer overlay */}
+   998→              <motion.div
+   999→                className="absolute inset-0 pointer-events-none"
+  1000→                style={{
+  1001→                  background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%)",
+  1002→                  backgroundSize: "200% 100%",
+  1003→                }}
+  1004→                animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
+  1005→                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+  1006→              />
+  1007→
+  1008→              {/* Trophy with spring-in rotation */}
+  1009→              <motion.div
+  1010→                initial={{ scale: 0, rotate: -180 }}
+  1011→                animate={{ scale: 1, rotate: 0 }}
+  1012→                transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.1 }}
+  1013→                className="inline-block relative"
+  1014→              >
+  1015→                <Trophy
+  1016→                  className={`h-9 w-9 mx-auto ${
+  1017→                    isDraw ? "text-gray-400" : p1Wins ? "text-blue-400" : "text-amber-400"
+  1018→                  }`}
+  1019→                />
+  1020→              </motion.div>
+  1021→
+  1022→              {/* Winner label */}
+  1023→              <motion.p
+  1024→                initial={{ opacity: 0, y: 10 }}
+  1025→                animate={{ opacity: 1, y: 0 }}
+  1026→                transition={{ delay: 0.2 }}
+  1027→                className={`font-black text-xl mt-2 ${
+  1028→                  isDraw ? "text-gray-300" : p1Wins ? "text-blue-400" : "text-amber-400"
+  1029→                }`}
+  1030→              >
+  1031→                {winnerLabel}
+  1032→              </motion.p>
+  1033→
+  1034→              {/* Animated score comparison */}
+  1035→              <motion.div
+  1036→                initial={{ opacity: 0 }}
+  1037→                animate={{ opacity: 1 }}
+  1038→                transition={{ delay: 0.35 }}
+  1039→                className="flex items-center justify-center gap-3 mt-3"
+  1040→              >
+  1041→                <div className="flex flex-col items-center">
+  1042→                  <motion.span
+  1043→                    initial={{ scale: 0.5 }}
+  1044→                    animate={{ scale: 1 }}
+  1045→                    transition={{ type: "spring", stiffness: 500, damping: 15, delay: 0.4 }}
+  1046→                    className={`text-3xl font-black ${p1Wins ? "text-blue-400" : "text-muted-foreground"}`}
+  1047→                  >
+  1048→                    {p1Taps}
+  1049→                  </motion.span>
+  1050→                  <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">{p1Name.split(" ")[0]}</span>
+  1051→                </div>
+  1052→                <div className="flex flex-col items-center px-2">
+  1053→                  <span className="text-xs text-muted-foreground font-bold">vs</span>
+  1054→                  <span className="text-[9px] text-muted-foreground/60 mt-0.5">taps</span>
+  1055→                </div>
+  1056→                <div className="flex flex-col items-center">
+  1057→                  <motion.span
+  1058→                    initial={{ scale: 0.5 }}
+  1059→                    animate={{ scale: 1 }}
+  1060→                    transition={{ type: "spring", stiffness: 500, damping: 15, delay: 0.5 }}
+  1061→                    className={`text-3xl font-black ${p2Wins ? "text-amber-400" : "text-muted-foreground"}`}
+  1062→                  >
+  1063→                    {p2Taps}
+  1064→                  </motion.span>
+  1065→                  <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">{mode === "vs" ? p2Name.split(" ")[0] : "Bot"}</span>
+  1066→                </div>
+  1067→              </motion.div>
+  1068→
+  1069→              {/* Animated result bar */}
+  1070→              <motion.div
+  1071→                initial={{ opacity: 0, scaleX: 0.5 }}
+  1072→                animate={{ opacity: 1, scaleX: 1 }}
+  1073→                transition={{ delay: 0.5, duration: 0.4 }}
+  1074→                className="mx-6 mt-3 h-2 rounded-full bg-white/5 overflow-hidden flex"
+  1075→              >
+  1076→                <motion.div
+  1077→                  className="h-full rounded-l-full"
+  1078→                  style={{
+  1079→                    width: `${p1Percent}%`,
+  1080→                    background: "linear-gradient(90deg, #60a5fa, #3b82f6)",
+  1081→                  }}
+  1082→                  initial={{ width: 0 }}
+  1083→                  animate={{ width: `${p1Percent}%` }}
+  1084→                  transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
+  1085→                />
+  1086→                <motion.div
+  1087→                  className="h-full rounded-r-full"
+  1088→                  style={{
+  1089→                    width: `${p2Percent}%`,
+  1090→                    background: "linear-gradient(90deg, #f59e0b, #ea580c)",
+  1091→                  }}
+  1092→                  initial={{ width: 0 }}
+  1093→                  animate={{ width: `${p2Percent}%` }}
+  1094→                  transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
+  1095→                />
+  1096→              </motion.div>
+  1097→
+  1098→              {/* Stats row */}
+  1099→              <motion.div
+  1100→                initial={{ opacity: 0, y: 5 }}
+  1101→                animate={{ opacity: 1, y: 0 }}
+  1102→                transition={{ delay: 0.65 }}
+  1103→                className="flex items-center justify-center gap-4 mt-3 text-[10px] text-muted-foreground"
+  1104→              >
+  1105→                <div className="flex items-center gap-1">
+  1106→                  <TrendingUp className="h-3 w-3" />
+  1107→                  <span>{(p1Taps / duration).toFixed(1)} vs {(p2Taps / duration).toFixed(1)} taps/s</span>
+  1108→                </div>
+  1109→              </motion.div>
+  1110→
+  1111→              {/* Peak combo stats */}
+  1112→              {(p1PeakCombo > 2 || p2PeakCombo > 2) && (
+  1113→                <motion.div
+  1114→                  initial={{ opacity: 0, y: 5 }}
+  1115→                  animate={{ opacity: 1, y: 0 }}
+  1116→                  transition={{ delay: 0.75 }}
+  1117→                  className="flex items-center justify-center gap-4 mt-1.5 text-[10px]"
+  1118→                >
+  1119→                  {p1PeakCombo > 2 && (
+  1120→                    <div className="flex items-center gap-1 text-orange-400/70">
+  1121→                      <Flame className="h-3 w-3" />
+  1122→                      <span className="font-semibold">Pico x{p1PeakCombo}</span>
+  1123→                    </div>
+  1124→                  )}
+  1125→                  {p2PeakCombo > 2 && (
+  1126→                    <div className="flex items-center gap-1 text-orange-400/70">
+  1127→                      <Flame className="h-3 w-3" />
+  1128→                      <span className="font-semibold">Pico x{p2PeakCombo}</span>
+  1129→                    </div>
+  1130→                  )}
+  1131→                </motion.div>
+  1132→              )}
+  1133→
+  1134→              {/* Differential */}
+  1135→              {!isDraw && (
+  1136→                <motion.p
+  1137→                  initial={{ opacity: 0 }}
+  1138→                  animate={{ opacity: 1 }}
+  1139→                  transition={{ delay: 0.85 }}
+  1140→                  className="text-[10px] text-muted-foreground/60 mt-1"
+  1141→                >
+  1142→                  Diferenca: {Math.abs(p1Taps - p2Taps)} taps
+  1143→                </motion.p>
+  1144→              )}
+  1145→
+  1146→              {/* Play again button */}
+  1147→              <motion.button
+  1148→                initial={{ opacity: 0, y: 10 }}
+  1149→                animate={{ opacity: 1, y: 0 }}
+  1150→                transition={{ delay: 0.9 }}
+  1151→                whileHover={{ scale: 1.05 }}
+  1152→                whileTap={{ scale: 0.95 }}
+  1153→                onClick={() => setPhase("idle")}
+  1154→                className="mt-4 px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-bold shadow-lg hover:shadow-xl transition-shadow flex items-center gap-2 mx-auto"
+  1155→              >
+  1156→                <RotateCcw className="h-3.5 w-3.5" />
+  1157→                Nova batalha
+  1158→              </motion.button>
+  1159→            </motion.div>
+  1160→          )}
+  1161→        </AnimatePresence>
+  1162→      </div>
+  1163→    </div>
+  1164→  );
+  1165→};
+  1166→
+  1167→export default TapBattle;
+  1168→            className={`w-full grid ${mode === "vs" ? "grid-cols-2" : "grid-cols-1 max-w-[200px] mx-auto
