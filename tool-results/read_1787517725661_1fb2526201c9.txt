@@ -1,0 +1,1467 @@
+   200→      x: Math.random() * CANVAS_WIDTH,
+   201→      y: Math.random() * CANVAS_HEIGHT * 0.45,
+   202→      length: 10 + Math.random() * 25,
+   203→      speed: 0.5 + Math.random() * 1.5,
+   204→      alpha: 0.03 + Math.random() * 0.07,
+   205→    });
+   206→  }
+   207→  return streaks;
+   208→}
+   209→
+   210→export default function CannonBattle({ onScore, liveCode }: Props) {
+   211→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   212→  const gameStateRef = useRef<GameState>(initGameState());
+   213→  const animFrameRef = useRef<number>(0);
+   214→  const shakeRef = useRef(0);
+   215→  const windStreaksRef = useRef<WindStreak[]>([]);
+   216→  const displayHealthRef = useRef({ p1: 100, p2: 100 });
+   217→  const damageFlashRef = useRef({ p1: 0, p2: 0 });
+   218→  const muzzleFlashRef = useRef<{ x: number; y: number; alpha: number } | null>(null);
+   219→  const frameCountRef = useRef(0);
+   220→  const gameOverSparklesRef = useRef<
+   221→    { x: number; y: number; vx: number; vy: number; alpha: number; size: number }[]
+   222→  >([]);
+   223→  const gameOverInitedRef = useRef(false);
+   224→
+   225→  const [angle, setAngle] = useState(45);
+   226→  const [power, setPower] = useState(50);
+   227→  const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
+   228→  const [wind, setWind] = useState(0);
+   229→  const [healthP1, setHealthP1] = useState(100);
+   230→  const [healthP2, setHealthP2] = useState(100);
+   231→  const [phase, setPhase] = useState<GameState["phase"]>("aiming");
+   232→  const [hitMessage, setHitMessage] = useState<string | null>(null);
+   233→  const [winner, setWinner] = useState<1 | 2 | null>(null);
+   234→  const [turnCount, setTurnCount] = useState(1);
+   235→
+   236→  const syncUI = useCallback((gs: GameState) => {
+   237→    setCurrentPlayer(gs.currentPlayer);
+   238→    setWind(gs.wind);
+   239→    setHealthP1(gs.players[0].health);
+   240→    setHealthP2(gs.players[1].health);
+   241→    setPhase(gs.phase);
+   242→    setHitMessage(gs.hitMessage);
+   243→    setWinner(gs.winner);
+   244→    setTurnCount(gs.turnCount);
+   245→  }, []);
+   246→
+   247→  const fire = useCallback(() => {
+   248→    const gs = gameStateRef.current;
+   249→    if (gs.phase !== "aiming") return;
+   250→
+   251→    const pi = gs.currentPlayer === 1 ? 0 : 1;
+   252→    const player = gs.players[pi];
+   253→    const playerX = player.x;
+   254→    const terrainY =
+   255→      gs.terrain[Math.floor(Math.max(0, Math.min(playerX, CANVAS_WIDTH - 1)))];
+   256→    const startY = terrainY - 16;
+   257→
+   258→    const fireAngle = gs.currentPlayer === 1 ? angle : 180 - angle;
+   259→    const proj = createProjectile(playerX, startY, fireAngle, power);
+   260→
+   261→    // Muzzle flash setup
+   262→    const rad = (fireAngle * Math.PI) / 180;
+   263→    const dir = gs.currentPlayer === 1 ? 1 : -1;
+   264→    const barrelLen = 18;
+   265→    muzzleFlashRef.current = {
+   266→      x: playerX + Math.cos(rad) * barrelLen * dir,
+   267→      y: startY - Math.sin(rad) * barrelLen,
+   268→      alpha: 1,
+   269→    };
+   270→
+   271→    // Small recoil shake
+   272→    shakeRef.current = 3;
+   273→
+   274→    gs.projectile = proj;
+   275→    gs.phase = "firing";
+   276→    gs.hitMessage = null;
+   277→    syncUI(gs);
+   278→  }, [angle, power, syncUI]);
+   279→
+   280→  const handleKeyDown = useCallback(
+   281→    (e: KeyboardEvent) => {
+   282→      const gs = gameStateRef.current;
+   283→      if (gs.phase !== "aiming") return;
+   284→
+   285→      switch (e.key) {
+   286→        case "a":
+   287→        case "A":
+   288→          setAngle((prev) => Math.max(0, prev - 2));
+   289→          break;
+   290→        case "d":
+   291→        case "D":
+   292→          setAngle((prev) => Math.min(180, prev + 2));
+   293→          break;
+   294→        case "w":
+   295→        case "W":
+   296→          setPower((prev) => Math.min(100, prev + 2));
+   297→          break;
+   298→        case "s":
+   299→        case "S":
+   300→          setPower((prev) => Math.max(10, prev - 2));
+   301→          break;
+   302→        case " ":
+   303→          e.preventDefault();
+   304→          fire();
+   305→          break;
+   306→      }
+   307→    },
+   308→    [fire]
+   309→  );
+   310→
+   311→  useEffect(() => {
+   312→    window.addEventListener("keydown", handleKeyDown);
+   313→    return () => window.removeEventListener("keydown", handleKeyDown);
+   314→  }, [handleKeyDown]);
+   315→
+   316→  useEffect(() => {
+   317→    const canvas = canvasRef.current;
+   318→    if (!canvas) return;
+   319→    const ctx = canvas.getContext("2d");
+   320→    if (!ctx) return;
+   321→
+   322→    // Initialize wind streaks
+   323→    if (windStreaksRef.current.length === 0) {
+   324→      windStreaksRef.current = initWindStreaks();
+   325→    }
+   326→
+   327→    const drawRoundRect = (
+   328→      x: number,
+   329→      y: number,
+   330→      w: number,
+   331→      h: number,
+   332→      r: number
+   333→    ) => {
+   334→      ctx.beginPath();
+   335→      ctx.moveTo(x + r, y);
+   336→      ctx.lineTo(x + w - r, y);
+   337→      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+   338→      ctx.lineTo(x + w, y + h - r);
+   339→      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+   340→      ctx.lineTo(x + r, y + h);
+   341→      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+   342→      ctx.lineTo(x, y + r);
+   343→      ctx.quadraticCurveTo(x, y, x + r, y);
+   344→      ctx.closePath();
+   345→    };
+   346→
+   347→    const drawSky = () => {
+   348→      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+   349→      grad.addColorStop(0, "#05051e");
+   350→      grad.addColorStop(0.4, "#0f0a30");
+   351→      grad.addColorStop(0.7, "#1a1040");
+   352→      grad.addColorStop(1, "#0d1b2a");
+   353→      ctx.fillStyle = grad;
+   354→      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   355→
+   356→      // Stars with twinkling
+   357→      for (let i = 0; i < 70; i++) {
+   358→        const sx = (i * 137 + 42 * 31) % CANVAS_WIDTH;
+   359→        const sy = (i * 89 + 42 * 17) % Math.floor(CANVAS_HEIGHT * 0.55);
+   360→        const twinkle =
+   361→          0.3 +
+   362→          (i % 5) * 0.12 +
+   363→          Math.sin(frameCountRef.current * 0.03 + i * 2.1) * 0.15;
+   364→        const brightness = Math.max(0.1, Math.min(1, twinkle));
+   365→        ctx.fillStyle = `rgba(255,255,255,${brightness})`;
+   366→        ctx.beginPath();
+   367→        ctx.arc(sx, sy, 0.5 + (i % 3) * 0.4, 0, Math.PI * 2);
+   368→        ctx.fill();
+   369→      }
+   370→
+   371→      // Moon with glow
+   372→      ctx.save();
+   373→      const moonGrad = ctx.createRadialGradient(590, 45, 0, 590, 45, 40);
+   374→      moonGrad.addColorStop(0, "rgba(200,215,255,0.15)");
+   375→      moonGrad.addColorStop(0.3, "rgba(150,180,230,0.06)");
+   376→      moonGrad.addColorStop(1, "rgba(100,130,200,0)");
+   377→      ctx.fillStyle = moonGrad;
+   378→      ctx.beginPath();
+   379→      ctx.arc(590, 45, 40, 0, Math.PI * 2);
+   380→      ctx.fill();
+   381→
+   382→      ctx.shadowColor = "rgba(200,220,255,0.6)";
+   383→      ctx.shadowBlur = 20;
+   384→      const moonFace = ctx.createRadialGradient(588, 43, 0, 590, 45, 12);
+   385→      moonFace.addColorStop(0, "rgba(240,245,255,0.95)");
+   386→      moonFace.addColorStop(0.6, "rgba(200,215,240,0.7)");
+   387→      moonFace.addColorStop(1, "rgba(160,190,220,0.3)");
+   388→      ctx.fillStyle = moonFace;
+   389→      ctx.beginPath();
+   390→      ctx.arc(590, 45, 12, 0, Math.PI * 2);
+   391→      ctx.fill();
+   392→      ctx.restore();
+   393→    };
+   394→
+   395→    const drawWindStreaks = (windVal: number) => {
+   396→      if (Math.abs(windVal) < 0.3) return;
+   397→      const dir = windVal > 0 ? 1 : -1;
+   398→      const streaks = windStreaksRef.current;
+   399→
+   400→      for (const s of streaks) {
+   401→        s.x += s.speed * dir * Math.abs(windVal) * 0.4;
+   402→        if (dir > 0 && s.x > CANVAS_WIDTH + 40) {
+   403→          s.x = -40;
+   404→          s.y = Math.random() * CANVAS_HEIGHT * 0.45;
+   405→        } else if (dir < 0 && s.x < -40) {
+   406→          s.x = CANVAS_WIDTH + 40;
+   407→          s.y = Math.random() * CANVAS_HEIGHT * 0.45;
+   408→        }
+   409→
+   410→        ctx.strokeStyle = `rgba(180,210,255,${s.alpha * Math.min(1, Math.abs(windVal) * 0.4)})`;
+   411→        ctx.lineWidth = 0.8;
+   412→        ctx.beginPath();
+   413→        ctx.moveTo(s.x, s.y);
+   414→        ctx.lineTo(s.x + s.length * dir, s.y);
+   415→        ctx.stroke();
+   416→      }
+   417→    };
+   418→
+   419→    const drawTerrain = (terrain: number[]) => {
+   420→      const grad = ctx.createLinearGradient(0, CANVAS_HEIGHT * 0.35, 0, CANVAS_HEIGHT);
+   421→      grad.addColorStop(0, "#2d5016");
+   422→      grad.addColorStop(0.15, "#3a6b1e");
+   423→      grad.addColorStop(0.4, "#3d5a20");
+   424→      grad.addColorStop(0.7, "#4a3728");
+   425→      grad.addColorStop(1, "#2a1f14");
+   426→
+   427→      ctx.beginPath();
+   428→      ctx.moveTo(0, CANVAS_HEIGHT);
+   429→      for (let x = 0; x < CANVAS_WIDTH; x++) {
+   430→        ctx.lineTo(x, terrain[x]);
+   431→      }
+   432→      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+   433→      ctx.closePath();
+   434→      ctx.fillStyle = grad;
+   435→      ctx.fill();
+   436→
+   437→      // Grass edge glow
+   438→      ctx.save();
+   439→      ctx.shadowColor = "rgba(100,200,50,0.3)";
+   440→      ctx.shadowBlur = 4;
+   441→      ctx.strokeStyle = "#5aaa3a";
+   442→      ctx.lineWidth = 1.5;
+   443→      ctx.beginPath();
+   444→      for (let x = 0; x < CANVAS_WIDTH; x++) {
+   445→        if (x === 0) ctx.moveTo(x, terrain[x]);
+   446→        else ctx.lineTo(x, terrain[x]);
+   447→      }
+   448→      ctx.stroke();
+   449→      ctx.restore();
+   450→    };
+   451→
+   452→    const drawTrajectoryPreview = (gs: GameState) => {
+   453→      if (gs.phase !== "aiming") return;
+   454→
+   455→      const pi = gs.currentPlayer === 1 ? 0 : 1;
+   456→      const player = gs.players[pi];
+   457→      const playerX = player.x;
+   458→      const terrainY =
+   459→        gs.terrain[
+   460→          Math.floor(Math.max(0, Math.min(playerX, CANVAS_WIDTH - 1)))
+   461→        ];
+   462→      const startY = terrainY - 16;
+   463→
+   464→      const fireAngle = gs.currentPlayer === 1 ? angle : 180 - angle;
+   465→      const rad = (fireAngle * Math.PI) / 180;
+   466→      const vx = power * Math.cos(rad) * 0.15;
+   467→      const vy = -power * Math.sin(rad) * 0.15;
+   468→
+   469→      let px = playerX;
+   470→      let py = startY;
+   471→      let pvx = vx;
+   472→      let pvy = vy;
+   473→
+   474→      const isP1 = gs.currentPlayer === 1;
+   475→      const rgb = isP1 ? "34,211,238" : "244,114,182";
+   476→      const steps = 60;
+   477→
+   478→      for (let i = 0; i < steps; i++) {
+   479→        px += pvx + gs.wind * 0.03;
+   480→        pvy += GRAVITY;
+   481→        py += pvy;
+   482→
+   483→        if (px < 0 || px >= CANVAS_WIDTH || py > CANVAS_HEIGHT) break;
+   484→
+   485→        const terrainAtX =
+   486→          gs.terrain[
+   487→            Math.floor(Math.max(0, Math.min(px, CANVAS_WIDTH - 1)))
+   488→          ];
+   489→        if (py >= terrainAtX) break;
+   490→
+   491→        if (i % 3 === 0) {
+   492→          const progress = i / steps;
+   493→          const alpha = 0.35 * (1 - progress);
+   494→          const sz = 1.8 * (1 - progress * 0.6);
+   495→
+   496→          // Glow around dot
+   497→          ctx.fillStyle = `rgba(${rgb},${alpha * 0.3})`;
+   498→          ctx.beginPath();
+   499→          ctx.arc(px, py, sz * 2.5, 0, Math.PI * 2);
+   500→          ctx.fill();
+   501→
+   502→          // Dot
+   503→          ctx.fillStyle = `rgba(${rgb},${alpha})`;
+   504→          ctx.beginPath();
+   505→          ctx.arc(px, py, sz, 0, Math.PI * 2);
+   506→          ctx.fill();
+   507→        }
+   508→      }
+   509→    };
+   510→
+   511→    const drawCannon = (
+   512→      playerX: number,
+   513→      terrainY: number,
+   514→      cannonAngle: number,
+   515→      color: string,
+   516→      isP1: boolean,
+   517→      isActive: boolean
+   518→    ) => {
+   519→      const bodyW = 24;
+   520→      const bodyH = 10;
+   521→      const bodyX = playerX - bodyW / 2;
+   522→      const bodyY = terrainY - bodyH;
+   523→      const glowIntensity = isActive ? 14 : 5;
+   524→      const pulseGlow = isActive
+   525→        ? 10 + Math.sin(frameCountRef.current * 0.08) * 5
+   526→        : 0;
+   527→
+   528→      // Body with glow
+   529→      ctx.save();
+   530→      ctx.shadowColor = color;
+   531→      ctx.shadowBlur = glowIntensity + pulseGlow;
+   532→      ctx.fillStyle = color;
+   533→      drawRoundRect(bodyX, bodyY, bodyW, bodyH, 3);
+   534→      ctx.fill();
+   535→      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+   536→      ctx.lineWidth = 1;
+   537→      ctx.stroke();
+   538→      ctx.restore();
+   539→
+   540→      // Body highlight stripe
+   541→      ctx.fillStyle = "rgba(255,255,255,0.12)";
+   542→      ctx.fillRect(bodyX + 2, bodyY + 1, bodyW - 4, 3);
+   543→
+   544→      // Wheels
+   545→      const wheelR = 5;
+   546→      ctx.fillStyle = "#444";
+   547→      ctx.beginPath();
+   548→      ctx.arc(bodyX + 5, terrainY, wheelR, 0, Math.PI * 2);
+   549→      ctx.fill();
+   550→      ctx.beginPath();
+   551→      ctx.arc(bodyX + bodyW - 5, terrainY, wheelR, 0, Math.PI * 2);
+   552→      ctx.fill();
+   553→
+   554→      ctx.fillStyle = "#777";
+   555→      ctx.beginPath();
+   556→      ctx.arc(bodyX + 5, terrainY, 2, 0, Math.PI * 2);
+   557→      ctx.fill();
+   558→      ctx.beginPath();
+   559→      ctx.arc(bodyX + bodyW - 5, terrainY, 2, 0, Math.PI * 2);
+   560→      ctx.fill();
+   561→
+   562→      // Barrel with glow
+   563→      const barrelLen = 18;
+   564→      const barrelW = 4;
+   565→      const pivotX = playerX;
+   566→      const pivotY = bodyY;
+   567→      const bRad = (cannonAngle * Math.PI) / 180;
+   568→      const dir = isP1 ? 1 : -1;
+   569→      const endX = pivotX + Math.cos(bRad) * barrelLen * dir;
+   570→      const endY = pivotY - Math.sin(bRad) * barrelLen;
+   571→
+   572→      ctx.save();
+   573→      ctx.translate(pivotX, pivotY);
+   574→      ctx.rotate(-bRad * dir);
+   575→
+   576→      // Barrel shadow/glow
+   577→      ctx.shadowColor = color;
+   578→      ctx.shadowBlur = isActive ? 10 : 3;
+   579→
+   580→      // Tapered barrel
+   581→      ctx.beginPath();
+   582→      ctx.moveTo(0, -barrelW / 2);
+   583→      ctx.lineTo(barrelLen * dir, -barrelW / 2 * 0.65);
+   584→      ctx.lineTo(barrelLen * dir, barrelW / 2 * 0.65);
+   585→      ctx.lineTo(0, barrelW / 2);
+   586→      ctx.closePath();
+   587→      ctx.fillStyle = color;
+   588→      ctx.fill();
+   589→      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+   590→      ctx.lineWidth = 0.8;
+   591→      ctx.stroke();
+   592→
+   593→      // Barrel highlight
+   594→      ctx.beginPath();
+   595→      ctx.moveTo(2 * dir, -barrelW / 2 * 0.7);
+   596→      ctx.lineTo((barrelLen - 3) * dir, -barrelW / 2 * 0.4);
+   597→      ctx.lineTo((barrelLen - 3) * dir, -barrelW / 2 * 0.1);
+   598→      ctx.lineTo(2 * dir, -barrelW / 2 * 0.4);
+   599→      ctx.closePath();
+   600→      ctx.fillStyle = "rgba(255,255,255,0.15)";
+   601→      ctx.fill();
+   602→
+   603→      ctx.restore();
+   604→
+   605→      // Barrel tip glow (active player only)
+   606→      if (isActive) {
+   607→        ctx.save();
+   608→        const tipGlow = ctx.createRadialGradient(
+   609→          endX,
+   610→          endY,
+   611→          0,
+   612→          endX,
+   613→          endY,
+   614→          10
+   615→        );
+   616→        tipGlow.addColorStop(0, `rgba(255,255,255,${0.3 + Math.sin(frameCountRef.current * 0.1) * 0.15})`);
+   617→        tipGlow.addColorStop(0.4, color.replace(")", ",0.15)").replace("rgb", "rgba"));
+   618→        tipGlow.addColorStop(1, "rgba(0,0,0,0)");
+   619→        ctx.fillStyle = tipGlow;
+   620→        ctx.beginPath();
+   621→        ctx.arc(endX, endY, 10, 0, Math.PI * 2);
+   622→        ctx.fill();
+   623→        ctx.restore();
+   624→      }
+   625→
+   626→      // Barrel tip bright dot
+   627→      ctx.fillStyle = "rgba(255,255,255,0.8)";
+   628→      ctx.beginPath();
+   629→      ctx.arc(endX, endY, 2, 0, Math.PI * 2);
+   630→      ctx.fill();
+   631→    };
+   632→
+   633→    const drawMuzzleFlash = () => {
+   634→      const mf = muzzleFlashRef.current;
+   635→      if (!mf || mf.alpha < 0.01) return;
+   636→
+   637→      ctx.save();
+   638→      const flashGrad = ctx.createRadialGradient(mf.x, mf.y, 0, mf.x, mf.y, 20);
+   639→      flashGrad.addColorStop(0, `rgba(255,255,200,${mf.alpha * 0.9})`);
+   640→      flashGrad.addColorStop(0.2, `rgba(255,200,50,${mf.alpha * 0.6})`);
+   641→      flashGrad.addColorStop(0.5, `rgba(255,100,0,${mf.alpha * 0.2})`);
+   642→      flashGrad.addColorStop(1, "rgba(255,50,0,0)");
+   643→      ctx.fillStyle = flashGrad;
+   644→      ctx.beginPath();
+   645→      ctx.arc(mf.x, mf.y, 20, 0, Math.PI * 2);
+   646→      ctx.fill();
+   647→      ctx.restore();
+   648→    };
+   649→
+   650→    const drawHealthBar = (
+   651→      x: number,
+   652→      y: number,
+   653→      displayHealth: number,
+   654→      playerIdx: number
+   655→    ) => {
+   656→      const barW = 44;
+   657→      const barH = 6;
+   658→      const bx = x - barW / 2;
+   659→      const healthPct = Math.max(0, Math.min(1, displayHealth / 100));
+   660→      const flash = playerIdx === 0 ? damageFlashRef.current.p1 : damageFlashRef.current.p2;
+   661→
+   662→      // Background
+   663→      ctx.fillStyle = "rgba(0,0,0,0.7)";
+   664→      drawRoundRect(bx - 1, y - 1, barW + 2, barH + 2, 3);
+   665→      ctx.fill();
+   666→
+   667→      ctx.fillStyle = "#1a1a2e";
+   668→      drawRoundRect(bx, y, barW, barH, 2);
+   669→      ctx.fill();
+   670→
+   671→      // Health fill with gradient
+   672→      if (healthPct > 0.01) {
+   673→        const hColor1 =
+   674→          healthPct > 0.5
+   675→            ? "#22c55e"
+   676→            : healthPct > 0.25
+   677→              ? "#eab308"
+   678→              : "#ef4444";
+   679→        const hColor2 =
+   680→          healthPct > 0.5
+   681→            ? "#16a34a"
+   682→            : healthPct > 0.25
+   683→              ? "#ca8a04"
+   684→              : "#dc2626";
+   685→
+   686→        const fillW = barW * healthPct;
+   687→        const hGrad = ctx.createLinearGradient(bx, y, bx, y + barH);
+   688→        hGrad.addColorStop(0, hColor1);
+   689→        hGrad.addColorStop(1, hColor2);
+   690→        ctx.fillStyle = hGrad;
+   691→        drawRoundRect(bx, y, fillW, barH, 2);
+   692→        ctx.fill();
+   693→
+   694→        // Shine on health bar
+   695→        ctx.fillStyle = "rgba(255,255,255,0.15)";
+   696→        drawRoundRect(bx + 1, y, fillW - 2, barH * 0.45, 1);
+   697→        ctx.fill();
+   698→      }
+   699→
+   700→      // Damage flash overlay
+   701→      if (flash > 0.02) {
+   702→        ctx.fillStyle = `rgba(255,255,255,${flash * 0.5})`;
+   703→        drawRoundRect(bx, y, barW * healthPct, barH, 2);
+   704→        ctx.fill();
+   705→      }
+   706→
+   707→      // Low health pulsing glow
+   708→      if (healthPct > 0 && healthPct < 0.3) {
+   709→        ctx.save();
+   710→        const glowAlpha =
+   711→          0.4 + Math.sin(frameCountRef.current * 0.12) * 0.25;
+   712→        ctx.shadowColor = "#ef4444";
+   713→        ctx.shadowBlur = 6 + Math.sin(frameCountRef.current * 0.12) * 3;
+   714→        ctx.strokeStyle = `rgba(239,68,68,${glowAlpha})`;
+   715→        ctx.lineWidth = 1;
+   716→        drawRoundRect(bx - 1, y - 1, barW + 2, barH + 2, 3);
+   717→        ctx.stroke();
+   718→        ctx.restore();
+   719→      }
+   720→
+   721→      // Border
+   722→      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+   723→      ctx.lineWidth = 0.5;
+   724→      drawRoundRect(bx, y, barW, barH, 2);
+   725→      ctx.stroke();
+   726→    };
+   727→
+   728→    const drawWindIndicator = (windVal: number) => {
+   729→      const cx = CANVAS_WIDTH / 2;
+   730→      const cy = 22;
+   731→      const pillW = 100;
+   732→      const pillH = 22;
+   733→
+   734→      // Background pill
+   735→      ctx.fillStyle = "rgba(0,0,0,0.45)";
+   736→      drawRoundRect(cx - pillW / 2, cy - pillH / 2, pillW, pillH, 11);
+   737→      ctx.fill();
+   738→      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+   739→      ctx.lineWidth = 1;
+   740→      drawRoundRect(cx - pillW / 2, cy - pillH / 2, pillW, pillH, 11);
+   741→      ctx.stroke();
+   742→
+   743→      // Label
+   744→      ctx.fillStyle = "rgba(255,255,255,0.45)";
+   745→      ctx.font = "bold 9px sans-serif";
+   746→      ctx.textAlign = "left";
+   747→      ctx.textBaseline = "middle";
+   748→      ctx.fillText("VENTO", cx - pillW / 2 + 10, cy);
+   749→
+   750→      // Arrow with glow
+   751→      const arrowLen = Math.min(Math.abs(windVal) * 8, 35);
+   752→      const dir = windVal > 0 ? 1 : -1;
+   753→      const arrowStartX = cx + 2;
+   754→      const arrowEndX = arrowStartX + arrowLen * dir;
+   755→
+   756→      if (Math.abs(windVal) > 0.2) {
+   757→        ctx.save();
+   758→        ctx.shadowColor = "rgba(150,200,255,0.5)";
+   759→        ctx.shadowBlur = 4;
+   760→        ctx.strokeStyle = `rgba(150,200,255,${0.5 + Math.abs(windVal) * 0.08})`;
+   761→        ctx.lineWidth = 2;
+   762→        ctx.beginPath();
+   763→        ctx.moveTo(arrowStartX, cy);
+   764→        ctx.lineTo(arrowEndX, cy);
+   765→        ctx.stroke();
+   766→
+   767→        if (arrowLen > 4) {
+   768→          ctx.beginPath();
+   769→          ctx.moveTo(arrowEndX, cy);
+   770→          ctx.lineTo(arrowEndX - 5 * dir, cy - 3.5);
+   771→          ctx.stroke();
+   772→          ctx.beginPath();
+   773→          ctx.moveTo(arrowEndX, cy);
+   774→          ctx.lineTo(arrowEndX - 5 * dir, cy + 3.5);
+   775→          ctx.stroke();
+   776→        }
+   777→        ctx.restore();
+   778→      }
+   779→
+   780→      // Strength text
+   781→      ctx.fillStyle = "rgba(255,255,255,0.35)";
+   782→      ctx.font = "8px sans-serif";
+   783→      ctx.textAlign = "right";
+   784→      ctx.fillText(Math.abs(windVal).toFixed(1), cx + pillW / 2 - 8, cy);
+   785→      ctx.textBaseline = "alphabetic";
+   786→    };
+   787→
+   788→    const drawProjectile = (proj: Projectile) => {
+   789→      // Enhanced trail
+   790→      for (let i = 0; i < proj.trail.length; i++) {
+   791→        const t = proj.trail[i];
+   792→        const progress = i / proj.trail.length;
+   793→        const alpha = t.alpha * progress * 0.7;
+   794→        const sz = 1 + progress * 3;
+   795→
+   796→        // Outer trail glow
+   797→        ctx.fillStyle = `rgba(255,150,0,${alpha * 0.25})`;
+   798→        ctx.beginPath();
+   799→        ctx.arc(t.x, t.y, sz * 2.5, 0, Math.PI * 2);
+   800→        ctx.fill();
+   801→
+   802→        // Inner trail
+   803→        ctx.fillStyle = `rgba(255,220,100,${alpha})`;
+   804→        ctx.beginPath();
+   805→        ctx.arc(t.x, t.y, sz, 0, Math.PI * 2);
+   806→        ctx.fill();
+   807→      }
+   808→
+   809→      // Outer pulsing glow
+   810→      const pulseSize = 14 + Math.sin(frameCountRef.current * 0.3) * 3;
+   811→      const glowGrad = ctx.createRadialGradient(
+   812→        proj.x,
+   813→        proj.y,
+   814→        0,
+   815→        proj.x,
+   816→        proj.y,
+   817→        pulseSize
+   818→      );
+   819→      glowGrad.addColorStop(0, "rgba(255,200,50,0.35)");
+   820→      glowGrad.addColorStop(0.4, "rgba(255,100,0,0.12)");
+   821→      glowGrad.addColorStop(1, "rgba(255,50,0,0)");
+   822→      ctx.fillStyle = glowGrad;
+   823→      ctx.beginPath();
+   824→      ctx.arc(proj.x, proj.y, pulseSize, 0, Math.PI * 2);
+   825→      ctx.fill();
+   826→
+   827→      // Main ball with radial gradient
+   828→      ctx.save();
+   829→      ctx.shadowColor = "#ff8800";
+   830→      ctx.shadowBlur = 12;
+   831→      const ballGrad = ctx.createRadialGradient(
+   832→        proj.x - 1,
+   833→        proj.y - 1,
+   834→        0,
+   835→        proj.x,
+   836→        proj.y,
+   837→        5
+   838→      );
+   839→      ballGrad.addColorStop(0, "#ffffff");
+   840→      ballGrad.addColorStop(0.25, "#ffe88a");
+   841→      ballGrad.addColorStop(0.6, "#ff9900");
+   842→      ballGrad.addColorStop(1, "#cc4400");
+   843→      ctx.fillStyle = ballGrad;
+   844→      ctx.beginPath();
+   845→      ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);
+   846→      ctx.fill();
+   847→      ctx.restore();
+   848→
+   849→      // Bright core
+   850→      ctx.fillStyle = "#ffffff";
+   851→      ctx.beginPath();
+   852→      ctx.arc(proj.x - 1, proj.y - 1, 1.5, 0, Math.PI * 2);
+   853→      ctx.fill();
+   854→    };
+   855→
+   856→    const drawExplosion = (exp: Explosion) => {
+   857→      const progress = exp.frame / exp.maxFrames;
+   858→
+   859→      // Shockwave ring
+   860→      if (exp.shockwaveRadius > 2) {
+   861→        ctx.save();
+   862→        ctx.strokeStyle = `rgba(255,200,100,${(1 - progress) * 0.35})`;
+   863→        ctx.lineWidth = 2.5 - progress * 2;
+   864→        ctx.beginPath();
+   865→        ctx.arc(exp.x, exp.y, exp.shockwaveRadius, 0, Math.PI * 2);
+   866→        ctx.stroke();
+   867→
+   868→        // Inner shockwave
+   869→        ctx.strokeStyle = `rgba(255,255,220,${(1 - progress) * 0.15})`;
+   870→        ctx.lineWidth = 1;
+   871→        ctx.beginPath();
+   872→        ctx.arc(exp.x, exp.y, exp.shockwaveRadius * 0.6, 0, Math.PI * 2);
+   873→        ctx.stroke();
+   874→        ctx.restore();
+   875→      }
+   876→
+   877→      // Bright flash (early frames)
+   878→      if (progress < 0.15) {
+   879→        const flashProgress = progress / 0.15;
+   880→        const flashAlpha = (1 - flashProgress) * 0.7;
+   881→        const flashRadius = 35 * flashProgress;
+   882→        const flashGrad = ctx.createRadialGradient(
+   883→          exp.x,
+   884→          exp.y,
+   885→          0,
+   886→          exp.x,
+   887→          exp.y,
+   888→          flashRadius
+   889→        );
+   890→        flashGrad.addColorStop(0, `rgba(255,255,255,${flashAlpha})`);
+   891→        flashGrad.addColorStop(0.4, `rgba(255,220,100,${flashAlpha * 0.5})`);
+   892→        flashGrad.addColorStop(1, "rgba(255,100,0,0)");
+   893→        ctx.fillStyle = flashGrad;
+   894→        ctx.beginPath();
+   895→        ctx.arc(exp.x, exp.y, flashRadius, 0, Math.PI * 2);
+   896→        ctx.fill();
+   897→      }
+   898→
+   899→      // Base fire glow
+   900→      const baseRadius = 5 + progress * 28;
+   901→      const grad = ctx.createRadialGradient(
+   902→        exp.x,
+   903→        exp.y,
+   904→        0,
+   905→        exp.x,
+   906→        exp.y,
+   907→        baseRadius
+   908→      );
+   909→      grad.addColorStop(0, `rgba(255,255,200,${0.9 - progress * 0.9})`);
+   910→      grad.addColorStop(0.3, `rgba(255,150,0,${0.6 - progress * 0.6})`);
+   911→      grad.addColorStop(0.6, `rgba(255,50,0,${0.4 - progress * 0.4})`);
+   912→      grad.addColorStop(1, "rgba(100,0,0,0)");
+   913→      ctx.fillStyle = grad;
+   914→      ctx.beginPath();
+   915→      ctx.arc(exp.x, exp.y, baseRadius, 0, Math.PI * 2);
+   916→      ctx.fill();
+   917→
+   918→      // Particles
+   919→      for (const p of exp.particles) {
+   920→        if (p.alpha < 0.01) continue;
+   921→        let r = 255,
+   922→          g = 255,
+   923→          b = 255;
+   924→        if (p.color.startsWith("#")) {
+   925→          r = parseInt(p.color.slice(1, 3), 16);
+   926→          g = parseInt(p.color.slice(3, 5), 16);
+   927→          b = parseInt(p.color.slice(5, 7), 16);
+   928→        }
+   929→        ctx.fillStyle = `rgba(${r},${g},${b},${p.alpha})`;
+   930→        ctx.beginPath();
+   931→        ctx.arc(p.x, p.y, p.size * Math.max(0.3, p.alpha), 0, Math.PI * 2);
+   932→        ctx.fill();
+   933→      }
+   934→    };
+   935→
+   936→    const drawHitMessage = (msg: string, playerColor: string) => {
+   937→      if (!msg) return;
+   938→
+   939→      // Background pill
+   940→      const textWidth = ctx.measureText(msg).width;
+   941→      ctx.fillStyle = "rgba(0,0,0,0.5)";
+   942→      drawRoundRect(
+   943→        CANVAS_WIDTH / 2 - textWidth / 2 - 16,
+   944→        CANVAS_HEIGHT * 0.4 - 16,
+   945→        textWidth + 32,
+   946→        32,
+   947→        16
+   948→      );
+   949→      ctx.fill();
+   950→
+   951→      ctx.save();
+   952→      ctx.fillStyle = playerColor;
+   953→      ctx.font = "bold 22px sans-serif";
+   954→      ctx.textAlign = "center";
+   955→      ctx.textBaseline = "middle";
+   956→      ctx.shadowColor = playerColor;
+   957→      ctx.shadowBlur = 10;
+   958→      ctx.fillText(msg, CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.4);
+   959→      ctx.restore();
+   960→    };
+   961→
+   962→    const drawGameOver = (winnerNum: 1 | 2) => {
+   963→      // Dark vignette overlay
+   964→      const vigGrad = ctx.createRadialGradient(
+   965→        CANVAS_WIDTH / 2,
+   966→        CANVAS_HEIGHT / 2,
+   967→        CANVAS_WIDTH * 0.2,
+   968→        CANVAS_WIDTH / 2,
+   969→        CANVAS_HEIGHT / 2,
+   970→        CANVAS_WIDTH * 0.6
+   971→      );
+   972→      vigGrad.addColorStop(0, "rgba(0,0,0,0.4)");
+   973→      vigGrad.addColorStop(1, "rgba(0,0,0,0.75)");
+   974→      ctx.fillStyle = vigGrad;
+   975→      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+   976→
+   977→      // Light beams
+   978→      const color = winnerNum === 1 ? "34,211,238" : "244,114,182";
+   979→      const beamCount = 12;
+   980→      for (let i = 0; i < beamCount; i++) {
+   981→        const angle = (i / beamCount) * Math.PI * 2 + frameCountRef.current * 0.005;
+   982→        const len = 200 + Math.sin(frameCountRef.current * 0.02 + i) * 50;
+   983→        ctx.save();
+   984→        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+   985→        ctx.rotate(angle);
+   986→        const beamGrad = ctx.createLinearGradient(0, 0, len, 0);
+   987→        beamGrad.addColorStop(0, `rgba(${color},0.08)`);
+   988→        beamGrad.addColorStop(1, `rgba(${color},0)`);
+   989→        ctx.fillStyle = beamGrad;
+   990→        ctx.beginPath();
+   991→        ctx.moveTo(0, -3);
+   992→        ctx.lineTo(len, -15);
+   993→        ctx.lineTo(len, 15);
+   994→        ctx.lineTo(0, 3);
+   995→        ctx.closePath();
+   996→        ctx.fill();
+   997→        ctx.restore();
+   998→      }
+   999→
+  1000→      // Sparkle particles
+  1001→      const sparkles = gameOverSparklesRef.current;
+  1002→      for (const sp of sparkles) {
+  1003→        if (sp.alpha < 0.01) continue;
+  1004→        ctx.fillStyle = `rgba(${color},${sp.alpha})`;
+  1005→        ctx.beginPath();
+  1006→        ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+  1007→        ctx.fill();
+  1008→      }
+  1009→
+  1010→      // Title text
+  1011→      ctx.save();
+  1012→      ctx.fillStyle = `rgba(${color},0.95)`;
+  1013→      ctx.font = "bold 32px sans-serif";
+  1014→      ctx.textAlign = "center";
+  1015→      ctx.textBaseline = "middle";
+  1016→      ctx.shadowColor = `rgba(${color},0.8)`;
+  1017→      ctx.shadowBlur = 20;
+  1018→      ctx.fillText(
+  1019→        `VITORIA!`,
+  1020→        CANVAS_WIDTH / 2,
+  1021→        CANVAS_HEIGHT / 2 - 20
+  1022→      );
+  1023→      ctx.restore();
+  1024→
+  1025→      // Subtitle
+  1026→      ctx.fillStyle = `rgba(${color},0.7)`;
+  1027→      ctx.font = "bold 18px sans-serif";
+  1028→      ctx.textAlign = "center";
+  1029→      ctx.textBaseline = "middle";
+  1030→      ctx.fillText(
+  1031→        `Jogador ${winnerNum}`,
+  1032→        CANVAS_WIDTH / 2,
+  1033→        CANVAS_HEIGHT / 2 + 15
+  1034→      );
+  1035→
+  1036→      // Decorative line
+  1037→      const lineW = 120;
+  1038→      const lineGrad = ctx.createLinearGradient(
+  1039→        CANVAS_WIDTH / 2 - lineW / 2,
+  1040→        0,
+  1041→        CANVAS_WIDTH / 2 + lineW / 2,
+  1042→        0
+  1043→      );
+  1044→      lineGrad.addColorStop(0, `rgba(${color},0)`);
+  1045→      lineGrad.addColorStop(0.5, `rgba(${color},0.5)`);
+  1046→      lineGrad.addColorStop(1, `rgba(${color},0)`);
+  1047→      ctx.strokeStyle = lineGrad;
+  1048→      ctx.lineWidth = 1;
+  1049→      ctx.beginPath();
+  1050→      ctx.moveTo(CANVAS_WIDTH / 2 - lineW / 2, CANVAS_HEIGHT / 2 + 35);
+  1051→      ctx.lineTo(CANVAS_WIDTH / 2 + lineW / 2, CANVAS_HEIGHT / 2 + 35);
+  1052→      ctx.stroke();
+  1053→
+  1054→      // Restart hint
+  1055→      ctx.fillStyle = "rgba(255,255,255,0.35)";
+  1056→      ctx.font = "12px sans-serif";
+  1057→      ctx.textBaseline = "alphabetic";
+  1058→      ctx.fillText(
+  1059→        'Clique em "Reiniciar Tudo" para jogar novamente',
+  1060→        CANVAS_WIDTH / 2,
+  1061→        CANVAS_HEIGHT / 2 + 55
+  1062→      );
+  1063→    };
+  1064→
+  1065→    const applyCrater = (
+  1066→      terrain: number[],
+  1067→      cx: number,
+  1068→      radius: number
+  1069→    ) => {
+  1070→      const r2 = radius * radius;
+  1071→      for (
+  1072→        let x = Math.floor(cx - radius);
+  1073→        x <= Math.ceil(cx + radius);
+  1074→        x++
+  1075→      ) {
+  1076→        if (x < 0 || x >= CANVAS_WIDTH) continue;
+  1077→        const dx = x - cx;
+  1078→        const depth = Math.sqrt(Math.max(0, r2 - dx * dx));
+  1079→        terrain[x] = Math.min(CANVAS_HEIGHT - 5, terrain[x] + depth * 0.6);
+  1080→      }
+  1081→    };
+  1082→
+  1083→    const gameLoop = () => {
+  1084→      frameCountRef.current++;
+  1085→      const gs = gameStateRef.current;
+  1086→
+  1087→      // Decay visual effects
+  1088→      shakeRef.current *= 0.9;
+  1089→      if (shakeRef.current < 0.1) shakeRef.current = 0;
+  1090→      damageFlashRef.current.p1 *= 0.93;
+  1091→      damageFlashRef.current.p2 *= 0.93;
+  1092→      if (muzzleFlashRef.current) {
+  1093→        muzzleFlashRef.current.alpha *= 0.82;
+  1094→        if (muzzleFlashRef.current.alpha < 0.01) {
+  1095→          muzzleFlashRef.current = null;
+  1096→        }
+  1097→      }
+  1098→
+  1099→      if (gs.phase === "firing" && gs.projectile) {
+  1100→        const proj = gs.projectile;
+  1101→        proj.trail.push({ x: proj.x, y: proj.y, alpha: 1 });
+  1102→        if (proj.trail.length > 30) proj.trail.shift();
+  1103→
+  1104→        proj.x += proj.vx + gs.wind * 0.03;
+  1105→        proj.vy += GRAVITY;
+  1106→        proj.y += proj.vy;
+  1107→
+  1108→        for (const t of proj.trail) {
+  1109→          t.alpha *= 0.94;
+  1110→        }
+  1111→
+  1112→        const oppIdx = gs.currentPlayer === 1 ? 1 : 0;
+  1113→        const opp = gs.players[oppIdx];
+  1114→        const dx = proj.x - opp.x;
+  1115→        const oppY =
+  1116→          gs.terrain[
+  1117→            Math.floor(Math.max(0, Math.min(opp.x, CANVAS_WIDTH - 1)))
+  1118→          ];
+  1119→        const dy = proj.y - (oppY - 10);
+  1120→        const dist = Math.sqrt(dx * dx + dy * dy);
+  1121→
+  1122→        if (dist < HIT_RADIUS) {
+  1123→          opp.health = Math.max(0, opp.health - DAMAGE_AMOUNT);
+  1124→          gs.explosion = createExplosion(proj.x, proj.y);
+  1125→          gs.projectile = null;
+  1126→          gs.hitMessage = "Acertou!";
+  1127→
+  1128→          // Visual effects for hit
+  1129→          shakeRef.current = 10;
+  1130→          if (oppIdx === 0) {
+  1131→            damageFlashRef.current.p1 = 1;
+  1132→          } else {
+  1133→            damageFlashRef.current.p2 = 1;
+  1134→          }
+  1135→
+  1136→          if (opp.health <= 0) {
+  1137→            gs.phase = "gameOver";
+  1138→            gs.winner = gs.currentPlayer;
+  1139→            gs.players[gs.currentPlayer - 1].roundsWon += 1;
+  1140→            const winnerP = gs.players[gs.currentPlayer - 1];
+  1141→            const score = winnerP.health * 10 + winnerP.roundsWon * 50;
+  1142→            onScore?.(`Jogador ${gs.currentPlayer}`, score);
+  1143→            // Init game over sparkles
+  1144→            gameOverInitedRef.current = false;
+  1145→          } else {
+  1146→            gs.phase = "exploding";
+  1147→          }
+  1148→          syncUI(gs);
+  1149→        } else if (
+  1150→          proj.y >=
+  1151→            gs.terrain[
+  1152→              Math.floor(
+  1153→                Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1))
+  1154→              )
+  1155→            ] ||
+  1156→          proj.x < -10 ||
+  1157→          proj.x > CANVAS_WIDTH + 10 ||
+  1158→          proj.y > CANVAS_HEIGHT + 10
+  1159→        ) {
+  1160→          const clampedX = Math.floor(
+  1161→            Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1))
+  1162→          );
+  1163→          if (proj.x >= 0 && proj.x < CANVAS_WIDTH) {
+  1164→            applyCrater(gs.terrain, clampedX, CRATER_RADIUS);
+  1165→          }
+  1166→          gs.explosion = createExplosion(
+  1167→            Math.max(0, Math.min(proj.x, CANVAS_WIDTH - 1)),
+  1168→            Math.min(proj.y, CANVAS_HEIGHT - 5)
+  1169→          );
+  1170→          gs.projectile = null;
+  1171→          gs.hitMessage = "Errou!";
+  1172→          gs.phase = "exploding";
+  1173→          shakeRef.current = 5;
+  1174→          syncUI(gs);
+  1175→        }
+  1176→      }
+  1177→
+  1178→      if (gs.phase === "exploding" && gs.explosion) {
+  1179→        const exp = gs.explosion;
+  1180→        exp.frame++;
+  1181→        exp.shockwaveRadius += 3.5;
+  1182→        for (const p of exp.particles) {
+  1183→          p.x += p.vx;
+  1184→          p.y += p.vy;
+  1185→          p.vy += 0.08;
+  1186→          p.alpha *= 0.95;
+  1187→          p.vx *= 0.99;
+  1188→        }
+  1189→        if (exp.frame >= exp.maxFrames) {
+  1190→          gs.explosion = null;
+  1191→          gs.currentPlayer = gs.currentPlayer === 1 ? 2 : 1;
+  1192→          gs.wind = generateWind();
+  1193→          gs.turnCount++;
+  1194→          gs.phase = "aiming";
+  1195→          setTimeout(() => {
+  1196→            gs.hitMessage = null;
+  1197→            syncUI(gs);
+  1198→          }, 800);
+  1199→          syncUI(gs);
+  1200→        }
+  1201→      }
+  1202→
+  1203→      // Game over sparkle init & update
+  1204→      if (gs.phase === "gameOver" && !gameOverInitedRef.current) {
+  1205→        gameOverInitedRef.current = true;
+  1206→        gameOverSparklesRef.current = [];
+  1207→        for (let i = 0; i < 30; i++) {
+  1208→          gameOverSparklesRef.current.push({
+  1209→            x: CANVAS_WIDTH / 2 + (Math.random() - 0.5) * 250,
+  1210→            y: CANVAS_HEIGHT / 2 + (Math.random() - 0.5) * 150,
+  1211→            vx: (Math.random() - 0.5) * 0.5,
+  1212→            vy: -0.3 - Math.random() * 0.7,
+  1213→            alpha: 0.5 + Math.random() * 0.5,
+  1214→            size: 1 + Math.random() * 2.5,
+  1215→          });
+  1216→        }
+  1217→      }
+  1218→      for (const sp of gameOverSparklesRef.current) {
+  1219→        sp.x += sp.vx;
+  1220→        sp.y += sp.vy;
+  1221→        sp.alpha *= 0.997;
+  1222→        sp.alpha += Math.sin(frameCountRef.current * 0.05 + sp.x * 0.1) * 0.01;
+  1223→        sp.alpha = Math.max(0, Math.min(1, sp.alpha));
+  1224→      }
+  1225→
+  1226→      // Smooth health interpolation
+  1227→      displayHealthRef.current.p1 +=
+  1228→        (gs.players[0].health - displayHealthRef.current.p1) * 0.12;
+  1229→      displayHealthRef.current.p2 +=
+  1230→        (gs.players[1].health - displayHealthRef.current.p2) * 0.12;
+  1231→
+  1232→      // ---- DRAWING ----
+  1233→      const p1 = gs.players[0];
+  1234→      const p2 = gs.players[1];
+  1235→      const p1TerrainY =
+  1236→        gs.terrain[
+  1237→          Math.floor(Math.max(0, Math.min(p1.x, CANVAS_WIDTH - 1)))
+  1238→        ];
+  1239→      const p2TerrainY =
+  1240→        gs.terrain[
+  1241→          Math.floor(Math.max(0, Math.min(p2.x, CANVAS_WIDTH - 1)))
+  1242→        ];
+  1243→
+  1244→      const p1CannonAngle =
+  1245→        gs.currentPlayer === 1 && gs.phase === "aiming" ? angle : 45;
+  1246→      const p2CannonAngle =
+  1247→        gs.currentPlayer === 2 && gs.phase === "aiming" ? angle : 45;
+  1248→
+  1249→      // Apply screen shake
+  1250→      ctx.save();
+  1251→      if (shakeRef.current > 0.1) {
+  1252→        const shakeX = (Math.random() - 0.5) * shakeRef.current * 2;
+  1253→        const shakeY = (Math.random() - 0.5) * shakeRef.current * 2;
+  1254→        ctx.translate(shakeX, shakeY);
+  1255→      }
+  1256→
+  1257→      ctx.clearRect(-10, -10, CANVAS_WIDTH + 20, CANVAS_HEIGHT + 20);
+  1258→      drawSky();
+  1259→      drawWindStreaks(gs.wind);
+  1260→      drawTerrain(gs.terrain);
+  1261→      drawTrajectoryPreview(gs);
+  1262→
+  1263→      const p1Active = gs.currentPlayer === 1 && gs.phase === "aiming";
+  1264→      const p2Active = gs.currentPlayer === 2 && gs.phase === "aiming";
+  1265→      drawCannon(p1.x, p1TerrainY, p1CannonAngle, "#22d3ee", true, p1Active);
+  1266→      drawCannon(p2.x, p2TerrainY, p2CannonAngle, "#f472b6", false, p2Active);
+  1267→
+  1268→      drawMuzzleFlash();
+  1269→
+  1270→      drawHealthBar(p1.x, p1TerrainY - 30, displayHealthRef.current.p1, 0);
+  1271→      drawHealthBar(p2.x, p2TerrainY - 30, displayHealthRef.current.p2, 1);
+  1272→
+  1273→      if (p1Active) {
+  1274→        ctx.fillStyle = "rgba(34,211,238,0.7)";
+  1275→        ctx.font = "bold 10px sans-serif";
+  1276→        ctx.textAlign = "center";
+  1277→        ctx.fillText("J1", p1.x, p1TerrainY - 36);
+  1278→      } else if (p2Active) {
+  1279→        ctx.fillStyle = "rgba(244,114,182,0.7)";
+  1280→        ctx.font = "bold 10px sans-serif";
+  1281→        ctx.textAlign = "center";
+  1282→        ctx.fillText("J2", p2.x, p2TerrainY - 36);
+  1283→      }
+  1284→
+  1285→      if (gs.projectile) {
+  1286→        drawProjectile(gs.projectile);
+  1287→      }
+  1288→
+  1289→      if (gs.explosion) {
+  1290→        drawExplosion(gs.explosion);
+  1291→      }
+  1292→
+  1293→      ctx.restore(); // End screen shake
+  1294→
+  1295→      // HUD elements (not shaken)
+  1296→      drawWindIndicator(gs.wind);
+  1297→
+  1298→      if (gs.hitMessage && gs.phase !== "gameOver") {
+  1299→        const msgColor =
+  1300→          gs.hitMessage === "Acertou!"
+  1301→            ? gs.currentPlayer === 1
+  1302→              ? "#22d3ee"
+  1303→              : "#f472b6"
+  1304→            : "#ef4444";
+  1305→        drawHitMessage(gs.hitMessage, msgColor);
+  1306→      }
+  1307→
+  1308→      if (gs.phase === "gameOver" && gs.winner) {
+  1309→        drawGameOver(gs.winner);
+  1310→      }
+  1311→
+  1312→      animFrameRef.current = requestAnimationFrame(gameLoop);
+  1313→    };
+  1314→
+  1315→    animFrameRef.current = requestAnimationFrame(gameLoop);
+  1316→    return () => cancelAnimationFrame(animFrameRef.current);
+  1317→  }, [angle, power, onScore, syncUI]);
+  1318→
+  1319→  const resetGame = useCallback(() => {
+  1320→    gameStateRef.current = initGameState();
+  1321→    setAngle(45);
+  1322→    setPower(50);
+  1323→    shakeRef.current = 0;
+  1324→    damageFlashRef.current = { p1: 0, p2: 0 };
+  1325→    muzzleFlashRef.current = null;
+  1326→    displayHealthRef.current = { p1: 100, p2: 100 };
+  1327→    gameOverSparklesRef.current = [];
+  1328→    gameOverInitedRef.current = false;
+  1329→    windStreaksRef.current = initWindStreaks();
+  1330→    const gs = gameStateRef.current;
+  1331→    syncUI(gs);
+  1332→  }, [syncUI]);
+  1333→
+  1334→  const heartsP1 = Math.ceil(healthP1 / 34);
+  1335→  const heartsP2 = Math.ceil(healthP2 / 34);
+  1336→  const maxHearts = 3;
+  1337→
+  1338→  return (
+  1339→    <div className="flex flex-col items-center gap-3 w-full max-w-[700px] mx-auto select-none">
+  1340→      <motion.div
+  1341→        initial={{ opacity: 0, y: -10 }}
+  1342→        animate={{ opacity: 1, y: 0 }}
+  1343→        className="w-full bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between"
+  1344→      >
+  1345→        <div className="flex items-center gap-2">
+  1346→          <span className="text-cyan-400 font-bold text-sm">Jogador 1</span>
+  1347→          <div className="flex gap-0.5">
+  1348→            {Array.from({ length: maxHearts }).map((_, i) => (
+  1349→              <motion.div
+  1350→                key={i}
+  1351→                animate={{ scale: i < heartsP1 ? [1, 1.25, 1] : 1 }}
+  1352→                transition={{ duration: 0.3 }}
+  1353→              >
+  1354→                <Heart
+  1355→                  className={cn(
+  1356→                    "w-3.5 h-3.5",
+  1357→                    i < heartsP1
+  1358→                      ? "text-red-500 fill-red-500"
+  1359→                      : "text-gray-600"
+  1360→                  )}
+  1361→                />
+  1362→              </motion.div>
+  1363→            ))}
+  1364→          </div>
+  1365→        </div>
+  1366→
+  1367→        <h2 className="text-white font-bold text-base tracking-wider">
+  1368→          BATALHA DE CANHÕES
+  1369→        </h2>
+  1370→
+  1371→        <div className="flex items-center gap-2">
+  1372→          <div className="flex gap-0.5">
+  1373→            {Array.from({ length: maxHearts }).map((_, i) => (
+  1374→              <motion.div
+  1375→                key={i}
+  1376→                animate={{ scale: i < heartsP2 ? [1, 1.25, 1] : 1 }}
+  1377→                transition={{ duration: 0.3 }}
+  1378→              >
+  1379→                <Heart
+  1380→                  className={cn(
+  1381→                    "w-3.5 h-3.5",
+  1382→                    i < heartsP2
+  1383→                      ? "text-red-500 fill-red-500"
+  1384→                      : "text-gray-600"
+  1385→                  )}
+  1386→                />
+  1387→              </motion.div>
+  1388→            ))}
+  1389→          </div>
+  1390→          <span className="text-pink-400 font-bold text-sm">Jogador 2</span>
+  1391→        </div>
+  1392→      </motion.div>
+  1393→
+  1394→      <div className="w-full flex items-center justify-between px-2">
+  1395→        <Badge
+  1396→          variant="outline"
+  1397→          className={cn(
+  1398→            "text-xs font-semibold px-3 py-1 transition-colors",
+  1399→            currentPlayer === 1
+  1400→              ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10"
+  1401→              : "border-pink-500/50 text-pink-400 bg-pink-500/10"
+  1402→          )}
+  1403→        >
+  1404→          Turno: Jogador {currentPlayer}
+  1405→        </Badge>
+  1406→        <Badge
+  1407→          variant="outline"
+  1408→          className="flex items-center gap-1.5 text-xs border-white/20 text-white/70 bg-white/5"
+  1409→        >
+  1410→          <Wind className="w-3 h-3" />
+  1411→          Vento: {wind > 0 ? "→" : "←"}
+  1412→          {Math.abs(wind) > 1.5 ? (wind > 0 ? "→" : "←") : ""}{" "}
+  1413→          {Math.abs(wind).toFixed(1)}
+  1414→        </Badge>
+  1415→      </div>
+  1416→
+  1417→      <motion.div
+  1418→        initial={{ opacity: 0, scale: 0.98 }}
+  1419→        animate={{ opacity: 1, scale: 1 }}
+  1420→        className="w-full relative rounded-xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50"
+  1421→        style={{ maxWidth: CANVAS_WIDTH }}
+  1422→      >
+  1423→        <div
+  1424→          className="w-full"
+  1425→          style={{ paddingBottom: `${(CANVAS_HEIGHT / CANVAS_WIDTH) * 100}%` }}
+  1426→        >
+  1427→          <canvas
+  1428→            ref={canvasRef}
+  1429→            width={CANVAS_WIDTH}
+  1430→            height={CANVAS_HEIGHT}
+  1431→            className="absolute inset-0 w-full h-full"
+  1432→          />
+  1433→        </div>
+  1434→      </motion.div>
+  1435→
+  1436→      <AnimatePresence mode="wait">
+  1437→        {hitMessage && phase !== "gameOver" && (
+  1438→          <motion.div
+  1439→            key={hitMessage}
+  1440→            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+  1441→            animate={{ opacity: 1, scale: 1, y: 0 }}
+  1442→            exit={{ opacity: 0, scale: 0.8, y: -10 }}
+  1443→            className={cn(
+  1444→              "text-lg font-bold px-4 py-1 rounded-full",
+  1445→              hitMessage === "Acertou!"
+  1446→                ? currentPlayer === 1
+  1447→                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+  1448→                  : "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+  1449→                : "bg-red-500/20 text-red-400 border border-red-500/30"
+  1450→            )}
+  1451→          >
+  1452→            {hitMessage}
+  1453→          </motion.div>
+  1454→        )}
+  1455→      </AnimatePresence>
+  1456→
+  1457→      <AnimatePresence>
+  1458→        {phase === "aiming" && (
+  1459→          <motion.div
+  1460→            key={`controls-${currentPlayer}`}
+  1461→            initial={{
+  1462→              opacity: 0,
+  1463→              x: currentPlayer === 1 ? -20 : 20,
+  1464→            }}
+  1465→            animate={{ opacity: 1, x: 0 }}
+  1466→            exit={{
+  1467→              opacity: 0,
+  1468→              x: currentPlayer === 1 ? 20 : -20,
+  1469→            }}
+  1470→            className="w-full flex flex-col gap-3 p-4 rounded-xl bg-white/5 border border-white/10"
+  1471→          >
+  1472→            <div className="flex items-center gap-3">
+  1473→              <Crosshair
+  1474→                className={cn(
+  1475→                  "w-4 h-4 shrink-0",
+  1476→                  currentPlayer === 1
+  1477→                    ? "text-cyan-400"
+  1478→                    : "text-pink-400"
+  1479→                )}
+  1480→              />
+  1481→              <div className="flex-1">
+  1482→                <div className="flex justify-between items-center mb-1">
+  1483→                  <span className="text-white/70 text-xs font-medium">
+  1484→                    Ângulo
+  1485→                  </span>
+  1486→                  <span
+  1487→                    className={cn(
+  1488→                      "text-xs font-bold",
+  1489→                      currentPlayer === 1
+  1490→                        ? "text-cyan-400"
+  1491→                        : "text-pink-400"
+  1492→                    )}
+  1493→                  >
+  1494→                    {angle}°
+  1495→                  </span>
+  1496→                </div>
+  1497→                <input
+  1498→                  type="range"
+  1499→                  min={0}
+  1500→                  max={180}
+  1501→                  value={angle}
+  1502→                  onChange={(e) => setAngle(Number(e.target.value))}
+  1503→                  disabled={phase !== "aiming"}
+  1504→                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-orange-500"
+  1505→                  style={{
+  1506→                    background: `linear-gradient(to right, ${currentPlayer === 1 ? "#22d3ee" : "#f472b6"} 0%, ${currentPlayer === 1 ? "#22d3ee" : "#f472b6"} ${(angle / 180) * 100}%, #333 ${(angle / 180) * 100}%, #333 100%)`,
+  1507→                  }}
+  1508→                />
+  1509→              </div>
+  1510→            </div>
+  1511→
+  1512→            <div className="flex items-center gap-3">
+  1513→              <Zap
+  1514→                className={cn(
+  1515→                  "w-4 h-4 shrink-0",
+  1516→                  currentPlayer === 1
+  1517→                    ? "text-cyan-400"
+  1518→                    : "text-pink-400"
+  1519→                )}
+  1520→              />
+  1521→              <div className="flex-1">
+  1522→                <div className="flex justify-between items-center mb-1">
+  1523→                  <span className="text-white/70 text-xs font-medium">
+  1524→                    Força
+  1525→                  </span>
+  1526→                  <span
+  1527→                    className={cn(
+  1528→                      "text-xs font-bold",
+  1529→                      currentPlayer === 1
+  1530→                        ? "text-cyan-400"
+  1531→                        : "text-pink-400"
+  1532→                    )}
+  1533→                  >
+  1534→                    {power}
+  1535→                  </span>
+  1536→                </div>
+  1537→                <input
+  1538→                  type="range"
+  1539→                  min={10}
+  1540→                  max={100}
+  1541→                  value={power}
+  1542→                  onChange={(e) => setPower(Number(e.target.value))}
+  1543→                  disabled={phase !== "aiming"}
+  1544→                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-orange-500"
+  1545→                  style={{
+  1546→                    background: `linear-gradient(to right, #f97316 0%, #f97316 ${((power - 10) / 90) * 100}%, #333 ${((power - 10) / 90) * 100}%, #333 100%)`,
+  1547→                  }}
+  1548→                />
+  1549→              </div>
+  1550→            </div>
+  1551→
+  1552→            <motion.div whileTap={{ scale: 0.95 }} className="w-full">
+  1553→              <Button
+  1554→                onClick={fire}
+  1555→                disabled={phase !== "aiming"}
+  1556→                className={cn(
+  1557→                  "w-full h-12 text-lg font-bold rounded-xl transition-all",
+  1558→                  currentPlayer === 1
+  1559→                    ? "bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+  1560→                    : "bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-500/25"
+  1561→                )}
+  1562→              >
+  1563→                <Zap className="w-5 h-5 mr-2" />
+  1564→                FOGO!
+  1565→              </Button>
+  1566→            </motion.div>
+  1567→
+  1568→            <p className="text-white/30 text-[10px] text-center">
+  1569→              Teclas: A/D = Ângulo | W/S = Força | Espaço = Fogo!
+  1570→            </p>
+  1571→          </motion.div>
+  1572→        )}
+  1573→      </AnimatePresence>
+  1574→
+  1575→      <AnimatePresence>
+  1576→        {phase === "gameOver" && winner && (
+  1577→          <motion.div
+  1578→            initial={{ opacity: 0, y: 20 }}
+  1579→            animate={{ opacity: 1, y: 0 }}
+  1580→            exit={{ opacity: 0 }}
+  1581→            className="w-full"
+  1582→          >
+  1583→            <motion.div
+  1584→              animate={{ scale: [1, 1.03, 1] }}
+  1585→              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+  1586→              className={cn(
+  1587→                "text-center py-5 rounded-xl font-bold mb-3 relative overflow-hidden",
+  1588→                winner === 1
+  1589→                  ? "bg-gradient-to-br from-cyan-500/20 to-cyan-900/30 text-cyan-400 border border-cyan-500/30"
+  1590→                  : "bg-gradient-to-br from-pink-500/20 to-pink-900/30 text-pink-400 border border-pink-500/30"
+  1591→              )}
+  1592→            >
+  1593→              <motion.div
+  1594→                initial={{ rotate: -15, scale: 0 }}
+  1595→                animate={{ rotate: 0, scale: 1 }}
+  1596→                transition={{ type: "spring", delay: 0.2 }}
+  1597→                className="flex justify-center mb-2"
+  1598→              >
+  1599→                <Trophy
+  1600→                  className={cn(
+  1601→                    "w-8 h-8",
+  1602→                    winner === 1
+  1603→                      ? "text-cyan-400"
+  1604→                      : "text-pink-400"
+  1605→                  )}
+  1606→                />
+  1607→              </motion.div>
+  1608→              <motion.span
+  1609→                initial={{ opacity: 0, y: 10 }}
+  1610→                animate={{ opacity: 1, y: 0 }}
+  1611→                transition={{ delay: 0.3 }}
+  1612→                className="text-xl block"
+  1613→              >
+  1614→                Jogador {winner} Venceu!
+  1615→              </motion.span>
+  1616→              <motion.div
+  1617→                initial={{ scaleX: 0 }}
+  1618→                animate={{ scaleX: 1 }}
+  1619→                transition={{ delay: 0.5 }}
+  1620→                className={cn(
+  1621→                  "h-px w-24 mx-auto mt-2",
+  1622→                  winner === 1 ? "bg-cyan-500/40" : "bg-pink-500/40"
+  1623→                )}
+  1624→              />
+  1625→            </motion.div>
+  1626→            <Button
+  1627→              onClick={resetGame}
+  1628→              variant="outline"
+  1629→              className="w-full border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+  1630→            >
+  1631→              <RotateCcw className="w-4 h-4 mr-2" />
+  1632→              Reiniciar Tudo
+  1633→            </Button>
+  1634→          </motion.div>
+  1635→        )}
+  1636→      </AnimatePresence>
+  1637→
+  1638→      {(phase === "firing" || phase === "exploding") && (
+  1639→        <motion.div
+  1640→          initial={{ opacity: 0 }}
+  1641→          animate={{ opacity: 1 }}
+  1642→          className="text-white/40 text-xs"
+  1643→        >
+  1644→          Aguardando...
+  1645→        </motion.div>
+  1646→      )}
+  1647→
+  1648→      {phase !== "gameOver" && (
+  1649→        <Button
+  1650→          onClick={resetGame}
+  1651→          variant="ghost"
+  1652→          size="sm"
+  1653→          className="text-white/30 hover:text-white/60 hover:bg-white/5"
+  1654→        >
+  1655→          <RotateCcw className="w-3 h-3 mr-1" />
+  1656→          Reiniciar Tudo
+  1657→        </Button>
+  1658→      )}
+  1659→
+  1660→      <span className="text-white/10 text-[10px]">
+  1661→        Vida: {Math.round(healthP1)}% vs {Math.round(healthP2)}% | Turno #{turnCount}
+  1662→      </span>
+  1663→    </div>
+  1664→  );
+  1665→}
+  1666→

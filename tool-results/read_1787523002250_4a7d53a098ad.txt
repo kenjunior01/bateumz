@@ -1,0 +1,878 @@
+     1→import { useState, useEffect, useCallback, useRef } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import confetti from "canvas-confetti";
+     4→import confetti from "canvas-confetti";
+     5→
+     6→interface UriProps {
+     7→  onScore?: (name: string, score: number) => void;
+     8→  liveCode?: string;
+     9→}
+    10→
+    11→type Phase = "menu" | "countdown" | "playing" | "result";
+    12→type Mode = "bot" | "pvp";
+    13→type Difficulty = "Facil" | "Medio" | "Dificil";
+    14→type Temperature = "Quente" | "Morno" | "Frio" | "Congelado" | "Acertou";
+    15→
+    16→interface GuessEntry {
+    17→  value: number;
+    18→  temperature: Temperature;
+    19→  direction: "maior" | "menor" | "";
+    20→}
+    21→
+    22→const GAME_DURATION = 60;
+    23→
+    24→const TEMP_COLORS: Record<Temperature, string> = {
+    25→  Acertou: "#009140",
+    26→  Quente: "#FF0000",
+    27→  Morno: "#FFD700",
+    28→  Frio: "#6B7280",
+    29→  Congelado: "#9CA3AF",
+    30→};
+    31→
+    32→const TEMP_BG: Record<Temperature, string> = {
+    33→  Acertou: "rgba(0,145,64,0.15)",
+    34→  Quente: "rgba(255,0,0,0.12)",
+    35→  Morno: "rgba(255,215,0,0.12)",
+    36→  Frio: "rgba(107,114,128,0.10)",
+    37→  Congelado: "rgba(156,163,175,0.08)",
+    38→};
+    39→
+    40→const BOT_NOISE: Record<Difficulty, number> = { Facil: 20, Medio: 8, Dificil: 2 };
+    41→const BOT_SPEED: Record<Difficulty, [number, number]> = {
+    42→  Facil: [2500, 4500],
+    43→  Medio: [1500, 3000],
+    44→  Dificil: [1000, 2000],
+    45→};
+    46→
+    47→function getTemperature(guess: number, secret: number): Temperature {
+    48→  const diff = Math.abs(guess - secret);
+    49→  if (diff === 0) return "Acertou";
+    50→  if (diff <= 10) return "Quente";
+    51→  if (diff <= 25) return "Morno";
+    52→  if (diff <= 50) return "Frio";
+    53→  return "Congelado";
+    54→}
+    55→
+    56→function getDirection(guess: number, secret: number): "maior" | "menor" | "" {
+    57→  if (guess === secret) return "";
+    58→  return guess < secret ? "maior" : "menor";
+    59→}
+    60→
+    61→function generateSecret(): number {
+    62→  return Math.floor(Math.random() * 100) + 1;
+    63→}
+    64→
+    65→const CapulanaPattern = () => (
+    66→  <svg
+    67→    className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none"
+    68→    xmlns="http://www.w3.org/2000/svg"
+    69→  >
+    70→    <defs>
+    71→      <pattern
+    72→        id="uri-capulana-pattern"
+    73→        x="0"
+    74→        y="0"
+    75→        width="28"
+    76→        height="28"
+    77→        patternUnits="userSpaceOnUse"
+    78→      >
+    79→        <path d="M14 0L28 14L14 28L0 14Z" fill="none" stroke="#FFD700" strokeWidth="0.6" />
+    80→        <circle cx="14" cy="14" r="4" fill="none" stroke="#009140" strokeWidth="0.4" />
+    81→        <path d="M14 2L26 14L14 26L2 14Z" fill="none" stroke="#FF6B35" strokeWidth="0.3" />
+    82→      </pattern>
+    83→    </defs>
+    84→    <rect width="100%" height="100%" fill="url(#uri-capulana-pattern)" />
+    85→  </svg>
+    86→);
+    87→
+    88→export default function UriGame({ onScore, liveCode }: UriProps) {
+    89→  const [mode, setMode] = useState<Mode>("bot");
+    90→  const [difficulty, setDifficulty] = useState<Difficulty>("Medio");
+    91→  const [phase, setPhase] = useState<Phase>("menu");
+    92→  const [countdownNum, setCountdownNum] = useState(3);
+    93→  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+    94→  const [secret, setSecret] = useState(0);
+    95→  const [round, setRound] = useState(1);
+    96→  const [score, setScore] = useState({ p1: 0, p2: 0 });
+    97→  const [p1History, setP1History] = useState<GuessEntry[]>([]);
+    98→  const [p2History, setP2History] = useState<GuessEntry[]>([]);
+    99→  const [p1Tries, setP1Tries] = useState(0);
+   100→  const [p2Tries, setP2Tries] = useState(0);
+   101→  const [p1Input, setP1Input] = useState("");
+   102→  const [p2Input, setP2Input] = useState("");
+   103→  const [roundWinner, setRoundWinner] = useState<"p1" | "p2" | null>(null);
+   104→  const [roundMsg, setRoundMsg] = useState("");
+   105→  const [roundsWon, setRoundsWon] = useState({ p1: 0, p2: 0 });
+   106→
+   107→  const roundEndedRef = useRef(false);
+   108→  const botStateRef = useRef({ low: 1, high: 100 });
+   109→  const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   110→  const roundTransRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   111→  const gameTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   112→  const secretRef = useRef(0);
+   113→  const p1InputRef = useRef<HTMLInputElement>(null);
+   114→  const p2InputRef = useRef<HTMLInputElement>(null);
+   115→
+   116→  const secretSnapshot = useRef(0);
+   117→  const p1TriesRef = useRef(0);
+   118→  const p2TriesRef = useRef(0);
+   119→
+   120→  // Keep refs in sync
+   121→  useEffect(() => {
+   122→    secretSnapshot.current = secret;
+   123→  }, [secret]);
+   124→  useEffect(() => {
+   125→    p1TriesRef.current = p1Tries;
+   126→  }, [p1Tries]);
+   127→  useEffect(() => {
+   128→    p2TriesRef.current = p2Tries;
+   129→  }, [p2Tries]);
+   130→
+   131→  const clearAllTimers = useCallback(() => {
+   132→    if (botTimerRef.current) { clearTimeout(botTimerRef.current); botTimerRef.current = null; }
+   133→    if (roundTransRef.current) { clearTimeout(roundTransRef.current); roundTransRef.current = null; }
+   134→    if (gameTimerRef.current) { clearInterval(gameTimerRef.current); gameTimerRef.current = null; }
+   135→  }, []);
+   136→
+   137→  const startNewRound = useCallback(() => {
+   138→    const newSecret = generateSecret();
+   139→    setSecret(newSecret);
+   140→    secretRef.current = newSecret;
+   141→    setP1History([]);
+   142→    setP2History([]);
+   143→    setP1Tries(0);
+   144→    setP2Tries(0);
+   145→    p1TriesRef.current = 0;
+   146→    p2TriesRef.current = 0;
+   147→    setRoundWinner(null);
+   148→    setRoundMsg("");
+   149→    roundEndedRef.current = false;
+   150→    botStateRef.current = { low: 1, high: 100 };
+   151→    setRound((r) => r + 1);
+   152→  }, []);
+   153→
+   154→  const endGame = useCallback(() => {
+   155→    clearAllTimers();
+   156→    setPhase("result");
+   157→    onScore?.("Uri", score.p1);
+   158→    if (score.p1 > score.p2) {
+   159→      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+   160→    }
+   161→  }, [clearAllTimers, onScore, score.p1]);
+   162→
+   163→  // Handle a guess from a player
+   164→  const processGuess = useCallback(
+   165→    (player: "p1" | "p2", value: number) => {
+   166→      if (roundEndedRef.current) return;
+   167→      const s = secretSnapshot.current;
+   168→      const temp = getTemperature(value, s);
+   169→      const dir = getDirection(value, s);
+   170→      const entry: GuessEntry = { value, temperature: temp, direction: dir };
+   171→
+   172→      if (player === "p1") {
+   173→        setP1History((h) => [...h, entry]);
+   174→        setP1Tries((t) => t + 1);
+   175→        p1TriesRef.current += 1;
+   176→      } else {
+   177→        setP2History((h) => [...h, entry]);
+   178→        setP2Tries((t) => t + 1);
+   179→        p2TriesRef.current += 1;
+   180→      }
+   181→
+   182→      if (temp === "Acertou") {
+   183→        roundEndedRef.current = true;
+   184→        const tries = player === "p1" ? p1TriesRef.current : p2TriesRef.current;
+   185→        const pts = Math.max(0, 100 - tries * 5);
+   186→        setRoundWinner(player);
+   187→        const label = player === "p1" ? "Jogador 1" : mode === "bot" ? "Bot" : "Jogador 2";
+   188→        setRoundMsg(`${label} acertou! O numero era ${s}. +${pts} pontos!`);
+   189→        setScore((prev) => ({ ...prev, [player]: prev[player as "p1" | "p2"] + pts }));
+   190→        setRoundsWon((prev) => ({ ...prev, [player]: prev[player as "p1" | "p2"] + 1 }));
+   191→
+   192→        // Start new round after delay
+   193→        roundTransRef.current = setTimeout(() => {
+   194→          startNewRound();
+   195→        }, 2000);
+   196→      }
+   197→    },
+   198→    [mode, startNewRound]
+   199→  );
+   200→
+   201→  // Bot AI
+   202→  useEffect(() => {
+   203→    if (phase !== "playing" || mode !== "bot" || roundEndedRef.current) return;
+   204→
+   205→    const [minMs, maxMs] = BOT_SPEED[difficulty];
+   206→    const delay = minMs + Math.random() * (maxMs - minMs);
+   207→
+   208→    botTimerRef.current = setTimeout(() => {
+   209→      if (roundEndedRef.current || phase !== "playing") return;
+   210→
+   211→      const bs = botStateRef.current;
+   212→      const mid = Math.floor((bs.low + bs.high) / 2);
+   213→      const noise = BOT_NOISE[difficulty];
+   214→      const noisyGuess = mid + Math.floor(Math.random() * (noise * 2 + 1)) - noise;
+   215→      const clamped = Math.max(1, Math.min(100, Math.max(bs.low, Math.min(bs.high, noisyGuess))));
+   216→
+   217→      const temp = getTemperature(clamped, secretSnapshot.current);
+   218→      const dir = getDirection(clamped, secretSnapshot.current);
+   219→
+   220→      // Update bot's binary search bounds
+   221→      if (dir === "maior") {
+   222→        botStateRef.current.low = Math.min(100, clamped + 1);
+   223→      } else if (dir === "menor") {
+   224→        botStateRef.current.high = Math.max(1, clamped - 1);
+   225→      }
+   226→
+   227→      processGuess("p2", clamped);
+   228→    }, delay);
+   229→
+   230→    return () => {
+   231→      if (botTimerRef.current) {
+   232→        clearTimeout(botTimerRef.current);
+   233→        botTimerRef.current = null;
+   234→      }
+   235→    };
+   236→  }, [phase, mode, difficulty, round, roundWinner, processGuess]);
+   237→
+   238→  // Game timer
+   239→  useEffect(() => {
+   240→    if (phase !== "playing") return;
+   241→    gameTimerRef.current = setInterval(() => {
+   242→      setTimeLeft((prev) => {
+   243→        if (prev <= 1) {
+   244→          clearAllTimers();
+   245→          setPhase("result");
+   246→          onScore?.("Uri", score.p1);
+   247→          return 0;
+   248→        }
+   249→        return prev - 1;
+   250→      });
+   251→    }, 1000);
+   252→    return () => {
+   253→      if (gameTimerRef.current) {
+   254→        clearInterval(gameTimerRef.current);
+   255→        gameTimerRef.current = null;
+   256→      }
+   257→    };
+   258→  }, [phase, clearAllTimers, onScore, score.p1]);
+   259→
+   260→  // Countdown effect
+   261→  useEffect(() => {
+   262→    if (phase !== "countdown") return;
+   263→    if (countdownNum <= 0) {
+   264→      const s = generateSecret();
+   265→      setSecret(s);
+   266→      secretSnapshot.current = s;
+   267→      setPhase("playing");
+   268→      return;
+   269→    }
+   270→    const t = setTimeout(() => setCountdownNum((n) => n - 1), 800);
+   271→    return () => clearTimeout(t);
+   272→  }, [phase, countdownNum]);
+   273→
+   274→  const startGame = useCallback(() => {
+   275→    setScore({ p1: 0, p2: 0 });
+   276→    setRoundsWon({ p1: 0, p2: 0 });
+   277→    setP1History([]);
+   278→    setP2History([]);
+   279→    setP1Tries(0);
+   280→    setP2Tries(0);
+   281→    p1TriesRef.current = 0;
+   282→    p2TriesRef.current = 0;
+   283→    setRound(1);
+   284→    setTimeLeft(GAME_DURATION);
+   285→    setRoundWinner(null);
+   286→    setRoundMsg("");
+   287→    setP1Input("");
+   288→    setP2Input("");
+   289→    roundEndedRef.current = false;
+   290→    botStateRef.current = { low: 1, high: 100 };
+   291→    setCountdownNum(3);
+   292→    setPhase("countdown");
+   293→  }, []);
+   294→
+   295→  const handleP1Submit = useCallback(() => {
+   296→    const num = parseInt(p1Input);
+   297→    if (isNaN(num) || num < 1 || num > 100) return;
+   298→    processGuess("p1", num);
+   299→    setP1Input("");
+   300→    setTimeout(() => p1InputRef.current?.focus(), 50);
+   301→  }, [p1Input, processGuess]);
+   302→
+   303→  const handleP2Submit = useCallback(() => {
+   304→    const num = parseInt(p2Input);
+   305→    if (isNaN(num) || num < 1 || num > 100) return;
+   306→    processGuess("p2", num);
+   307→    setP2Input("");
+   308→    setTimeout(() => p2InputRef.current?.focus(), 50);
+   309→  }, [p2Input, processGuess]);
+   310→
+   311→  const handleP1KeyDown = useCallback(
+   312→    (e: React.KeyboardEvent) => {
+   313→      if (e.key === "Enter") handleP1Submit();
+   314→    },
+   315→    [handleP1Submit]
+   316→  );
+   317→
+   318→  const handleP2KeyDown = useCallback(
+   319→    (e: React.KeyboardEvent) => {
+   320→      if (e.key === "Enter") handleP2Submit();
+   321→    },
+   322→    [handleP2Submit]
+   323→  );
+   324→
+   325→  const resetGame = useCallback(() => {
+   326→    clearAllTimers();
+   327→    setPhase("menu");
+   328→  }, [clearAllTimers]);
+   329→
+   330→  // Cleanup on unmount
+   331→  useEffect(() => {
+   332→    return () => clearAllTimers();
+   333→  }, [clearAllTimers]);
+   334→
+   335→  const p2Label = mode === "bot" ? "Bot" : "Jogador 2";
+   336→  const timerPct = (timeLeft / GAME_DURATION) * 100;
+   337→  const timerColor =
+   338→    timeLeft > 30 ? "#009140" : timeLeft > 15 ? "#FFD700" : "#FF0000";
+   339→
+   340→  return (
+   341→    <div className="relative w-full max-w-2xl mx-auto rounded-2xl border-2 border-amber-700/40 overflow-hidden bg-gradient-to-br from-stone-900 via-stone-800 to-stone-900 text-white">
+   342→      <CapulanaPattern />
+   343→
+   344→      <div className="relative z-10">
+   345→        <AnimatePresence mode="wait">
+   346→
+   347→          {phase === "menu" && (
+   348→            <motion.div
+   349→              key="menu"
+   350→              initial={{ opacity: 0, y: 20 }}
+   351→              animate={{ opacity: 1, y: 0 }}
+   352→              exit={{ opacity: 0, y: -20 }}
+   353→              className="p-6 space-y-6"
+   354→            >
+   355→
+   356→              <div className="text-center space-y-2">
+   357→                <motion.h2
+   358→                  className="text-3xl font-black tracking-tight"
+   359→                  style={{ color: "#FFD700" }}
+   360→                  animate={{ scale: [1, 1.03, 1] }}
+   361→                  transition={{ repeat: Infinity, duration: 2 }}
+   362→                >
+   363→                  Uri
+   364→                </motion.h2>
+   365→                <p className="text-stone-400 text-sm">
+   366→                  Jogo tradicional mocambicano de adivinhacao
+   367→                </p>
+   368→                <div className="flex items-center justify-center gap-2 mt-2">
+   369→                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(0,145,64,0.2)", color: "#009140" }}>
+   370→                    Quente
+   371→                  </span>
+   372→                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(255,215,0,0.15)", color: "#FFD700" }}>
+   373→                    Morno
+   374→                  </span>
+   375→                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(107,114,128,0.15)", color: "#9CA3AF" }}>
+   376→                    Frio
+   377→                  </span>
+   378→                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(156,163,175,0.1)", color: "#6B7280" }}>
+   379→                    Congelado
+   380→                  </span>
+   381→                </div>
+   382→              </div>
+   383→
+   384→              <div className="space-y-2">
+   385→                <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">
+   386→                  Modo de Jogo
+   387→                </label>
+   388→                <div className="grid grid-cols-2 gap-3">
+   389→                  {(["bot", "pvp"] as Mode[]).map((m) => (
+   390→                    <motion.button
+   391→                      key={m}
+   392→                      whileHover={{ scale: 1.02 }}
+   393→                      whileTap={{ scale: 0.98 }}
+   394→                      onClick={() => setMode(m)}
+   395→                      className="py-3 px-4 rounded-xl font-bold text-sm border-2 transition-all"
+   396→                      style={{
+   397→                        borderColor: mode === m ? "#FFD700" : "rgba(255,255,255,0.08)",
+   398→                        backgroundColor: mode === m ? "rgba(255,215,0,0.12)" : "rgba(255,255,255,0.03)",
+   399→                        color: mode === m ? "#FFD700" : "#9CA3AF",
+   400→                      }}
+   401→                    >
+   402→                      {m === "bot" ? "Contra Bot" : "Jogador vs Jogador"}
+   403→                    </motion.button>
+   404→                  ))}
+   405→                </div>
+   406→              </div>
+   407→
+   408→              {mode === "bot" && (
+   409→                <motion.div
+   410→                  initial={{ opacity: 0, height: 0 }}
+   411→                  animate={{ opacity: 1, height: "auto" }}
+   412→                  exit={{ opacity: 0, height: 0 }}
+   413→                  className="space-y-2"
+   414→                >
+   415→                  <label className="text-xs text-stone-500 uppercase tracking-wider font-semibold">
+   416→                    Dificuldade
+   417→                  </label>
+   418→                  <div className="grid grid-cols-3 gap-2">
+   419→                    {(["Facil", "Medio", "Dificil"] as Difficulty[]).map((d) => (
+   420→                      <motion.button
+   421→                        key={d}
+   422→                        whileHover={{ scale: 1.02 }}
+   423→                        whileTap={{ scale: 0.98 }}
+   424→                        onClick={() => setDifficulty(d)}
+   425→                        className="py-2.5 px-3 rounded-xl font-bold text-xs border-2 transition-all"
+   426→                        style={{
+   427→                          borderColor: difficulty === d ? "#FF6B35" : "rgba(255,255,255,0.08)",
+   428→                          backgroundColor:
+   429→                            difficulty === d ? "rgba(255,107,53,0.15)" : "rgba(255,255,255,0.03)",
+   430→                          color: difficulty === d ? "#FF6B35" : "#9CA3AF",
+   431→                        }}
+   432→                      >
+   433→                        {d}
+   434→                      </motion.button>
+   435→                    ))}
+   436→                  </div>
+   437→                  <p className="text-[11px] text-stone-500">
+   438→                    {difficulty === "Facil" && "O bot e distraido — faz muitas tentativas aleatorias"}
+   439→                    {difficulty === "Medio" && "O bot e esperto — comete alguns erros"}
+   440→                    {difficulty === "Dificil" && "O bot e quase perfeito — busca binaria precisa"}
+   441→                  </p>
+   442→                </motion.div>
+   443→              )}
+   444→
+   445→              <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.1)" }}>
+   446→                <h3 className="text-xs font-bold mb-2" style={{ color: "#FFD700" }}>
+   447→                  Como Jogar
+   448→                </h3>
+   449→                <ul className="text-xs text-stone-400 space-y-1">
+   450→                  <li>Ambos os jogadores tentam adivinhar o mesmo numero secreto (1-100)</li>
+   451→                  <li>Apos cada tentativa, recebe uma dica de temperatura e direccao</li>
+   452→                  <li>O primeiro a acertar ganha pontos: 100 - (tentativas x 5)</li>
+   453→                  <li>Multiplas rodadas em 60 segundos. Acumule a maior pontuacao!</li>
+   454→                </ul>
+   455→              </div>
+   456→
+   457→              <motion.button
+   458→                whileHover={{ scale: 1.03 }}
+   459→                whileTap={{ scale: 0.97 }}
+   460→                onClick={startGame}
+   461→                className="w-full py-3.5 rounded-xl font-black text-base tracking-wide"
+   462→                style={{
+   463→                  background: "linear-gradient(135deg, #009140, #006B30)",
+   464→                  color: "#FFD700",
+   465→                  boxShadow: "0 4px 20px rgba(0,145,64,0.3), 0 0 30px rgba(0,145,64,0.15)",
+   466→                }}
+   467→              >
+   468→                COMECAR JOGO
+   469→              </motion.button>
+   470→            </motion.div>
+   471→          )}
+   472→
+   473→          {phase === "countdown" && (
+   474→            <motion.div
+   475→              key="countdown"
+   476→              initial={{ opacity: 0 }}
+   477→              animate={{ opacity: 1 }}
+   478→              exit={{ opacity: 0 }}
+   479→              className="flex flex-col items-center justify-center py-20 space-y-4"
+   480→            >
+   481→              <AnimatePresence mode="wait">
+   482→                <motion.div
+   483→                  key={countdownNum}
+   484→                  initial={{ scale: 0.5, opacity: 0 }}
+   485→                  animate={{ scale: 1, opacity: 1 }}
+   486→                  exit={{ scale: 1.5, opacity: 0 }}
+   487→                  transition={{ duration: 0.6 }}
+   488→                  className="text-8xl font-black"
+   489→                  style={{ color: countdownNum > 0 ? "#FFD700" : "#009140" }}
+   490→                >
+   491→                  {countdownNum > 0 ? countdownNum : "VAI!"}
+   492→                </motion.div>
+   493→              </AnimatePresence>
+   494→              <p className="text-stone-500 text-sm">Preparem-se...</p>
+   495→            </motion.div>
+   496→          )}
+   497→
+   498→          {phase === "playing" && (
+   499→            <motion.div
+   500→              key="playing"
+   501→              initial={{ opacity: 0 }}
+   502→              animate={{ opacity: 1 }}
+   503→              exit={{ opacity: 0 }}
+   504→              className="p-4 space-y-3"
+   505→            >
+   506→
+   507→              <div className="space-y-1">
+   508→                <div className="flex items-center justify-between">
+   509→                  <span className="text-xs font-bold text-stone-400">
+   510→                    Rodada {round}
+   511→                  </span>
+   512→                  <span
+   513→                    className="text-sm font-black tabular-nums"
+   514→                    style={{ color: timerColor }}
+   515→                  >
+   516→                    {timeLeft}s
+   517→                  </span>
+   518→                </div>
+   519→                <div className="w-full h-2 rounded-full bg-stone-700/50 overflow-hidden">
+   520→                  <motion.div
+   521→                    className="h-full rounded-full"
+   522→                    style={{ backgroundColor: timerColor }}
+   523→                    animate={{ width: `${timerPct}%` }}
+   524→                    transition={{ duration: 0.5 }}
+   525→                  />
+   526→                </div>
+   527→              </div>
+   528→
+   529→              <div className="grid grid-cols-2 gap-3">
+   530→                <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: "rgba(0,145,64,0.08)", border: "1px solid rgba(0,145,64,0.15)" }}>
+   531→                  <div className="text-[10px] text-stone-500 uppercase font-semibold">Jogador 1</div>
+   532→                  <div className="text-lg font-black" style={{ color: "#009140" }}>{score.p1}</div>
+   533→                  <div className="text-[10px] text-stone-600">{roundsWon.p1} rodada{roundsWon.p1 !== 1 ? "s" : ""}</div>
+   534→                </div>
+   535→                <div className="rounded-lg p-2.5 text-center" style={{ backgroundColor: "rgba(255,107,53,0.08)", border: "1px solid rgba(255,107,53,0.15)" }}>
+   536→                  <div className="text-[10px] text-stone-500 uppercase font-semibold">{p2Label}</div>
+   537→                  <div className="text-lg font-black" style={{ color: "#FF6B35" }}>{score.p2}</div>
+   538→                  <div className="text-[10px] text-stone-600">{roundsWon.p2} rodada{roundsWon.p2 !== 1 ? "s" : ""}</div>
+   539→                </div>
+   540→              </div>
+   541→
+   542→              <AnimatePresence>
+   543→                {roundWinner && (
+   544→                  <motion.div
+   545→                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+   546→                    animate={{ opacity: 1, y: 0, scale: 1 }}
+   547→                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+   548→                    className="rounded-lg p-3 text-center text-sm font-bold"
+   549→                    style={{
+   550→                      backgroundColor:
+   551→                        roundWinner === "p1" ? "rgba(0,145,64,0.15)" : "rgba(255,107,53,0.15)",
+   552→                      color: roundWinner === "p1" ? "#009140" : "#FF6B35",
+   553→                      border: `1px solid ${roundWinner === "p1" ? "rgba(0,145,64,0.3)" : "rgba(255,107,53,0.3)"}`,
+   554→                    }}
+   555→                  >
+   556→                    {roundMsg}
+   557→                  </motion.div>
+   558→                )}
+   559→              </AnimatePresence>
+   560→
+   561→              <div className="grid grid-cols-2 gap-3">
+   562→
+   563→                <div className="space-y-2">
+   564→                  <div className="flex items-center justify-between">
+   565→                    <span className="text-xs font-bold" style={{ color: "#009140" }}>
+   566→                      Jogador 1
+   567→                    </span>
+   568→                    {p1History.length > 0 && (
+   569→                      <span className="text-[10px] text-stone-600">
+   570→                        {p1History.length} tentativa{p1History.length !== 1 ? "s" : ""}
+   571→                      </span>
+   572→                    )}
+   573→                  </div>
+   574→                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+   575→                    {p1History.length === 0 && (
+   576→                      <p className="text-[11px] text-stone-600 italic">Nenhuma tentativa ainda</p>
+   577→                    )}
+   578→                    {p1History.map((g, i) => (
+   579→                      <motion.div
+   580→                        key={i}
+   581→                        initial={{ opacity: 0, x: -10 }}
+   582→                        animate={{ opacity: 1, x: 0 }}
+   583→                        className="flex items-center gap-1.5 rounded-md px-2 py-1"
+   584→                        style={{ backgroundColor: TEMP_BG[g.temperature] }}
+   585→                      >
+   586→                        <span className="text-xs font-bold tabular-nums w-7 text-right" style={{ color: TEMP_COLORS[g.temperature] }}>
+   587→                          {g.value}
+   588→                        </span>
+   589→                        {g.direction && (
+   590→                          <span className="text-[10px]" style={{ color: TEMP_COLORS[g.temperature] }}>
+   591→                            {g.direction === "maior" ? "▲" : "▼"}
+   592→                          </span>
+   593→                        )}
+   594→                        <span
+   595→                          className="text-[10px] font-semibold ml-auto"
+   596→                          style={{ color: TEMP_COLORS[g.temperature] }}
+   597→                        >
+   598→                          {g.temperature}
+   599→                        </span>
+   600→                      </motion.div>
+   601→                    ))}
+   602→                  </div>
+   603→                </div>
+   604→
+   605→                <div className="space-y-2">
+   606→                  <div className="flex items-center justify-between">
+   607→                    <span className="text-xs font-bold" style={{ color: "#FF6B35" }}>
+   608→                      {p2Label}
+   609→                    </span>
+   610→                    {p2History.length > 0 && (
+   611→                      <span className="text-[10px] text-stone-600">
+   612→                        {p2History.length} tentativa{p2History.length !== 1 ? "s" : ""}
+   613→                      </span>
+   614→                    )}
+   615→                  </div>
+   616→                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+   617→                    {p2History.length === 0 && (
+   618→                      <p className="text-[11px] text-stone-600 italic">
+   619→                        {mode === "bot" ? "O bot esta a pensar..." : "Nenhuma tentativa ainda"}
+   620→                      </p>
+   621→                    )}
+   622→                    {p2History.map((g, i) => (
+   623→                      <motion.div
+   624→                        key={i}
+   625→                        initial={{ opacity: 0, x: 10 }}
+   626→                        animate={{ opacity: 1, x: 0 }}
+   627→                        className="flex items-center gap-1.5 rounded-md px-2 py-1"
+   628→                        style={{ backgroundColor: TEMP_BG[g.temperature] }}
+   629→                      >
+   630→                        <span className="text-xs font-bold tabular-nums w-7 text-right" style={{ color: TEMP_COLORS[g.temperature] }}>
+   631→                          {g.value}
+   632→                        </span>
+   633→                        {g.direction && (
+   634→                          <span className="text-[10px]" style={{ color: TEMP_COLORS[g.temperature] }}>
+   635→                            {g.direction === "maior" ? "▲" : "▼"}
+   636→                          </span>
+   637→                        )}
+   638→                        <span
+   639→                          className="text-[10px] font-semibold ml-auto"
+   640→                          style={{ color: TEMP_COLORS[g.temperature] }}
+   641→                        >
+   642→                          {g.temperature}
+   643→                        </span>
+   644→                      </motion.div>
+   645→                    ))}
+   646→                  </div>
+   647→                </div>
+   648→              </div>
+   649→
+   650→              <div className={mode === "pvp" ? "grid grid-cols-2 gap-3" : ""}>
+   651→
+   652→                <div className="space-y-1.5">
+   653→                  <label className="text-[10px] text-stone-500 uppercase tracking-wider font-semibold block">
+   654→                    Jogador 1
+   655→                  </label>
+   656→                  <div className="flex gap-2">
+   657→                    <input
+   658→                      ref={p1InputRef}
+   659→                      type="number"
+   660→                      min={1}
+   661→                      max={100}
+   662→                      value={p1Input}
+   663→                      onChange={(e) => setP1Input(e.target.value.slice(0, 3))}
+   664→                      onKeyDown={handleP1KeyDown}
+   665→                      disabled={!!roundWinner}
+   666→                      placeholder="1-100"
+   667→                      className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm font-bold bg-stone-800/60 border border-stone-700/50 text-white placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#009140]/50 focus:border-[#009140]/50 disabled:opacity-40 transition-all"
+   668→                    />
+   669→                    <motion.button
+   670→                      whileHover={{ scale: 1.05 }}
+   671→                      whileTap={{ scale: 0.95 }}
+   672→                      onClick={handleP1Submit}
+   673→                      disabled={!!roundWinner || !p1Input}
+   674→                      className="px-4 py-2 rounded-lg font-bold text-xs transition-all disabled:opacity-30"
+   675→                      style={{
+   676→                        backgroundColor: "rgba(0,145,64,0.2)",
+   677→                        color: "#009140",
+   678→                        border: "1px solid rgba(0,145,64,0.3)",
+   679→                      }}
+   680→                    >
+   681→                      Chutar
+   682→                    </motion.button>
+   683→                  </div>
+   684→                </div>
+   685→
+   686→                {mode === "pvp" && (
+   687→                  <div className="space-y-1.5">
+   688→                    <label className="text-[10px] text-stone-500 uppercase tracking-wider font-semibold block">
+   689→                      Jogador 2
+   690→                    </label>
+   691→                    <div className="flex gap-2">
+   692→                      <input
+   693→                        ref={p2InputRef}
+   694→                        type="number"
+   695→                        min={1}
+   696→                        max={100}
+   697→                        value={p2Input}
+   698→                        onChange={(e) => setP2Input(e.target.value.slice(0, 3))}
+   699→                        onKeyDown={handleP2KeyDown}
+   700→                        disabled={!!roundWinner}
+   701→                        placeholder="1-100"
+   702→                        className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm font-bold bg-stone-800/60 border border-stone-700/50 text-white placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/50 focus:border-[#FF6B35]/50 disabled:opacity-40 transition-all"
+   703→                      />
+   704→                      <motion.button
+   705→                        whileHover={{ scale: 1.05 }}
+   706→                        whileTap={{ scale: 0.95 }}
+   707→                        onClick={handleP2Submit}
+   708→                        disabled={!!roundWinner || !p2Input}
+   709→                        className="px-4 py-2 rounded-lg font-bold text-xs transition-all disabled:opacity-30"
+   710→                        style={{
+   711→                          backgroundColor: "rgba(255,107,53,0.2)",
+   712→                          color: "#FF6B35",
+   713→                          border: "1px solid rgba(255,107,53,0.3)",
+   714→                        }}
+   715→                      >
+   716→                        Chutar
+   717→                      </motion.button>
+   718→                    </div>
+   719→                  </div>
+   720→                )}
+   721→              </div>
+   722→
+   723→              <div className="flex items-center justify-center gap-3 pt-1">
+   724→                {[
+   725→                  { label: "Quente", color: "#FF0000", desc: "≤10" },
+   726→                  { label: "Morno", color: "#FFD700", desc: "≤25" },
+   727→                  { label: "Frio", color: "#6B7280", desc: "≤50" },
+   728→                  { label: "Congelado", color: "#9CA3AF", desc: ">50" },
+   729→                ].map((t) => (
+   730→                  <div key={t.label} className="flex items-center gap-1">
+   731→                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+   732→                    <span className="text-[10px] text-stone-500">
+   733→                      {t.label}
+   734→                    </span>
+   735→                  </div>
+   736→                ))}
+   737→              </div>
+   738→            </motion.div>
+   739→          )}
+   740→
+   741→          {phase === "result" && (
+   742→            <motion.div
+   743→              key="result"
+   744→              initial={{ opacity: 0, scale: 0.95 }}
+   745→              animate={{ opacity: 1, scale: 1 }}
+   746→              exit={{ opacity: 0 }}
+   747→              className="p-6 space-y-6"
+   748→            >
+   749→
+   750→              <div className="text-center space-y-2">
+   751→                <motion.h2
+   752→                  className="text-2xl font-black"
+   753→                  style={{ color: "#FFD700" }}
+   754→                  initial={{ y: -10, opacity: 0 }}
+   755→                  animate={{ y: 0, opacity: 1 }}
+   756→                >
+   757→                  Jogo Terminado!
+   758→                </motion.h2>
+   759→                <p className="text-stone-400 text-sm">
+   760→                  {roundsWon.p1 + roundsWon.p2} rodada{roundsWon.p1 + roundsWon.p2 !== 1 ? "s" : ""} jogada{roundsWon.p1 + roundsWon.p2 !== 1 ? "s" : ""}
+   761→                </p>
+   762→              </div>
+   763→
+   764→              <motion.div
+   765→                initial={{ scale: 0.8, opacity: 0 }}
+   766→                animate={{ scale: 1, opacity: 1 }}
+   767→                transition={{ delay: 0.2, type: "spring" }}
+   768→                className="rounded-xl p-5 text-center"
+   769→                style={{
+   770→                  backgroundColor:
+   771→                    score.p1 > score.p2
+   772→                      ? "rgba(0,145,64,0.1)"
+   773→                      : score.p2 > score.p1
+   774→                      ? "rgba(255,107,53,0.1)"
+   775→                      : "rgba(255,215,0,0.08)",
+   776→                  border: `2px solid ${
+   777→                    score.p1 > score.p2
+   778→                      ? "rgba(0,145,64,0.3)"
+   779→                      : score.p2 > score.p1
+   780→                      ? "rgba(255,107,53,0.3)"
+   781→                      : "rgba(255,215,0,0.2)"
+   782→                  }`,
+   783→                }}
+   784→              >
+   785→                {score.p1 > score.p2 ? (
+   786→                  <div>
+   787→                    <div className="text-4xl mb-2">🏆</div>
+   788→                    <div className="text-lg font-black" style={{ color: "#009140" }}>
+   789→                      Jogador 1 Venceu!
+   790→                    </div>
+   791→                  </div>
+   792→                ) : score.p2 > score.p1 ? (
+   793→                  <div>
+   794→                    <div className="text-4xl mb-2">🏆</div>
+   795→                    <div className="text-lg font-black" style={{ color: "#FF6B35" }}>
+   796→                      {p2Label} Venceu!
+   797→                    </div>
+   798→                  </div>
+   799→                ) : (
+   800→                  <div>
+   801→                    <div className="text-4xl mb-2">🤝</div>
+   802→                    <div className="text-lg font-black" style={{ color: "#FFD700" }}>
+   803→                      Empate!
+   804→                    </div>
+   805→                  </div>
+   806→                )}
+   807→              </motion.div>
+   808→
+   809→              <div className="grid grid-cols-2 gap-4">
+   810→                <motion.div
+   811→                  initial={{ x: -20, opacity: 0 }}
+   812→                  animate={{ x: 0, opacity: 1 }}
+   813→                  transition={{ delay: 0.3 }}
+   814→                  className="rounded-xl p-4 text-center space-y-2"
+   815→                  style={{
+   816→                    backgroundColor: "rgba(0,145,64,0.06)",
+   817→                    border: "1px solid rgba(0,145,64,0.15)",
+   818→                  }}
+   819→                >
+   820→                  <div className="text-xs text-stone-500 uppercase font-semibold">Jogador 1</div>
+   821→                  <div className="text-3xl font-black" style={{ color: "#009140" }}>
+   822→                    {score.p1}
+   823→                  </div>
+   824→                  <div className="text-xs text-stone-500">
+   825→                    {roundsWon.p1} rodada{roundsWon.p1 !== 1 ? "s" : ""} vencida{roundsWon.p1 !== 1 ? "s" : ""}
+   826→                  </div>
+   827→                </motion.div>
+   828→
+   829→                <motion.div
+   830→                  initial={{ x: 20, opacity: 0 }}
+   831→                  animate={{ x: 0, opacity: 1 }}
+   832→                  transition={{ delay: 0.3 }}
+   833→                  className="rounded-xl p-4 text-center space-y-2"
+   834→                  style={{
+   835→                    backgroundColor: "rgba(255,107,53,0.06)",
+   836→                    border: "1px solid rgba(255,107,53,0.15)",
+   837→                  }}
+   838→                >
+   839→                  <div className="text-xs text-stone-500 uppercase font-semibold">{p2Label}</div>
+   840→                  <div className="text-3xl font-black" style={{ color: "#FF6B35" }}>
+   841→                    {score.p2}
+   842→                  </div>
+   843→                  <div className="text-xs text-stone-500">
+   844→                    {roundsWon.p2} rodada{roundsWon.p2 !== 1 ? "s" : ""} vencida{roundsWon.p2 !== 1 ? "s" : ""}
+   845→                  </div>
+   846→                </motion.div>
+   847→              </div>
+   848→
+   849→              <div className="grid grid-cols-2 gap-3">
+   850→                <motion.button
+   851→                  whileHover={{ scale: 1.03 }}
+   852→                  whileTap={{ scale: 0.97 }}
+   853→                  onClick={startGame}
+   854→                  className="py-3 rounded-xl font-bold text-sm"
+   855→                  style={{
+   856→                    background: "linear-gradient(135deg, #009140, #006B30)",
+   857→                    color: "#FFD700",
+   858→                  }}
+   859→                >
+   860→                  Jogar Novamente
+   861→                </motion.button>
+   862→                <motion.button
+   863→                  whileHover={{ scale: 1.03 }}
+   864→                  whileTap={{ scale: 0.97 }}
+   865→                  onClick={resetGame}
+   866→                  className="py-3 rounded-xl font-bold text-sm border border-stone-600 text-stone-400 hover:text-white hover:border-stone-500 transition-colors"
+   867→                >
+   868→                  Menu
+   869→                </motion.button>
+   870→              </div>
+   871→            </motion.div>
+   872→          )}
+   873→        </AnimatePresence>
+   874→      </div>
+   875→    </div>
+   876→  );
+   877→}
+   878→

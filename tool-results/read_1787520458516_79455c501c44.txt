@@ -1,0 +1,973 @@
+     1→import { useState, useEffect, useCallback, useRef } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→
+     4→const _MODES: ("bot" | "pvp")[] = ["bot", "pvp"];
+     5→const _DIFFS: ("Facil" | "Medio" | "Dificil")[] = ["Facil", "Medio", "Dificil"];
+     6→const _PLAYERS: ("p1" | "p2")[] = ["p1", "p2"];
+     7→
+     8→interface NtchuvaProps {
+     9→  onScore?: (name: string, score: number) => void;
+    10→  liveCode?: string;
+    11→}
+    12→
+    13→/* Capulana-inspired SVG pattern for background (same as MexericaGame) */
+    14→const CapulanaPattern = () => (
+    15→  <svg className="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+    16→    <defs>
+    17→      <pattern id="ntchuva-cap" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    18→        <rect width="40" height="40" fill="none" />
+    19→        <path d="M0 0L20 20L40 0" stroke="#FFD700" strokeWidth="1" fill="none" />
+    20→        <path d="M0 20L20 40L40 20" stroke="#009140" strokeWidth="1" fill="none" />
+    21→        <circle cx="20" cy="20" r="3" fill="#FF0000" />
+    22→        <circle cx="0" cy="0" r="2" fill="#FFD700" />
+    23→        <circle cx="40" cy="0" r="2" fill="#FFD700" />
+    24→        <circle cx="0" cy="40" r="2" fill="#009140" />
+    25→        <circle cx="40" cy="40" r="2" fill="#009140" />
+    26→      </pattern>
+    27→    </defs>
+    28→    <rect width="100%" height="100%" fill="url(#ntchuva-cap)" />
+    29→  </svg>
+    30→);
+    31→
+    32→/* Hopscotch foot SVG */
+    33→const FootSVG = () => (
+    34→  <svg viewBox="0 0 40 56" className="w-full h-full">
+    35→    <ellipse cx="20" cy="10" rx="8" ry="10" fill="#FFD700" />
+    36→    <ellipse cx="20" cy="10" rx="6" ry="8" fill="#CD853F" />
+    37→    <rect x="14" y="18" width="12" height="28" rx="4" fill="#FFD700" />
+    38→    <rect x="15" y="18" width="10" height="28" rx="3" fill="#CD853F" />
+    39→    <ellipse cx="20" cy="48" rx="9" ry="5" fill="#FFD700" />
+    40→    <ellipse cx="20" cy="48" rx="7" ry="4" fill="#CD853F" />
+    41→  </svg>
+    42→);
+    43→
+    44→interface SquareData {
+    45→  id: number;
+    46→  row: number;
+    47→  col: number;
+    48→  value: number;
+    49→  isTrap: boolean;
+    50→  tapped: boolean;
+    51→  tappedBy: "p1" | "p2" | null;
+    52→}
+    53→
+    54→/* Hopscotch grid layout: 3 columns x 5 rows with 9 main slots + 6 trap slots */
+    55→const GRID_POSITIONS: { row: number; col: number; isMain: boolean }[] = [
+    56→  /* Row 0: two outer squares, center is trap slot */
+    57→  { row: 0, col: 0, isMain: true },
+    58→  { row: 0, col: 1, isMain: false },
+    59→  { row: 0, col: 2, isMain: true },
+    60→  /* Row 1: center square, outer slots for traps */
+    61→  { row: 1, col: 0, isMain: false },
+    62→  { row: 1, col: 1, isMain: true },
+    63→  { row: 1, col: 2, isMain: false },
+    64→  /* Row 2: three squares across */
+    65→  { row: 2, col: 0, isMain: true },
+    66→  { row: 2, col: 1, isMain: true },
+    67→  { row: 2, col: 2, isMain: true },
+    68→  /* Row 3: center square, outer slots for traps */
+    69→  { row: 3, col: 0, isMain: false },
+    70→  { row: 3, col: 1, isMain: true },
+    71→  { row: 3, col: 2, isMain: false },
+    72→  /* Row 4: two outer squares, center is trap slot */
+    73→  { row: 4, col: 0, isMain: true },
+    74→  { row: 4, col: 1, isMain: false },
+    75→  { row: 4, col: 2, isMain: true },
+    76→];
+    77→
+    78→/* Shuffle array (Fisher-Yates) */
+    79→function shuffle<T>(arr: T[]): T[] {
+    80→  const a = [...arr];
+    81→  for (let i = a.length - 1; i > 0; i--) {
+    82→    const j = Math.floor(Math.random() * (i + 1));
+    83→    [a[i], a[j]] = [a[j], a[i]];
+    84→  }
+    85→  return a;
+    86→}
+    87→
+    88→/* Generate a new round of squares */
+    89→function generateRound(roundNum: number): SquareData[] {
+    90→  const numTraps = Math.min(6, (roundNum - 1) * 2);
+    91→  const mainPositions = GRID_POSITIONS.filter((p) => p.isMain);
+    92→  const trapSlots = shuffle(GRID_POSITIONS.filter((p) => !p.isMain));
+    93→
+    94→  const shuffledNumbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    95→
+    96→  const squares: SquareData[] = [];
+    97→
+    98→  mainPositions.forEach((pos, i) => {
+    99→    squares.push({
+   100→      id: i,
+   101→      row: pos.row,
+   102→      col: pos.col,
+   103→      value: shuffledNumbers[i],
+   104→      isTrap: false,
+   105→      tapped: false,
+   106→      tappedBy: null,
+   107→    });
+   108→  });
+   109→
+   110→  /* Trap values: confusing numbers outside 1-9 range */
+   111→  const trapPool = [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+   112→  for (let i = 0; i < numTraps; i++) {
+   113→    const pos = trapSlots[i];
+   114→    squares.push({
+   115→      id: 9 + i,
+   116→      row: pos.row,
+   117→      col: pos.col,
+   118→      value: trapPool[i % trapPool.length],
+   119→      isTrap: true,
+   120→      tapped: false,
+   121→      tappedBy: null,
+   122→    });
+   123→  }
+   124→
+   125→  return squares;
+   126→}
+   127→
+   128→const BOT_SPEED = { Facil: 1800, Medio: 1000, Dificil: 550 };
+   129→const BOT_WRONG_CHANCE = { Facil: 0.22, Medio: 0.10, Dificil: 0.03 };
+   130→const SEQUENCE_BONUS = 20;
+   131→const GAME_TIME = 45;
+   132→const CORRECT_POINTS = 10;
+   133→const TRAP_PENALTY = 5;
+   134→const WRONG_ORDER_PENALTY = 3;
+   135→const MOZ_PHRASES = ["Boa!", "Eish!", "Kupa!", "Tse!", "Forte!", "Aye!", "Pega!"];
+   136→
+   137→export default function NtchuvaGame({ onScore, liveCode }: NtchuvaProps) {
+   138→  const [mode, setMode] = useState<"bot" | "pvp">("bot");
+   139→  const [difficulty, setDifficulty] = useState<"Facil" | "Medio" | "Dificil">("Medio");
+   140→  const [phase, setPhase] = useState<"menu" | "countdown" | "playing" | "result">("menu");
+   141→  const [countdown, setCountdown] = useState(3);
+   142→  const [score, setScore] = useState({ p1: 0, p2: 0 });
+   143→  const [timeLeft, setTimeLeft] = useState(GAME_TIME);
+   144→  const [squares, setSquares] = useState<SquareData[]>([]);
+   145→  const [round, setRound] = useState(1);
+   146→  const [p1Next, setP1Next] = useState(1);
+   147→  const [p2Next, setP2Next] = useState(1);
+   148→  const [activePlayer, setActivePlayer] = useState<"p1" | "p2">("p1");
+   149→  const [phrase, setPhrase] = useState("");
+   150→  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+   151→  const [feedback, setFeedback] = useState<{ text: string; color: string; id: number } | null>(null);
+   152→  const [roundFlash, setRoundFlash] = useState(false);
+   153→  const [seqComplete, setSeqComplete] = useState(false);
+   154→
+   155→  /* Refs for mutable game state accessed inside callbacks/timers */
+   156→  const p1NextRef = useRef(1);
+   157→  const p2NextRef = useRef(1);
+   158→  const botNextRef = useRef(1);
+   159→  const roundRef = useRef(1);
+   160→  const scoreRef = useRef({ p1: 0, p2: 0 });
+   161→  const gameTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   162→  const botTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   163→  const newRoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   164→  const roundTransitioningRef = useRef(false);
+   165→
+   166→  /* Keep scoreRef in sync with state */
+   167→  useEffect(() => {
+   168→    scoreRef.current = score;
+   169→  }, [score]);
+   170→
+   171→  const showPhrase = useCallback((text: string) => {
+   172→    setPhrase(text);
+   173→    setTimeout(() => setPhrase(""), 600);
+   174→  }, []);
+   175→
+   176→  const spawnParticles = useCallback((x: number, y: number) => {
+   177→    const colors = ["#FFD700", "#009140", "#FF0000", "#FF6B35"];
+   178→    const newP = Array.from({ length: 6 }).map((_, i) => ({
+   179→      id: Date.now() + i,
+   180→      x: x + (Math.random() - 0.5) * 60,
+   181→      y: y + (Math.random() - 0.5) * 60,
+   182→      color: colors[i % colors.length],
+   183→    }));
+   184→    setParticles((p) => [...p, ...newP]);
+   185→    setTimeout(() => setParticles((p) => p.slice(0, -6)), 800);
+   186→  }, []);
+   187→
+   188→  const showFeedback = useCallback((text: string, color: string) => {
+   189→    const id = Date.now();
+   190→    setFeedback({ text, color, id });
+   191→    setTimeout(() => setFeedback(null), 500);
+   192→  }, []);
+   193→
+   194→  const triggerNewRound = useCallback((currentRound: number) => {
+   195→    if (roundTransitioningRef.current) return;
+   196→    roundTransitioningRef.current = true;
+   197→
+   198→    setSeqComplete(true);
+   199→    setTimeout(() => setSeqComplete(false), 800);
+   200→
+   201→    setTimeout(() => {
+   202→      const newRound = currentRound + 1;
+   203→      roundRef.current = newRound;
+   204→      p1NextRef.current = 1;
+   205→      p2NextRef.current = 1;
+   206→      botNextRef.current = 1;
+   207→      setP1Next(1);
+   208→      setP2Next(1);
+   209→      setRound(newRound);
+   210→      setRoundFlash(true);
+   211→      setTimeout(() => setRoundFlash(false), 600);
+   212→      setSquares(generateRound(newRound));
+   213→      roundTransitioningRef.current = false;
+   214→    }, 500);
+   215→  }, []);
+   216→
+   217→  const startGame = useCallback(() => {
+   218→    const fresh = { p1: 0, p2: 0 };
+   219→    setScore(fresh);
+   220→    scoreRef.current = fresh;
+   221→    setTimeLeft(GAME_TIME);
+   222→    setRound(1);
+   223→    roundRef.current = 1;
+   224→    setP1Next(1);
+   225→    p1NextRef.current = 1;
+   226→    botNextRef.current = 1;
+   227→    p2NextRef.current = 1;
+   228→    setP2Next(1);
+   229→    setActivePlayer("p1");
+   230→    setSquares([]);
+   231→    setParticles([]);
+   232→    setFeedback(null);
+   233→    setPhrase("");
+   234→    setRoundFlash(false);
+   235→    setSeqComplete(false);
+   236→    roundTransitioningRef.current = false;
+   237→    setPhase("countdown");
+   238→    setCountdown(3);
+   239→  }, []);
+   240→
+   241→  /* Countdown effect */
+   242→  useEffect(() => {
+   243→    if (phase !== "countdown") return;
+   244→    if (countdown <= 0) {
+   245→      setSquares(generateRound(1));
+   246→      setPhase("playing");
+   247→      return;
+   248→    }
+   249→    const t = setTimeout(() => setCountdown((c) => c - 1), 800);
+   250→    return () => clearTimeout(t);
+   251→  }, [phase, countdown]);
+   252→
+   253→  /* Game timer */
+   254→  useEffect(() => {
+   255→    if (phase !== "playing") return;
+   256→    gameTimerRef.current = setInterval(() => {
+   257→      setTimeLeft((t) => {
+   258→        if (t <= 1) {
+   259→          if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+   260→          if (botTimerRef.current) clearInterval(botTimerRef.current);
+   261→          if (newRoundTimeoutRef.current) clearTimeout(newRoundTimeoutRef.current);
+   262→          setPhase("result");
+   263→          if (onScore) onScore("Ntchuva", scoreRef.current.p1);
+   264→          return 0;
+   265→        }
+   266→        return t - 1;
+   267→      });
+   268→    }, 1000);
+   269→    return () => {
+   270→      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+   271→    };
+   272→  }, [phase, onScore]);
+   273→
+   274→  /* Bot AI: automatically taps squares */
+   275→  useEffect(() => {
+   276→    if (phase !== "playing" || mode !== "bot") return;
+   277→
+   278→    const baseDelay = BOT_SPEED[difficulty];
+   279→
+   280→    const botTick = () => {
+   281→      if (roundTransitioningRef.current) return;
+   282→      const botTarget = botNextRef.current;
+   283→      if (botTarget > 9) return;
+   284→
+   285→      setSquares((current) => {
+   286→        /* Check if bot makes a mistake — taps a trap */
+   287→        if (Math.random() < BOT_WRONG_CHANCE[difficulty]) {
+   288→          const traps = current.filter((s) => s.isTrap && !s.tapped);
+   289→          if (traps.length > 0) {
+   290→            const trap = traps[Math.floor(Math.random() * traps.length)];
+   291→            setScore((s) => {
+   292→              const ns = { ...s, p2: Math.max(0, s.p2 - TRAP_PENALTY) };
+   293→              scoreRef.current = ns;
+   294→              return ns;
+   295→            });
+   296→            return current.map((sq) =>
+   297→              sq.id === trap.id ? { ...sq, tapped: true, tappedBy: "p2" as "p1" | "p2" } : sq
+   298→            );
+   299→          }
+   300→        }
+   301→
+   302→        /* Bot finds and taps the correct next number */
+   303→        const target = current.find((s) => s.value === botTarget && !s.tapped && !s.isTrap);
+   304→        if (target) {
+   305→          botNextRef.current++;
+   306→          setScore((s) => {
+   307→            const ns = { ...s, p2: s.p2 + CORRECT_POINTS };
+   308→            scoreRef.current = ns;
+   309→            return ns;
+   310→          });
+   311→
+   312→          /* Check if bot completed sequence */
+   313→          if (botNextRef.current > 9) {
+   314→            setScore((s) => {
+   315→              const ns = { ...s, p2: s.p2 + SEQUENCE_BONUS };
+   316→              scoreRef.current = ns;
+   317→              return ns;
+   318→            });
+   319→            newRoundTimeoutRef.current = setTimeout(() => {
+   320→              triggerNewRound(roundRef.current);
+   321→            }, 300);
+   322→          }
+   323→
+   324→          return current.map((sq) =>
+   325→            sq.id === target.id ? { ...sq, tapped: true, tappedBy: "p2" as "p1" | "p2" } : sq
+   326→          );
+   327→        }
+   328→
+   329→        return current;
+   330→      });
+   331→    };
+   332→
+   333→    botTimerRef.current = setInterval(botTick, baseDelay);
+   334→    return () => {
+   335→      if (botTimerRef.current) clearInterval(botTimerRef.current);
+   336→    };
+   337→  }, [phase, mode, difficulty, triggerNewRound]);
+   338→
+   339→  /* Handle player tap on a square */
+   340→  const handleTap = useCallback(
+   341→    (squareId: number, e: React.MouseEvent) => {
+   342→      if (roundTransitioningRef.current) return;
+   343→
+   344→      setSquares((current) => {
+   345→        const square = current.find((s) => s.id === squareId);
+   346→        if (!square || square.tapped) return current;
+   347→
+   348→        /* Determine active player and their next target */
+   349→        const isP2Turn = mode === "pvp" && activePlayer === "p2";
+   350→        const playerKey: "p1" | "p2" = isP2Turn ? "p2" : "p1";
+   351→        const currentNext = isP2Turn ? p2NextRef.current : p1NextRef.current;
+   352→
+   353→        if (square.isTrap) {
+   354→          /* Tapped a trap square — lose points */
+   355→          setScore((s) => {
+   356→            const ns = { ...s, [playerKey]: Math.max(0, (s as Record<string, number>)[playerKey] - TRAP_PENALTY) };
+   357→            scoreRef.current = ns;
+   358→            return ns;
+   359→          });
+   360→          showFeedback(`-${TRAP_PENALTY} Armadilha!`, "#FF0000");
+   361→          showPhrase("Armadilha!");
+   362→          spawnParticles(e.clientX, e.clientY);
+   363→          return current.map((sq) =>
+   364→            sq.id === squareId ? { ...sq, tapped: true, tappedBy: playerKey } : sq
+   365→          );
+   366→        }
+   367→
+   368→        if (square.value === currentNext) {
+   369→          /* Correct tap! */
+   370→          if (isP2Turn) {
+   371→            p2NextRef.current++;
+   372→            setP2Next(p2NextRef.current);
+   373→          } else {
+   374→            p1NextRef.current++;
+   375→            setP1Next(p1NextRef.current);
+   376→          }
+   377→
+   378→          setScore((s) => {
+   379→            const ns = { ...s, [playerKey]: (s as Record<string, number>)[playerKey] + CORRECT_POINTS };
+   380→            scoreRef.current = ns;
+   381→            return ns;
+   382→          });
+   383→
+   384→          showFeedback(`+${CORRECT_POINTS}`, "#009140");
+   385→          if (Math.random() > 0.4) {
+   386→            showPhrase(MOZ_PHRASES[Math.floor(Math.random() * MOZ_PHRASES.length)]);
+   387→          }
+   388→          spawnParticles(e.clientX, e.clientY);
+   389→
+   390→          /* Check if this player completed the sequence */
+   391→          const newNext = isP2Turn ? p2NextRef.current : p1NextRef.current;
+   392→          if (newNext > 9) {
+   393→            setScore((s) => {
+   394→              const ns = { ...s, [playerKey]: (s as Record<string, number>)[playerKey] + SEQUENCE_BONUS };
+   395→              scoreRef.current = ns;
+   396→              return ns;
+   397→            });
+   398→            showFeedback(`+${SEQUENCE_BONUS} Bonus!`, "#FFD700");
+   399→            showPhrase("Sequencia!");
+   400→            newRoundTimeoutRef.current = setTimeout(() => {
+   401→              triggerNewRound(roundRef.current);
+   402→            }, 300);
+   403→          }
+   404→
+   405→          /* In PvP mode, switch active player after correct tap */
+   406→          if (mode === "pvp") {
+   407→            setActivePlayer(playerKey === "p1" ? "p2" : "p1");
+   408→          }
+   409→
+   410→          return current.map((sq) =>
+   411→            sq.id === squareId ? { ...sq, tapped: true, tappedBy: playerKey } : sq
+   412→          );
+   413→        } else {
+   414→          /* Wrong number tapped (out of sequence) */
+   415→          setScore((s) => {
+   416→            const ns = { ...s, [playerKey]: Math.max(0, (s as Record<string, number>)[playerKey] - WRONG_ORDER_PENALTY) };
+   417→            scoreRef.current = ns;
+   418→            return ns;
+   419→          });
+   420→          showFeedback(`-${WRONG_ORDER_PENALTY} Fora de ordem!`, "#FF6B35");
+   421→          return current.map((sq) =>
+   422→            sq.id === squareId ? { ...sq, tapped: true, tappedBy: playerKey } : sq
+   423→          );
+   424→        }
+   425→      });
+   426→    },
+   427→    [mode, activePlayer, showFeedback, showPhrase, spawnParticles, triggerNewRound]
+   428→  );
+   429→
+   430→  /* Computed values */
+   431→  const winner =
+   432→    score.p1 > score.p2
+   433→      ? mode === "bot"
+   434→        ? "Voce"
+   435→        : "Jogador 1"
+   436→      : score.p2 > score.p1
+   437→        ? mode === "bot"
+   438→          ? "Computador"
+   439→          : "Jogador 2"
+   440→        : "Empate";
+   441→  const isWin = score.p1 > score.p2;
+   442→  const p1Label = mode === "bot" ? "Voce" : "Jogador 1";
+   443→  const p2Label = mode === "bot" ? "Bot" : "Jogador 2";
+   444→
+   445→  /* Render a single grid cell */
+   446→  const renderCell = (row: number, col: number) => {
+   447→    const square = squares.find((s) => s.row === row && s.col === col);
+   448→    const isMainSlot = GRID_POSITIONS.find((p) => p.row === row && p.col === col)?.isMain;
+   449→
+   450→    return (
+   451→      <div
+   452→        key={`${row}-${col}`}
+   453→        className="w-14 h-14 sm:w-16 sm:h-16 md:w-[70px] md:h-[70px] flex items-center justify-center"
+   454→      >
+   455→        {square ? (
+   456→          <motion.button
+   457→            whileHover={square.tapped ? {} : { scale: 1.08 }}
+   458→            whileTap={square.tapped ? {} : { scale: 0.88 }}
+   459→            onClick={(e) => handleTap(square.id, e)}
+   460→            className={`relative w-14 h-14 sm:w-16 sm:h-16 md:w-[70px] md:h-[70px] rounded-xl font-black text-xl sm:text-2xl transition-all flex items-center justify-center select-none ${
+   461→              square.tapped ? "cursor-default" : "cursor-pointer"
+   462→            }`}
+   463→            style={{
+   464→              background: square.tapped
+   465→                ? square.tappedBy === "p1"
+   466→                  ? "rgba(0,145,64,0.25)"
+   467→                  : "rgba(255,107,53,0.25)"
+   468→                : square.isTrap
+   469→                  ? "rgba(255,0,0,0.10)"
+   470→                  : "rgba(255,215,0,0.08)",
+   471→              border: `2.5px solid ${
+   472→                square.tapped
+   473→                  ? square.tappedBy === "p1"
+   474→                    ? "#009140"
+   475→                    : "#FF6B35"
+   476→                  : square.isTrap
+   477→                    ? "rgba(255,0,0,0.35)"
+   478→                    : "rgba(255,215,0,0.35)"
+   479→              }`,
+   480→              color: square.tapped
+   481→                ? "#665"
+   482→                : square.isTrap
+   483→                  ? "#FF4444"
+   484→                  : "#FFD700",
+   485→              boxShadow: square.tapped
+   486→                ? "none"
+   487→                : square.isTrap
+   488→                  ? "0 0 8px rgba(255,0,0,0.15)"
+   489→                  : "0 0 12px rgba(255,215,0,0.12)",
+   490→              textShadow: square.tapped ? "none" : "0 1px 4px rgba(0,0,0,0.4)",
+   491→            }}
+   492→            disabled={square.tapped}
+   493→          >
+   494→            {square.value}
+   495→            {square.tappedBy && (
+   496→              <motion.div
+   497→                initial={{ scale: 0 }}
+   498→                animate={{ scale: 1 }}
+   499→                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+   500→                style={{
+   501→                  background: square.tappedBy === "p1" ? "#009140" : "#FF6B35",
+   502→                  color: "white",
+   503→                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+   504→                }}
+   505→              >
+   506→                {square.tappedBy === "p1" ? "1" : "2"}
+   507→              </motion.div>
+   508→            )}
+   509→            {square.isTrap && !square.tapped && (
+   510→              <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px]" style={{ color: "#FF4444" }}>
+   511→                ⚠
+   512→              </div>
+   513→            )}
+   514→          </motion.button>
+   515→        ) : isMainSlot && phase === "playing" ? (
+   516→          /* Empty main slot — show outline placeholder */
+   517→          <div
+   518→            className="w-14 h-14 sm:w-16 sm:h-16 md:w-[70px] md:h-[70px] rounded-xl flex items-center justify-center opacity-20"
+   519→            style={{
+   520→              border: "2px dashed rgba(255,215,0,0.2)",
+   521→            }}
+   522→          />
+   523→        ) : null}
+   524→      </div>
+   525→    );
+   526→  };
+   527→
+   528→  /* Hopscotch preview for menu */
+   529→  const previewCells = [
+   530→    { v: 1, show: true },
+   531→    { v: null, show: false },
+   532→    { v: 2, show: true },
+   533→    { v: null, show: false },
+   534→    { v: 3, show: true },
+   535→    { v: null, show: false },
+   536→    { v: 4, show: true },
+   537→    { v: 5, show: true },
+   538→    { v: 6, show: true },
+   539→    { v: null, show: false },
+   540→    { v: 7, show: true },
+   541→    { v: null, show: false },
+   542→    { v: 8, show: true },
+   543→    { v: null, show: false },
+   544→    { v: 9, show: true },
+   545→  ];
+   546→
+   547→  return (
+   548→    <div
+   549→      className="relative w-full max-w-2xl mx-auto rounded-2xl border-2 border-amber-700/40 overflow-hidden"
+   550→      style={{
+   551→        background: "linear-gradient(145deg, #1a1207 0%, #2d1f0e 50%, #1a1207 100%)",
+   552→      }}
+   553→    >
+   554→      <CapulanaPattern />
+   555→
+   556→      <AnimatePresence>
+   557→        {particles.map((p) => (
+   558→          <motion.div
+   559→            key={p.id}
+   560→            initial={{ opacity: 1, scale: 1 }}
+   561→            animate={{ opacity: 0, scale: 0, y: -40 }}
+   562→            exit={{ opacity: 0 }}
+   563→            className="absolute w-2 h-2 rounded-full pointer-events-none z-50"
+   564→            style={{ left: p.x, top: p.y, background: p.color }}
+   565→          />
+   566→        ))}
+   567→      </AnimatePresence>
+   568→
+   569→      <AnimatePresence>
+   570→        {phrase && (
+   571→          <motion.div
+   572→            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+   573→            animate={{ opacity: 1, scale: 1.2, y: 0 }}
+   574→            exit={{ opacity: 0, scale: 0.8 }}
+   575→            className="absolute top-1/3 left-1/2 -translate-x-1/2 z-50 pointer-events-none text-4xl font-black"
+   576→            style={{ color: "#FFD700", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
+   577→          >
+   578→            {phrase}
+   579→          </motion.div>
+   580→        )}
+   581→      </AnimatePresence>
+   582→
+   583→      <AnimatePresence>
+   584→        {seqComplete && (
+   585→          <motion.div
+   586→            initial={{ opacity: 0 }}
+   587→            animate={{ opacity: [0, 0.15, 0] }}
+   588→            exit={{ opacity: 0 }}
+   589→            transition={{ duration: 0.8 }}
+   590→            className="absolute inset-0 z-30 pointer-events-none"
+   591→            style={{ background: "#FFD700" }}
+   592→          />
+   593→        )}
+   594→      </AnimatePresence>
+   595→
+   596→      <div className="relative z-10 p-4 md:p-6">
+   597→
+   598→        <div className="flex items-center gap-3 mb-4">
+   599→          <div
+   600→            className="h-10 w-10 rounded-xl flex items-center justify-center"
+   601→            style={{
+   602→              background:
+   603→                "linear-gradient(135deg, #009140 0%, #009140 33%, #FF0000 33%, #FF0000 66%, #FFD700 66%, #FFD700 100%)",
+   604→            }}
+   605→          >
+   606→            <FootSVG />
+   607→          </div>
+   608→          <div>
+   609→            <h2 className="font-bold text-lg" style={{ color: "#FFD700" }}>
+   610→              Ntchuva
+   611→            </h2>
+   612→            <p className="text-[11px]" style={{ color: "#CD853F" }}>
+   613→              Macaquinhos — Jogo Mocambicano
+   614→            </p>
+   615→          </div>
+   616→        </div>
+   617→
+   618→        {phase === "menu" && (
+   619→          <div className="space-y-4">
+   620→            <p className="text-sm text-center" style={{ color: "#DEB887" }}>
+   621→              Toque nos numeros de 1 a 9 na ordem correcta! Evite as armadilhas
+   622→              vermelhas. {GAME_TIME} segundos de pura agilidade.
+   623→            </p>
+   624→
+   625→            <div className="flex justify-center py-2">
+   626→              <div
+   627→                className="grid grid-cols-3 gap-1.5"
+   628→                style={{ width: "fit-content" }}
+   629→              >
+   630→                {previewCells.map((cell, i) => (
+   631→                  <div
+   632→                    key={i}
+   633→                    className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center"
+   634→                  >
+   635→                    {cell.show && (
+   636→                      <motion.div
+   637→                        initial={{ opacity: 0, y: 10 }}
+   638→                        animate={{ opacity: 1, y: 0 }}
+   639→                        transition={{ delay: i * 0.04 }}
+   640→                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center font-black text-sm"
+   641→                        style={{
+   642→                          background: "rgba(255,215,0,0.08)",
+   643→                          border: "2px solid rgba(255,215,0,0.25)",
+   644→                          color: "#FFD700",
+   645→                        }}
+   646→                      >
+   647→                        {cell.v}
+   648→                      </motion.div>
+   649→                    )}
+   650→                  </div>
+   651→                ))}
+   652→              </div>
+   653→            </div>
+   654→
+   655→            <div className="flex justify-center gap-4 text-[10px]" style={{ color: "#CD853F" }}>
+   656→              <span>
+   657→                <span style={{ color: "#009140" }}>+{CORRECT_POINTS}</span> Correcto
+   658→              </span>
+   659→              <span>
+   660→                <span style={{ color: "#FF0000" }}>-{TRAP_PENALTY}</span> Armadilha
+   661→              </span>
+   662→              <span>
+   663→                <span style={{ color: "#FFD700" }}>+{SEQUENCE_BONUS}</span> Bonus Sequencia
+   664→              </span>
+   665→            </div>
+   666→
+   667→            <div className="flex justify-center gap-2">
+   668→              {_MODES.map((m) => (
+   669→                <button
+   670→                  key={m}
+   671→                  onClick={() => setMode(m)}
+   672→                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+   673→                    mode === m ? "text-black" : "text-amber-200/60"
+   674→                  }`}
+   675→                  style={
+   676→                    mode === m
+   677→                      ? { background: "linear-gradient(135deg, #FFD700, #FF6B35)" }
+   678→                      : {
+   679→                          background: "rgba(255,215,0,0.1)",
+   680→                          border: "1px solid rgba(255,215,0,0.2)",
+   681→                        }
+   682→                  }
+   683→                >
+   684→                  {m === "bot" ? "vs Computador" : "vs Jogador"}
+   685→                </button>
+   686→              ))}
+   687→            </div>
+   688→
+   689→            {mode === "bot" && (
+   690→              <div className="flex justify-center gap-2">
+   691→                {_DIFFS.map((d) => (
+   692→                  <button
+   693→                    key={d}
+   694→                    onClick={() => setDifficulty(d)}
+   695→                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+   696→                      difficulty === d ? "text-black" : "text-amber-200/60"
+   697→                    }`}
+   698→                    style={
+   699→                      difficulty === d
+   700→                        ? {
+   701→                            background:
+   702→                              d === "Facil"
+   703→                                ? "#009140"
+   704→                                : d === "Medio"
+   705→                                  ? "#FF6B35"
+   706→                                  : "#FF0000",
+   707→                          }
+   708→                        : { background: "rgba(255,255,255,0.05)" }
+   709→                    }
+   710→                  >
+   711→                    {d}
+   712→                  </button>
+   713→                ))}
+   714→              </div>
+   715→            )}
+   716→
+   717→            <button
+   718→              onClick={startGame}
+   719→              className="w-full py-3 rounded-xl text-black font-black text-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+   720→              style={{
+   721→                background: "linear-gradient(135deg, #FFD700, #FF6B35)",
+   722→              }}
+   723→            >
+   724→              Comecar Jogo
+   725→            </button>
+   726→          </div>
+   727→        )}
+   728→
+   729→        {phase === "countdown" && (
+   730→          <div className="flex items-center justify-center py-16">
+   731→            <AnimatePresence mode="wait">
+   732→              <motion.div
+   733→                key={countdown}
+   734→                initial={{ scale: 2, opacity: 0 }}
+   735→                animate={{ scale: 1, opacity: 1 }}
+   736→                exit={{ scale: 0.5, opacity: 0 }}
+   737→                className="text-8xl font-black"
+   738→                style={{
+   739→                  color: "#FFD700",
+   740→                  textShadow: "0 0 40px rgba(255,215,0,0.5)",
+   741→                }}
+   742→              >
+   743→                {countdown > 0 ? countdown : "VAI!"}
+   744→              </motion.div>
+   745→            </AnimatePresence>
+   746→          </div>
+   747→        )}
+   748→
+   749→        {phase === "playing" && (
+   750→          <>
+   751→
+   752→            <div className="flex items-center justify-between mb-2">
+   753→
+   754→              <div className="flex items-center gap-1.5">
+   755→                <div className="w-3 h-3 rounded-full" style={{ background: "#009140" }} />
+   756→                <span className="text-xs font-bold" style={{ color: "#DEB887" }}>
+   757→                  {p1Label}
+   758→                </span>
+   759→                <span
+   760→                  className="text-xl font-black"
+   761→                  style={{ color: "#FFD700" }}
+   762→                >
+   763→                  {score.p1}
+   764→                </span>
+   765→              </div>
+   766→
+   767→              <div className="text-center">
+   768→                <p className="text-[9px] font-medium mb-0.5" style={{ color: "#CD853F" }}>
+   769→                  Tempo
+   770→                </p>
+   771→                <div
+   772→                  className={`text-2xl md:text-3xl font-black ${
+   773→                    timeLeft <= 10 ? "animate-pulse" : ""
+   774→                  }`}
+   775→                  style={{ color: timeLeft <= 10 ? "#FF0000" : "#FFD700" }}
+   776→                >
+   777→                  {timeLeft}s
+   778→                </div>
+   779→              </div>
+   780→
+   781→              <div className="flex items-center gap-1.5">
+   782→                <span
+   783→                  className="text-xl font-black"
+   784→                  style={{ color: "#FF6B35" }}
+   785→                >
+   786→                  {score.p2}
+   787→                </span>
+   788→                <span className="text-xs font-bold" style={{ color: "#CD853F" }}>
+   789→                  {p2Label}
+   790→                </span>
+   791→                <div className="w-3 h-3 rounded-full" style={{ background: "#FF6B35" }} />
+   792→              </div>
+   793→            </div>
+   794→
+   795→            <div className="flex items-center justify-between mb-2 px-1">
+   796→              <div className="flex items-center gap-2">
+   797→                <span
+   798→                  className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+   799→                  style={{
+   800→                    background: "rgba(255,215,0,0.1)",
+   801→                    color: "#FFD700",
+   802→                  }}
+   803→                >
+   804→                  Ronda {round}
+   805→                </span>
+   806→                <span
+   807→                  className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+   808→                  style={{
+   809→                    background: "rgba(0,145,64,0.15)",
+   810→                    color: "#009140",
+   811→                  }}
+   812→                >
+   813→                  Proximo: {p1Next}
+   814→                </span>
+   815→                {mode === "bot" && (
+   816→                  <span
+   817→                    className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+   818→                    style={{
+   819→                      background: "rgba(255,107,53,0.15)",
+   820→                      color: "#FF6B35",
+   821→                    }}
+   822→                  >
+   823→                    Bot: {botNextRef.current}
+   824→                  </span>
+   825→                )}
+   826→              </div>
+   827→              <span
+   828→                className="text-[10px]"
+   829→                style={{ color: "#CD853F" }}
+   830→              >
+   831→                Armadilhas: {Math.min(6, (round - 1) * 2)}
+   832→              </span>
+   833→            </div>
+   834→
+   835→            {mode === "pvp" && (
+   836→              <div className="flex justify-center mb-2">
+   837→                <div
+   838→                  className="flex items-center gap-1 p-0.5 rounded-xl"
+   839→                  style={{ background: "rgba(255,215,0,0.08)" }}
+   840→                >
+   841→                  {_PLAYERS.map((p) => (
+   842→                    <button
+   843→                      key={p}
+   844→                      onClick={() => setActivePlayer(p)}
+   845→                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+   846→                        activePlayer === p ? "text-white" : "text-amber-200/60"
+   847→                      }`}
+   848→                      style={
+   849→                        activePlayer === p
+   850→                          ? {
+   851→                              background:
+   852→                                p === "p1" ? "#009140" : "#FF6B35",
+   853→                            }
+   854→                          : { background: "transparent" }
+   855→                      }
+   856→                    >
+   857→                      {p === "p1" ? "Jogador 1" : "Jogador 2"} (
+   858→                      {p === "p1" ? p1Next : p2Next})
+   859→                    </button>
+   860→                  ))}
+   861→                </div>
+   862→              </div>
+   863→            )}
+   864→
+   865→            <div className="flex justify-center mb-1 h-6">
+   866→              <AnimatePresence>
+   867→                {feedback && (
+   868→                  <motion.div
+   869→                    key={feedback.id}
+   870→                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
+   871→                    animate={{ opacity: 1, y: 0, scale: 1.1 }}
+   872→                    exit={{ opacity: 0, y: -10, scale: 0.9 }}
+   873→                    className="text-sm font-black"
+   874→                    style={{ color: feedback.color }}
+   875→                  >
+   876→                    {feedback.text}
+   877→                  </motion.div>
+   878→                )}
+   879→              </AnimatePresence>
+   880→            </div>
+   881→
+   882→            <div className="flex justify-center">
+   883→              <div
+   884→                className="relative rounded-2xl p-3 sm:p-4"
+   885→                style={{
+   886→                  background:
+   887→                    "radial-gradient(ellipse at center, rgba(139,69,19,0.12) 0%, transparent 70%)",
+   888→                }}
+   889→              >
+   890→                <CapulanaPattern />
+   891→                <div
+   892→                  className="relative z-10 grid grid-cols-3 gap-2"
+   893→                  style={{ width: "fit-content" }}
+   894→                >
+   895→                  {Array.from({ length: 15 }, (_, i) => {
+   896→                    const row = Math.floor(i / 3);
+   897→                    const col = i % 3;
+   898→                    return renderCell(row, col);
+   899→                  })}
+   900→                </div>
+   901→              </div>
+   902→            </div>
+   903→
+   904→            <div className="mt-3 text-center">
+   905→              <p className="text-[10px]" style={{ color: "#CD853F" }}>
+   906→                Pontuacao: {p1Label} {score.p1} — {p2Label} {score.p2}
+   907→              </p>
+   908→            </div>
+   909→          </>
+   910→        )}
+   911→
+   912→        {phase === "result" && (
+   913→          <div className="text-center py-8 space-y-4">
+   914→            <motion.div
+   915→              initial={{ scale: 0, rotate: -180 }}
+   916→              animate={{ scale: 1, rotate: 0 }}
+   917→              transition={{ type: "spring", damping: 12 }}
+   918→              className="text-6xl"
+   919→            >
+   920→              {isWin ? "🏆" : score.p1 === score.p2 ? "🤝" : "😤"}
+   921→            </motion.div>
+   922→            <h3
+   923→              className="text-2xl font-black"
+   924→              style={{ color: isWin ? "#FFD700" : "#DEB887" }}
+   925→            >
+   926→              {winner === "Empate" ? "Empate!" : `Vencedor: ${winner}`}
+   927→            </h3>
+   928→            <div className="flex justify-center gap-8">
+   929→              <div>
+   930→                <p className="text-xs" style={{ color: "#CD853F" }}>
+   931→                  {p1Label}
+   932→                </p>
+   933→                <p
+   934→                  className="text-3xl font-black"
+   935→                  style={{ color: "#009140" }}
+   936→                >
+   937→                  {score.p1}
+   938→                </p>
+   939→              </div>
+   940→              <div
+   941→                className="text-xl font-bold self-center"
+   942→                style={{ color: "#FFD700" }}
+   943→              >
+   944→                vs
+   945→              </div>
+   946→              <div>
+   947→                <p className="text-xs" style={{ color: "#CD853F" }}>
+   948→                  {p2Label}
+   949→                </p>
+   950→                <p
+   951→                  className="text-3xl font-black"
+   952→                  style={{ color: "#FF6B35" }}
+   953→                >
+   954→                  {score.p2}
+   955→                </p>
+   956→              </div>
+   957→            </div>
+   958→            <button
+   959→              onClick={() => setPhase("menu")}
+   960→              className="px-8 py-2.5 rounded-xl text-black font-bold transition-all hover:scale-105 active:scale-95"
+   961→              style={{
+   962→                background: "linear-gradient(135deg, #FFD700, #FF6B35)",
+   963→              }}
+   964→            >
+   965→              Jogar Novamente
+   966→            </button>
+   967→          </div>
+   968→        )}
+   969→      </div>
+   970→    </div>
+   971→  );
+   972→}
+   973→

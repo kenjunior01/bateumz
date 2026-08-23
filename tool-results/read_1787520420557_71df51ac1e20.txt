@@ -1,0 +1,808 @@
+     1→
+     2→import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+     3→import { motion, AnimatePresence } from 'framer-motion';
+     4→import { Button } from '@/components/ui/button';
+     5→import { Badge } from '@/components/ui/badge';
+     6→import { cn } from '@/lib/utils';
+     7→import { RotateCcw, ArrowDown, SkipForward, Bot } from 'lucide-react';
+     8→
+     9→/* ═══════════════════════ Types ═══════════════════════ */
+    10→
+    11→interface Tile {
+    12→  left: number;
+    13→  right: number;
+    14→  id: string;
+    15→}
+    16→
+    17→interface ChainTile {
+    18→  left: number;
+    19→  right: number;
+    20→  id: string;
+    21→}
+    22→
+    23→type Phase = 'dealing' | 'playing' | 'roundOver';
+    24→type End = 'left' | 'right';
+    25→
+    26→interface Props {
+    27→  onScore?: (name: string, score: number) => void;
+    28→  liveCode?: string;
+    29→}
+    30→
+    31→/* ═══════════════════════ Constants ═══════════════════════ */
+    32→
+    33→const PLAYER_NAMES = ['Jogador 1', 'Jogador 2'] as const;
+    34→const HAND_SIZE = 7;
+    35→
+    36→const DOT_POSITIONS: Record<number, { top: string; left: string }> = {
+    37→  0: { top: '18%', left: '18%' },
+    38→  1: { top: '18%', left: '50%' },
+    39→  2: { top: '18%', left: '82%' },
+    40→  3: { top: '50%', left: '18%' },
+    41→  4: { top: '50%', left: '50%' },
+    42→  5: { top: '50%', left: '82%' },
+    43→  6: { top: '82%', left: '18%' },
+    44→  7: { top: '82%', left: '50%' },
+    45→  8: { top: '82%', left: '82%' },
+    46→};
+    47→
+    48→const DOT_PATTERNS: Record<number, number[]> = {
+    49→  0: [],
+    50→  1: [4],
+    51→  2: [2, 6],
+    52→  3: [2, 4, 6],
+    53→  4: [0, 2, 6, 8],
+    54→  5: [0, 2, 4, 6, 8],
+    55→  6: [0, 2, 3, 5, 6, 8],
+    56→};
+    57→
+    58→/* ═══════════════════════ Helpers ═══════════════════════ */
+    59→
+    60→function generateTiles(): Tile[] {
+    61→  const tiles: Tile[] = [];
+    62→  for (let i = 0; i <= 6; i++) {
+    63→    for (let j = i; j <= 6; j++) {
+    64→      tiles.push({ left: i, right: j, id: `${i}-${j}` });
+    65→    }
+    66→  }
+    67→  return tiles;
+    68→}
+    69→
+    70→function shuffle<T>(arr: T[]): T[] {
+    71→  const a = [...arr];
+    72→  for (let i = a.length - 1; i > 0; i--) {
+    73→    const j = Math.floor(Math.random() * (i + 1));
+    74→    [a[i], a[j]] = [a[j], a[i]];
+    75→  }
+    76→  return a;
+    77→}
+    78→
+    79→function tilePips(t: Tile | ChainTile): number {
+    80→  return t.left + t.right;
+    81→}
+    82→
+    83→function handPips(hand: (Tile | ChainTile)[]): number {
+    84→  return hand.reduce((s, t) => s + tilePips(t), 0);
+    85→}
+    86→
+    87→function canMatch(value: number, tile: Tile): boolean {
+    88→  return tile.left === value || tile.right === value;
+    89→}
+    90→
+    91→function validEndsForTile(
+    92→  tile: Tile,
+    93→  leftEnd: number | null,
+    94→  rightEnd: number | null,
+    95→  chainLen: number
+    96→): End[] {
+    97→  if (chainLen === 0) return ['left'];
+    98→  if (leftEnd === null || rightEnd === null) return [];
+    99→  const ends: End[] = [];
+   100→  if (canMatch(leftEnd, tile)) ends.push('left');
+   101→  if (canMatch(rightEnd, tile)) ends.push('right');
+   102→  return [...new Set(ends)];
+   103→}
+   104→
+   105→/* ═══════════════════════ Sub-Components ═══════════════════════ */
+   106→
+   107→function DotHalf({ value }: { value: number }) {
+   108→  const dots = DOT_PATTERNS[value] ?? [];
+   109→  return (
+   110→    <div className="relative w-full h-full">
+   111→      {dots.map((pos, i) => {
+   112→        const p = DOT_POSITIONS[pos];
+   113→        return (
+   114→          <div
+   115→            key={i}
+   116→            className="absolute w-1.5 h-1.5 rounded-full bg-slate-900 dark:bg-slate-800"
+   117→            style={{
+   118→              top: p.top,
+   119→              left: p.left,
+   120→              transform: 'translate(-50%, -50%)',
+   121→            }}
+   122→          />
+   123→        );
+   124→      })}
+   125→    </div>
+   126→  );
+   127→}
+   128→
+   129→function DominoTile({
+   130→  tile,
+   131→  faceDown = false,
+   132→  selected = false,
+   133→  playable = false,
+   134→  highlightEnd = false,
+   135→  onClick,
+   136→}: {
+   137→  tile?: Tile | ChainTile;
+   138→  faceDown?: boolean;
+   139→  selected?: boolean;
+   140→  playable?: boolean;
+   141→  highlightEnd?: boolean;
+   142→  onClick?: () => void;
+   143→}) {
+   144→  if (faceDown) {
+   145→    return (
+   146→      <div className="w-16 h-8 sm:w-20 sm:h-10 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center shrink-0">
+   147→        <div className="w-3/4 h-3/4 rounded-sm bg-slate-600/40 border border-slate-500/30">
+   148→          <div className="w-full h-full rounded-sm bg-gradient-to-br from-slate-500/20 to-slate-700/20" />
+   149→        </div>
+   150→      </div>
+   151→    );
+   152→  }
+   153→
+   154→  if (!tile) return null;
+   155→
+   156→  return (
+   157→    <motion.div
+   158→      onClick={onClick}
+   159→      whileHover={onClick ? { scale: 1.08, y: -3 } : undefined}
+   160→      whileTap={onClick ? { scale: 0.93 } : undefined}
+   161→      className={cn(
+   162→        'w-16 h-8 sm:w-20 sm:h-10 rounded-lg bg-white dark:bg-slate-100 border border-slate-300 dark:border-slate-500 flex overflow-hidden shadow-sm shrink-0',
+   163→        selected && 'ring-2 ring-cyan-400 shadow-cyan-400/30 shadow-lg z-10',
+   164→        playable && !selected && 'ring-2 ring-amber-400/80 shadow-amber-400/20 shadow-md',
+   165→        highlightEnd && 'ring-2 ring-amber-400 shadow-amber-400/30 shadow-lg',
+   166→        onClick && 'cursor-pointer'
+   167→      )}
+   168→    >
+   169→      <div className="w-1/2 h-full relative border-r border-slate-300 dark:border-slate-400">
+   170→        <DotHalf value={tile.left} />
+   171→      </div>
+   172→      <div className="w-1/2 h-full relative">
+   173→        <DotHalf value={tile.right} />
+   174→      </div>
+   175→    </motion.div>
+   176→  );
+   177→}
+   178→
+   179→/* ═══════════════════════ Main Component ═══════════════════════ */
+   180→
+   181→export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
+   182→  /* ─── state ─── */
+   183→  const [phase, setPhase] = useState<Phase>('dealing');
+   184→  const [hands, setHands] = useState<Tile[][]>([[], []]);
+   185→  const [chain, setChain] = useState<ChainTile[]>([]);
+   186→  const [boneyard, setBoneyard] = useState<Tile[]>([]);
+   187→  const [currentPlayer, setCurrentPlayer] = useState<0 | 1>(0);
+   188→  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+   189→  const [scores, setScores] = useState<[number, number]>([0, 0]);
+   190→  const [vsBot, setVsBot] = useState(false);
+   191→  const [roundResult, setRoundResult] = useState('');
+   192→  const [message, setMessage] = useState('');
+   193→  const [consecutivePasses, setConsecutivePasses] = useState(0);
+   194→  const [roundNum, setRoundNum] = useState(1);
+   195→
+   196→  const chainRef = useRef<HTMLDivElement>(null);
+   197→  const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+   198→
+   199→  /* ─── derived ─── */
+   200→  const leftEnd = chain.length > 0 ? chain[0].left : null;
+   201→  const rightEnd = chain.length > 0 ? chain[chain.length - 1].right : null;
+   202→  const oppIdx = (1 - currentPlayer) as 0 | 1;
+   203→
+   204→  const currentHand = hands[currentPlayer];
+   205→
+   206→  const hasValidMove = useMemo(() => {
+   207→    if (chain.length === 0) return currentHand.length > 0;
+   208→    if (leftEnd === null || rightEnd === null) return false;
+   209→    return currentHand.some((t) => canMatch(leftEnd, t) || canMatch(rightEnd, t));
+   210→  }, [currentHand, chain.length, leftEnd, rightEnd]);
+   211→
+   212→  const canDraw = boneyard.length > 0 && !hasValidMove;
+   213→  const canPass = boneyard.length === 0 && !hasValidMove && chain.length > 0;
+   214→
+   215→  const selectedTile = selectedTileId
+   216→    ? currentHand.find((t) => t.id === selectedTileId) ?? null
+   217→    : null;
+   218→
+   219→  const selectedValidEnds: End[] = useMemo(() => {
+   220→    if (!selectedTile) return [];
+   221→    return validEndsForTile(selectedTile, leftEnd, rightEnd, chain.length);
+   222→  }, [selectedTile, leftEnd, rightEnd, chain.length]);
+   223→
+   224→  const bottomIdx = vsBot ? 0 : currentPlayer;
+   225→  const topIdx = (1 - bottomIdx) as 0 | 1;
+   226→  const isHumanTurn = phase === 'playing' && bottomIdx === currentPlayer;
+   227→
+   228→  /* ─── callbacks ─── */
+   229→
+   230→  const endRoundBlocked = useCallback(() => {
+   231→    const p1 = handPips(hands[0]);
+   232→    const p2 = handPips(hands[1]);
+   233→    if (p1 < p2) {
+   234→      setScores((s) => [s[0] + p2, s[1]]);
+   235→      setRoundResult(`Venceu! ${PLAYER_NAMES[0]} (${p1} vs ${p2})`);
+   236→      onScore?.(PLAYER_NAMES[0], p2);
+   237→    } else if (p2 < p1) {
+   238→      setScores((s) => [s[0], s[1] + p1]);
+   239→      setRoundResult(`Venceu! ${PLAYER_NAMES[1]} (${p2} vs ${p1})`);
+   240→      onScore?.(PLAYER_NAMES[1], p1);
+   241→    } else {
+   242→      setRoundResult('Empate!');
+   243→    }
+   244→    setPhase('roundOver');
+   245→  }, [hands, onScore]);
+   246→
+   247→  const startRound = useCallback(() => {
+   248→    const all = shuffle(generateTiles());
+   249→    setHands([all.slice(0, HAND_SIZE), all.slice(HAND_SIZE, HAND_SIZE * 2)]);
+   250→    setChain([]);
+   251→    setBoneyard(all.slice(HAND_SIZE * 2));
+   252→    setCurrentPlayer(0);
+   253→    setSelectedTileId(null);
+   254→    setRoundResult('');
+   255→    setMessage('');
+   256→    setConsecutivePasses(0);
+   257→    setPhase('dealing');
+   258→  }, []);
+   259→
+   260→  const restartAll = useCallback(() => {
+   261→    setScores([0, 0]);
+   262→    setRoundNum(1);
+   263→    startRound();
+   264→  }, [startRound]);
+   265→
+   266→  const nextRound = useCallback(() => {
+   267→    setRoundNum((n) => n + 1);
+   268→    startRound();
+   269→  }, [startRound]);
+   270→
+   271→  const placeTile = useCallback(
+   272→    (tileId: string, end: End) => {
+   273→      const hand = [...hands[currentPlayer]];
+   274→      const idx = hand.findIndex((t) => t.id === tileId);
+   275→      if (idx === -1) return;
+   276→
+   277→      const tile = hand.splice(idx, 1)[0];
+   278→      let ct: ChainTile;
+   279→
+   280→      if (chain.length === 0) {
+   281→        ct = { left: tile.left, right: tile.right, id: `${tile.id}-c0` };
+   282→        setChain([ct]);
+   283→      } else if (end === 'left') {
+   284→        ct =
+   285→          tile.right === leftEnd
+   286→            ? { left: tile.left, right: tile.right, id: `${tile.id}-L` }
+   287→            : { left: tile.right, right: tile.left, id: `${tile.id}-L` };
+   288→        setChain((prev) => [ct, ...prev]);
+   289→      } else {
+   290→        ct =
+   291→          tile.left === rightEnd
+   292→            ? { left: tile.left, right: tile.right, id: `${tile.id}-R` }
+   293→            : { left: tile.right, right: tile.left, id: `${tile.id}-R` };
+   294→        setChain((prev) => [...prev, ct]);
+   295→      }
+   296→
+   297→      setHands((prev) => {
+   298→        const h: Tile[][] = [prev[0].slice(), prev[1].slice()];
+   299→        h[currentPlayer] = hand;
+   300→        return h;
+   301→      });
+   302→      setSelectedTileId(null);
+   303→      setConsecutivePasses(0);
+   304→
+   305→      if (hand.length === 0) {
+   306→        const oppPips = handPips(hands[oppIdx]);
+   307→        setScores((s) => {
+   308→          const n: [number, number] = [s[0], s[1]];
+   309→          n[currentPlayer] += oppPips;
+   310→          return n;
+   311→        });
+   312→        setRoundResult(`Venceu! ${PLAYER_NAMES[currentPlayer]}`);
+   313→        onScore?.(PLAYER_NAMES[currentPlayer], oppPips);
+   314→        setPhase('roundOver');
+   315→        return;
+   316→      }
+   317→
+   318→      setCurrentPlayer(oppIdx);
+   319→    },
+   320→    [hands, currentPlayer, chain, leftEnd, rightEnd, oppIdx, onScore]
+   321→  );
+   322→
+   323→  const handleTileClick = useCallback(
+   324→    (tileId: string) => {
+   325→      if (phase !== 'playing' || !isHumanTurn) return;
+   326→      if (selectedTileId === tileId) {
+   327→        setSelectedTileId(null);
+   328→        return;
+   329→      }
+   330→
+   331→      const tile = currentHand.find((t) => t.id === tileId);
+   332→      if (!tile) return;
+   333→
+   334→      const ends = validEndsForTile(tile, leftEnd, rightEnd, chain.length);
+   335→      if (ends.length === 0) return;
+   336→
+   337→      setSelectedTileId(tileId);
+   338→
+   339→      if (ends.length === 1) {
+   340→        placeTile(tileId, ends[0]);
+   341→      }
+   342→    },
+   343→    [phase, isHumanTurn, selectedTileId, currentHand, leftEnd, rightEnd, chain.length, placeTile]
+   344→  );
+   345→
+   346→  const handleEndClick = useCallback(
+   347→    (end: End) => {
+   348→      if (!selectedTileId || phase !== 'playing' || !isHumanTurn) return;
+   349→      if (selectedValidEnds.includes(end)) {
+   350→        placeTile(selectedTileId, end);
+   351→      }
+   352→    },
+   353→    [selectedTileId, phase, isHumanTurn, selectedValidEnds, placeTile]
+   354→  );
+   355→
+   356→  const drawFromBoneyard = useCallback(() => {
+   357→    if (boneyard.length === 0 || hasValidMove) return;
+   358→    const newBy = [...boneyard];
+   359→    const drawn = newBy.pop()!;
+   360→    setBoneyard(newBy);
+   361→    setHands((prev) => {
+   362→      const h: Tile[][] = [prev[0].slice(), prev[1].slice()];
+   363→      h[currentPlayer] = [...h[currentPlayer], drawn];
+   364→      return h;
+   365→    });
+   366→    setMessage('Comprou uma pe\u00e7a');
+   367→  }, [boneyard, hasValidMove, currentPlayer]);
+   368→
+   369→  const passTurn = useCallback(() => {
+   370→    if (!canPass) return;
+   371→    const np = consecutivePasses + 1;
+   372→    if (np >= 2) {
+   373→      endRoundBlocked();
+   374→      return;
+   375→    }
+   376→    setConsecutivePasses(np);
+   377→    setSelectedTileId(null);
+   378→    setCurrentPlayer(oppIdx);
+   379→    setMessage(`${PLAYER_NAMES[currentPlayer]} passou`);
+   380→  }, [canPass, consecutivePasses, oppIdx, endRoundBlocked, currentPlayer]);
+   381→
+   382→  const toggleMode = useCallback(() => {
+   383→    setVsBot((v) => !v);
+   384→    startRound();
+   385→  }, [startRound]);
+   386→
+   387→  /* ─── effects ─── */
+   388→
+   389→  useEffect(() => {
+   390→    startRound();
+   391→  }, [startRound]);
+   392→
+   393→  useEffect(() => {
+   394→    if (phase === 'dealing') {
+   395→      const t = setTimeout(() => setPhase('playing'), 1200);
+   396→      return () => clearTimeout(t);
+   397→    }
+   398→  }, [phase]);
+   399→
+   400→  useEffect(() => {
+   401→    if (phase !== 'playing') return;
+   402→    if (vsBot && currentPlayer === 1) {
+   403→      setMessage(`${PLAYER_NAMES[1]} est\u00e1 pensando...`);
+   404→    } else if (chain.length === 0) {
+   405→      setMessage('Coloque a primeira pe\u00e7a');
+   406→    } else if (hasValidMove) {
+   407→      setMessage(`Sua vez \u2014 ${PLAYER_NAMES[currentPlayer]}`);
+   408→    } else if (canDraw) {
+   409→      setMessage('Sem pe\u00e7as v\u00e1lidas \u2014 compre do osso');
+   410→    } else {
+   411→      setMessage('Bloqueado!');
+   412→    }
+   413→  }, [phase, vsBot, currentPlayer, chain.length, hasValidMove, canDraw]);
+   414→
+   415→  useEffect(() => {
+   416→    if (phase !== 'playing' || !vsBot || currentPlayer !== 1) return;
+   417→
+   418→    botTimer.current = setTimeout(() => {
+   419→      const botHand = hands[1];
+   420→      if (botHand.length === 0) return;
+   421→
+   422→      if (chain.length === 0) {
+   423→        const sorted = [...botHand].sort((a, b) => tilePips(b) - tilePips(a));
+   424→        placeTile(sorted[0].id, 'left');
+   425→        return;
+   426→      }
+   427→
+   428→      const moves = botHand
+   429→        .map((t) => ({
+   430→          tile: t,
+   431→          ends: validEndsForTile(t, leftEnd, rightEnd, chain.length),
+   432→        }))
+   433→        .filter((m) => m.ends.length > 0)
+   434→        .sort((a, b) => tilePips(b.tile) - tilePips(a.tile));
+   435→
+   436→      if (moves.length > 0) {
+   437→        placeTile(moves[0].tile.id, moves[0].ends[0]);
+   438→      } else if (boneyard.length > 0) {
+   439→        drawFromBoneyard();
+   440→      } else {
+   441→        const np = consecutivePasses + 1;
+   442→        if (np >= 2) {
+   443→          endRoundBlocked();
+   444→        } else {
+   445→          setConsecutivePasses(np);
+   446→          setCurrentPlayer(0);
+   447→          setMessage(`${PLAYER_NAMES[1]} passou`);
+   448→        }
+   449→      }
+   450→    }, 700 + Math.random() * 500);
+   451→
+   452→    return () => {
+   453→      if (botTimer.current) clearTimeout(botTimer.current);
+   454→    };
+   455→  }, [
+   456→    phase, vsBot, currentPlayer, hands, chain, leftEnd, rightEnd,
+   457→    boneyard, placeTile, drawFromBoneyard, consecutivePasses, endRoundBlocked,
+   458→  ]);
+   459→
+   460→  /* ─── render helpers ─── */
+   461→
+   462→  const colorClass = (idx: 0 | 1) => (idx === 0 ? 'text-cyan-400' : 'text-pink-400');
+   463→  const dotColor = (idx: 0 | 1) => (idx === 0 ? 'bg-cyan-400' : 'bg-pink-400');
+   464→
+   465→  const isPlayableInHand = (tile: Tile): boolean => {
+   466→    if (phase !== 'playing' || !isHumanTurn) return false;
+   467→    return validEndsForTile(tile, leftEnd, rightEnd, chain.length).length > 0;
+   468→  };
+   469→
+   470→  /* ═══════════════════════ JSX ═══════════════════════ */
+   471→
+   472→  return (
+   473→    <div className="relative w-full max-w-4xl mx-auto flex flex-col gap-3 p-2 sm:p-4 select-none">
+   474→      <motion.div
+   475→        initial={{ opacity: 0, y: -20 }}
+   476→        animate={{ opacity: 1, y: 0 }}
+   477→        className="bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 rounded-xl p-3 flex items-center justify-between"
+   478→      >
+   479→        <div className="flex items-center gap-2">
+   480→          <div className="w-3 h-3 rounded-full bg-cyan-400" />
+   481→          <span className="text-cyan-400 font-bold text-xs sm:text-sm">{PLAYER_NAMES[0]}</span>
+   482→          <motion.span
+   483→            key={scores[0]}
+   484→            initial={{ scale: 1.6, color: '#22d3ee' }}
+   485→            animate={{ scale: 1, color: '#ffffff' }}
+   486→            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+   487→            className="text-white font-mono text-lg sm:text-xl font-bold inline-block"
+   488→          >
+   489→            {scores[0]}
+   490→          </motion.span>
+   491→        </div>
+   492→
+   493→        <div className="text-center">
+   494→          <h2 className="text-white font-bold text-base sm:text-2xl tracking-widest">DOMIN\u00d3</h2>
+   495→          <span className="text-slate-500 text-[10px]">Rodada {roundNum}</span>
+   496→        </div>
+   497→
+   498→        <div className="flex items-center gap-2">
+   499→          <motion.span
+   500→            key={scores[1]}
+   501→            initial={{ scale: 1.6, color: '#f472b6' }}
+   502→            animate={{ scale: 1, color: '#ffffff' }}
+   503→            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+   504→            className="text-white font-mono text-lg sm:text-xl font-bold inline-block"
+   505→          >
+   506→            {scores[1]}
+   507→          </motion.span>
+   508→          <span className="text-pink-400 font-bold text-xs sm:text-sm">{PLAYER_NAMES[1]}</span>
+   509→          <div className="w-3 h-3 rounded-full bg-pink-400" />
+   510→        </div>
+   511→      </motion.div>
+   512→
+   513→      <div className="flex items-center justify-between gap-2 flex-wrap">
+   514→        <div className="flex items-center gap-2">
+   515→          <Button
+   516→            size="sm"
+   517→            variant={vsBot ? 'default' : 'outline'}
+   518→            onClick={toggleMode}
+   519→            className={cn('text-xs gap-1', vsBot ? 'bg-pink-600 hover:bg-pink-700 text-white' : '')}
+   520→          >
+   521→            <Bot className="w-3 h-3" />
+   522→            VS Bot
+   523→          </Button>
+   524→          <Badge variant="outline" className="text-[10px] sm:text-xs text-slate-400 gap-1">
+   525→            <ArrowDown className="w-3 h-3" />
+   526→            Pecas no osso: {boneyard.length}
+   527→          </Badge>
+   528→        </div>
+   529→        <Button size="sm" variant="ghost" onClick={restartAll} className="text-xs text-slate-400 gap-1">
+   530→          <RotateCcw className="w-3 h-3" />
+   531→          Reiniciar Tudo
+   532→        </Button>
+   533→      </div>
+   534→
+   535→      <div className="flex flex-col items-center gap-1">
+   536→        <span className={cn('text-xs font-semibold flex items-center gap-1.5', colorClass(topIdx as 0 | 1))}>
+   537→          <div className={cn('w-2 h-2 rounded-full', dotColor(topIdx as 0 | 1))} />
+   538→          {PLAYER_NAMES[topIdx]} — {hands[topIdx].length} peça{hands[topIdx].length !== 1 ? 's' : ''}
+   539→          {phase === 'playing' && currentPlayer === topIdx && (
+   540→            <motion.span
+   541→              animate={{ opacity: [1, 0.4, 1] }}
+   542→              transition={{ repeat: Infinity, duration: 1.2 }}
+   543→              className="text-amber-400 ml-1"
+   544→            >
+   545→              \u25c6 pensando...
+   546→            </motion.span>
+   547→          )}
+   548→        </span>
+   549→        <div className="flex gap-1 justify-center flex-wrap max-w-md">
+   550→          <AnimatePresence>
+   551→            {hands[topIdx].map((tile, i) => (
+   552→              <motion.div
+   553→                key={tile.id}
+   554→                initial={{ opacity: 0, y: -20, scale: 0.8 }}
+   555→                animate={{ opacity: 1, y: 0, scale: 1 }}
+   556→                exit={{ opacity: 0, scale: 0.7 }}
+   557→                transition={{ delay: phase === 'dealing' ? i * 0.06 : 0, duration: 0.3 }}
+   558→              >
+   559→                <DominoTile faceDown />
+   560→              </motion.div>
+   561→            ))}
+   562→          </AnimatePresence>
+   563→        </div>
+   564→      </div>
+   565→
+   566→      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 sm:p-4 min-h-[120px] sm:min-h-[140px] flex flex-col gap-2">
+   567→        <AnimatePresence mode="wait">
+   568→          <motion.p
+   569→            key={message}
+   570→            initial={{ opacity: 0, y: -4 }}
+   571→            animate={{ opacity: 1, y: 0 }}
+   572→            exit={{ opacity: 0 }}
+   573→            className="text-center text-xs sm:text-sm text-slate-300 h-5"
+   574→          >
+   575→            {phase === 'dealing' ? 'Distribuindo pe\u00e7as...' : message}
+   576→          </motion.p>
+   577→        </AnimatePresence>
+   578→
+   579→        <div ref={chainRef} className="overflow-x-auto flex-1 flex items-center">
+   580→          <div className="flex items-center gap-0.5 mx-auto">
+   581→            <AnimatePresence>
+   582→              {chain.length > 0 && selectedValidEnds.includes('left') && (
+   583→                <motion.div
+   584→                  initial={{ scale: 0.7, opacity: 0 }}
+   585→                  animate={{ scale: 1, opacity: 1 }}
+   586→                  exit={{ scale: 0.7, opacity: 0 }}
+   587→                  onClick={() => handleEndClick('left')}
+   588→                  className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-400/20 border-2 border-amber-400 cursor-pointer shrink-0 mr-1.5"
+   589→                >
+   590→                  <span className="text-amber-400 text-[10px] font-bold leading-none">\u25c0</span>
+   591→                  <span className="text-amber-400 text-base sm:text-lg font-bold leading-none mt-0.5">{leftEnd}</span>
+   592→                </motion.div>
+   593→              )}
+   594→            </AnimatePresence>
+   595→
+   596→            {chain.length === 0 && phase === 'playing' && (
+   597→              <div className="text-slate-500 text-xs sm:text-sm italic">Coloque a primeira pe\u00e7a</div>
+   598→            )}
+   599→
+   600→            <AnimatePresence>
+   601→              {chain.map((ct) => (
+   602→                <motion.div
+   603→                  key={ct.id}
+   604→                  initial={{ opacity: 0, scale: 0.6 }}
+   605→                  animate={{ opacity: 1, scale: 1 }}
+   606→                  transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+   607→                >
+   608→                  <DominoTile tile={ct} />
+   609→                </motion.div>
+   610→              ))}
+   611→            </AnimatePresence>
+   612→
+   613→            <AnimatePresence>
+   614→              {chain.length > 0 && selectedValidEnds.includes('right') && (
+   615→                <motion.div
+   616→                  initial={{ scale: 0.7, opacity: 0 }}
+   617→                  animate={{ scale: 1, opacity: 1 }}
+   618→                  exit={{ scale: 0.7, opacity: 0 }}
+   619→                  onClick={() => handleEndClick('right')}
+   620→                  className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-400/20 border-2 border-amber-400 cursor-pointer shrink-0 ml-1.5"
+   621→                >
+   622→                  <span className="text-amber-400 text-[10px] font-bold leading-none">\u25b6</span>
+   623→                  <span className="text-amber-400 text-base sm:text-lg font-bold leading-none mt-0.5">{rightEnd}</span>
+   624→                </motion.div>
+   625→              )}
+   626→            </AnimatePresence>
+   627→          </div>
+   628→        </div>
+   629→
+   630→        {chain.length > 0 && (
+   631→          <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 px-1">
+   632→            <span>\u25c4 Esquerda: {leftEnd}</span>
+   633→            <span>Direita: {rightEnd} \u25ba</span>
+   634→          </div>
+   635→        )}
+   636→      </div>
+   637→
+   638→      <div className="flex flex-col items-center gap-1.5">
+   639→        <span className={cn('text-xs font-semibold flex items-center gap-1.5', colorClass(bottomIdx as 0 | 1))}>
+   640→          <div className={cn('w-2 h-2 rounded-full', dotColor(bottomIdx as 0 | 1))} />
+   641→          {PLAYER_NAMES[bottomIdx]} — {hands[bottomIdx].length} peça{hands[bottomIdx].length !== 1 ? 's' : ''}
+   642→          {phase === 'playing' && currentPlayer === bottomIdx && (
+   643→            <span className="text-amber-400 ml-1">\u25c6 Sua vez</span>
+   644→          )}
+   645→          {phase === 'playing' && currentPlayer !== bottomIdx && (
+   646→            <span className="text-slate-500 ml-1">Aguardando...</span>
+   647→          )}
+   648→        </span>
+   649→
+   650→        <div className="flex gap-1.5 overflow-x-auto max-w-full pb-1 px-1">
+   651→          <AnimatePresence>
+   652→            {hands[bottomIdx].map((tile, i) => {
+   653→              const playable = isPlayableInHand(tile);
+   654→              return (
+   655→                <motion.div
+   656→                  key={tile.id}
+   657→                  initial={{ opacity: 0, y: 25, scale: 0.8 }}
+   658→                  animate={{ opacity: 1, y: 0, scale: 1 }}
+   659→                  exit={{ opacity: 0, scale: 0.7, y: 10 }}
+   660→                  transition={{
+   661→                    delay: phase === 'dealing' ? i * 0.06 : 0,
+   662→                    type: 'spring',
+   663→                    stiffness: 350,
+   664→                    damping: 25,
+   665→                  }}
+   666→                  layout
+   667→                >
+   668→                  <DominoTile
+   669→                    tile={tile}
+   670→                    selected={selectedTileId === tile.id}
+   671→                    playable={playable}
+   672→                    onClick={() => handleTileClick(tile.id)}
+   673→                  />
+   674→                </motion.div>
+   675→              );
+   676→            })}
+   677→          </AnimatePresence>
+   678→        </div>
+   679→      </div>
+   680→
+   681→      <AnimatePresence>
+   682→        {phase === 'playing' && isHumanTurn && (
+   683→          <motion.div
+   684→            initial={{ opacity: 0, y: 10 }}
+   685→            animate={{ opacity: 1, y: 0 }}
+   686→            exit={{ opacity: 0, y: 10 }}
+   687→            className="flex items-center justify-center gap-2"
+   688→          >
+   689→            <motion.div animate={canDraw ? { scale: [1, 1.04, 1] } : {}} transition={{ repeat: Infinity, duration: 1.5 }}>
+   690→              <Button
+   691→                size="sm"
+   692→                variant="outline"
+   693→                onClick={drawFromBoneyard}
+   694→                disabled={!canDraw}
+   695→                className={cn('text-xs gap-1', canDraw && 'border-amber-500/50 text-amber-400 hover:bg-amber-500/10')}
+   696→              >
+   697→                <ArrowDown className="w-3 h-3" />
+   698→                Comprar
+   699→              </Button>
+   700→            </motion.div>
+   701→
+   702→            <Button
+   703→              size="sm"
+   704→              variant="outline"
+   705→              onClick={passTurn}
+   706→              disabled={!canPass}
+   707→              className={cn('text-xs gap-1', canPass && 'border-red-500/50 text-red-400 hover:bg-red-500/10')}
+   708→            >
+   709→              <SkipForward className="w-3 h-3" />
+   710→              Passar
+   711→            </Button>
+   712→          </motion.div>
+   713→        )}
+   714→      </AnimatePresence>
+   715→
+   716→      <AnimatePresence>
+   717→        {phase === 'playing' && !hasValidMove && boneyard.length === 0 && isHumanTurn && (
+   718→          <motion.div
+   719→            initial={{ opacity: 0, scale: 0.9 }}
+   720→            animate={{ opacity: 1, scale: 1 }}
+   721→            exit={{ opacity: 0 }}
+   722→            className="text-center text-red-400 text-sm font-bold"
+   723→          >
+   724→            Bloqueado!
+   725→          </motion.div>
+   726→        )}
+   727→      </AnimatePresence>
+   728→
+   729→      <AnimatePresence>
+   730→        {phase === 'roundOver' && (
+   731→          <motion.div
+   732→            initial={{ opacity: 0 }}
+   733→            animate={{ opacity: 1 }}
+   734→            exit={{ opacity: 0 }}
+   735→            className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 rounded-2xl"
+   736→          >
+   737→            <motion.div
+   738→              initial={{ scale: 0.5, opacity: 0, y: 20 }}
+   739→              animate={{ scale: 1, opacity: 1, y: 0 }}
+   740→              exit={{ scale: 0.5, opacity: 0, y: 20 }}
+   741→              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+   742→              className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center max-w-sm mx-4 shadow-2xl"
+   743→            >
+   744→              {roundResult && !roundResult.includes('Empate') && (
+   745→                <div className="relative h-14 mb-3 overflow-hidden">
+   746→                  {['\ud83c\udf89', '\ud83c\udfc6', '\u2728', '\ud83c\udf8a', '\u2b50'].map((emoji, i) => (
+   747→                    <motion.span
+   748→                      key={i}
+   749→                      initial={{ y: 40, opacity: 0, scale: 0, x: (i - 2) * 16 }}
+   750→                      animate={{
+   751→                        y: [40, -5, 0],
+   752→                        opacity: [0, 1, 1],
+   753→                        scale: [0, 1.3, 1],
+   754→                        rotate: [0, (i % 2 === 0 ? 15 : -15), 0],
+   755→                      }}
+   756→                      transition={{ delay: i * 0.12, duration: 0.8, ease: 'easeOut' }}
+   757→                      className="absolute text-2xl"
+   758→                      style={{ left: `${(i + 0.5) * 20}%`, transform: 'translateX(-50%)' }}
+   759→                    >
+   760→                      {emoji}
+   761→                    </motion.span>
+   762→                  ))}
+   763→                </div>
+   764→              )}
+   765→
+   766→              <h3
+   767→                className={cn(
+   768→                  'text-xl sm:text-2xl font-bold mb-3',
+   769→                  roundResult.includes(PLAYER_NAMES[0])
+   770→                    ? 'text-cyan-400'
+   771→                    : roundResult.includes(PLAYER_NAMES[1])
+   772→                      ? 'text-pink-400'
+   773→                      : 'text-amber-400'
+   774→                )}
+   775→              >
+   776→                {roundResult}
+   777→              </h3>
+   778→
+   779→              <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-6 mb-5 text-xs sm:text-sm">
+   780→                <div className="flex items-center justify-center gap-1.5">
+   781→                  <div className="w-2 h-2 rounded-full bg-cyan-400" />
+   782→                  <span className="text-cyan-400 font-semibold">{PLAYER_NAMES[0]}</span>
+   783→                  <span className="text-slate-400">({handPips(hands[0])} pts)</span>
+   784→                </div>
+   785→                <div className="flex items-center justify-center gap-1.5">
+   786→                  <div className="w-2 h-2 rounded-full bg-pink-400" />
+   787→                  <span className="text-pink-400 font-semibold">{PLAYER_NAMES[1]}</span>
+   788→                  <span className="text-slate-400">({handPips(hands[1])} pts)</span>
+   789→                </div>
+   790→              </div>
+   791→
+   792→              <div className="flex gap-2 justify-center flex-wrap">
+   793→                <Button size="sm" onClick={nextRound} className="text-xs gap-1">
+   794→                  Pr\u00f3xima Rodada
+   795→                </Button>
+   796→                <Button size="sm" variant="outline" onClick={restartAll} className="text-xs gap-1">
+   797→                  <RotateCcw className="w-3 h-3" />
+   798→                  Reiniciar Tudo
+   799→                </Button>
+   800→              </div>
+   801→            </motion.div>
+   802→          </motion.div>
+   803→        )}
+   804→      </AnimatePresence>
+   805→    </div>
+   806→  );
+   807→}
+   808→

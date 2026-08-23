@@ -1,0 +1,501 @@
+     1→import { useEffect, useState, useCallback, useRef } from 'react';
+     2→import { motion, AnimatePresence } from 'framer-motion';
+     3→import { Zap, Trophy, RotateCcw, User, Timer, AlertTriangle, Target, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→
+     9→interface SpeedReactionProps {
+    10→  onScore?: (name: string, score: number) => void;
+    11→  liveCode?: string;
+    12→}
+    13→
+    14→type Phase = 'setup' | 'waiting' | 'go' | 'hit' | 'roundResult' | 'gameOver';
+    15→type RoundWinner = 1 | 2 | 'false1' | 'false2' | null;
+    16→
+    17→const WINS_NEEDED = 3;
+    18→
+    19→function formatMs(ms: number): string {
+    20→  if (ms < 1000) return `${ms}ms`;
+    21→  const s = (ms / 1000).toFixed(2);
+    22→  return `${s}s`;
+    23→}
+    24→
+    25→function msToBarWidth(ms: number, maxMs = 800): number {
+    26→  return Math.min(100, Math.max(4, (ms / maxMs) * 100));
+    27→}
+    28→
+    29→function msToColor(ms: number): string {
+    30→  if (ms < 200) return 'text-emerald-400';
+    31→  if (ms < 350) return 'text-cyan-400';
+    32→  if (ms < 500) return 'text-yellow-400';
+    33→  return 'text-red-400';
+    34→}
+    35→
+    36→function msToGlow(ms: number): string {
+    37→  if (ms < 200) return 'shadow-emerald-500/60';
+    38→  if (ms < 350) return 'shadow-cyan-500/60';
+    39→  if (ms < 500) return 'shadow-yellow-500/60';
+    40→  return 'shadow-red-500/60';
+    41→}
+    42→
+    43→export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps) {
+    44→  const [phase, setPhase] = useState<Phase>('setup');
+    45→  const [p1Name, setP1Name] = useState('Jogador 1');
+    46→  const [p2Name, setP2Name] = useState('Jogador 2');
+    47→  const [p1Score, setP1Score] = useState(0);
+    48→  const [p2Score, setP2Score] = useState(0);
+    49→  const [p1Time, setP1Time] = useState<number | null>(null);
+    50→  const [p2Time, setP2Time] = useState<number | null>(null);
+    51→  const [roundWinner, setRoundWinner] = useState<RoundWinner>(null);
+    52→  const [currentRound, setCurrentRound] = useState(1);
+    53→  const [falseStart, setFalseStart] = useState<1 | 2 | null>(null);
+    54→  const [p1History, setP1History] = useState<number[]>([]);
+    55→  const [p2History, setP2History] = useState<number[]>([]);
+    56→  const [elapsedMs, setElapsedMs] = useState(0);
+    57→  const [hitPlayer, setHitPlayer] = useState<1 | 2 | null>(null);
+    58→
+    59→  const goTsRef = useRef(0);
+    60→  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    61→  const lockedRef = useRef(false);
+    62→  const elapsedRafRef = useRef(0);
+    63→
+    64→  const cleanup = useCallback(() => {
+    65→    if (timerRef.current) clearTimeout(timerRef.current);
+    66→    timerRef.current = null;
+    67→    if (elapsedRafRef.current) cancelAnimationFrame(elapsedRafRef.current);
+    68→    elapsedRafRef.current = 0;
+    69→    lockedRef.current = false;
+    70→    setElapsedMs(0);
+    71→  }, []);
+    72→
+    73→  useEffect(() => cleanup, [cleanup]);
+    74→
+    75→  const startElapsed = useCallback(() => {
+    76→    const tick = () => {
+    77→      setElapsedMs(Math.round(performance.now() - goTsRef.current));
+    78→      elapsedRafRef.current = requestAnimationFrame(tick);
+    79→    };
+    80→    elapsedRafRef.current = requestAnimationFrame(tick);
+    81→  }, []);
+    82→
+    83→  const finishRound = useCallback((w: 1 | 2, isFalse: 1 | 2 | null) => {
+    84→    if (elapsedRafRef.current) cancelAnimationFrame(elapsedRafRef.current);
+    85→    elapsedRafRef.current = 0;
+    86→    const name = w === 1 ? p1Name : p2Name;
+    87→    const setter = w === 1 ? setP1Score : setP2Score;
+    88→    setter(s => {
+    89→      const ns = s + 1;
+    90→      if (ns >= WINS_NEEDED) { setPhase('gameOver'); onScore?.(name, ns); }
+    91→      else setPhase('roundResult');
+    92→      return ns;
+    93→    });
+    94→  }, [p1Name, p2Name, onScore]);
+    95→
+    96→  const handleTap = useCallback((player: 1 | 2) => {
+    97→    if (lockedRef.current) return;
+    98→    if (phase === 'waiting') {
+    99→      lockedRef.current = true;
+   100→      cleanup();
+   101→      setFalseStart(player);
+   102→      setRoundWinner(player === 1 ? 'false1' : 'false2');
+   103→      finishRound(player === 1 ? 2 : 1, player);
+   104→      return;
+   105→    }
+   106→    if (phase === 'go') {
+   107→      const ms = Math.round(performance.now() - goTsRef.current);
+   108→      if (player === 1) {
+   109→        setP1Time(ms);
+   110→        setP1History(h => [...h, ms]);
+   111→      } else {
+   112→        setP2Time(ms);
+   113→        setP2History(h => [...h, ms]);
+   114→      }
+   115→      if (lockedRef.current) return;
+   116→      lockedRef.current = true;
+   117→      setHitPlayer(player);
+   118→      setRoundWinner(player);
+   119→      setFalseStart(null);
+   120→      if (elapsedRafRef.current) cancelAnimationFrame(elapsedRafRef.current);
+   121→      elapsedRafRef.current = 0;
+   122→      setPhase('hit');
+   123→      setTimeout(() => finishRound(player, null), 600);
+   124→    }
+   125→  }, [phase, cleanup, finishRound]);
+   126→
+   127→  const startRound = useCallback(() => {
+   128→    cleanup();
+   129→    setP1Time(null); setP2Time(null);
+   130→    setRoundWinner(null); setFalseStart(null);
+   131→    setHitPlayer(null);
+   132→    setPhase('waiting');
+   133→    timerRef.current = setTimeout(() => {
+   134→      goTsRef.current = performance.now();
+   135→      setPhase('go');
+   136→      startElapsed();
+   137→    }, 2000 + Math.random() * 4000);
+   138→  }, [cleanup, startElapsed]);
+   139→
+   140→  const nextRound = () => { setCurrentRound(r => r + 1); setTimeout(startRound, 150); };
+   141→  const resetGame = () => { cleanup(); setP1Score(0); setP2Score(0); setCurrentRound(1); setP1History([]); setP2History([]); setPhase('setup'); };
+   142→
+   143→  const isGreen = phase === 'go' || phase === 'hit';
+   144→  const isWaiting = phase === 'waiting';
+   145→  const active = isGreen || isWaiting;
+   146→  const gameWinner = p1Score >= WINS_NEEDED ? p1Name : p2Name;
+   147→  const winnerIsP1 = p1Score >= WINS_NEEDED;
+   148→
+   149→  const p1Best = p1History.length ? Math.min(...p1History) : null;
+   150→  const p1Worst = p1History.length ? Math.max(...p1History) : null;
+   151→  const p1Avg = p1History.length ? Math.round(p1History.reduce((a, b) => a + b, 0) / p1History.length) : null;
+   152→  const p2Best = p2History.length ? Math.min(...p2History) : null;
+   153→  const p2Worst = p2History.length ? Math.max(...p2History) : null;
+   154→  const p2Avg = p2History.length ? Math.round(p2History.reduce((a, b) => a + b, 0) / p2History.length) : null;
+   155→
+   156→  const ringVariants = {
+   157→    initial: { scale: 0.3, opacity: 0.7 },
+   158→    animate: { scale: 2.2, opacity: 0 },
+   159→  };
+   160→
+   161→  return (
+   162→    <Card className="w-full max-w-2xl mx-auto overflow-hidden border-0 shadow-2xl shadow-purple-500/10">
+   163→      <CardHeader className="bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-cyan-600/20 pb-3">
+   164→        <div className="flex items-center justify-between">
+   165→          <CardTitle className="flex items-center gap-2 text-lg font-bold">
+   166→            <Zap className="h-5 w-5 text-yellow-400" />
+   167→            <span className="bg-gradient-to-r from-cyan-300 to-fuchsia-400 bg-clip-text text-transparent">Velocidade de Reac\u00e7\u00e3o VS</span>
+   168→          </CardTitle>
+   169→          {phase !== 'setup' && (
+   170→            <Badge variant="outline" className="border-cyan-500/50 text-cyan-300 text-xs">
+   171→              <Timer className="h-3 w-3 mr-1" /> Rodada {currentRound}
+   172→            </Badge>
+   173→          )}
+   174→        </div>
+   175→        {phase !== 'setup' && (
+   176→          <div className="flex items-center justify-between mt-2 px-1">
+   177→            <span className={`font-bold text-sm ${winnerIsP1 ? 'text-cyan-400' : 'text-muted-foreground'}`}>{p1Name}</span>
+   178→            <span className="text-2xl font-black text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">{p1Score}</span>
+   179→            <span className="text-muted-foreground text-xs font-bold">VS</span>
+   180→            <span className="text-2xl font-black text-fuchsia-400 drop-shadow-[0_0_8px_rgba(217,70,239,0.6)]">{p2Score}</span>
+   181→            <span className={`font-bold text-sm ${!winnerIsP1 && p2Score > 0 ? 'text-fuchsia-400' : 'text-muted-foreground'}`}>{p2Name}</span>
+   182→          </div>
+   183→        )}
+   184→      </CardHeader>
+   185→      <CardContent className="p-0">
+   186→        <AnimatePresence mode="wait">
+   187→          {phase === 'setup' && (
+   188→            <motion.div key="setup" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="p-6 space-y-4">
+   189→              <p className="text-center text-sm text-muted-foreground">Digite os nomes e inicie a batalha de reac\u00e7\u00e3o!</p>
+   190→              <div className="flex gap-3">
+   191→                <div className="flex-1 space-y-1.5">
+   192→                  <label className="text-xs font-medium text-cyan-400 flex items-center gap-1"><User className="h-3 w-3" /> Jogador 1</label>
+   193→                  <Input value={p1Name} onChange={e => setP1Name(e.target.value || 'Jogador 1')} className="border-cyan-500/30 focus:border-cyan-400" />
+   194→                </div>
+   195→                <div className="flex-1 space-y-1.5">
+   196→                  <label className="text-xs font-medium text-fuchsia-400 flex items-center gap-1"><User className="h-3 w-3" /> Jogador 2</label>
+   197→                  <Input value={p2Name} onChange={e => setP2Name(e.target.value || 'Jogador 2')} className="border-fuchsia-500/30 focus:border-fuchsia-400" />
+   198→                </div>
+   199→              </div>
+   200→              <Button onClick={startRound} className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-6 text-base shadow-lg shadow-cyan-500/25">
+   201→                <Zap className="h-5 w-5 mr-2" /> Iniciar Batalha
+   202→              </Button>
+   203→            </motion.div>
+   204→          )}
+   205→
+   206→          {active && (
+   207→            <motion.div key={phase} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-2 divide-x divide-white/10">
+   208→              {([1, 2] as const).map((p) => {
+   209→                const name = p === 1 ? p1Name : p2Name;
+   210→                const time = p === 1 ? p1Time : p2Time;
+   211→                const isHit = phase === 'hit' && hitPlayer === p;
+   212→                const isOtherHit = phase === 'hit' && hitPlayer !== p;
+   213→                const color = p === 1 ? 'cyan' : 'fuchsia';
+   214→
+   215→                return (
+   216→                  <motion.button key={p} onClick={() => handleTap(p)} disabled={(phase === 'go' || phase === 'hit') && lockedRef.current}
+   217→                    className={`relative min-h-[55vh] flex flex-col items-center justify-center gap-3 select-none active:scale-[0.98] transition-all duration-100 overflow-hidden
+   218→                      ${isWaiting ? 'bg-gradient-to-b from-red-950/80 to-red-900/60' : 'bg-gradient-to-b from-emerald-950/90 to-emerald-800/70'}
+   219→                      ${isOtherHit ? 'opacity-30 pointer-events-none' : ''}
+   220→                      ${(phase === 'go' || phase === 'hit') && lockedRef.current && !isHit ? 'opacity-40 pointer-events-none' : ''}`}>
+   221→
+   222→                    {/* Background pulse layers */}
+   223→                    {isWaiting && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
+   224→                    {phase === 'go' && <div className="absolute inset-0 shadow-[inset_0_0_80px_rgba(16,185,129,0.15)]" />}
+   225→
+   226→                    {/* Expanding concentric rings for the target */}
+   227→                    {phase === 'go' && (
+   228→                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+   229→                        {[0, 1, 2].map((i) => (
+   230→                          <motion.div
+   231→                            key={i}
+   232→                            variants={ringVariants}
+   233→                            initial="initial"
+   234→                            animate="animate"
+   235→                            transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.5, ease: 'easeOut' }}
+   236→                            className={`absolute w-32 h-32 rounded-full border-2 ${p === 1 ? 'border-cyan-400/40' : 'border-fuchsia-400/40'}`}
+   237→                          />
+   238→                        ))}
+   239→                        {/* Static crosshair ring */}
+   240→                        <div className={`absolute w-28 h-28 rounded-full border ${p === 1 ? 'border-cyan-400/30' : 'border-fuchsia-400/30'} shadow-[0_0_20px_rgba(16,185,129,0.2)]`} />
+   241→                        <div className={`absolute w-16 h-16 rounded-full border ${p === 1 ? 'border-cyan-400/50' : 'border-fuchsia-400/50'} shadow-[0_0_12px_rgba(16,185,129,0.25)]`} />
+   242→                      </div>
+   243→                    )}
+   244→
+   245→                    {/* Hit flash + glow effect */}
+   246→                    {isHit && (
+   247→                      <>
+   248→                        <motion.div
+   249→                          initial={{ opacity: 0.7, scale: 0.5 }}
+   250→                          animate={{ opacity: 0, scale: 3 }}
+   251→                          transition={{ duration: 0.5, ease: 'easeOut' }}
+   252→                          className="absolute inset-0 bg-emerald-400/30 pointer-events-none"
+   253→                        />
+   254→                        <motion.div
+   255→                          initial={{ opacity: 0.9 }}
+   256→                          animate={{ opacity: 0 }}
+   257→                          transition={{ duration: 0.6 }}
+   258→                          className="absolute inset-0 pointer-events-none"
+   259→                          style={{ boxShadow: 'inset 0 0 120px rgba(52,211,153,0.5)' }}
+   260→                        />
+   261→                      </>
+   262→                    )}
+   263→
+   264→                    <span className={`relative z-10 text-sm font-semibold ${phase === 'go' || phase === 'hit' ? 'text-emerald-300' : 'text-red-300/60'}`}>{name}</span>
+   265→
+   266→                    {isWaiting && (
+   267→                      <motion.span animate={{ scale: [1, 1.12, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}
+   268→                        className="relative z-10 text-3xl sm:text-4xl font-black text-red-400/80 drop-shadow-[0_0_24px_rgba(239,68,68,0.5)]">
+   269→                        AGUARDE...
+   270→                      </motion.span>
+   271→                    )}
+   272→
+   273→                    {phase === 'go' && (
+   274→                      <>
+   275→                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+   276→                          className="relative z-10 text-4xl sm:text-5xl font-black text-emerald-300 drop-shadow-[0_0_30px_rgba(52,211,153,0.8)]">
+   277→                          AGORA!
+   278→                        </motion.span>
+   279→                        {/* Live timer counting up */}
+   280→                        <motion.span
+   281→                          initial={{ opacity: 0, y: 8 }}
+   282→                          animate={{ opacity: 1, y: 0 }}
+   283→                          transition={{ delay: 0.15 }}
+   284→                          className="relative z-10 font-mono text-xl font-bold text-emerald-200/70 tabular-nums"
+   285→                        >
+   286→                          {formatMs(elapsedMs)}
+   287→                        </motion.span>
+   288→                      </>
+   289→                    )}
+   290→
+   291→                    {/* Hit time display with glow */}
+   292→                    {isHit && time !== null && (
+   293→                      <motion.div
+   294→                        initial={{ scale: 0.5, opacity: 0 }}
+   295→                        animate={{ scale: 1, opacity: 1 }}
+   296→                        transition={{ type: 'spring', stiffness: 400, damping: 12 }}
+   297→                        className={`relative z-10 flex flex-col items-center gap-1`}
+   298→                      >
+   299→                        <Target className={`h-8 w-8 ${msToColor(time)} drop-shadow-[0_0_12px_currentColor]`} />
+   300→                        <span className={`text-3xl font-black ${msToColor(time)} drop-shadow-[0_0_16px_currentColor]`}>
+   301→                          {time}ms
+   302→                        </span>
+   303→                      </motion.div>
+   304→                    )}
+   305→
+   306→                    {phase === 'go' && time !== null && (
+   307→                      <span className="relative z-10 text-sm font-mono text-white/70">{time}ms</span>
+   308→                    )}
+   309→                  </motion.button>
+   310→                );
+   311→              })}
+   312→            </motion.div>
+   313→          )}
+   314→
+   315→          {phase === 'roundResult' && (
+   316→            <motion.div key="rr" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-6 space-y-4 text-center">
+   317→              {falseStart ? (
+   318→                <>
+   319→                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300 }}>
+   320→                    <AlertTriangle className="h-12 w-12 text-yellow-400 mx-auto drop-shadow-[0_0_14px_rgba(250,204,21,0.6)]" />
+   321→                  </motion.div>
+   322→                  <p className="text-yellow-400 font-bold text-xl">Largada Antecipada!</p>
+   323→                  <p className="text-sm text-muted-foreground">{falseStart === 1 ? p1Name : p2Name} tocou antes do sinal verde!</p>
+   324→                  <p className={`text-base font-semibold ${falseStart === 1 ? 'text-fuchsia-400' : 'text-cyan-400'}`}>
+   325→                    {falseStart === 1 ? p2Name : p1Name} pontuou!
+   326→                  </p>
+   327→                </>
+   328→              ) : roundWinner === 1 || roundWinner === 2 ? (
+   329→                <>
+   330→                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300 }}>
+   331→                    <Zap className={`h-12 w-12 mx-auto drop-shadow-[0_0_14px_rgba(250,204,21,0.6)] ${roundWinner === 1 ? 'text-cyan-400' : 'text-fuchsia-400'}`} />
+   332→                  </motion.div>
+   333→                  <p className={`font-bold text-xl ${roundWinner === 1 ? 'text-cyan-400' : 'text-fuchsia-400'}`}>
+   334→                    {roundWinner === 1 ? p1Name : p2Name} venceu!
+   335→                  </p>
+   336→                  {p1Time !== null && p2Time !== null && (
+   337→                    <div className="flex justify-center gap-6 text-sm">
+   338→                      <span className={roundWinner === 1 ? 'text-cyan-300 font-bold' : 'text-muted-foreground'}>{p1Name}: {p1Time}ms</span>
+   339→                      <span className={roundWinner === 2 ? 'text-fuchsia-300 font-bold' : 'text-muted-foreground'}>{p2Name}: {p2Time}ms</span>
+   340→                    </div>
+   341→                  )}
+   342→                  {p1Time !== null && p2Time === null && (
+   343→                    <p className="text-sm text-muted-foreground">Tempo de reac\u00e7\u00e3o: {p1Time}ms</p>
+   344→                  )}
+   345→                  {p2Time !== null && p1Time === null && (
+   346→                    <p className="text-sm text-muted-foreground">Tempo de reac\u00e7\u00e3o: {p2Time}ms</p>
+   347→                  )}
+   348→
+   349→                  {/* Running average display */}
+   350→                  {(p1Avg !== null || p2Avg !== null) && (
+   351→                    <div className="flex justify-center gap-6 pt-1">
+   352→                      {p1Avg !== null && (
+   353→                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   354→                          <TrendingUp className="h-3 w-3 text-cyan-400" />
+   355→                          <span>{p1Name} m\u00e9dia: <span className="text-cyan-300 font-semibold">{p1Avg}ms</span></span>
+   356→                        </div>
+   357→                      )}
+   358→                      {p2Avg !== null && (
+   359→                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   360→                          <TrendingUp className="h-3 w-3 text-fuchsia-400" />
+   361→                          <span>{p2Name} m\u00e9dia: <span className="text-fuchsia-300 font-semibold">{p2Avg}ms</span></span>
+   362→                        </div>
+   363→                      )}
+   364→                    </div>
+   365→                  )}
+   366→                </>
+   367→              ) : null}
+   368→              <Button onClick={nextRound} className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-5">
+   369→                <Zap className="h-4 w-4 mr-2" /> Pr\u00f3xima Rodada
+   370→              </Button>
+   371→            </motion.div>
+   372→          )}
+   373→
+   374→          {phase === 'gameOver' && (
+   375→            <motion.div key="go" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-6 pb-8 space-y-5 text-center">
+   376→              <motion.div initial={{ rotate: -10, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: 'spring', delay: 0.15 }}>
+   377→                <Trophy className={`h-16 w-16 mx-auto drop-shadow-[0_0_20px_rgba(250,204,21,0.7)] ${winnerIsP1 ? 'text-cyan-400' : 'text-fuchsia-400'}`} />
+   378→              </motion.div>
+   379→              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+   380→                className={`text-2xl font-black ${winnerIsP1 ? 'text-cyan-400' : 'text-fuchsia-400'} drop-shadow-[0_0_16px_rgba(250,204,21,0.4)]`}>
+   381→                {gameWinner} venceu!
+   382→              </motion.p>
+   383→              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="flex justify-center gap-4 text-lg font-bold">
+   384→                <span className="text-cyan-400">{p1Score}</span>
+   385→                <span className="text-muted-foreground">×</span>
+   386→                <span className="text-fuchsia-400">{p2Score}</span>
+   387→              </motion.div>
+   388→
+   389→              {/* Stats panel */}
+   390→              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+   391→                className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+   392→                <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white/80">
+   393→                  <BarChart3 className="h-4 w-4" /> Estat\u00edsticas da Partida
+   394→                </div>
+   395→
+   396→                <div className="grid grid-cols-2 gap-3">
+   397→                  {/* Player 1 stats */}
+   398→                  <div className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 p-3 space-y-2">
+   399→                    <p className="text-xs font-bold text-cyan-400 truncate">{p1Name}</p>
+   400→                    {p1History.length > 0 ? (
+   401→                      <>
+   402→                        <div className="flex items-center justify-between text-xs">
+   403→                          <span className="flex items-center gap-1 text-emerald-400"><TrendingUp className="h-3 w-3" /> Melhor</span>
+   404→                          <span className="font-mono font-bold text-emerald-400">{p1Best}ms</span>
+   405→                        </div>
+   406→                        <div className="flex items-center justify-between text-xs">
+   407→                          <span className="flex items-center gap-1 text-red-400"><TrendingDown className="h-3 w-3" /> Pior</span>
+   408→                          <span className="font-mono font-bold text-red-400">{p1Worst}ms</span>
+   409→                        </div>
+   410→                        <div className="flex items-center justify-between text-xs">
+   411→                          <span className="flex items-center gap-1 text-cyan-300"><Timer className="h-3 w-3" /> M\u00e9dia</span>
+   412→                          <span className="font-mono font-bold text-cyan-300">{p1Avg}ms</span>
+   413→                        </div>
+   414→                        {/* Average time bar */}
+   415→                        <div className="space-y-1 pt-1">
+   416→                          <div className="flex justify-between text-[10px] text-muted-foreground">
+   417→                            <span>Reac\u00e7\u00f5es</span>
+   418→                            <span>{p1History.length}x</span>
+   419→                          </div>
+   420→                          {p1History.map((t, i) => (
+   421→                            <div key={i} className="flex items-center gap-1.5">
+   422→                              <span className="text-[10px] text-muted-foreground w-4 text-right">R{i + 1}</span>
+   423→                              <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+   424→                                <motion.div
+   425→                                  initial={{ width: 0 }}
+   426→                                  animate={{ width: `${msToBarWidth(t)}%` }}
+   427→                                  transition={{ duration: 0.6, delay: 0.7 + i * 0.12, ease: 'easeOut' }}
+   428→                                  className={`h-full rounded-full ${t === p1Best ? 'bg-emerald-400' : t === p1Worst ? 'bg-red-400/70' : 'bg-cyan-400/60'}`}
+   429→                                />
+   430→                              </div>
+   431→                              <span className={`text-[10px] font-mono w-10 text-right ${msToColor(t)}`}>{t}ms</span>
+   432→                            </div>
+   433→                          ))}
+   434→                        </div>
+   435→                      </>
+   436→                    ) : (
+   437→                      <p className="text-[11px] text-muted-foreground">Sem tempos registrados</p>
+   438→                    )}
+   439→                  </div>
+   440→
+   441→                  {/* Player 2 stats */}
+   442→                  <div className="rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 p-3 space-y-2">
+   443→                    <p className="text-xs font-bold text-fuchsia-400 truncate">{p2Name}</p>
+   444→                    {p2History.length > 0 ? (
+   445→                      <>
+   446→                        <div className="flex items-center justify-between text-xs">
+   447→                          <span className="flex items-center gap-1 text-emerald-400"><TrendingUp className="h-3 w-3" /> Melhor</span>
+   448→                          <span className="font-mono font-bold text-emerald-400">{p2Best}ms</span>
+   449→                        </div>
+   450→                        <div className="flex items-center justify-between text-xs">
+   451→                          <span className="flex items-center gap-1 text-red-400"><TrendingDown className="h-3 w-3" /> Pior</span>
+   452→                          <span className="font-mono font-bold text-red-400">{p2Worst}ms</span>
+   453→                        </div>
+   454→                        <div className="flex items-center justify-between text-xs">
+   455→                          <span className="flex items-center gap-1 text-fuchsia-300"><Timer className="h-3 w-3" /> M\u00e9dia</span>
+   456→                          <span className="font-mono font-bold text-fuchsia-300">{p2Avg}ms</span>
+   457→                        </div>
+   458→                        <div className="space-y-1 pt-1">
+   459→                          <div className="flex justify-between text-[10px] text-muted-foreground">
+   460→                            <span>Reac\u00e7\u00f5es</span>
+   461→                            <span>{p2History.length}x</span>
+   462→                          </div>
+   463→                          {p2History.map((t, i) => (
+   464→                            <div key={i} className="flex items-center gap-1.5">
+   465→                              <span className="text-[10px] text-muted-foreground w-4 text-right">R{i + 1}</span>
+   466→                              <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+   467→                                <motion.div
+   468→                                  initial={{ width: 0 }}
+   469→                                  animate={{ width: `${msToBarWidth(t)}%` }}
+   470→                                  transition={{ duration: 0.6, delay: 0.7 + i * 0.12, ease: 'easeOut' }}
+   471→                                  className={`h-full rounded-full ${t === p2Best ? 'bg-emerald-400' : t === p2Worst ? 'bg-red-400/70' : 'bg-fuchsia-400/60'}`}
+   472→                                />
+   473→                              </div>
+   474→                              <span className={`text-[10px] font-mono w-10 text-right ${msToColor(t)}`}>{t}ms</span>
+   475→                            </div>
+   476→                          ))}
+   477→                        </div>
+   478→                      </>
+   479→                    ) : (
+   480→                      <p className="text-[11px] text-muted-foreground">Sem tempos registrados</p>
+   481→                    )}
+   482→                  </div>
+   483→                </div>
+   484→              </motion.div>
+   485→
+   486→              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="flex gap-3 pt-1">
+   487→                <Button onClick={resetGame} variant="outline" className="flex-1 border-white/10">
+   488→                  <RotateCcw className="h-4 w-4 mr-2" /> Novo Jogo
+   489→                </Button>
+   490→                <Button onClick={() => { resetGame(); setTimeout(startRound, 200); }}
+   491→                  className="flex-1 bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold">
+   492→                  <Zap className="h-4 w-4 mr-2" /> Revanche
+   493→                </Button>
+   494→              </motion.div>
+   495→            </motion.div>
+   496→          )}
+   497→        </AnimatePresence>
+   498→      </CardContent>
+   499→    </Card>
+   500→  );
+   501→}

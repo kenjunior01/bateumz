@@ -1,0 +1,1179 @@
+     1→import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import {
+     4→  RotateCcw,
+     5→  Timer,
+     6→  Palette,
+     7→  Flame,
+     8→  Trophy,
+     9→  CheckCircle,
+    10→  XCircle,
+    11→  Crown,
+    12→  Star,
+    13→  ChevronRight,
+    14→} from "lucide-react";
+    15→import { Button } from "@/components/ui/button";
+    16→import { Badge } from "@/components/ui/badge";
+    17→import { cn } from "@/lib/utils";
+    18→
+    19→/* ------------------------------------------------------------------ */
+    20→/*  Types                                                              */
+    21→/* ------------------------------------------------------------------ */
+    22→
+    23→interface Props {
+    24→  onScore?: (name: string, score: number) => void;
+    25→  liveCode?: string;
+    26→}
+    27→
+    28→interface ColorDef {
+    29→  id: string;
+    30→  name: string;
+    31→  hex: string;
+    32→  tailwind: string;
+    33→}
+    34→
+    35→type GamePhase =
+    36→  | "idle"
+    37→  | "countdown"
+    38→  | "playing"
+    39→  | "roundResult"
+    40→  | "gameOver";
+    41→
+    42→interface RoundData {
+    43→  word: ColorDef;
+    44→  inkColor: ColorDef;
+    45→  choices: ColorDef[];
+    46→}
+    47→
+    48→interface ScorePopup {
+    49→  id: number;
+    50→  player: 1 | 2;
+    51→  value: number;
+    52→}
+    53→
+    54→type BotDifficulty = "facil" | "medio" | "dificil";
+    55→
+    56→const BOT_CONFIG: Record<BotDifficulty, { reactionMs: number; wrongRate: number }> = {
+    57→  facil:  { reactionMs: 800, wrongRate: 0.20 },
+    58→  medio:  { reactionMs: 500, wrongRate: 0.08 },
+    59→  dificil: { reactionMs: 250, wrongRate: 0.02 },
+    60→};
+    61→
+    62→/* ------------------------------------------------------------------ */
+    63→/*  Colour palette (Portuguese names)                                  */
+    64→/* ------------------------------------------------------------------ */
+    65→
+    66→const ALL_COLORS: ColorDef[] = [
+    67→  { id: "vermelho", name: "Vermelho", hex: "#EF4444", tailwind: "bg-red-500" },
+    68→  { id: "azul",     name: "Azul",     hex: "#3B82F6", tailwind: "bg-blue-500" },
+    69→  { id: "verde",    name: "Verde",    hex: "#22C55E", tailwind: "bg-green-500" },
+    70→  { id: "amarelo",  name: "Amarelo",  hex: "#EAB308", tailwind: "bg-yellow-500" },
+    71→  { id: "roxo",     name: "Roxo",     hex: "#A855F7", tailwind: "bg-purple-500" },
+    72→  { id: "laranja",  name: "Laranja",  hex: "#F97316", tailwind: "bg-orange-500" },
+    73→];
+    74→
+    75→const TOTAL_ROUNDS = 15;
+    76→const INITIAL_TIME_MS = 5000;
+    77→const MIN_TIME_MS = 2000;
+    78→
+    79→/* ------------------------------------------------------------------ */
+    80→/*  Helpers                                                            */
+    81→/* ------------------------------------------------------------------ */
+    82→
+    83→function shuffle<T>(arr: T[]): T[] {
+    84→  const a = [...arr];
+    85→  for (let i = a.length - 1; i > 0; i--) {
+    86→    const j = Math.floor(Math.random() * (i + 1));
+    87→    [a[i], a[j]] = [a[j], a[i]];
+    88→  }
+    89→  return a;
+    90→}
+    91→
+    92→function makeRound(): RoundData {
+    93→  const word = ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+    94→  let ink: ColorDef;
+    95→  do {
+    96→    ink = ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+    97→  } while (ink.id === word.id);
+    98→  const others = shuffle(ALL_COLORS.filter((c) => c.id !== ink.id)).slice(0, 3);
+    99→  return { word, inkColor: ink, choices: shuffle([ink, ...others]) };
+   100→}
+   101→
+   102→function roundDuration(roundNum: number): number {
+   103→  const t = (roundNum - 1) / (TOTAL_ROUNDS - 1);
+   104→  return Math.round(INITIAL_TIME_MS - t * (INITIAL_TIME_MS - MIN_TIME_MS));
+   105→}
+   106→
+   107→/* ------------------------------------------------------------------ */
+   108→/*  Animation variants                                                 */
+   109→/* ------------------------------------------------------------------ */
+   110→
+   111→const wordIn = {
+   112→  hidden:  { scale: 0, opacity: 0, rotate: -12 },
+   113→  visible: { scale: 1, opacity: 1, rotate: 0, transition: { type: "spring", stiffness: 260, damping: 20 } },
+   114→  exit:    { scale: 0, opacity: 0, rotate: 12 },
+   115→};
+   116→
+   117→const countPop = {
+   118→  initial: { scale: 0, opacity: 0 },
+   119→  animate: { scale: 1, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 15 } },
+   120→  exit:    { scale: 2.5, opacity: 0, transition: { duration: 0.22 } },
+   121→};
+   122→
+   123→const scorePopVariant = {
+   124→  initial: { opacity: 1, y: 0, scale: 0.5 },
+   125→  animate: {
+   126→    opacity: 0,
+   127→    y: -55,
+   128→    scale: 1.3,
+   129→    transition: { duration: 0.9, ease: "easeOut" },
+   130→  },
+   131→  exit: { opacity: 0 },
+   132→};
+   133→
+   134→const correctRingPulse = {
+   135→  initial: { scale: 0.85, opacity: 0.9 },
+   136→  animate: {
+   137→    scale: [0.85, 1.25, 1],
+   138→    opacity: [0.9, 0.4, 0],
+   139→    transition: { duration: 0.6, ease: "easeOut" },
+   140→  },
+   141→};
+   142→
+   143→/* ------------------------------------------------------------------ */
+   144→/*  Component                                                          */
+   145→/* ------------------------------------------------------------------ */
+   146→
+   147→export default function ColorMatch({ onScore, liveCode }: Props) {
+   148→  /* state */
+   149→  const [phase, setPhase]                 = useState<GamePhase>("idle");
+   150→  const [round, setRound]                 = useState(1);
+   151→  const [p1Score, setP1Score]             = useState(0);
+   152→  const [p2Score, setP2Score]             = useState(0);
+   153→  const [p1Streak, setP1Streak]           = useState(0);
+   154→  const [p2Streak, setP2Streak]           = useState(0);
+   155→  const [p1MaxStreak, setP1MaxStreak]     = useState(0);
+   156→  const [p2MaxStreak, setP2MaxStreak]     = useState(0);
+   157→  const [roundData, setRoundData]         = useState<RoundData | null>(null);
+   158→  const [timerProgress, setTimerProgress] = useState(1);
+   159→  const [countdownVal, setCountdownVal]   = useState(3);
+   160→  const [lastWinner, setLastWinner]       = useState<1 | 2 | "timeout" | null>(null);
+   161→  const [lastCorrect, setLastCorrect]      = useState<string | null>(null);
+   162→
+   163→  /* per-button feedback */
+   164→  const [p1Feedback, setP1Feedback] = useState<{ colorId: string; type: "correct" | "wrong" } | null>(null);
+   165→  const [p2Feedback, setP2Feedback] = useState<{ colorId: string; type: "correct" | "wrong" } | null>(null);
+   166→  const [feedbackTick, setFeedbackTick] = useState(0);
+   167→
+   168→  /* score bounce trigger */
+   169→  const [p1Bounce, setP1Bounce] = useState(0);
+   170→  const [p2Bounce, setP2Bounce] = useState(0);
+   171→
+   172→  /* floating score popups */
+   173→  const [scorePopups, setScorePopups] = useState<ScorePopup[]>([]);
+   174→  const popupIdRef = useRef(0);
+   175→
+   176→  /* screen shake on wrong answer */
+   177→  const [screenShake, setScreenShake] = useState(0);
+   178→
+   179→  /* red flash overlay on wrong answer */
+   180→  const [wrongFlash, setWrongFlash] = useState(0);
+   181→
+   182→  /* bot mode */
+   183→  const [botMode, setBotMode]             = useState(false);
+   184→  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("medio");
+   185→  const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   186→
+   187→  /* refs */
+   188→  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+   189→  const tickRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+   190→  const lockedRef = useRef(false);
+   191→
+   192→  /* cleanup */
+   193→  const clearTimers = useCallback(() => {
+   194→    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+   195→    if (tickRef.current)  { clearInterval(tickRef.current);  tickRef.current = null; }
+   196→    if (botTimerRef.current) { clearTimeout(botTimerRef.current); botTimerRef.current = null; }
+   197→    lockedRef.current = false;
+   198→  }, []);
+   199→
+   200→  useEffect(() => () => clearTimers(), [clearTimers]);
+   201→
+   202→  /* ---- start / restart game ---- */
+   203→  const startGame = useCallback(() => {
+   204→    clearTimers();
+   205→    setP1Score(0); setP2Score(0);
+   206→    setP1Streak(0); setP2Streak(0);
+   207→    setP1MaxStreak(0); setP2MaxStreak(0);
+   208→    setRound(1); setCountdownVal(3);
+   209→    setLastWinner(null); setLastCorrect(null);
+   210→    setP1Feedback(null); setP2Feedback(null);
+   211→    setFeedbackTick(0);
+   212→    setP1Bounce(0); setP2Bounce(0);
+   213→    setScorePopups([]);
+   214→    setScreenShake(0);
+   215→    setWrongFlash(0);
+   216→    setPhase("countdown");
+   217→  }, [clearTimers]);
+   218→
+   219→  /* ---- countdown tick ---- */
+   220→  useEffect(() => {
+   221→    if (phase !== "countdown") return;
+   222→    if (countdownVal <= 0) {
+   223→      const rd = makeRound();
+   224→      setRoundData(rd);
+   225→      setTimerProgress(1);
+   226→      setLastWinner(null);
+   227→      setLastCorrect(null);
+   228→      setP1Feedback(null); setP2Feedback(null);
+   229→      setFeedbackTick((t) => t + 1);
+   230→      lockedRef.current = false;
+   231→      setPhase("playing");
+   232→      return;
+   233→    }
+   234→    const id = setTimeout(() => setCountdownVal((v) => v - 1), 800);
+   235→    return () => clearTimeout(id);
+   236→  }, [phase, countdownVal]);
+   237→
+   238→  /* ---- round timer (starts when phase goes to "playing") ---- */
+   239→  useEffect(() => {
+   240→    if (phase !== "playing") return;
+   241→    const dur = roundDuration(round);
+   242→    const t0 = performance.now();
+   243→
+   244→    tickRef.current = setInterval(() => {
+   245→      const elapsed = performance.now() - t0;
+   246→      setTimerProgress(Math.max(0, 1 - elapsed / dur));
+   247→    }, 30);
+   248→
+   249→    timerRef.current = setTimeout(() => {
+   250→      clearTimers();
+   251→      setLastWinner("timeout");
+   252→      setP1Streak(0); setP2Streak(0);
+   253→      setPhase("roundResult");
+   254→    }, dur);
+   255→
+   256→    return () => clearTimers();
+   257→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   258→  }, [phase, round]);
+   259→
+   260→
+   261→  /* ---- bot AI: trigger bot answer when playing ---- */
+   262→  useEffect(() => {
+   263→    if (phase !== "playing" || !botMode || !roundData) return;
+   264→    const cfg = BOT_CONFIG[botDifficulty];
+   265→    const jitter = (Math.random() - 0.5) * cfg.reactionMs * 0.4;
+   266→    const delay = Math.max(150, cfg.reactionMs + jitter);
+   267→    botTimerRef.current = setTimeout(() => {
+   268→      const isWrong = Math.random() < cfg.wrongRate;
+   269→      if (isWrong) {
+   270→        const wrongChoices = roundData.choices.filter(c => c.id !== roundData.inkColor.id);
+   271→        const pick = wrongChoices[Math.floor(Math.random() * wrongChoices.length)];
+   272→        handleAnswer(2, pick.id);
+   273→      } else {
+   274→        handleAnswer(2, roundData.inkColor.id);
+   275→      }
+   276→    }, delay);
+   277→    return () => { if (botTimerRef.current) { clearTimeout(botTimerRef.current); botTimerRef.current = null; } };
+   278→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   279→  }, [phase, roundData, botMode, botDifficulty]);
+   280→
+   281→  /* ---- handle answer ---- */
+   282→  const handleAnswer = useCallback(
+   283→    (player: 1 | 2, colorId: string) => {
+   284→      if (lockedRef.current || phase !== "playing" || !roundData) return;
+   285→
+   286→      const isCorrect = colorId === roundData.inkColor.id;
+   287→
+   288→      if (isCorrect) {
+   289→        lockedRef.current = true;
+   290→        clearTimers();
+   291→
+   292→        const isP1 = player === 1;
+   293→        const prevStreak = isP1 ? p1Streak : p2Streak;
+   294→        const newStreak  = prevStreak + 1;
+   295→        const bonus       = Math.min(newStreak, 5);
+   296→        const points      = 1 + bonus;
+   297→
+   298→        if (isP1) {
+   299→          setP1Score((s) => s + points);
+   300→          setP1Streak(newStreak);
+   301→          setP1MaxStreak((m) => Math.max(m, newStreak));
+   302→          setP2Streak(0);
+   303→          setP1Bounce((b) => b + 1);
+   304→          setP1Feedback({ colorId, type: "correct" });
+   305→        } else {
+   306→          setP2Score((s) => s + points);
+   307→          setP2Streak(newStreak);
+   308→          setP2MaxStreak((m) => Math.max(m, newStreak));
+   309→          setP1Streak(0);
+   310→          setP2Bounce((b) => b + 1);
+   311→          setP2Feedback({ colorId, type: "correct" });
+   312→        }
+   313→
+   314→        /* floating score popup */
+   315→        const pid = popupIdRef.current++;
+   316→        setScorePopups((prev) => [...prev, { id: pid, player, value: points }]);
+   317→        setTimeout(() => {
+   318→          setScorePopups((prev) => prev.filter((p) => p.id !== pid));
+   319→        }, 1000);
+   320→
+   321→        setFeedbackTick((t) => t + 1);
+   322→        setLastWinner(player);
+   323→        setLastCorrect(roundData.inkColor.name);
+   324→        setPhase("roundResult");
+   325→      } else {
+   326→        const isP1 = player === 1;
+   327→        if (isP1) {
+   328→          setP1Score((s) => Math.max(0, s - 1));
+   329→          setP1Streak(0);
+   330→          setP1Bounce((b) => b + 1);
+   331→          setP1Feedback({ colorId, type: "wrong" });
+   332→        } else {
+   333→          setP2Score((s) => Math.max(0, s - 1));
+   334→          setP2Streak(0);
+   335→          setP2Bounce((b) => b + 1);
+   336→          setP2Feedback({ colorId, type: "wrong" });
+   337→        }
+   338→        setScreenShake((s) => s + 1);
+   339→        setWrongFlash((f) => f + 1);
+   340→        setFeedbackTick((t) => t + 1);
+   341→      }
+   342→    },
+   343→    [phase, roundData, p1Streak, p2Streak, clearTimers],
+   344→  );
+   345→
+   346→  /* ---- advance / finish ---- */
+   347→  const advanceRound = useCallback(() => {
+   348→    if (round >= TOTAL_ROUNDS) {
+   349→      setPhase("gameOver");
+   350→      if (p1Score !== p2Score) {
+   351→        const p2Name = botMode ? "Computador" : "Jogador 2";
+   352→        const winner = p1Score > p2Score ? "Jogador 1" : p2Name;
+   353→        onScore?.(winner, Math.max(p1Score, p2Score));
+   354→      }
+   355→    } else {
+   356→      setRound((r) => r + 1);
+   357→      setCountdownVal(3);
+   358→      setP1Feedback(null); setP2Feedback(null);
+   359→      setFeedbackTick((t) => t + 1);
+   360→      setPhase("countdown");
+   361→    }
+   362→  }, [round, p1Score, p2Score, onScore]);
+   363→
+   364→  /* ---- back to menu ---- */
+   365→  const goToMenu = useCallback(() => {
+   366→    clearTimers();
+   367→    setPhase("idle");
+   368→  }, [clearTimers]);
+   369→
+   370→  /* ---- derived ---- */
+   371→  const speedLevel = useMemo(() => Math.ceil((round / TOTAL_ROUNDS) * 10), [round]);
+   372→  const timerUrgent   = phase === "playing" && timerProgress < 0.25;
+   373→  const timerCritical = phase === "playing" && timerProgress < 0.12;
+   374→
+   375→  const timerGradient = useMemo(() => {
+   376→    if (timerProgress > 0.5)  return "from-green-500 to-emerald-400";
+   377→    if (timerProgress > 0.25) return "from-yellow-500 to-orange-400";
+   378→    return "from-red-500 to-rose-400";
+   379→  }, [timerProgress]);
+   380→
+   381→  const winnerLabel = useMemo(() => {
+   382→    if (p1Score > p2Score) return { text: "Jogador 1 Venceu!", color: "text-cyan-400" };
+   383→    if (p2Score > p1Score) return { text: botMode ? "Computador Venceu!" : "Jogador 2 Venceu!", color: "text-pink-400" };
+   384→    return { text: "Empate!", color: "text-yellow-400" };
+   385→  }, [p1Score, p2Score, botMode]);
+   386→
+   387→  /* confetti pieces for game over */
+   388→  const confettiPieces = useMemo(
+   389→    () =>
+   390→      Array.from({ length: 36 }, (_, i) => ({
+   391→        id: i,
+   392→        x: (Math.random() - 0.5) * 500,
+   393→        y: -(Math.random() * 350 + 80),
+   394→        rotate: Math.random() * 720 - 360,
+   395→        color: ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)].hex,
+   396→        delay: Math.random() * 0.6,
+   397→        size: Math.random() * 8 + 4,
+   398→      })),
+   399→    [],
+   400→  );
+   401→
+   402→  /* ================================================================ */
+   403→  /*  RENDER                                                          */
+   404→  /* ================================================================ */
+   405→
+   406→  return (
+   407→    <motion.div
+   408→      className="relative flex min-h-[600px] w-full max-w-2xl flex-col items-center justify-center rounded-2xl border border-white/10 bg-gray-950 px-4 py-6 sm:px-6 overflow-hidden"
+   409→      animate={screenShake > 0 ? { x: [0, -5, 5, -3, 3, 0] } : { x: 0 }}
+   410→      transition={{ duration: 0.4 }}
+   411→    >
+   412→      {/* ---- Wrong-answer red flash overlay ---- */}
+   413→      <AnimatePresence>
+   414→        {wrongFlash > 0 && (
+   415→          <motion.div
+   416→            key={`flash-${wrongFlash}`}
+   417→            initial={{ opacity: 0.3 }}
+   418→            animate={{ opacity: 0 }}
+   419→            exit={{ opacity: 0 }}
+   420→            transition={{ duration: 0.35 }}
+   421→            className="pointer-events-none absolute inset-0 z-30 rounded-2xl bg-red-500"
+   422→          />
+   423→        )}
+   424→      </AnimatePresence>
+   425→
+   426→      {/* ---- Timer urgency vignette ---- */}
+   427→      <AnimatePresence>
+   428→        {timerUrgent && (
+   429→          <motion.div
+   430→            initial={{ opacity: 0 }}
+   431→            animate={{
+   432→              opacity: timerCritical ? [0.5, 0.85, 0.5] : 0.5,
+   433→              transition: timerCritical
+   434→                ? { duration: 0.5, repeat: Infinity, ease: "easeInOut" }
+   435→                : { duration: 0.3 },
+   436→            }}
+   437→            exit={{ opacity: 0 }}
+   438→            className="pointer-events-none absolute inset-0 z-20 rounded-2xl"
+   439→            style={{
+   440→              background:
+   441→                "radial-gradient(ellipse at center, transparent 30%, rgba(239,68,68,0.18) 100%)",
+   442→            }}
+   443→          />
+   444→        )}
+   445→      </AnimatePresence>
+   446→
+   447→      <AnimatePresence mode="wait">
+   448→        {/* ======================== IDLE ======================== */}
+   449→        {phase === "idle" && (
+   450→          <motion.div
+   451→            key="idle"
+   452→            initial={{ opacity: 0, y: 30 }}
+   453→            animate={{ opacity: 1, y: 0 }}
+   454→            exit={{ opacity: 0, y: -20 }}
+   455→            className="flex flex-col items-center gap-6 text-center"
+   456→          >
+   457→            <motion.div
+   458→              animate={{ rotate: [0, 5, -5, 0] }}
+   459→              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+   460→              className="flex items-center gap-3"
+   461→            >
+   462→              <Palette className="h-12 w-12 text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.5)]" />
+   463→              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent sm:text-4xl">
+   464→                Cor versus Palavra
+   465→              </h1>
+   466→            </motion.div>
+   467→
+   468→            <p className="max-w-md text-gray-400 text-sm leading-relaxed">
+   469→              A palavra mostrada estará escrita numa{" "}
+   470→              <span className="text-white font-semibold">COR diferente</span> do que diz.
+   471→              Você deve identificar a{" "}
+   472→              <span className="text-cyan-400 font-semibold">COR DA TINTA</span>, não a palavra!
+   473→              Dois jogadores competem — o mais rápido ganha o ponto.
+   474→            </p>
+   475→
+   476→            <div className="flex flex-wrap justify-center gap-2">
+   477→              {ALL_COLORS.map((c, i) => (
+   478→                <motion.span
+   479→                  key={c.id}
+   480→                  initial={{ opacity: 0, scale: 0 }}
+   481→                  animate={{ opacity: 1, scale: 1 }}
+   482→                  transition={{ delay: i * 0.07, type: "spring", stiffness: 300 }}
+   483→                  className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white shadow-md"
+   484→                  style={{ backgroundColor: c.hex }}
+   485→                >
+   486→                  {c.name}
+   487→                </motion.span>
+   488→              ))}
+   489→            </div>
+   490→
+   491→            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   492→              <Button
+   493→                size="lg"
+   494→                onClick={startGame}
+   495→                className="mt-2 bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-8 text-lg shadow-lg shadow-purple-500/20"
+   496→              >
+   497→                Jogar
+   498→              </Button>
+   499→            </motion.div>
+   500→          </motion.div>
+   501→        )}
+   502→
+   503→        {/* ======================== COUNTDOWN ======================== */}
+   504→        {phase === "countdown" && countdownVal > 0 && (
+   505→          <motion.div
+   506→            key={`cd-${countdownVal}`}
+   507→            variants={countPop as any}
+   508→            initial="initial"
+   509→            animate="animate"
+   510→            exit="exit"
+   511→            className="flex flex-col items-center gap-4"
+   512→          >
+   513→            <span className="text-8xl font-black text-white drop-shadow-[0_0_40px_rgba(168,85,247,0.7)]">
+   514→              {countdownVal}
+   515→            </span>
+   516→            <span className="text-gray-400 text-sm tracking-widest">Preparar...</span>
+   517→          </motion.div>
+   518→        )}
+   519→
+   520→        {/* ======================== PLAYING / ROUND RESULT ======================== */}
+   521→        {(phase === "playing" || phase === "roundResult") && roundData && (
+   522→          <motion.div
+   523→            key={`round-${round}`}
+   524→            initial={{ opacity: 0 }}
+   525→            animate={{ opacity: 1 }}
+   526→            exit={{ opacity: 0 }}
+   527→            className="flex w-full flex-col items-center gap-4"
+   528→          >
+   529→            {/* --- Score Header --- */}
+   530→            <div className="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border border-cyan-500/20 px-3 py-2 sm:px-5 sm:py-3">
+   531→              {/* P1 score area */}
+   532→              <div className="flex items-center gap-2 relative">
+   533→                <Badge className="bg-cyan-600/80 text-white text-xs">P1</Badge>
+   534→                <div className="relative">
+   535→                  <motion.span
+   536→                    key={`p1s-${p1Bounce}`}
+   537→                    animate={{ y: [0, -14, 0] }}
+   538→                    transition={{ type: "spring", stiffness: 400, damping: 12 }}
+   539→                    className="text-xl font-bold text-cyan-300 inline-block"
+   540→                  >
+   541→                    {p1Score}
+   542→                  </motion.span>
+   543→                  {/* Floating score popups for P1 */}
+   544→                  <AnimatePresence>
+   545→                    {scorePopups
+   546→                      .filter((p) => p.player === 1)
+   547→                      .map((popup) => (
+   548→                        <motion.span
+   549→                          key={popup.id}
+   550→                          variants={scorePopVariant}
+   551→                          initial="initial"
+   552→                          animate="animate"
+   553→                          exit="exit"
+   554→                          className="absolute -top-2 left-1/2 -translate-x-1/2 text-sm font-black text-green-400 whitespace-nowrap pointer-events-none"
+   555→                        >
+   556→                          +{popup.value}
+   557→                        </motion.span>
+   558→                      ))}
+   559→                  </AnimatePresence>
+   560→                </div>
+   561→                {/* Streak indicator for P1 */}
+   562→                {p1Streak >= 2 && (
+   563→                  <motion.div
+   564→                    key={`p1st-${p1Streak}`}
+   565→                    initial={{ scale: 0.3, opacity: 0 }}
+   566→                    animate={{ scale: 1, opacity: 1 }}
+   567→                    transition={{ type: "spring", stiffness: 500, damping: 12 }}
+   568→                    className="flex items-center gap-0.5"
+   569→                  >
+   570→                    <Flame
+   571→                      className={cn(
+   572→                        "h-4 w-4",
+   573→                        p1Streak >= 5
+   574→                          ? "text-orange-400 drop-shadow-[0_0_6px_rgba(251,146,60,0.6)]"
+   575→                          : p1Streak >= 3
+   576→                            ? "text-yellow-400"
+   577→                            : "text-amber-300",
+   578→                      )}
+   579→                    />
+   580→                    <span
+   581→                      className={cn(
+   582→                        "text-xs font-black",
+   583→                        p1Streak >= 5
+   584→                          ? "text-orange-400"
+   585→                          : p1Streak >= 3
+   586→                            ? "text-yellow-400"
+   587→                            : "text-amber-300",
+   588→                      )}
+   589→                    >
+   590→                      {p1Streak}
+   591→                    </span>
+   592→                  </motion.div>
+   593→                )}
+   594→              </div>
+   595→
+   596→              <span className="text-xs font-semibold tracking-widest text-gray-400 uppercase sm:text-sm">
+   597→                Cor vs Palavra
+   598→              </span>
+   599→
+   600→              {/* P2 score area */}
+   601→              <div className="flex items-center gap-2 relative">
+   602→                {/* Streak indicator for P2 */}
+   603→                {p2Streak >= 2 && (
+   604→                  <motion.div
+   605→                    key={`p2st-${p2Streak}`}
+   606→                    initial={{ scale: 0.3, opacity: 0 }}
+   607→                    animate={{ scale: 1, opacity: 1 }}
+   608→                    transition={{ type: "spring", stiffness: 500, damping: 12 }}
+   609→                    className="flex items-center gap-0.5"
+   610→                  >
+   611→                    <Flame
+   612→                      className={cn(
+   613→                        "h-4 w-4",
+   614→                        p2Streak >= 5
+   615→                          ? "text-orange-400 drop-shadow-[0_0_6px_rgba(251,146,60,0.6)]"
+   616→                          : p2Streak >= 3
+   617→                            ? "text-yellow-400"
+   618→                            : "text-amber-300",
+   619→                      )}
+   620→                    />
+   621→                    <span
+   622→                      className={cn(
+   623→                        "text-xs font-black",
+   624→                        p2Streak >= 5
+   625→                          ? "text-orange-400"
+   626→                          : p2Streak >= 3
+   627→                            ? "text-yellow-400"
+   628→                            : "text-amber-300",
+   629→                      )}
+   630→                    >
+   631→                      {p2Streak}
+   632→                    </span>
+   633→                  </motion.div>
+   634→                )}
+   635→                <div className="relative">
+   636→                  <motion.span
+   637→                    key={`p2s-${p2Bounce}`}
+   638→                    animate={{ y: [0, -14, 0] }}
+   639→                    transition={{ type: "spring", stiffness: 400, damping: 12 }}
+   640→                    className="text-xl font-bold text-pink-300 inline-block"
+   641→                  >
+   642→                    {p2Score}
+   643→                  </motion.span>
+   644→                  {/* Floating score popups for P2 */}
+   645→                  <AnimatePresence>
+   646→                    {scorePopups
+   647→                      .filter((p) => p.player === 2)
+   648→                      .map((popup) => (
+   649→                        <motion.span
+   650→                          key={popup.id}
+   651→                          variants={scorePopVariant}
+   652→                          initial="initial"
+   653→                          animate="animate"
+   654→                          exit="exit"
+   655→                          className="absolute -top-2 left-1/2 -translate-x-1/2 text-sm font-black text-green-400 whitespace-nowrap pointer-events-none"
+   656→                        >
+   657→                          +{popup.value}
+   658→                        </motion.span>
+   659→                      ))}
+   660→                  </AnimatePresence>
+   661→                </div>
+   662→                <Badge className="bg-pink-600/80 text-white text-xs">P2</Badge>
+   663→              </div>
+   664→            </div>
+   665→
+   666→            {/* --- Timer bar --- */}
+   667→            <div className="flex w-full items-center gap-3 text-xs text-gray-400 sm:text-sm">
+   668→              <span className="font-medium whitespace-nowrap">
+   669→                Round {round}/{TOTAL_ROUNDS}
+   670→              </span>
+   671→
+   672→              <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-gray-800">
+   673→                <motion.div
+   674→                  className={cn(
+   675→                    "absolute inset-y-0 left-0 rounded-full bg-gradient-to-r",
+   676→                    timerGradient,
+   677→                    timerUrgent && "shadow-[0_0_8px_rgba(239,68,68,0.6)]",
+   678→                  )}
+   679→                  animate={
+   680→                    timerUrgent
+   681→                      ? { width: `${timerProgress * 100}%`, opacity: [0.7, 1, 0.7] }
+   682→                      : { width: `${timerProgress * 100}%` }
+   683→                  }
+   684→                  transition={
+   685→                    timerUrgent
+   686→                      ? {
+   687→                          width: { ease: "linear", duration: 0.05 },
+   688→                          opacity: { duration: 0.5, repeat: Infinity },
+   689→                        }
+   690→                      : { ease: "linear", duration: 0.05 }
+   691→                  }
+   692→                />
+   693→              </div>
+   694→
+   695→              <motion.div
+   696→                className="flex items-center gap-1 whitespace-nowrap"
+   697→                animate={timerCritical ? { scale: [1, 1.15, 1] } : {}}
+   698→                transition={timerCritical ? { duration: 0.4, repeat: Infinity } : {}}
+   699→              >
+   700→                <Timer className={cn("h-3.5 w-3.5", timerUrgent && "text-red-400")} />
+   701→                <span className={cn(timerUrgent && "text-red-400 font-bold")}>Vel. {speedLevel}</span>
+   702→              </motion.div>
+   703→            </div>
+   704→
+   705→            {/* --- Word display --- */}
+   706→            <p className="text-sm text-gray-400 mt-1 sm:text-base">
+   707→              Qual a COR do texto?
+   708→            </p>
+   709→
+   710→            <div className="flex min-h-[120px] w-full items-center justify-center rounded-2xl border border-white/5 bg-gray-900/60 px-8 py-6 sm:min-h-[140px]">
+   711→              <AnimatePresence mode="wait">
+   712→                <motion.span
+   713→                  key={`${roundData.word.id}-${roundData.inkColor.id}`}
+   714→                  variants={wordIn as any}
+   715→                  initial="hidden"
+   716→                  animate="visible"
+   717→                  exit="exit"
+   718→                  className="select-none text-5xl font-black tracking-wider sm:text-7xl"
+   719→                  style={{ color: roundData.inkColor.hex }}
+   720→                >
+   721→                  {roundData.word.name}
+   722→                </motion.span>
+   723→              </AnimatePresence>
+   724→            </div>
+   725→
+   726→            {/* --- Round result banner --- */}
+   727→            <AnimatePresence>
+   728→              {phase === "roundResult" && lastWinner && (
+   729→                <motion.div
+   730→                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+   731→                  animate={{ opacity: 1, y: 0, scale: 1 }}
+   732→                  exit={{ opacity: 0, scale: 0.95 }}
+   733→                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+   734→                  className={cn(
+   735→                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold shadow-lg",
+   736→                    lastWinner === "timeout" && "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
+   737→                    lastWinner === 1 && "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30",
+   738→                    lastWinner === 2 && "bg-pink-500/20 text-pink-300 border border-pink-500/30",
+   739→                  )}
+   740→                >
+   741→                  {lastWinner === "timeout" && <Timer className="h-4 w-4" />}
+   742→                  {(lastWinner === 1 || lastWinner === 2) && <CheckCircle className="h-4 w-4" />}
+   743→                  {lastWinner === "timeout" && "Tempo esgotado!"}
+   744→                  {lastWinner === 1 && "Jogador 1 \u2014 Correto!"}
+   745→                  {lastWinner === 2 && (botMode ? "Computador \u2014 Correto!" : "Jogador 2 \u2014 Correto!")}
+   746→                  {lastCorrect && (
+   747→                    <span className="text-gray-400 font-normal">(era {lastCorrect})</span>
+   748→                  )}
+   749→                </motion.div>
+   750→              )}
+   751→            </AnimatePresence>
+   752→
+   753→            {/* --- Color buttons --- */}
+   754→            <div className="flex w-full flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-10">
+   755→              {/* Player 1 */}
+   756→              <div className="flex flex-col items-center gap-1">
+   757→                <span className="mb-1 text-xs font-bold text-cyan-400 tracking-widest">
+   758→                  JOGADOR 1
+   759→                </span>
+   760→                <div className="grid grid-cols-2 gap-2">
+   761→                  {roundData.choices.map((c) => {
+   762→                    const fb = p1Feedback;
+   763→                    const isHit = fb?.colorId === c.id;
+   764→                    const isCorrectHit = isHit && fb?.type === "correct";
+   765→                    const isWrongHit = isHit && fb?.type === "wrong";
+   766→                    return (
+   767→                      <motion.button
+   768→                        key={`p1-${c.id}-${feedbackTick}`}
+   769→                        whileHover={phase === "playing" ? { scale: 1.08, y: -2 } : {}}
+   770→                        whileTap={phase === "playing" ? { scale: 0.88, y: 2 } : {}}
+   771→                        initial={isWrongHit ? { x: 0 } : isCorrectHit ? { scale: 1 } : {}}
+   772→                        animate={
+   773→                          isCorrectHit
+   774→                            ? { scale: [1, 1.2, 1], transition: { duration: 0.5 } }
+   775→                            : isWrongHit
+   776→                              ? { x: [0, -10, 10, -10, 10, 0], transition: { duration: 0.4 } }
+   777→                              : {}
+   778→                        }
+   779→                        onClick={() => handleAnswer(1, c.id)}
+   780→                        disabled={phase === "roundResult"}
+   781→                        className={cn(
+   782→                          "relative flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold text-white sm:px-4 sm:py-3.5 sm:text-sm overflow-hidden",
+   783→                          c.tailwind,
+   784→                          "shadow-lg",
+   785→                          phase === "roundResult" && "opacity-60 cursor-not-allowed",
+   786→                          isCorrectHit && "ring-2 ring-green-400 ring-offset-2 ring-offset-gray-950",
+   787→                          isWrongHit && "ring-2 ring-red-500 ring-offset-2 ring-offset-gray-950",
+   788→                        )}
+   789→                      >
+   790→                        {/* Shine/gloss overlay */}
+   791→                        <div className="absolute inset-0 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-xl" />
+   792→
+   793→                        {/* Correct expanding green ring */}
+   794→                        {isCorrectHit && (
+   795→                          <motion.div
+   796→                            variants={correctRingPulse}
+   797→                            initial="initial"
+   798→                            animate="animate"
+   799→                            className="absolute inset-0 rounded-xl border-2 border-green-400 pointer-events-none"
+   800→                          />
+   801→                        )}
+   802→
+   803→                        {/* Feedback icon overlay */}
+   804→                        <AnimatePresence>
+   805→                          {isCorrectHit && (
+   806→                            <motion.div
+   807→                              initial={{ opacity: 0, scale: 0 }}
+   808→                              animate={{ opacity: 1, scale: 1 }}
+   809→                              exit={{ opacity: 0 }}
+   810→                              transition={{ delay: 0.1 }}
+   811→                              className="absolute inset-0 flex items-center justify-center bg-green-500/30 rounded-xl z-20"
+   812→                            >
+   813→                              <CheckCircle className="h-6 w-6 text-white drop-shadow-lg" />
+   814→                            </motion.div>
+   815→                          )}
+   816→                          {isWrongHit && (
+   817→                            <motion.div
+   818→                              initial={{ opacity: 0, scale: 0 }}
+   819→                              animate={{ opacity: 1, scale: 1 }}
+   820→                              exit={{ opacity: 0 }}
+   821→                              transition={{ delay: 0.05 }}
+   822→                              className="absolute inset-0 flex items-center justify-center bg-red-500/30 rounded-xl z-20"
+   823→                            >
+   824→                              <XCircle className="h-6 w-6 text-white drop-shadow-lg" />
+   825→                            </motion.div>
+   826→                          )}
+   827→                        </AnimatePresence>
+   828→
+   829→                        <span
+   830→                          className="inline-block h-3.5 w-3.5 rounded-full border-2 border-white/60 sm:h-4 sm:w-4 relative z-10"
+   831→                          style={{ backgroundColor: c.hex }}
+   832→                        />
+   833→                        <span className="relative z-10">{c.name}</span>
+   834→                      </motion.button>
+   835→                    );
+   836→                  })}
+   837→                </div>
+   838→              </div>
+   839→
+   840→              {/* Player 2 */}
+   841→              <div className="flex flex-col items-center gap-1">
+   842→                <span className="mb-1 text-xs font-bold text-pink-400 tracking-widest">
+   843→                  {botMode ? "COMPUTADOR" : "JOGADOR 2"}
+   844→                </span>
+   845→                <div className="grid grid-cols-2 gap-2">
+   846→                  {roundData.choices.map((c) => {
+   847→                    const fb = p2Feedback;
+   848→                    const isHit = fb?.colorId === c.id;
+   849→                    const isCorrectHit = isHit && fb?.type === "correct";
+   850→                    const isWrongHit = isHit && fb?.type === "wrong";
+   851→                    return (
+   852→                      <motion.button
+   853→                        key={`p2-${c.id}-${feedbackTick}`}
+   854→                        whileHover={phase === "playing" ? { scale: 1.08, y: -2 } : {}}
+   855→                        whileTap={phase === "playing" ? { scale: 0.88, y: 2 } : {}}
+   856→                        initial={isWrongHit ? { x: 0 } : isCorrectHit ? { scale: 1 } : {}}
+   857→                        animate={
+   858→                          isCorrectHit
+   859→                            ? { scale: [1, 1.2, 1], transition: { duration: 0.5 } }
+   860→                            : isWrongHit
+   861→                              ? { x: [0, -10, 10, -10, 10, 0], transition: { duration: 0.4 } }
+   862→                              : {}
+   863→                        }
+   864→                        onClick={() => handleAnswer(2, c.id)}
+   865→                        disabled={phase === "roundResult"}
+   866→                        className={cn(
+   867→                          "relative flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-bold text-white sm:px-4 sm:py-3.5 sm:text-sm overflow-hidden",
+   868→                          c.tailwind,
+   869→                          "shadow-lg",
+   870→                          phase === "roundResult" && "opacity-60 cursor-not-allowed",
+   871→                          isCorrectHit && "ring-2 ring-green-400 ring-offset-2 ring-offset-gray-950",
+   872→                          isWrongHit && "ring-2 ring-red-500 ring-offset-2 ring-offset-gray-950",
+   873→                        )}
+   874→                      >
+   875→                        <div className="absolute inset-0 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-xl" />
+   876→
+   877→                        {isCorrectHit && (
+   878→                          <motion.div
+   879→                            variants={correctRingPulse}
+   880→                            initial="initial"
+   881→                            animate="animate"
+   882→                            className="absolute inset-0 rounded-xl border-2 border-green-400 pointer-events-none"
+   883→                          />
+   884→                        )}
+   885→
+   886→                        <AnimatePresence>
+   887→                          {isCorrectHit && (
+   888→                            <motion.div
+   889→                              initial={{ opacity: 0, scale: 0 }}
+   890→                              animate={{ opacity: 1, scale: 1 }}
+   891→                              exit={{ opacity: 0 }}
+   892→                              transition={{ delay: 0.1 }}
+   893→                              className="absolute inset-0 flex items-center justify-center bg-green-500/30 rounded-xl z-20"
+   894→                            >
+   895→                              <CheckCircle className="h-6 w-6 text-white drop-shadow-lg" />
+   896→                            </motion.div>
+   897→                          )}
+   898→                          {isWrongHit && (
+   899→                            <motion.div
+   900→                              initial={{ opacity: 0, scale: 0 }}
+   901→                              animate={{ opacity: 1, scale: 1 }}
+   902→                              exit={{ opacity: 0 }}
+   903→                              transition={{ delay: 0.05 }}
+   904→                              className="absolute inset-0 flex items-center justify-center bg-red-500/30 rounded-xl z-20"
+   905→                            >
+   906→                              <XCircle className="h-6 w-6 text-white drop-shadow-lg" />
+   907→                            </motion.div>
+   908→                          )}
+   909→                        </AnimatePresence>
+   910→
+   911→                        <span
+   912→                          className="inline-block h-3.5 w-3.5 rounded-full border-2 border-white/60 sm:h-4 sm:w-4 relative z-10"
+   913→                          style={{ backgroundColor: c.hex }}
+   914→                        />
+   915→                        <span className="relative z-10">{c.name}</span>
+   916→                      </motion.button>
+   917→                    );
+   918→                  })}
+   919→                </div>
+   920→              </div>
+   921→            </div>
+   922→
+   923→            {/* --- Next round button --- */}
+   924→            {phase === "roundResult" && (
+   925→              <motion.div
+   926→                initial={{ opacity: 0, y: 10 }}
+   927→                animate={{ opacity: 1, y: 0 }}
+   928→                transition={{ delay: 0.2 }}
+   929→                className="mt-2"
+   930→              >
+   931→                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   932→                  <Button
+   933→                    onClick={advanceRound}
+   934→                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-6 shadow-lg shadow-purple-500/20"
+   935→                  >
+   936→                    {round >= TOTAL_ROUNDS ? "Ver Resultado" : (
+   937→                      <>
+   938→                        Próximo Round
+   939→                        <ChevronRight className="ml-1 h-4 w-4" />
+   940→                      </>
+   941→                    )}
+   942→                  </Button>
+   943→                </motion.div>
+   944→              </motion.div>
+   945→            )}
+   946→          </motion.div>
+   947→        )}
+   948→
+   949→        {/* ======================== GAME OVER ======================== */}
+   950→        {phase === "gameOver" && (
+   951→          <motion.div
+   952→            key="gameOver"
+   953→            initial={{ opacity: 0, scale: 0.9 }}
+   954→            animate={{ opacity: 1, scale: 1 }}
+   955→            exit={{ opacity: 0, scale: 0.9 }}
+   956→            className="flex flex-col items-center gap-6 text-center relative z-10"
+   957→          >
+   958→            {/* Confetti particles */}
+   959→            {confettiPieces.map((piece) => (
+   960→              <motion.div
+   961→                key={piece.id}
+   962→                initial={{ opacity: 1, y: 150, x: 0, rotate: 0 }}
+   963→                animate={{
+   964→                  opacity: 0,
+   965→                  y: piece.y,
+   966→                  x: piece.x,
+   967→                  rotate: piece.rotate,
+   968→                  transition: { duration: 2.2, delay: piece.delay, ease: "easeOut" },
+   969→                }}
+   970→                className="absolute rounded-sm pointer-events-none"
+   971→                style={{
+   972→                  width: piece.size,
+   973→                  height: piece.size,
+   974→                  backgroundColor: piece.color,
+   975→                  top: "50%",
+   976→                  left: "50%",
+   977→                }}
+   978→              />
+   979→            ))}
+   980→
+   981→            {/* Trophy / Star result icon */}
+   982→            <motion.div
+   983→              initial={{ scale: 0, rotate: -30 }}
+   984→              animate={{ scale: 1, rotate: 0 }}
+   985→              transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.1 }}
+   986→              className="relative"
+   987→            >
+   988→              {p1Score !== p2Score ? (
+   989→                <>
+   990→                  <Trophy
+   991→                    className={cn(
+   992→                      "h-16 w-16 drop-shadow-lg",
+   993→                      p1Score > p2Score
+   994→                        ? "text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+   995→                        : "text-pink-400 drop-shadow-[0_0_20px_rgba(244,114,182,0.4)]",
+   996→                    )}
+   997→                  />
+   998→                  <motion.div
+   999→                    animate={{ scale: [1, 1.2, 1] }}
+  1000→                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+  1001→                    className="absolute -inset-2 rounded-full pointer-events-none"
+  1002→                    style={{
+  1003→                      background: p1Score > p2Score
+  1004→                        ? "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)"
+  1005→                        : "radial-gradient(circle, rgba(244,114,182,0.15) 0%, transparent 70%)",
+  1006→                    }}
+  1007→                  />
+  1008→                </>
+  1009→              ) : (
+  1010→                <Star className="h-16 w-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.4)]" />
+  1011→              )}
+  1012→            </motion.div>
+  1013→
+  1014→            <motion.h2
+  1015→              initial={{ opacity: 0, y: 10 }}
+  1016→              animate={{ opacity: 1, y: 0 }}
+  1017→              transition={{ delay: 0.25 }}
+  1018→              className="text-3xl font-black bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 bg-clip-text text-transparent sm:text-4xl"
+  1019→            >
+  1020→              Fim de Jogo!
+  1021→            </motion.h2>
+  1022→
+  1023→            {/* Score comparison cards */}
+  1024→            <div className="flex items-center gap-6 sm:gap-10">
+  1025→              {/* P1 score card */}
+  1026→              <motion.div
+  1027→                initial={{ x: -40, opacity: 0 }}
+  1028→                animate={{ x: 0, opacity: 1 }}
+  1029→                transition={{ type: "spring", delay: 0.3 }}
+  1030→                className={cn(
+  1031→                  "flex flex-col items-center gap-1 rounded-xl px-6 py-4 border",
+  1032→                  p1Score > p2Score
+  1033→                    ? "bg-cyan-500/10 border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+  1034→                    : "bg-gray-800/50 border-gray-700/30",
+  1035→                )}
+  1036→              >
+  1037→                {p1Score > p2Score && <Crown className="h-5 w-5 text-yellow-400 mb-1" />}
+  1038→                <span className="text-xs font-bold text-cyan-400">Jogador 1</span>
+  1039→                <motion.span
+  1040→                  initial={{ scale: 0 }}
+  1041→                  animate={{ scale: 1 }}
+  1042→                  transition={{ type: "spring", stiffness: 300, delay: 0.4 }}
+  1043→                  className={cn(
+  1044→                    "text-4xl font-black",
+  1045→                    p1Score > p2Score ? "text-cyan-300" : "text-gray-400",
+  1046→                  )}
+  1047→                >
+  1048→                  {p1Score}
+  1049→                </motion.span>
+  1050→                <span className="text-xs text-gray-500">pontos</span>
+  1051→              </motion.div>
+  1052→
+  1053→              <motion.span
+  1054→                initial={{ opacity: 0 }}
+  1055→                animate={{ opacity: 1 }}
+  1056→                transition={{ delay: 0.5 }}
+  1057→                className="text-2xl font-bold text-gray-600"
+  1058→              >
+  1059→                vs
+  1060→              </motion.span>
+  1061→
+  1062→              {/* P2 score card */}
+  1063→              <motion.div
+  1064→                initial={{ x: 40, opacity: 0 }}
+  1065→                animate={{ x: 0, opacity: 1 }}
+  1066→                transition={{ type: "spring", delay: 0.35 }}
+  1067→                className={cn(
+  1068→                  "flex flex-col items-center gap-1 rounded-xl px-6 py-4 border",
+  1069→                  p2Score > p1Score
+  1070→                    ? "bg-pink-500/10 border-pink-500/30 shadow-lg shadow-pink-500/10"
+  1071→                    : "bg-gray-800/50 border-gray-700/30",
+  1072→                )}
+  1073→              >
+  1074→                {p2Score > p1Score && <Crown className="h-5 w-5 text-yellow-400 mb-1" />}
+  1075→                <span className="text-xs font-bold text-pink-400">
+  1076→                  {botMode ? "Computador" : "Jogador 2"}
+  1077→                </span>
+  1078→                <motion.span
+  1079→                  initial={{ scale: 0 }}
+  1080→                  animate={{ scale: 1 }}
+  1081→                  transition={{ type: "spring", stiffness: 300, delay: 0.45 }}
+  1082→                  className={cn(
+  1083→                    "text-4xl font-black",
+  1084→                    p2Score > p1Score ? "text-pink-300" : "text-gray-400",
+  1085→                  )}
+  1086→                >
+  1087→                  {p2Score}
+  1088→                </motion.span>
+  1089→                <span className="text-xs text-gray-500">pontos</span>
+  1090→              </motion.div>
+  1091→            </div>
+  1092→
+  1093→            {/* Score bar comparison */}
+  1094→            <div className="w-full max-w-xs">
+  1095→              <div className="flex h-4 overflow-hidden rounded-full bg-gray-800">
+  1096→                {p1Score + p2Score > 0 && (
+  1097→                  <>
+  1098→                    <motion.div
+  1099→                      initial={{ width: 0 }}
+  1100→                      animate={{ width: `${(p1Score / (p1Score + p2Score)) * 100}%` }}
+  1101→                      transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+  1102→                      className="bg-gradient-to-r from-cyan-500 to-cyan-400"
+  1103→                    />
+  1104→                    <motion.div
+  1105→                      initial={{ width: 0 }}
+  1106→                      animate={{ width: `${(p2Score / (p1Score + p2Score)) * 100}%` }}
+  1107→                      transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+  1108→                      className="bg-gradient-to-r from-pink-500 to-pink-400"
+  1109→                    />
+  1110→                  </>
+  1111→                )}
+  1112→              </div>
+  1113→            </div>
+  1114→
+  1115→            {/* Winner text */}
+  1116→            <motion.p
+  1117→              initial={{ opacity: 0, y: 10 }}
+  1118→              animate={{ opacity: 1, y: 0 }}
+  1119→              transition={{ delay: 0.6 }}
+  1120→              className={cn("text-lg font-bold", winnerLabel.color)}
+  1121→            >
+  1122→              {winnerLabel.text}
+  1123→            </motion.p>
+  1124→
+  1125→            {/* Stats grid */}
+  1126→            <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
+  1127→              <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/50 px-3 py-2 border border-gray-700/30">
+  1128→                <Flame className="h-3.5 w-3.5 text-amber-400" />
+  1129→                <span>Streak P1: <strong className="text-cyan-300">{p1MaxStreak}</strong></span>
+  1130→              </div>
+  1131→              <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/50 px-3 py-2 border border-gray-700/30">
+  1132→                <Flame className="h-3.5 w-3.5 text-amber-400" />
+  1133→                <span>Streak P2: <strong className="text-pink-300">{p2MaxStreak}</strong></span>
+  1134→              </div>
+  1135→            </div>
+  1136→
+  1137→            {/* Action buttons */}
+  1138→            <motion.div
+  1139→              initial={{ opacity: 0, y: 10 }}
+  1140→              animate={{ opacity: 1, y: 0 }}
+  1141→              transition={{ delay: 0.7 }}
+  1142→              className="flex gap-3 mt-2"
+  1143→            >
+  1144→              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+  1145→                <Button
+  1146→                  onClick={goToMenu}
+  1147→                  variant="outline"
+  1148→                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
+  1149→                >
+  1150→                  <RotateCcw className="mr-2 h-4 w-4" />
+  1151→                  Menu
+  1152→                </Button>
+  1153→              </motion.div>
+  1154→              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+  1155→                <Button
+  1156→                  onClick={startGame}
+  1157→                  className="bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white font-bold px-6 shadow-lg shadow-purple-500/20"
+  1158→                >
+  1159→                  Reiniciar Tudo
+  1160→                </Button>
+  1161→              </motion.div>
+  1162→            </motion.div>
+  1163→          </motion.div>
+  1164→        )}
+  1165→      </AnimatePresence>
+  1166→
+  1167→      {/* Live code badge */}
+  1168→      {liveCode && (
+  1169→        <Badge
+  1170→          variant="outline"
+  1171→          className="absolute top-3 right-3 border-gray-700 text-[10px] text-gray-500 z-40"
+  1172→        >
+  1173→          {liveCode}
+  1174→        </Badge>
+  1175→      )}
+  1176→    </motion.div>
+  1177→  );
+  1178→}
+  1179→
