@@ -1,0 +1,785 @@
+     1→import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { X, Sparkles, MessageCircle, Send, ChevronDown, Trophy, Star, Gift } from "lucide-react";
+     4→import { useLocation } from "react-router-dom";
+     5→import { useAuth } from "@/contexts/AuthContext";
+     6→import { useLanguage } from "@/contexts/LanguageContext";
+     7→import { supabase } from "@/integrations/supabase/client";
+     8→import { playPopSound, playDismissSound, playSendSound, playWinSound, playVictoryFanfare, playMilestoneChime } from "@/lib/sounds";
+     9→
+    10→import mascotHappy from "@/assets/mascot-happy.png";
+    11→import mascotThinking from "@/assets/mascot-thinking.png";
+    12→import mascotExcited from "@/assets/mascot-excited.png";
+    13→import mascotWinner from "@/assets/mascot-winner.png";
+    14→
+    15→type MascotMood = "happy" | "thinking" | "excited" | "winner";
+    16→type MascotMode = "bubble" | "chat";
+    17→
+    18→interface ChatMsg {
+    19→  role: "user" | "assistant";
+    20→  content: string;
+    21→}
+    22→
+    23→const MOOD_IMAGES: Record<MascotMood, string> = {
+    24→  happy: mascotHappy,
+    25→  thinking: mascotThinking,
+    26→  excited: mascotExcited,
+    27→  winner: mascotWinner,
+    28→};
+    29→
+    30→const MOOD_ANIMATIONS: Record<MascotMood, Record<string, number[]>> = {
+    31→  happy: { y: [0, -8, 0], rotate: [0, 3, -3, 0] },
+    32→  thinking: { y: [0, -4, 0], rotate: [0, -5, 0] },
+    33→  excited: { y: [0, -14, 0, -10, 0], rotate: [0, 5, -5, 3, 0], scale: [1, 1.05, 1, 1.03, 1] },
+    34→  winner: { y: [0, -16, 0], rotate: [0, 8, -8, 0], scale: [1, 1.1, 1] },
+    35→};
+    36→
+    37→// Positions where the mascot can appear
+    38→const POSITIONS = [
+    39→  { className: "bottom-24 right-4", align: "right" },
+    40→  { className: "bottom-24 left-4", align: "left" },
+    41→  { className: "top-20 right-4", align: "right" },
+    42→  { className: "top-20 left-4", align: "left" },
+    43→  { className: "top-1/2 -translate-y-1/2 right-4", align: "right" },
+    44→  { className: "top-1/3 left-4", align: "left" },
+    45→] as const;
+    46→
+    47→function getRouteContext(pathname: string): { context: string; mood: MascotMood } {
+    48→  if (pathname === "/") return { context: "homepage", mood: "happy" };
+    49→  if (pathname === "/marketplace") return { context: "marketplace de sorteios", mood: "excited" };
+    50→  if (pathname.startsWith("/raffle") && pathname.includes("/live")) return { context: "sorteio ao vivo", mood: "winner" };
+    51→  if (pathname.startsWith("/raffle")) return { context: "detalhes do sorteio", mood: "thinking" };
+    52→  if (pathname === "/community") return { context: "comunidade", mood: "happy" };
+    53→  if (pathname === "/my-points") return { context: "pontos de sorte", mood: "excited" };
+    54→  if (pathname === "/my-tickets") return { context: "bilhetes do utilizador", mood: "thinking" };
+    55→  if (pathname === "/profile") return { context: "perfil do utilizador", mood: "happy" };
+    56→  if (pathname.startsWith("/dashboard")) return { context: "dashboard de negócio", mood: "thinking" };
+    57→  if (pathname === "/historico") return { context: "histórico de vencedores", mood: "winner" };
+    58→  if (pathname === "/como-funciona") return { context: "como funciona a plataforma", mood: "thinking" };
+    59→  if (pathname === "/referral") return { context: "programa de referências", mood: "excited" };
+    60→  if (pathname === "/faq") return { context: "perguntas frequentes", mood: "thinking" };
+    61→  if (pathname === "/install") return { context: "instalação da app", mood: "excited" };
+    62→  if (pathname === "/login") return { context: "página de login", mood: "happy" };
+    63→  if (pathname === "/register") return { context: "página de registo", mood: "excited" };
+    64→  if (pathname === "/termos") return { context: "termos e condições", mood: "thinking" };
+    65→  if (pathname === "/privacidade") return { context: "política de privacidade", mood: "thinking" };
+    66→  return { context: "navegação geral", mood: "happy" };
+    67→}
+    68→
+    69→// Route-specific messages that override generic fallbacks when on certain pages
+    70→const ROUTE_MESSAGES: Record<string, ((name: string) => string)[]> = {
+    71→  "/": [
+    72→    (n) => `${n}! 🏠 Bem-vindo ao Bateu! Aqui os sonhos viram realidade!`,
+    73→    (n) => `Ei ${n}! ✨ Explora os sorteios em destaque e tenta a tua sorte!`,
+    74→    (n) => `${n}! 🎯 Milhares de prémios à tua espera! Por onde queres começar?`,
+    75→    (n) => `Olá ${n}! 🌟 Hoje pode ser o teu dia de sorte! Vamos ver os sorteios?`,
+    76→  ],
+    77→  "/marketplace": [
+    78→    (n) => `${n}! 🛒 O marketplace está cheio de oportunidades hoje!`,
+    79→    (n) => `WOW ${n}! 🎁 Tantos prémios novos! Qual te chama mais atenção?`,
+    80→    (n) => `${n}! 💎 Dica: filtra por categoria para encontrar o sorteio perfeito!`,
+    81→    (n) => `${n}! 🔥 Os sorteios mais populares estão a esgotar rápido!`,
+    82→    (n) => `Ei ${n}! 🎲 Quanto mais exploras, mais chances encontras!`,
+    83→  ],
+    84→  "/community": [
+    85→    (n) => `${n}! 👥 A comunidade Bateu é incrível! Partilha a tua experiência!`,
+    86→    (n) => `Ei ${n}! 💬 Já viste as últimas conversas? Muita gente animada!`,
+    87→    (n) => `${n}! 🤝 Conecta-te com outros participantes e troca dicas!`,
+    88→    (n) => `${n}! 🎤 A tua opinião conta! Deixa um comentário!`,
+    89→  ],
+    90→  "/my-tickets": [
+    91→    (n) => `${n}! 🎫 Aqui estão os teus bilhetes! Cruza os dedos! 🤞`,
+    92→    (n) => `Ei ${n}! 📋 Acompanha o estado de cada bilhete aqui!`,
+    93→    (n) => `${n}! 🍀 Cada bilhete é uma chance! Quanto mais, melhor!`,
+    94→    (n) => `${n}! ⏰ Verifica os prazos dos teus sorteios activos!`,
+    95→  ],
+    96→  "/my-points": [
+    97→    (n) => `${n}! 💰 Os teus Luck Points são valiosos! Usa-os com sabedoria!`,
+    98→    (n) => `Ei ${n}! 🌟 Ganha mais pontos participando e convidando amigos!`,
+    99→    (n) => `${n}! 🎁 Sabias que podes trocar pontos por bilhetes grátis?`,
+   100→    (n) => `${n}! 🚀 Quanto mais activo, mais pontos acumulas!`,
+   101→  ],
+   102→  "/profile": [
+   103→    (n) => `${n}! 👤 O teu perfil está com boa energia! Mantém-no actualizado!`,
+   104→    (n) => `Ei ${n}! 📸 Um perfil completo inspira mais confiança!`,
+   105→    (n) => `${n}! ✏️ Verifica se os teus dados estão correctos!`,
+   106→  ],
+   107→  "/referral": [
+   108→    (n) => `${n}! 🎉 Convida amigos e ganhem ambos 50 Luck Points!`,
+   109→    (n) => `Ei ${n}! 🔗 Partilha o teu link e faz crescer a comunidade!`,
+   110→    (n) => `${n}! 💪 Quanto mais amigos convidares, mais pontos ganhas!`,
+   111→    (n) => `${n}! 📲 Envia o link por WhatsApp — é super fácil!`,
+   112→    (n) => `${n}! 🎁 Sabias que cada amigo te dá 50 pontos? Convida já!`,
+   113→    (n) => `Ei ${n}! 🤝 Os teus amigos também ganham 50 pontos ao registar-se!`,
+   114→    (n) => `${n}! 🚀 Top dica: partilha o link no teu grupo de WhatsApp!`,
+   115→    (n) => `${n}! 💰 Com 5 amigos ganhas 250 pontos — quase um bilhete grátis!`,
+   116→  ],
+   117→  "/como-funciona": [
+   118→    (n) => `${n}! 📖 Boa ideia! Entender como funciona é o primeiro passo!`,
+   119→    (n) => `Ei ${n}! 🧠 Aqui encontras tudo sobre a plataforma!`,
+   120→    (n) => `${n}! 💡 Sabias que os sorteios são verificados por blockchain?`,
+   121→    (n) => `${n}! 🔒 Transparência é a nossa prioridade! Lê com atenção!`,
+   122→  ],
+   123→  "/faq": [
+   124→    (n) => `${n}! ❓ Tem dúvidas? Estás no sítio certo!`,
+   125→    (n) => `Ei ${n}! 📚 As perguntas mais comuns estão todas aqui!`,
+   126→    (n) => `${n}! 💬 Se não encontrares a resposta, fala comigo no chat!`,
+   127→  ],
+   128→  "/historico": [
+   129→    (n) => `${n}! 🏆 Vê quem já ganhou! O próximo podes ser tu!`,
+   130→    (n) => `Ei ${n}! 👑 Inspira-te com os vencedores anteriores!`,
+   131→    (n) => `${n}! 🎊 Tantas histórias de sucesso! A tua está a caminho!`,
+   132→    (n) => `${n}! ✅ Todos os resultados são verificados e transparentes!`,
+   133→  ],
+   134→  "/install": [
+   135→    (n) => `${n}! 📱 Instala a app e recebe notificações dos sorteios!`,
+   136→    (n) => `Ei ${n}! 🔔 Com a app nunca perdes um sorteio importante!`,
+   137→    (n) => `${n}! ⚡ A app é rápida e funciona offline também!`,
+   138→  ],
+   139→};
+   140→
+   141→const FALLBACK_MESSAGES: Record<MascotMood, ((name: string) => string)[]> = {
+   142→  happy: [
+   143→    (n) => `Ei ${n}! 🌟 Que bom ver-te! Explora os sorteios e tenta a tua sorte!`,
+   144→    (n) => `Olá ${n}! 😄 Bem-vindo ao Bateu! A diversão começa aqui!`,
+   145→    (n) => `${n}! 🎈 Estás pronto para ganhar? Eu acredito em ti!`,
+   146→    (n) => `${n}! 😊 Cada dia é uma nova oportunidade de ganhar!`,
+   147→    (n) => `Ei ${n}! 🌈 A sorte sorri a quem participa!`,
+   148→    (n) => `${n}! 🎀 Que bom ter-te aqui! Vamos descobrir prémios juntos!`,
+   149→  ],
+   150→  thinking: [
+   151→    (n) => `Hmm ${n}... 🤔 Este sorteio parece interessante! Já viste os detalhes?`,
+   152→    (n) => `${n}, analisa bem! 🧐 Quanto mais bilhetes, mais chances!`,
+   153→    (n) => `${n}! 💡 Sabias que podes usar Luck Points para participar grátis?`,
+   154→    (n) => `${n}! 🔍 Lê sempre a descrição completa antes de participar!`,
+   155→    (n) => `Hmm ${n}... 📊 Verifica quantos bilhetes já foram vendidos!`,
+   156→    (n) => `${n}! 🧮 Menos participantes = mais chances! Pensa nisso!`,
+   157→  ],
+   158→  excited: [
+   159→    (n) => `${n}!! 🎉 Tantos prémios incríveis! Não percas esta oportunidade!`,
+   160→    (n) => `WOW ${n}! 🚀 Os sorteios estão a bombar! Participa agora!`,
+   161→    (n) => `${n}! 🔥 Olha só estes prémios! Eu não resistia!`,
+   162→    (n) => `${n}! 💥 Está tudo a acontecer! Não fiques de fora!`,
+   163→    (n) => `${n}! ⚡ A energia está no máximo! Vamos ganhar!`,
+   164→    (n) => `INCRÍVEL ${n}! 🤩 Novos sorteios acabaram de abrir!`,
+   165→  ],
+   166→  winner: [
+   167→    (n) => `${n}! 🏆 Alguém vai ganhar hoje! Será que és tu?!`,
+   168→    (n) => `${n}! 👑 Os vencedores são verificados por blockchain!`,
+   169→    (n) => `${n}! 🎊 Estou tão animado! O próximo vencedor pode ser tu!`,
+   170→    (n) => `${n}! 🥇 A emoção está no ar! Quem será o sortudo?!`,
+   171→    (n) => `${n}! 🎆 Momento mágico a chegar! Prepara-te!`,
+   172→    (n) => `${n}! 🌟 Os vencedores de hoje são os corajosos de ontem!`,
+   173→  ],
+   174→};
+   175→
+   176→const QUICK_QUESTIONS = [
+   177→  "Como participar num sorteio?",
+   178→  "O que são Luck Points?",
+   179→  "Como funciona o blockchain?",
+   180→  "Quantos sorteios estão activos?",
+   181→  "O que são sorteios sociais?",
+   182→  "A plataforma é segura?",
+   183→  "Como convido amigos?",
+   184→  "Como instalo a app?",
+   185→  "Posso participar grátis?",
+   186→  "Como sei se ganhei?",
+   187→];
+   188→
+   189→// Mini floating mascot that appears in different screen positions
+   190→function FloatingMiniMascot({ mood, onClick, position }: { mood: MascotMood; onClick: () => void; position: number }) {
+   191→  const pos = POSITIONS[position % POSITIONS.length];
+   192→  const img = MOOD_IMAGES[mood];
+   193→
+   194→  return (
+   195→    <motion.button
+   196→      onClick={onClick}
+   197→      className={`fixed z-40 rounded-full ${pos.className}`}
+   198→      initial={{ scale: 0, opacity: 0, rotate: -180 }}
+   199→      animate={{ scale: 1, opacity: 0.7, rotate: 0 }}
+   200→      exit={{ scale: 0, opacity: 0, rotate: 180 }}
+   201→      transition={{ type: "spring", damping: 10, stiffness: 150 }}
+   202→      whileHover={{ scale: 1.3, opacity: 1 }}
+   203→    >
+   204→      <motion.img
+   205→        src={img}
+   206→        alt="Bateu"
+   207→        className="h-10 w-10 drop-shadow-md"
+   208→        width={40}
+   209→        height={40}
+   210→        animate={{ y: [0, -6, 0], rotate: [0, 5, -5, 0] }}
+   211→        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+   212→      />
+   213→    </motion.button>
+   214→  );
+   215→}
+   216→
+   217→// ── Celebration overlay ──
+   218→const CELEBRATION_EMOJIS = ["🎉", "🎊", "✨", "🌟", "🏆", "💎", "🎁", "👑", "🥇", "💰"];
+   219→const POINT_MILESTONES = [50, 100, 250, 500, 1000, 2500, 5000];
+   220→
+   221→interface CelebrationData {
+   222→  type: "win" | "milestone";
+   223→  title: string;
+   224→  subtitle: string;
+   225→  emoji: string;
+   226→}
+   227→
+   228→function CelebrationOverlay({ data, onClose }: { data: CelebrationData; onClose: () => void }) {
+   229→  useEffect(() => {
+   230→    const timer = setTimeout(onClose, 6000);
+   231→    return () => clearTimeout(timer);
+   232→  }, [onClose]);
+   233→
+   234→  return (
+   235→    <motion.div
+   236→      initial={{ opacity: 0 }}
+   237→      animate={{ opacity: 1 }}
+   238→      exit={{ opacity: 0 }}
+   239→      className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+   240→    >
+   241→      {CELEBRATION_EMOJIS.map((e, i) => (
+   242→        <motion.span
+   243→          key={i}
+   244→          className="absolute text-2xl sm:text-3xl pointer-events-none"
+   245→          initial={{
+   246→            x: 0, y: 0, opacity: 1, scale: 0,
+   247→          }}
+   248→          animate={{
+   249→            x: (Math.random() - 0.5) * 500,
+   250→            y: (Math.random() - 0.5) * 500,
+   251→            opacity: 0,
+   252→            scale: [0, 1.5, 0],
+   253→            rotate: Math.random() * 720,
+   254→          }}
+   255→          transition={{ duration: 2 + Math.random(), delay: i * 0.08, ease: "easeOut" }}
+   256→        >
+   257→          {e}
+   258→        </motion.span>
+   259→      ))}
+   260→
+   261→      <motion.div
+   262→        initial={{ scale: 0, rotate: -10 }}
+   263→        animate={{ scale: 1, rotate: 0 }}
+   264→        exit={{ scale: 0, rotate: 10 }}
+   265→        transition={{ type: "spring", damping: 10, stiffness: 150, delay: 0.2 }}
+   266→        className="pointer-events-auto glass rounded-3xl p-6 sm:p-8 text-center max-w-sm mx-4 border-2 border-primary/30 shadow-2xl relative overflow-hidden"
+   267→      >
+   268→        <motion.div
+   269→          className="absolute inset-0 rounded-3xl"
+   270→          animate={{ boxShadow: [
+   271→            "0 0 20px hsl(var(--primary) / 0.2)",
+   272→            "0 0 60px hsl(var(--primary) / 0.4)",
+   273→            "0 0 20px hsl(var(--primary) / 0.2)",
+   274→          ]}}
+   275→          transition={{ repeat: Infinity, duration: 1.5 }}
+   276→        />
+   277→
+   278→        <motion.div
+   279→          className="text-5xl mb-3"
+   280→          animate={{ scale: [1, 1.3, 1], rotate: [0, 15, -15, 0] }}
+   281→          transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+   282→        >
+   283→          {data.emoji}
+   284→        </motion.div>
+   285→
+   286→        <motion.img
+   287→          src={mascotWinner}
+   288→          alt="Bateu celebra!"
+   289→          className="h-20 w-20 mx-auto mb-3"
+   290→          width={80} height={80}
+   291→          animate={{
+   292→            y: [0, -20, 0],
+   293→            rotate: [0, 12, -12, 8, -8, 0],
+   294→            scale: [1, 1.15, 1, 1.1, 1],
+   295→          }}
+   296→          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+   297→        />
+   298→
+   299→        <motion.h3
+   300→          initial={{ opacity: 0, y: 10 }}
+   301→          animate={{ opacity: 1, y: 0 }}
+   302→          transition={{ delay: 0.4 }}
+   303→          className="font-display text-xl font-bold text-foreground"
+   304→        >
+   305→          {data.title}
+   306→        </motion.h3>
+   307→        <motion.p
+   308→          initial={{ opacity: 0 }}
+   309→          animate={{ opacity: 1 }}
+   310→          transition={{ delay: 0.6 }}
+   311→          className="text-sm text-muted-foreground mt-1"
+   312→        >
+   313→          {data.subtitle}
+   314→        </motion.p>
+   315→
+   316→        <motion.button
+   317→          initial={{ opacity: 0, y: 10 }}
+   318→          animate={{ opacity: 1, y: 0 }}
+   319→          transition={{ delay: 0.8 }}
+   320→          onClick={onClose}
+   321→          className="mt-4 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+   322→        >
+   323→          Obrigado, Bateu! 🎉
+   324→        </motion.button>
+   325→      </motion.div>
+   326→    </motion.div>
+   327→  );
+   328→}
+   329→
+   330→export default function MascotBuddy() {
+   331→  const { profile, user } = useAuth();
+   332→  const { lang } = useLanguage();
+   333→  const location = useLocation();
+   334→  const [visible, setVisible] = useState(false);
+   335→  const [message, setMessage] = useState("");
+   336→  const [mode, setMode] = useState<MascotMode>("bubble");
+   337→  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+   338→  const [chatInput, setChatInput] = useState("");
+   339→  const [chatLoading, setChatLoading] = useState(false);
+   340→  const [loading, setLoading] = useState(false);
+   341→  const [dismissed, setDismissed] = useState(false);
+   342→  const [positionIndex, setPositionIndex] = useState(0);
+   343→  const [miniMascots, setMiniMascots] = useState<number[]>([]);
+   344→  const [celebration, setCelebration] = useState<CelebrationData | null>(null);
+   345→  const lastPointsRef = useRef<number | null>(null);
+   346→  const celebratedMilestonesRef = useRef<Set<number>>(new Set());
+   347→  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   348→  const miniTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   349→  const appearCountRef = useRef(0);
+   350→  const chatEndRef = useRef<HTMLDivElement>(null);
+   351→  const inputRef = useRef<HTMLInputElement>(null);
+   352→  const modeRef = useRef<MascotMode>(mode);
+   353→  modeRef.current = mode;
+   354→
+   355→  const userName = profile?.display_name || (lang === "en" ? "friend" : "amigo/a");
+   356→  const { context, mood } = useMemo(() => getRouteContext(location.pathname), [location.pathname]);
+   357→
+   358→  // ── Track point milestones ──
+   359→  useEffect(() => {
+   360→    if (!user) return;
+   361→    const checkPoints = async () => {
+   362→      const { data } = await supabase
+   363→        .from("luck_points")
+   364→        .select("points")
+   365→        .eq("user_id", user.id);
+   366→      if (!data) return;
+   367→      const total = data.reduce((sum, r) => sum + r.points, 0);
+   368→
+   369→      if (lastPointsRef.current !== null) {
+   370→        for (const milestone of POINT_MILESTONES) {
+   371→          if (
+   372→            total >= milestone &&
+   373→            lastPointsRef.current < milestone &&
+   374→            !celebratedMilestonesRef.current.has(milestone)
+   375→          ) {
+   376→            celebratedMilestonesRef.current.add(milestone);
+   377→            playMilestoneChime();
+   378→            setCelebration({
+   379→              type: "milestone",
+   380→              title: `${milestone} Luck Points! 🌟`,
+   381→              subtitle: `Parabéns, ${userName}! Alcançaste um marco incrível!`,
+   382→              emoji: milestone >= 1000 ? "💎" : milestone >= 500 ? "🏆" : "⭐",
+   383→            });
+   384→            break;
+   385→          }
+   386→        }
+   387→      }
+   388→      lastPointsRef.current = total;
+   389→    };
+   390→
+   391→    checkPoints();
+   392→    const interval = setInterval(checkPoints, 30000);
+   393→    return () => clearInterval(interval);
+   394→  }, [user, userName]);
+   395→
+   396→  // ── Listen for raffle wins via notifications ──
+   397→  useEffect(() => {
+   398→    if (!user) return;
+   399→    const channel = supabase
+   400→      .channel("mascot-celebrations")
+   401→      .on(
+   402→        "postgres_changes",
+   403→        {
+   404→          event: "INSERT",
+   405→          schema: "public",
+   406→          table: "notifications",
+   407→          filter: `user_id=eq.${user.id}`,
+   408→        },
+   409→        (payload) => {
+   410→          const row = payload.new as any;
+   411→          if (row.type === "winner" || row.title?.toLowerCase().includes("ganhas")) {
+   412→            playVictoryFanfare();
+   413→            setCelebration({
+   414→              type: "win",
+   415→              title: "GANHASTE! 🏆🎊",
+   416→              subtitle: row.message || `Parabéns, ${userName}! Foste o grande vencedor!`,
+   417→              emoji: "👑",
+   418→            });
+   419→          }
+   420→        }
+   421→      )
+   422→      .subscribe();
+   423→
+   424→    return () => { supabase.removeChannel(channel); };
+   425→  }, [user, userName]);
+   426→
+   427→  // Show mini mascots in various positions (rare, max 1, only desktop)
+   428→  useEffect(() => {
+   429→    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+   430→    if (isMobile) return; // No floating minis on mobile to avoid clutter
+   431→    const spawnMini = () => {
+   432→      if (modeRef.current === "chat") return;
+   433→      const pos = Math.floor(Math.random() * POSITIONS.length);
+   434→      setMiniMascots((prev) => {
+   435→        if (prev.length >= 1) return prev;
+   436→        if (prev.includes(pos)) return prev;
+   437→        return [...prev, pos];
+   438→      });
+   439→      setTimeout(() => {
+   440→        setMiniMascots((prev) => prev.filter((p) => p !== pos));
+   441→      }, 4000);
+   442→    };
+   443→
+   444→    miniTimerRef.current = setInterval(spawnMini, 90000 + Math.random() * 60000);
+   445→    const initial = setTimeout(spawnMini, 30000);
+   446→    return () => {
+   447→      if (miniTimerRef.current) clearInterval(miniTimerRef.current);
+   448→      clearTimeout(initial);
+   449→    };
+   450→  }, [location.pathname]);
+   451→
+   452→  const fetchMessage = useCallback(async (ctx: string, currentMood: MascotMood) => {
+   453→    try {
+   454→      setLoading(true);
+   455→      const { data, error } = await supabase.functions.invoke("mascot-message", {
+   456→        body: { userName, context: ctx, mood: currentMood, lang, userId: user?.id },
+   457→      });
+   458→      if (error || !data?.message) throw new Error("No message");
+   459→      setMessage(data.message);
+   460→    } catch {
+   461→      const routePool = ROUTE_MESSAGES[location.pathname];
+   462→      const pool = routePool && routePool.length > 0 ? routePool : FALLBACK_MESSAGES[currentMood];
+   463→      setMessage(pool[Math.floor(Math.random() * pool.length)](userName));
+   464→    } finally {
+   465→      setLoading(false);
+   466→    }
+   467→  }, [userName, lang, user?.id, location.pathname]);
+   468→
+   469→  const showMascot = useCallback(async () => {
+   470→    if (dismissed || modeRef.current === "chat") return;
+   471→    // Randomize position
+   472→    setPositionIndex(Math.floor(Math.random() * POSITIONS.length));
+   473→    await fetchMessage(context, mood);
+   474→    setVisible(true);
+   475→    appearCountRef.current += 1;
+   476→    playPopSound();
+   477→
+   478→    timerRef.current = setTimeout(() => {
+   479→      if (modeRef.current !== "chat") setVisible(false);
+   480→      const baseDelay = Math.min(90000 + appearCountRef.current * 30000, 240000);
+   481→      timerRef.current = setTimeout(showMascot, baseDelay + Math.random() * 30000);
+   482→    }, 10000);
+   483→  }, [dismissed, fetchMessage, context, mood]);
+   484→
+   485→  useEffect(() => {
+   486→    if (dismissed) return;
+   487→    if (mode === "chat") return;
+   488→    if (timerRef.current) clearTimeout(timerRef.current);
+   489→    const delay = appearCountRef.current === 0 ? 12000 : 8000;
+   490→    timerRef.current = setTimeout(showMascot, delay);
+   491→    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+   492→  }, [location.pathname, showMascot, dismissed, mode]);
+   493→
+   494→  useEffect(() => {
+   495→    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+   496→  }, [chatMessages]);
+   497→
+   498→  const openChat = () => {
+   499→    if (timerRef.current) clearTimeout(timerRef.current);
+   500→    setMode("chat");
+   501→    setVisible(true);
+   502→    setMiniMascots([]);
+   503→    playPopSound();
+   504→    if (chatMessages.length === 0) {
+   505→      setChatMessages([{
+   506→        role: "assistant",
+   507→        content: lang === "en"
+   508→          ? `Hey ${userName}! 😊 I'm Bateu, your assistant. Ask me anything about the platform!`
+   509→          : `Olá ${userName}! 😊 Sou o Bateu, o teu assistente. Pergunta-me qualquer coisa sobre a plataforma!`,
+   510→      }]);
+   511→    }
+   512→    setTimeout(() => inputRef.current?.focus(), 300);
+   513→  };
+   514→
+   515→  const sendMessage = async (text: string) => {
+   516→    if (!text.trim() || chatLoading) return;
+   517→    const userMsg: ChatMsg = { role: "user", content: text.trim() };
+   518→    const updatedMessages = [...chatMessages, userMsg];
+   519→    setChatMessages(updatedMessages);
+   520→    setChatInput("");
+   521→    setChatLoading(true);
+   522→    playSendSound();
+   523→
+   524→    try {
+   525→      const { data, error } = await supabase.functions.invoke("mascot-chat", {
+   526→        body: {
+   527→          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+   528→          userName,
+   529→          context,
+   530→          lang,
+   531→          userId: user?.id,
+   532→        },
+   533→      });
+   534→      if (error || !data?.message) throw new Error("No response");
+   535→      setChatMessages(prev => [...prev, { role: "assistant", content: data.message }]);
+   536→    } catch {
+   537→      setChatMessages(prev => [...prev, { role: "assistant", content: lang === "en" ? "Oops, couldn't reply! 😅 Try again." : "Ops, não consegui responder! 😅 Tenta de novo." }]);
+   538→    } finally {
+   539→      setChatLoading(false);
+   540→    }
+   541→  };
+   542→
+   543→  const handleDismiss = () => {
+   544→    if (mode === "chat") return;
+   545→    openChat();
+   546→  };
+   547→
+   548→  const handleClose = () => {
+   549→    setVisible(false);
+   550→    setMode("bubble");
+   551→    setDismissed(true);
+   552→    setMiniMascots([]);
+   553→    playDismissSound();
+   554→    if (timerRef.current) clearTimeout(timerRef.current);
+   555→  };
+   556→
+   557→  const minimizeChat = () => {
+   558→    setMode("bubble");
+   559→    setVisible(false);
+   560→    playDismissSound();
+   561→    if (timerRef.current) clearTimeout(timerRef.current);
+   562→    timerRef.current = setTimeout(showMascot, 60000);
+   563→  };
+   564→
+   565→  const currentImage = MOOD_IMAGES[mood];
+   566→  const currentAnimation = MOOD_ANIMATIONS[mood];
+   567→  const currentPos = POSITIONS[positionIndex % POSITIONS.length];
+   568→
+   569→  return (
+   570→    <>
+   571→      <AnimatePresence>
+   572→        {celebration && (
+   573→          <CelebrationOverlay data={celebration} onClose={() => setCelebration(null)} />
+   574→        )}
+   575→      </AnimatePresence>
+   576→
+   577→      <AnimatePresence>
+   578→        {miniMascots.map((pos) => (
+   579→          <FloatingMiniMascot key={pos} mood={mood} onClick={openChat} position={pos} />
+   580→        ))}
+   581→      </AnimatePresence>
+   582→
+   583→      {!visible && !dismissed && (
+   584→        <motion.button
+   585→          onClick={openChat}
+   586→          className="fixed bottom-20 right-3 sm:bottom-24 sm:right-4 z-50 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+   587→          initial={{ scale: 0 }}
+   588→          animate={{ scale: 1 }}
+   589→          whileHover={{ scale: 1.1 }}
+   590→          whileTap={{ scale: 0.9 }}
+   591→        >
+   592→          <img src={currentImage} alt="Bateu" className="h-11 w-11 sm:h-14 sm:w-14 drop-shadow-md" width={56} height={56} />
+   593→          <motion.div
+   594→            className="absolute -top-1 -right-1 h-3 w-3 sm:h-4 sm:w-4 rounded-full bg-primary"
+   595→            animate={{ scale: [1, 1.3, 1] }}
+   596→            transition={{ repeat: Infinity, duration: 2 }}
+   597→          />
+   598→        </motion.button>
+   599→      )}
+   600→
+   601→      <AnimatePresence>
+   602→        {visible && mode === "chat" ? (
+   603→          /* ── Chat mode ── */
+   604→          <motion.div
+   605→            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+   606→            animate={{ scale: 1, opacity: 1, y: 0 }}
+   607→            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+   608→            transition={{ type: "spring", damping: 15, stiffness: 200 }}
+   609→            className="fixed bottom-24 right-4 z-50 w-[320px] sm:w-[360px] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col"
+   610→            style={{ maxHeight: "70vh" }}
+   611→          >
+   612→            <div className="flex items-center gap-2 p-3 border-b border-border bg-primary/5">
+   613→              <motion.img
+   614→                src={currentImage}
+   615→                alt="Bateu"
+   616→                className="h-10 w-10"
+   617→                width={40}
+   618→                height={40}
+   619→                animate={{ rotate: [0, 5, -5, 0] }}
+   620→                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+   621→              />
+   622→              <div className="flex-1 min-w-0">
+   623→                <p className="text-sm font-bold text-foreground">Bateu Assistente</p>
+   624→                <p className="text-[10px] text-muted-foreground">
+   625→                  {mood === "happy" && "😊 Feliz"}
+   626→                  {mood === "thinking" && "🤔 Pensativo"}
+   627→                  {mood === "excited" && "🤩 Animado"}
+   628→                  {mood === "winner" && "🏆 Festivo"}
+   629→                  {" · "}Online
+   630→                </p>
+   631→              </div>
+   632→              <button onClick={minimizeChat} className="p-1 rounded hover:bg-secondary transition-colors" title="Minimizar">
+   633→                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   634→              </button>
+   635→              <button onClick={handleClose} className="p-1 rounded hover:bg-destructive/20 transition-colors" title="Fechar">
+   636→                <X className="h-4 w-4 text-muted-foreground" />
+   637→              </button>
+   638→            </div>
+   639→
+   640→            <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px] max-h-[400px]">
+   641→              {chatMessages.map((msg, i) => (
+   642→                <motion.div
+   643→                  key={i}
+   644→                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+   645→                  animate={{ opacity: 1, y: 0, scale: 1 }}
+   646→                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+   647→                >
+   648→                  {msg.role === "assistant" && (
+   649→                    <motion.img
+   650→                      src={currentImage}
+   651→                      alt=""
+   652→                      className="h-6 w-6 mr-1 mt-1 shrink-0"
+   653→                      width={24}
+   654→                      height={24}
+   655→                      animate={{ y: [0, -2, 0] }}
+   656→                      transition={{ repeat: Infinity, duration: 2 }}
+   657→                    />
+   658→                  )}
+   659→                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+   660→                    msg.role === "user"
+   661→                      ? "bg-primary text-primary-foreground rounded-br-md"
+   662→                      : "bg-secondary text-foreground rounded-bl-md"
+   663→                  }`}>
+   664→                    {msg.content}
+   665→                  </div>
+   666→                </motion.div>
+   667→              ))}
+   668→              {chatLoading && (
+   669→                <div className="flex justify-start">
+   670→                  <motion.img src={currentImage} alt="" className="h-6 w-6 mr-1 mt-1" width={24} height={24}
+   671→                    animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} />
+   672→                  <div className="bg-secondary rounded-2xl rounded-bl-md px-3 py-2">
+   673→                    <motion.div className="flex gap-1" animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.2 }}>
+   674→                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+   675→                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+   676→                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+   677→                    </motion.div>
+   678→                  </div>
+   679→                </div>
+   680→              )}
+   681→              <div ref={chatEndRef} />
+   682→            </div>
+   683→
+   684→            {chatMessages.length <= 1 && (
+   685→              <div className="px-3 pb-2 flex flex-wrap gap-1">
+   686→                {QUICK_QUESTIONS.map((q) => (
+   687→                  <button
+   688→                    key={q}
+   689→                    onClick={() => sendMessage(q)}
+   690→                    className="text-[10px] px-2 py-1 rounded-full border border-border bg-secondary hover:bg-accent/10 text-foreground transition-colors"
+   691→                  >
+   692→                    {q}
+   693→                  </button>
+   694→                ))}
+   695→              </div>
+   696→            )}
+   697→
+   698→            <form
+   699→              onSubmit={(e) => { e.preventDefault(); sendMessage(chatInput); }}
+   700→              className="flex items-center gap-2 p-2 border-t border-border"
+   701→            >
+   702→              <input
+   703→                ref={inputRef}
+   704→                value={chatInput}
+   705→                onChange={(e) => setChatInput(e.target.value)}
+   706→                placeholder={lang === "en" ? "Ask Bateu..." : "Pergunta ao Bateu..."}
+   707→                className="flex-1 bg-secondary rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/30"
+   708→                disabled={chatLoading}
+   709→              />
+   710→              <button
+   711→                type="submit"
+   712→                disabled={!chatInput.trim() || chatLoading}
+   713→                className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity"
+   714→              >
+   715→                <Send className="h-3.5 w-3.5" />
+   716→              </button>
+   717→            </form>
+   718→          </motion.div>
+   719→        ) : visible && mode === "bubble" ? (
+   720→          /* ── Bubble mode - appears at random positions ── */
+   721→          <motion.div
+   722→            initial={{ scale: 0, opacity: 0, y: 50 }}
+   723→            animate={{ scale: 1, opacity: 1, y: 0 }}
+   724→            exit={{ scale: 0, opacity: 0, y: 50 }}
+   725→            transition={{ type: "spring", damping: 12, stiffness: 200 }}
+   726→            className={`fixed z-50 flex items-end gap-2 ${currentPos.className}`}
+   727→            style={{ flexDirection: currentPos.align === "left" ? "row-reverse" : "row" }}
+   728→          >
+   729→            <motion.div
+   730→              initial={{ opacity: 0, x: currentPos.align === "left" ? -20 : 20 }}
+   731→              animate={{ opacity: 1, x: 0 }}
+   732→              transition={{ delay: 0.3, duration: 0.4 }}
+   733→              className="relative max-w-[240px] rounded-2xl border border-border bg-card p-3 shadow-lg"
+   734→            >
+   735→              <button
+   736→                onClick={handleClose}
+   737→                className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] hover:opacity-80"
+   738→              >
+   739→                <X className="h-3 w-3" />
+   740→              </button>
+   741→              <div className="mb-1 flex items-center justify-between">
+   742→                <span className="text-[10px] font-medium text-muted-foreground">
+   743→                  {mood === "happy" && "😊 Feliz"}
+   744→                  {mood === "thinking" && "🤔 Pensativo"}
+   745→                  {mood === "excited" && "🤩 Animado"}
+   746→                  {mood === "winner" && "🏆 Festivo"}
+   747→                </span>
+   748→                <button
+   749→                  onClick={openChat}
+   750→                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+   751→                >
+   752→                  <MessageCircle className="h-3 w-3" /> Chat
+   753→                </button>
+   754→              </div>
+   755→              {loading ? (
+   756→                <div className="flex items-center gap-2 py-1">
+   757→                  <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
+   758→                  <span className="text-xs text-muted-foreground">A pensar...</span>
+   759→                </div>
+   760→              ) : (
+   761→                <p className="text-xs leading-relaxed text-foreground">{message}</p>
+   762→              )}
+   763→            </motion.div>
+   764→
+   765→            <motion.div
+   766→              onClick={handleDismiss}
+   767→              className="cursor-pointer"
+   768→              whileHover={{ scale: 1.1 }}
+   769→              whileTap={{ scale: 0.9 }}
+   770→              animate={currentAnimation}
+   771→              transition={{
+   772→                y: { repeat: Infinity, duration: mood === "excited" ? 1.5 : 2, ease: "easeInOut" },
+   773→                rotate: { repeat: Infinity, duration: mood === "excited" ? 2 : 3, ease: "easeInOut" },
+   774→                scale: { repeat: Infinity, duration: mood === "excited" ? 1.5 : 2, ease: "easeInOut" },
+   775→              }}
+   776→            >
+   777→              <img src={currentImage} alt={`Bateu - ${mood}`} className="h-14 w-14 sm:h-20 sm:w-20 drop-shadow-lg" width={80} height={80} />
+   778→            </motion.div>
+   779→          </motion.div>
+   780→        ) : null}
+   781→      </AnimatePresence>
+   782→    </>
+   783→  );
+   784→}
+   785→
