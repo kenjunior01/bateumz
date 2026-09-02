@@ -1,0 +1,1546 @@
+     1→import { useState, useEffect, useMemo, useCallback } from "react";
+     2→import { useParams, useNavigate, Link } from "react-router-dom";
+     3→import { supabase } from "@/integrations/supabase/client";
+     4→import Navbar from "@/components/Navbar";
+     5→import Footer from "@/components/Footer";
+     6→import AmbassadorPanel from "@/components/ambassadors/AmbassadorPanel";
+     7→import BusinessLivesTab from "@/components/business/BusinessLivesTab";
+     8→import BusinessTimeline from "@/components/business/BusinessTimeline";
+     9→import BusinessManagePanel from "@/components/business/BusinessManagePanel";
+    10→import { Helmet } from "react-helmet-async";
+    11→import { useAuth } from "@/contexts/AuthContext";
+    12→import { getPublicBaseUrl } from "@/lib/publicUrl";
+    13→import PlatformPulseWidget from "@/components/PlatformPulseWidget";
+    14→import { Radio, Activity } from "lucide-react";
+    15→import { Card, CardContent } from "@/components/ui/card";
+    16→import { Badge } from "@/components/ui/badge";
+    17→import { Button } from "@/components/ui/button";
+    18→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    19→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    20→import { Skeleton } from "@/components/ui/skeleton";
+    21→import { Dialog, DialogContent } from "@/components/ui/dialog";
+    22→import { Input } from "@/components/ui/input";
+    23→import BusinessGameCard from "@/components/livegames/BusinessGameCard";
+    24→import GameHistoryPanel from "@/components/livegames/GameHistoryPanel";
+    25→import GuestNameDialog from "@/components/livegames/GuestNameDialog";
+    26→import {
+    27→  Ticket,
+    28→  Trophy,
+    29→  Calendar,
+    30→  CheckCircle,
+    31→  Building2,
+    32→  ArrowLeft,
+    33→  Share2,
+    34→  ShoppingBag,
+    35→  Sparkles,
+    36→  Eye,
+    37→  MapPin,
+    38→  TrendingUp,
+    39→  ArrowRight,
+    40→  Calculator,
+    41→  Crown,
+    42→  Medal,
+    43→  Wallet,
+    44→  Clock,
+    45→  Gamepad2,
+    46→} from "lucide-react";
+    47→import { motion } from "framer-motion";
+    48→import { toast } from "sonner";
+    49→import { formatMZN } from "@/lib/currency";
+    50→
+    51→const sb: any = supabase;
+    52→
+    53→interface BusinessInfo {
+    54→  user_id: string;
+    55→  slug?: string | null;
+    56→  display_name: string | null;
+    57→  company_name: string | null;
+    58→  avatar_url: string | null;
+    59→  is_verified: boolean | null;
+    60→  created_at: string | null;
+    61→}
+    62→
+    63→interface Raffle {
+    64→  id: string;
+    65→  title: string;
+    66→  prize_title: string;
+    67→  prize_value: number;
+    68→  ticket_price: number;
+    69→  total_tickets: number;
+    70→  sold_tickets: number;
+    71→  status: string;
+    72→  image_url: string | null;
+    73→  slug: string | null;
+    74→  end_date: string | null;
+    75→  category: string | null;
+    76→  hide_prize_value: boolean | null;
+    77→  created_at?: string | null;
+    78→}
+    79→
+    80→interface Contest {
+    81→  id: string;
+    82→  title: string;
+    83→  description: string | null;
+    84→  prize_description: string | null;
+    85→  image_url: string | null;
+    86→  status: string;
+    87→  evaluation_type: string;
+    88→  end_date: string | null;
+    89→  created_at?: string | null;
+    90→}
+    91→
+    92→interface SpinWheelGame {
+    93→  id: string;
+    94→  title: string;
+    95→  description: string | null;
+    96→  cover_image_url: string | null;
+    97→  is_active: boolean;
+    98→  created_at: string;
+    99→  total_plays?: number;
+   100→}
+   101→
+   102→interface MillionaireGameInfo {
+   103→  id: string;
+   104→  title: string;
+   105→  description: string | null;
+   106→  cover_image_url: string | null;
+   107→  is_active: boolean;
+   108→  created_at: string;
+   109→  total_plays?: number;
+   110→}
+   111→
+   112→interface ChallengeRoulette {
+   113→  id: string;
+   114→  title: string | null;
+   115→  is_published: boolean;
+   116→  created_at: string;
+   117→}
+   118→
+   119→interface PrestacaoProduct {
+   120→  id: string;
+   121→  title: string;
+   122→  brand: string | null;
+   123→  model: string | null;
+   124→  category: string;
+   125→  total_price: number;
+   126→  min_down_payment: number;
+   127→  max_months: number;
+   128→  images: any;
+   129→  city: string | null;
+   130→  province: string | null;
+   131→  views_count: number | null;
+   132→  status: string;
+   133→  created_at?: string | null;
+   134→}
+   135→
+   136→interface RaffleWinner {
+   137→  raffle_id: string;
+   138→  raffle_title: string;
+   139→  prize_title: string;
+   140→  ticket_number: number;
+   141→  display_name: string | null;
+   142→  slug: string | null;
+   143→}
+   144→
+   145→interface ContestRanking {
+   146→  contest_id: string;
+   147→  contest_title: string;
+   148→  evaluation_type: string;
+   149→  status: string;
+   150→  top: {
+   151→    submission_id: string;
+   152→    name: string;
+   153→    photo_url: string | null;
+   154→    score: number;
+   155→  }[];
+   156→}
+   157→
+   158→const statusLabels: Record<string, string> = {
+   159→  active: "Ativo",
+   160→  completed: "Encerrado",
+   161→  voting: "Em Votação",
+   162→  drawn: "Sorteado",
+   163→};
+   164→
+   165→export default function BusinessProfile() {
+   166→  const { id } = useParams<{ id: string }>();
+   167→  const navigate = useNavigate();
+   168→  const { user } = useAuth();
+   169→  const [business, setBusiness] = useState<BusinessInfo | null>(null);
+   170→  const [raffles, setRaffles] = useState<Raffle[]>([]);
+   171→  const [contests, setContests] = useState<Contest[]>([]);
+   172→  const [products, setProducts] = useState<PrestacaoProduct[]>([]);
+   173→  const [winners, setWinners] = useState<RaffleWinner[]>([]);
+   174→  const [rankings, setRankings] = useState<ContestRanking[]>([]);
+   175→  const [spinGames, setSpinGames] = useState<SpinWheelGame[]>([]);
+   176→  const [millionaireGames, setMillionaireGames] = useState<MillionaireGameInfo[]>([]);
+   177→  const [challengeRoulettes, setChallengeRoulettes] = useState<ChallengeRoulette[]>([]);
+   178→  const [guestName, setGuestName] = useState("");
+   179→  const [showNameDialog, setShowNameDialog] = useState(false);
+   180→  const [pendingGame, setPendingGame] = useState<{type: string; id: string} | null>(null);
+   181→  const [resolvedId, setResolvedId] = useState<string | null>(null);
+   182→  const [loading, setLoading] = useState(true);
+   183→  const [reloadKey, setReloadKey] = useState(0);
+   184→
+   185→  const isUuid = (v: string) =>
+   186→    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+   187→
+   188→  useEffect(() => {
+   189→    if (!id) return;
+   190→    const load = async () => {
+   191→      setLoading(true);
+   192→      // Resolve the route param: it can be a user id OR a public slug
+   193→      let bizId = id;
+   194→      if (!isUuid(id)) {
+   195→        const { data: bySlug } = await sb
+   196→          .from("profiles_public")
+   197→          .select("user_id")
+   198→          .eq("slug", id)
+   199→          .maybeSingle();
+   200→        if (!bySlug) {
+   201→          setBusiness(null);
+   202→          setLoading(false);
+   203→          return;
+   204→        }
+   205→        bizId = bySlug.user_id;
+   206→      }
+   207→      setResolvedId(bizId);
+   208→
+   209→      const [profileRes, rafflesRes, contestsRes, productsRes] = await Promise.all([
+   210→        sb.from("profiles_public").select("*").eq("user_id", bizId).single(),
+   211→        sb
+   212→          .from("raffles")
+   213→          .select("*")
+   214→          .eq("business_user_id", bizId)
+   215→          .in("status", ["active", "completed", "drawn"])
+   216→          .order("created_at", { ascending: false }),
+   217→        sb
+   218→          .from("contests")
+   219→          .select("*")
+   220→          .eq("created_by", bizId)
+   221→          .in("status", ["active", "voting", "completed"])
+   222→          .order("created_at", { ascending: false }),
+   223→        sb
+   224→          .from("prestacao_products")
+   225→          .select("*")
+   226→          .eq("business_user_id", bizId)
+   227→          .eq("status", "active")
+   228→          .order("created_at", { ascending: false }),
+   229→      ]);
+   230→
+   231→      const rafflesData = (rafflesRes.data as Raffle[]) || [];
+   232→      const contestsData = (contestsRes.data as Contest[]) || [];
+   233→
+   234→      setBusiness(profileRes.data as BusinessInfo | null);
+   235→      setRaffles(rafflesData);
+   236→      setContests(contestsData);
+   237→      setProducts((productsRes.data as PrestacaoProduct[]) || []);
+   238→      setLoading(false);
+   239→
+   240→      // Load winners + rankings (non-blocking)
+   241→      void loadWinnersAndRankings(rafflesData, contestsData);
+   242→      void loadGames(bizId);
+   243→    };
+   244→
+   245→    const loadGames = async (bizId: string) => {
+   246→      const [spinsRes, millsRes, roulettesRes] = await Promise.all([
+   247→        sb.from("spin_wheel_games").select("id, name, description, background_image_url, is_active, created_at").eq("business_user_id", bizId).order("created_at", { ascending: false }).limit(20),
+   248→        sb.from("millionaire_games").select("id, name, description, background_image_url, is_active, created_at").eq("business_user_id", bizId).order("created_at", { ascending: false }).limit(20),
+   249→        sb.from("challenge_roulettes").select("id, title, is_published, created_at").eq("business_user_id", bizId).order("created_at", { ascending: false }).limit(20),
+   250→      ]);
+   251→      const normalize = (rows: any[]) =>
+   252→        (rows || []).map((g) => ({
+   253→          id: g.id,
+   254→          title: g.name || g.title || "Game",
+   255→          description: g.description ?? null,
+   256→          cover_image_url: g.background_image_url ?? null,
+   257→          is_active: !!g.is_active,
+   258→          created_at: g.created_at,
+   259→        }));
+   260→      setSpinGames(normalize(spinsRes.data as any[]) as SpinWheelGame[]);
+   261→      setMillionaireGames(normalize(millsRes.data as any[]) as MillionaireGameInfo[]);
+   262→      setChallengeRoulettes((roulettesRes.data as ChallengeRoulette[]) || []);
+   263→
+   264→      // Load guest name from localStorage
+   265→      const saved = localStorage.getItem("bateumz_guest_name");
+   266→      if (saved) setGuestName(saved);
+   267→    };
+   268→
+   269→    const loadWinnersAndRankings = async (rs: Raffle[], cs: Contest[]) => {
+   270→      // Winners: from completed/drawn raffles
+   271→      const finishedRaffleIds = rs
+   272→        .filter((r) => r.status === "completed" || r.status === "drawn")
+   273→        .map((r) => r.id);
+   274→
+   275→      if (finishedRaffleIds.length > 0) {
+   276→        const { data: winnerRows } = await sb
+   277→          .from("participants")
+   278→          .select("raffle_id, ticket_number, user_id")
+   279→          .in("raffle_id", finishedRaffleIds)
+   280→          .eq("status", "winner");
+   281→
+   282→        if (winnerRows && winnerRows.length > 0) {
+   283→          const userIds = [...new Set(winnerRows.map((w: any) => w.user_id))];
+   284→          const { data: profs } = await sb
+   285→            .from("profiles_public")
+   286→            .select("user_id, display_name")
+   287→            .in("user_id", userIds);
+   288→          const profMap = new Map((profs || []).map((p: any) => [p.user_id, p.display_name]));
+   289→          const raffleMap = new Map(rs.map((r) => [r.id, r]));
+   290→
+   291→          const mapped: RaffleWinner[] = winnerRows.map((w: any) => {
+   292→            const r = raffleMap.get(w.raffle_id);
+   293→            return {
+   294→              raffle_id: w.raffle_id,
+   295→              raffle_title: r?.title || "Sorteio",
+   296→              prize_title: r?.prize_title || "Prémio",
+   297→              ticket_number: w.ticket_number,
+   298→              display_name: profMap.get(w.user_id) || null,
+   299→              slug: r?.slug || null,
+   300→            };
+   301→          });
+   302→          setWinners(mapped);
+   303→        }
+   304→      }
+   305→
+   306→      // Rankings: top 3 submissions per active/voting contest
+   307→      const liveContests = cs.filter((c) => c.status === "active" || c.status === "voting");
+   308→      if (liveContests.length > 0) {
+   309→        const results: ContestRanking[] = [];
+   310→        await Promise.all(
+   311→          liveContests.map(async (c) => {
+   312→            const orderCol = c.evaluation_type === "views" ? "views_count" : "votes_count";
+   313→            const { data } = await sb
+   314→              .from("contest_submissions")
+   315→              .select("id, participant_name, photo_url, votes_count, views_count")
+   316→              .eq("contest_id", c.id)
+   317→              .eq("status", "approved")
+   318→              .order(orderCol, { ascending: false })
+   319→              .limit(3);
+   320→            results.push({
+   321→              contest_id: c.id,
+   322→              contest_title: c.title,
+   323→              evaluation_type: c.evaluation_type,
+   324→              status: c.status,
+   325→              top: (data || []).map((s: any) => ({
+   326→                submission_id: s.id,
+   327→                name: s.participant_name,
+   328→                photo_url: s.photo_url,
+   329→                score: c.evaluation_type === "views" ? s.views_count : s.votes_count,
+   330→              })),
+   331→            });
+   332→          }),
+   333→        );
+   334→        setRankings(results.filter((r) => r.top.length > 0));
+   335→      }
+   336→    };
+   337→
+   338→    load();
+   339→  }, [id, reloadKey]);
+   340→
+   341→  const allGames = useMemo(() => [
+   342→    ...spinGames.map((g) => ({ ...g, type: "spin" as const })),
+   343→    ...millionaireGames.map((g) => ({ ...g, type: "millionaire" as const })),
+   344→    ...challengeRoulettes.map((g) => ({ ...g, type: "roulette" as const, description: null, cover_image_url: null, title: g.title || "Roleta de Desafios" })),
+   345→  ], [spinGames, millionaireGames, challengeRoulettes]);
+   346→
+   347→  const stats = useMemo(() => {
+   348→    const activeRaffles = raffles.filter((r) => r.status === "active").length;
+   349→    const totalSold = raffles.reduce((acc, r) => acc + (r.sold_tickets || 0), 0);
+   350→    const totalGames = spinGames.length + millionaireGames.length + challengeRoulettes.length;
+   351→    const activeGames = [...spinGames, ...millionaireGames].filter((g) => g.is_active).length;
+   352→    return {
+   353→      activeRaffles,
+   354→      totalRaffles: raffles.length,
+   355→      contests: contests.length,
+   356→      products: products.length,
+   357→      totalSold,
+   358→      totalGames,
+   359→      activeGames,
+   360→    };
+   361→  }, [raffles, contests, products, spinGames, millionaireGames, challengeRoulettes]);
+   362→
+   363→  const handlePlayGame = useCallback((type: string, gameId: string) => {
+   364→    if (!guestName) {
+   365→      setPendingGame({ type, id: gameId });
+   366→      setShowNameDialog(true);
+   367→    } else {
+   368→      const routes: Record<string, string> = {
+   369→        spin: `/games/spin-wheel/${gameId}`,
+   370→        millionaire: `/games/millionaire/${gameId}`,
+   371→      };
+   372→      const route = routes[type] || `/jogos`;
+   373→      navigate(route);
+   374→    }
+   375→  }, [guestName, navigate]);
+   376→
+   377→  const handleGuestNameSubmit = useCallback((name: string) => {
+   378→    setGuestName(name);
+   379→    setShowNameDialog(false);
+   380→    if (pendingGame) {
+   381→      const routes: Record<string, string> = {
+   382→        spin: `/games/spin-wheel/${pendingGame.id}`,
+   383→        millionaire: `/games/millionaire/${pendingGame.id}`,
+   384→      };
+   385→      navigate(routes[pendingGame.type] || `/jogos`);
+   386→      setPendingGame(null);
+   387→    }
+   388→  }, [pendingGame, navigate]);
+   389→
+   390→  const handleShare = async () => {
+   391→    // Always share the slug-based URL (cleaner for public sharing)
+   392→    let url: string;
+   393→    if (business?.slug) {
+   394→      url = `${getPublicBaseUrl()}/empresa/${business.slug}`;
+   395→    } else if (resolvedId) {
+   396→      url = `${getPublicBaseUrl()}/empresa/${resolvedId}/publico`;
+   397→    } else {
+   398→      url = window.location.href;
+   399→    }
+   400→    const title = business?.company_name || business?.display_name || "Empresa";
+   401→    try {
+   402→      if (navigator.share) {
+   403→        await navigator.share({ title: `${title} • Bateu`, url });
+   404→      } else {
+   405→        await navigator.clipboard.writeText(url);
+   406→        toast.success("Link do perfil copiado!");
+   407→      }
+   408→    } catch {
+   409→      // user cancelled
+   410→    }
+   411→  };
+   412→
+   413→  if (loading) {
+   414→    return (
+   415→      <div className="min-h-screen bg-background">
+   416→        <Navbar />
+   417→        <div className="container mx-auto px-4 py-6 sm:py-10 max-w-6xl">
+   418→          <div className="flex items-center gap-4 mb-6">
+   419→            <Skeleton className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl" />
+   420→            <div className="flex-1 space-y-2">
+   421→              <Skeleton className="h-6 w-2/3 max-w-xs" />
+   422→              <Skeleton className="h-3 w-1/3 max-w-[140px]" />
+   423→            </div>
+   424→          </div>
+   425→          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-8">
+   426→            {Array.from({ length: 4 }).map((_, i) => (
+   427→              <Skeleton key={i} className="h-20 sm:h-24 rounded-xl" />
+   428→            ))}
+   429→          </div>
+   430→          <SkeletonCardGrid count={6} />
+   431→        </div>
+   432→        <Footer />
+   433→      </div>
+   434→    );
+   435→  }
+   436→
+   437→  if (!business) {
+   438→    return (
+   439→      <div className="min-h-screen bg-background">
+   440→        <Navbar />
+   441→        <div className="container mx-auto px-4 py-20 text-center">
+   442→          <Building2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+   443→          <h1 className="text-2xl font-bold mb-2">Company not found</h1>
+   444→          <Button variant="outline" onClick={() => navigate("/empresas")}>
+   445→            <ArrowLeft className="mr-2 h-4 w-4" /> Back to directory
+   446→          </Button>
+   447→        </div>
+   448→        <Footer />
+   449→      </div>
+   450→    );
+   451→  }
+   452→
+   453→  const displayName = business.company_name || business.display_name || "Empresa";
+   454→  const initial = displayName.charAt(0).toUpperCase();
+   455→
+   456→  const isOwner = !!user && user.id === business.user_id;
+   457→  const canonical = `${getPublicBaseUrl()}/empresa/${business.slug || business.user_id}`;
+   458→  const metaDescription = `${displayName} on Bateu — live shows, interactive games, raffles and verified winners. Follow everything in one place.`;
+   459→
+   460→  const goToCatalogForBusiness = () =>
+   461→    navigate(`/prestacoes/catalogo?business=${business.user_id}`);
+   462→
+   463→  return (
+   464→    <div className="min-h-screen bg-background">
+   465→      <Helmet>
+   466→        <title>{`${displayName} — Games, Lives & Winners | Bateu`}</title>
+   467→        <meta name="description" content={metaDescription} />
+   468→        <link rel="canonical" href={canonical} />
+   469→        <meta property="og:type" content="profile" />
+   470→        <meta property="og:title" content={`${displayName} on Bateu`} />
+   471→        <meta property="og:description" content={metaDescription} />
+   472→        <meta property="og:url" content={canonical} />
+   473→        {business.avatar_url && <meta property="og:image" content={business.avatar_url} />}
+   474→        <meta name="twitter:card" content="summary_large_image" />
+   475→        <meta name="twitter:title" content={`${displayName} on Bateu`} />
+   476→        <meta name="twitter:description" content={metaDescription} />
+   477→        <script type="application/ld+json">
+   478→          {JSON.stringify({
+   479→            "@context": "https://schema.org",
+   480→            "@type": "Organization",
+   481→            name: displayName,
+   482→            url: canonical,
+   483→            ...(business.avatar_url ? { logo: business.avatar_url } : {}),
+   484→          })}
+   485→        </script>
+   486→      </Helmet>
+   487→      <Navbar />
+   488→
+   489→      <div className="relative">
+   490→        <div className="relative h-32 sm:h-48 overflow-hidden">
+   491→          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent" />
+   492→          <div
+   493→            className="absolute inset-0 opacity-30"
+   494→            style={{
+   495→              backgroundImage:
+   496→                "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.3) 0, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.2) 0, transparent 50%)",
+   497→            }}
+   498→          />
+   499→          <div
+   500→            className="absolute inset-0 opacity-10"
+   501→            style={{
+   502→              backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+   503→            }}
+   504→          />
+   505→          <Button
+   506→            variant="secondary"
+   507→            size="sm"
+   508→            onClick={() => navigate("/empresas")}
+   509→            className="absolute top-3 left-3 h-8 gap-1 bg-background/80 backdrop-blur hover:bg-background/95"
+   510→          >
+   511→            <ArrowLeft className="h-3.5 w-3.5" /> Back
+   512→          </Button>
+   513→          <Button
+   514→            variant="secondary"
+   515→            size="sm"
+   516→            onClick={handleShare}
+   517→            className="absolute top-3 right-3 h-8 gap-1 bg-background/80 backdrop-blur hover:bg-background/95"
+   518→          >
+   519→            <Share2 className="h-3.5 w-3.5" /> Share
+   520→          </Button>
+   521→        </div>
+   522→
+   523→        <div className="container mx-auto max-w-6xl px-4">
+   524→          <div className="-mt-12 sm:-mt-16 relative z-10">
+   525→            <motion.div
+   526→              initial={{ opacity: 0, y: 20 }}
+   527→              animate={{ opacity: 1, y: 0 }}
+   528→              className="flex flex-col sm:flex-row sm:items-end gap-4"
+   529→            >
+   530→              <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0">
+   531→                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent blur-md opacity-50" />
+   532→                <div className="relative h-full w-full rounded-2xl bg-card border-4 border-background flex items-center justify-center text-3xl sm:text-4xl font-bold text-primary overflow-hidden shadow-2xl">
+   533→                  {business.avatar_url ? (
+   534→                    <img src={business.avatar_url} alt={displayName} className="h-full w-full object-cover" />
+   535→                  ) : (
+   536→                    initial
+   537→                  )}
+   538→                </div>
+   539→                {business.is_verified && (
+   540→                  <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center ring-2 ring-background shadow-lg">
+   541→                    <CheckCircle className="h-4 w-4 text-primary-foreground" />
+   542→                  </div>
+   543→                )}
+   544→              </div>
+   545→
+   546→              <div className="flex-1 min-w-0 sm:pb-2">
+   547→                <div className="flex flex-wrap items-center gap-2">
+   548→                  <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
+   549→                  {business.is_verified && (
+   550→                    <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/20 text-[10px]">
+   551→                      Verified
+   552→                    </Badge>
+   553→                  )}
+   554→                </div>
+   555→                {business.company_name && business.display_name && (
+   556→                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+   557→                    {business.display_name}
+   558→                  </p>
+   559→                )}
+   560→                <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+   561→                  <Calendar className="h-3 w-3" />
+   562→                  Member since{" "}
+   563→                  {business.created_at
+   564→                    ? new Date(business.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+   565→                    : "—"}
+   566→                </p>
+   567→              </div>
+   568→            </motion.div>
+   569→
+   570→            <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mt-4 sm:mt-6">
+   571→              {[
+   572→                { icon: Ticket, label: "Raffles", value: stats.activeRaffles, color: "text-primary", bg: "bg-primary/10" },
+   573→                { icon: Trophy, label: "Contests", value: stats.contests, color: "text-accent", bg: "bg-accent/10" },
+   574→                { icon: ShoppingBag, label: "Installments", value: stats.products, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+   575→                { icon: TrendingUp, label: "Sold", value: stats.totalSold, color: "text-amber-500", bg: "bg-amber-500/10" },
+   576→              ].map((s, i) => (
+   577→                <motion.div
+   578→                  key={s.label}
+   579→                  initial={{ opacity: 0, y: 10 }}
+   580→                  animate={{ opacity: 1, y: 0 }}
+   581→                  transition={{ delay: 0.05 * i }}
+   582→                  className="rounded-xl border border-border/60 bg-card p-2 sm:p-3 text-center sm:text-left"
+   583→                >
+   584→                  <div className={`inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg ${s.bg} mb-1`}>
+   585→                    <s.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${s.color}`} />
+   586→                  </div>
+   587→                  <p className="font-display text-base sm:text-xl font-bold leading-none">{s.value}</p>
+   588→                  <p className="text-[9px] sm:text-[11px] text-muted-foreground leading-tight mt-0.5">{s.label}</p>
+   589→                </motion.div>
+   590→              ))}
+   591→            </div>
+   592→          </div>
+   593→        </div>
+   594→      </div>
+   595→
+   596→      <div className="container mx-auto px-4 py-6 sm:py-10 max-w-6xl space-y-6">
+   597→        {isOwner && (
+   598→          <BusinessManagePanel
+   599→            userId={business.user_id}
+   600→            companyName={displayName}
+   601→            currentSlug={business.slug}
+   602→            onRefresh={() => setReloadKey((k) => k + 1)}
+   603→            onSlugSaved={(newSlug) => {
+   604→              setBusiness((b) => (b ? { ...b, slug: newSlug } : b));
+   605→              navigate(`/empresa/${newSlug}`, { replace: true });
+   606→            }}
+   607→            counts={{
+   608→              games: stats.totalGames,
+   609→              raffles: stats.totalRaffles,
+   610→              contests: stats.contests,
+   611→              winners: winners.length,
+   612→            }}
+   613→          />
+   614→        )}
+   615→        <AmbassadorPanel businessUserId={business.user_id} businessName={displayName} />
+   616→        <Tabs defaultValue="feed">
+   617→          <div className="sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-2 bg-background/85 backdrop-blur-md border-b border-border/40 mb-4 sm:mb-6">
+   618→            <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex">
+   619→              <TabsTrigger value="feed" className="text-[11px] sm:text-sm">
+   620→                <Activity className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+   621→                Feed
+   622→              </TabsTrigger>
+   623→              <TabsTrigger value="all" className="text-[11px] sm:text-sm">
+   624→                <Sparkles className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+   625→                Everything
+   626→              </TabsTrigger>
+   627→              <TabsTrigger value="raffles" className="text-[11px] sm:text-sm">
+   628→                Raffles
+   629→              </TabsTrigger>
+   630→              <TabsTrigger value="contests" className="text-[11px] sm:text-sm">
+   631→                Contests
+   632→              </TabsTrigger>
+   633→              <TabsTrigger value="products" className="text-[11px] sm:text-sm">
+   634→                Installments
+   635→              </TabsTrigger>
+   636→              <TabsTrigger value="winners" className="text-[11px] sm:text-sm">
+   637→                <Crown className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+   638→                Winners
+   639→              </TabsTrigger>
+   640→            <TabsTrigger value="jogos" className="gap-1.5 text-[11px] sm:text-sm">
+   641→                  <Gamepad2 className="h-3.5 w-3.5" />
+   642→                  <span className="hidden sm:inline">Games</span>
+   643→                </TabsTrigger>
+   644→              <TabsTrigger value="lives" className="gap-1.5 text-[11px] sm:text-sm">
+   645→                  <Radio className="h-3.5 w-3.5" />
+   646→                  <span className="hidden sm:inline">Lives</span>
+   647→                </TabsTrigger>
+   648→              </TabsList>
+   649→          </div>
+   650→
+   651→          <TabsContent value="feed" className="mt-4">
+   652→            <BusinessTimeline businessUserId={business.user_id} reloadKey={reloadKey} />
+   653→          </TabsContent>
+   654→
+   655→          <TabsContent value="all">
+   656→            {raffles.length === 0 && contests.length === 0 && products.length === 0 ? (
+   657→              <EmptyState />
+   658→            ) : (
+   659→              <div className="space-y-8">
+   660→                {raffles.length > 0 && (
+   661→                  <Section
+   662→                    title="Sorteios"
+   663→                    icon={Ticket}
+   664→                    moreLabel="Ver todos"
+   665→                    onMore={() => {
+   666→                      const t = document.querySelector<HTMLButtonElement>('[role="tab"][value="raffles"]');
+   667→                      t?.click();
+   668→                    }}
+   669→                  >
+   670→                    <Grid>
+   671→                      {raffles.slice(0, 6).map((r) => (
+   672→                        <RaffleCard key={r.id} raffle={r} navigate={navigate} />
+   673→                      ))}
+   674→                    </Grid>
+   675→                  </Section>
+   676→                )}
+   677→
+   678→                {contests.length > 0 && (
+   679→                  <Section
+   680→                    title="Concursos"
+   681→                    icon={Trophy}
+   682→                    moreLabel="Ver todos"
+   683→                    onMore={() => {
+   684→                      const t = document.querySelector<HTMLButtonElement>('[role="tab"][value="contests"]');
+   685→                      t?.click();
+   686→                    }}
+   687→                  >
+   688→                    <Grid>
+   689→                      {contests.slice(0, 6).map((c) => (
+   690→                        <ContestCard key={c.id} contest={c} navigate={navigate} />
+   691→                      ))}
+   692→                    </Grid>
+   693→                  </Section>
+   694→                )}
+   695→
+   696→                {products.length > 0 && (
+   697→                  <Section
+   698→                    title="Vendas a Prestações"
+   699→                    icon={ShoppingBag}
+   700→                    moreLabel="Ver todos"
+   701→                    onMore={() => {
+   702→                      const t = document.querySelector<HTMLButtonElement>('[role="tab"][value="products"]');
+   703→                      t?.click();
+   704→                    }}
+   705→                  >
+   706→                    <Grid>
+   707→                      {products.slice(0, 6).map((p) => (
+   708→                        <ProductCard key={p.id} product={p} navigate={navigate} />
+   709→                      ))}
+   710→                    </Grid>
+   711→                  </Section>
+   712→                )}
+   713→
+   714→                {(winners.length > 0 || rankings.length > 0) && (
+   715→                  <Section
+   716→                    title="Vencedores & Rankings"
+   717→                    icon={Crown}
+   718→                    moreLabel="Ver tudo"
+   719→                    onMore={() => {
+   720→                      const trigger = document.querySelector<HTMLButtonElement>(
+   721→                        '[role="tab"][value="winners"]',
+   722→                      );
+   723→                      trigger?.click();
+   724→                    }}
+   725→                  >
+   726→                    <WinnersAndRankings
+   727→                      winners={winners.slice(0, 4)}
+   728→                      rankings={rankings.slice(0, 2)}
+   729→                      navigate={navigate}
+   730→                    />
+   731→                  </Section>
+   732→                )}
+   733→              </div>
+   734→            )}
+   735→          </TabsContent>
+   736→
+   737→          <TabsContent value="raffles">
+   738→            <FilteredList
+   739→              items={raffles}
+   740→              statuses={[
+   741→                { value: "all", label: "Todos" },
+   742→                { value: "active", label: "Ativo" },
+   743→                { value: "completed", label: "Encerrado" },
+   744→                { value: "drawn", label: "Sorteado" },
+   745→              ]}
+   746→              sorts={[
+   747→                { value: "recent", label: "Mais recentes" },
+   748→                { value: "popular", label: "Mais populares" },
+   749→                { value: "ending", label: "A terminar" },
+   750→              ]}
+   751→              renderItem={(r, meta) => <RaffleCard key={r.id} raffle={r} navigate={navigate} rankMeta={meta} />}
+   752→              getStatus={(r) => r.status}
+   753→              getSortValue={(r, sort) => {
+   754→                if (sort === "popular") return r.sold_tickets || 0;
+   755→                if (sort === "ending") return r.end_date ? -new Date(r.end_date).getTime() : 0;
+   756→                return 0;
+   757→              }}
+   758→              formatScore={(r, sort) => {
+   759→                if (sort === "popular") return `${r.sold_tickets || 0} bilhetes`;
+   760→                if (sort === "ending" && r.end_date)
+   761→                  return new Date(r.end_date).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+   762→                if (sort === "recent" && r.created_at)
+   763→                  return new Date(r.created_at).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+   764→                return undefined;
+   765→              }}
+   766→              emptyMessage="Nenhum sorteio nesse estado."
+   767→            />
+   768→          </TabsContent>
+   769→
+   770→          <TabsContent value="contests">
+   771→            <FilteredList
+   772→              items={contests}
+   773→              statuses={[
+   774→                { value: "all", label: "Todos" },
+   775→                { value: "active", label: "Ativo" },
+   776→                { value: "voting", label: "Em votação" },
+   777→                { value: "completed", label: "Encerrado" },
+   778→              ]}
+   779→              sorts={[
+   780→                { value: "recent", label: "Mais recentes" },
+   781→                { value: "ending", label: "A terminar" },
+   782→              ]}
+   783→              renderItem={(c, meta) => <ContestCard key={c.id} contest={c} navigate={navigate} rankMeta={meta} />}
+   784→              getStatus={(c) => c.status}
+   785→              getSortValue={(c, sort) => {
+   786→                if (sort === "ending") return c.end_date ? -new Date(c.end_date).getTime() : 0;
+   787→                return 0;
+   788→              }}
+   789→              formatScore={(c, sort) => {
+   790→                if (sort === "ending" && c.end_date)
+   791→                  return new Date(c.end_date).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+   792→                if (sort === "recent" && c.created_at)
+   793→                  return new Date(c.created_at).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+   794→                return undefined;
+   795→              }}
+   796→              emptyMessage="Nenhum concurso nesse estado."
+   797→            />
+   798→          </TabsContent>
+   799→
+   800→          <TabsContent value="products">
+   801→            <FilteredList
+   802→              items={products}
+   803→              extraAction={
+   804→                <Button variant="outline" size="sm" onClick={goToCatalogForBusiness} className="gap-2 text-xs">
+   805→                  Catálogo completo <ArrowRight className="h-3.5 w-3.5" />
+   806→                </Button>
+   807→              }
+   808→              statuses={[{ value: "all", label: "Todos" }, { value: "active", label: "Disponível" }]}
+   809→              sorts={[
+   810→                { value: "recent", label: "Mais recentes" },
+   811→                { value: "popular", label: "Mais vistos" },
+   812→                { value: "monthly-asc", label: "Mensalidade ↑" },
+   813→                { value: "monthly-desc", label: "Mensalidade ↓" },
+   814→                { value: "price-asc", label: "Preço ↑" },
+   815→                { value: "price-desc", label: "Preço ↓" },
+   816→              ]}
+   817→              renderItem={(p, meta) => <ProductCard key={p.id} product={p} navigate={navigate} rankMeta={meta} />}
+   818→              getStatus={(p) => p.status}
+   819→              getSortValue={(p, sort) => {
+   820→                if (sort === "popular") return p.views_count || 0;
+   821→                if (sort === "price-asc") return -p.total_price;
+   822→                if (sort === "price-desc") return p.total_price;
+   823→                if (sort === "monthly-asc" || sort === "monthly-desc") {
+   824→                  const monthly = Math.max(0, (p.total_price - p.min_down_payment) / Math.max(1, p.max_months));
+   825→                  return sort === "monthly-asc" ? -monthly : monthly;
+   826→                }
+   827→                return 0;
+   828→              }}
+   829→              formatScore={(p, sort) => {
+   830→                if (sort === "popular") return `${p.views_count || 0} views`;
+   831→                if (sort === "price-asc" || sort === "price-desc") return formatMZN(p.total_price);
+   832→                if (sort === "monthly-asc" || sort === "monthly-desc") {
+   833→                  const monthly = Math.max(0, (p.total_price - p.min_down_payment) / Math.max(1, p.max_months));
+   834→                  return `${formatMZN(monthly)}/mês`;
+   835→                }
+   836→                if (sort === "recent" && p.created_at)
+   837→                  return new Date(p.created_at).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+   838→                return undefined;
+   839→              }}
+   840→              emptyMessage="Esta empresa ainda não publicou produtos a prestações."
+   841→            />
+   842→          </TabsContent>
+   843→
+   844→          <TabsContent value="jogos" className="space-y-4 mt-4">
+   845→                <div className="flex items-center justify-between">
+   846→                  <div className="flex items-center gap-2">
+   847→                    <Gamepad2 className="h-5 w-5 text-primary" />
+   848→                    <h3 className="font-bold text-lg">Interactive games</h3>
+   849→                  </div>
+   850→                  <Badge variant="secondary" className="text-[10px]">
+   851→                    {stats.totalGames} games
+   852→                  </Badge>
+   853→                </div>
+   854→
+   855→                {allGames.length === 0 ? (
+   856→                  <Card className="border-dashed">
+   857→                    <CardContent className="py-10 text-center">
+   858→                      <Gamepad2 className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+   859→                      <p className="text-sm text-muted-foreground">No games configured yet</p>
+   860→                    </CardContent>
+   861→                  </Card>
+   862→                ) : (
+   863→                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   864→                    {allGames.map((game, i) => (
+   865→                      <BusinessGameCard
+   866→                        key={`${game.type}-${game.id}`}
+   867→                        game={game as any}
+   868→                        index={i}
+   869→                        onClick={() => handlePlayGame(game.type, game.id)}
+   870→                      />
+   871→                    ))}
+   872→                  </div>
+   873→                )}
+   874→
+   875→                <GameHistoryPanel businessId={resolvedId || business.user_id} />
+   876→              </TabsContent>
+   877→
+   878→          <TabsContent value="lives" className="space-y-4 mt-4">
+   879→            <BusinessLivesTab businessUserId={business.user_id} />
+   880→          </TabsContent>
+   881→
+   882→          <TabsContent value="winners">
+   883→            {winners.length === 0 && rankings.length === 0 ? (
+   884→              <EmptyState message="No winners or rankings published yet." />
+   885→            ) : (
+   886→              <WinnersAndRankings winners={winners} rankings={rankings} navigate={navigate} full />
+   887→            )}
+   888→          </TabsContent>
+   889→        </Tabs>
+   890→
+   891→        <PlatformPulseWidget />
+   892→      </div>
+   893→
+   894→      <Footer />
+   895→
+   896→      <GuestNameDialog
+   897→        open={showNameDialog}
+   898→        onNameSubmit={handleGuestNameSubmit}
+   899→        gameTitle={pendingGame?.type === "spin" ? "Roleta" : pendingGame?.type === "millionaire" ? "Millionario" : "Jogo"}
+   900→        gameEmoji={pendingGame?.type === "spin" ? "🎲" : pendingGame?.type === "millionaire" ? "💰" : "🎮"}
+   901→      />
+   902→    </div>
+   903→  );
+   904→}
+   905→
+   906→/* -------------------- Helpers -------------------- */
+   907→
+   908→function Grid({ children }: { children: React.ReactNode }) {
+   909→  return (
+   910→    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">{children}</div>
+   911→  );
+   912→}
+   913→
+   914→function Section({
+   915→  title,
+   916→  icon: Icon,
+   917→  onMore,
+   918→  moreLabel = "Ver mais",
+   919→  children,
+   920→}: {
+   921→  title: string;
+   922→  icon: any;
+   923→  onMore?: () => void;
+   924→  moreLabel?: string;
+   925→  children: React.ReactNode;
+   926→}) {
+   927→  return (
+   928→    <section>
+   929→      <div className="flex items-center justify-between mb-3 sm:mb-4">
+   930→        <h2 className="text-base sm:text-xl font-bold flex items-center gap-2">
+   931→          <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+   932→          {title}
+   933→        </h2>
+   934→        {onMore && (
+   935→          <Button variant="ghost" size="sm" onClick={onMore} className="text-xs gap-1">
+   936→            {moreLabel} <ArrowRight className="h-3 w-3" />
+   937→          </Button>
+   938→        )}
+   939→      </div>
+   940→      {children}
+   941→    </section>
+   942→  );
+   943→}
+   944→
+   945→function EmptyState({ message = "Esta empresa ainda não publicou nada." }: { message?: string }) {
+   946→  return (
+   947→    <div className="text-center py-16 border border-dashed border-border/60 rounded-2xl">
+   948→      <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
+   949→      <p className="text-sm text-muted-foreground">{message}</p>
+   950→    </div>
+   951→  );
+   952→}
+   953→
+   954→function SkeletonCardGrid({ count = 6 }: { count?: number }) {
+   955→  return (
+   956→    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+   957→      {Array.from({ length: count }).map((_, i) => (
+   958→        <div
+   959→          key={i}
+   960→          className="rounded-lg border border-border/60 bg-card overflow-hidden flex flex-col"
+   961→        >
+   962→          <Skeleton className="aspect-video w-full rounded-none" />
+   963→          <div className="p-3 sm:p-4 space-y-2">
+   964→            <Skeleton className="h-3.5 w-3/4" />
+   965→            <Skeleton className="h-3 w-1/2" />
+   966→            <Skeleton className="h-1.5 w-full mt-2" />
+   967→            <Skeleton className="h-7 w-full mt-3" />
+   968→          </div>
+   969→        </div>
+   970→      ))}
+   971→    </div>
+   972→  );
+   973→}
+   974→
+   975→function RankBadge({
+   976→  rank,
+   977→  total,
+   978→  criterion,
+   979→  scoreLabel,
+   980→}: {
+   981→  rank: number;
+   982→  total: number;
+   983→  criterion: string;
+   984→  scoreLabel?: string;
+   985→}) {
+   986→  const isTop = rank <= 3;
+   987→  return (
+   988→    <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+   989→      <Badge
+   990→        className={`text-[9px] sm:text-[10px] gap-0.5 border-0 shadow-sm ${
+   991→          isTop
+   992→            ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white"
+   993→            : "bg-background/95 text-foreground"
+   994→        }`}
+   995→      >
+   996→        <Crown className="h-2.5 w-2.5" />#{rank}
+   997→        <span className="opacity-70">/{total}</span>
+   998→      </Badge>
+   999→      {scoreLabel && (
+  1000→        <Badge
+  1001→          variant="outline"
+  1002→          className="text-[8.5px] sm:text-[10px] bg-background/85 backdrop-blur border-border/60 px-1.5"
+  1003→          title={criterion}
+  1004→        >
+  1005→          {scoreLabel}
+  1006→        </Badge>
+  1007→      )}
+  1008→    </div>
+  1009→  );
+  1010→}
+  1011→
+  1012→function RaffleCard({
+  1013→  raffle,
+  1014→  navigate,
+  1015→  rankMeta,
+  1016→}: {
+  1017→  raffle: Raffle;
+  1018→  navigate: ReturnType<typeof useNavigate>;
+  1019→  rankMeta?: { rank: number; total: number; criterion: string; scoreLabel?: string };
+  1020→}) {
+  1021→  const pct = raffle.total_tickets > 0 ? (raffle.sold_tickets / raffle.total_tickets) * 100 : 0;
+  1022→  const target = `/raffle/${raffle.slug || raffle.id}`;
+  1023→  const isActive = raffle.status === "active";
+  1024→  return (
+  1025→    <Card
+  1026→      onClick={() => navigate(target)}
+  1027→      className="overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all border-border/60 group flex flex-col"
+  1028→    >
+  1029→      <div className="aspect-video relative overflow-hidden bg-muted">
+  1030→        {raffle.image_url ? (
+  1031→          <img
+  1032→            src={raffle.image_url}
+  1033→            alt={raffle.title}
+  1034→            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+  1035→          />
+  1036→        ) : (
+  1037→          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+  1038→            <Ticket className="h-8 w-8 text-primary/40" />
+  1039→          </div>
+  1040→        )}
+  1041→        <Badge className="absolute top-2 left-2 bg-background/90 backdrop-blur text-foreground border-0 text-[10px]">
+  1042→          {statusLabels[raffle.status] || raffle.status}
+  1043→        </Badge>
+  1044→        {rankMeta && (
+  1045→          <RankBadge
+  1046→            rank={rankMeta.rank}
+  1047→            total={rankMeta.total}
+  1048→            criterion={rankMeta.criterion}
+  1049→            scoreLabel={rankMeta.scoreLabel}
+  1050→          />
+  1051→        )}
+  1052→      </div>
+  1053→      <CardContent className="p-3 sm:p-4 flex-1 flex flex-col">
+  1054→        <h3 className="font-semibold text-sm sm:text-base line-clamp-1">{raffle.title}</h3>
+  1055→        <p className="text-xs sm:text-sm text-primary font-medium mt-0.5 line-clamp-1">
+  1056→          🏆 {raffle.prize_title}
+  1057→        </p>
+  1058→        <div className="mt-2 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+  1059→          <div
+  1060→            className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
+  1061→            style={{ width: `${pct}%` }}
+  1062→          />
+  1063→        </div>
+  1064→        <div className="flex items-center justify-between mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
+  1065→          <span>{raffle.sold_tickets}/{raffle.total_tickets}</span>
+  1066→          <span className="font-mono">{pct.toFixed(0)}%</span>
+  1067→        </div>
+  1068→        <div className="mt-2 text-[11px] sm:text-xs">
+  1069→          <span className="text-muted-foreground">Bilhete:</span>{" "}
+  1070→          <span className="font-semibold text-foreground">{formatMZN(raffle.ticket_price)}</span>
+  1071→        </div>
+  1072→        <Button
+  1073→          size="sm"
+  1074→          className="mt-3 w-full gap-1.5 text-xs"
+  1075→          onClick={(e) => {
+  1076→            e.stopPropagation();
+  1077→            navigate(target);
+  1078→          }}
+  1079→          disabled={!isActive}
+  1080→        >
+  1081→          <Ticket className="h-3.5 w-3.5" />
+  1082→          {isActive ? "Comprar bilhete" : "Ver sorteio"}
+  1083→        </Button>
+  1084→      </CardContent>
+  1085→    </Card>
+  1086→  );
+  1087→}
+  1088→
+  1089→function ContestCard({
+  1090→  contest,
+  1091→  navigate,
+  1092→  rankMeta,
+  1093→}: {
+  1094→  contest: Contest;
+  1095→  navigate: ReturnType<typeof useNavigate>;
+  1096→  rankMeta?: { rank: number; total: number; criterion: string; scoreLabel?: string };
+  1097→}) {
+  1098→  const target = `/concursos/${contest.id}`;
+  1099→  const canEnter = contest.status === "active";
+  1100→  return (
+  1101→    <Card
+  1102→      onClick={() => navigate(target)}
+  1103→      className="overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all border-border/60 group flex flex-col"
+  1104→    >
+  1105→      <div className="aspect-video relative overflow-hidden bg-muted">
+  1106→        {contest.image_url ? (
+  1107→          <img
+  1108→            src={contest.image_url}
+  1109→            alt={contest.title}
+  1110→            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+  1111→          />
+  1112→        ) : (
+  1113→          <div className="w-full h-full bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center">
+  1114→            <Trophy className="h-8 w-8 text-accent/40" />
+  1115→          </div>
+  1116→        )}
+  1117→        <Badge className="absolute top-2 left-2 bg-background/90 backdrop-blur text-foreground border-0 text-[10px]">
+  1118→          {statusLabels[contest.status] || contest.status}
+  1119→        </Badge>
+  1120→        {rankMeta && (
+  1121→          <RankBadge
+  1122→            rank={rankMeta.rank}
+  1123→            total={rankMeta.total}
+  1124→            criterion={rankMeta.criterion}
+  1125→            scoreLabel={rankMeta.scoreLabel}
+  1126→          />
+  1127→        )}
+  1128→      </div>
+  1129→      <CardContent className="p-3 sm:p-4 flex-1 flex flex-col">
+  1130→        <h3 className="font-semibold text-sm sm:text-base line-clamp-1">{contest.title}</h3>
+  1131→        {contest.prize_description && (
+  1132→          <p className="text-xs sm:text-sm text-primary font-medium mt-0.5 line-clamp-1">
+  1133→            🏆 {contest.prize_description}
+  1134→          </p>
+  1135→        )}
+  1136→        <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+  1137→          {contest.evaluation_type === "views" ? "📹 Visualizações" : "👍 Votos"}
+  1138→        </p>
+  1139→        <Button
+  1140→          size="sm"
+  1141→          className="mt-3 w-full gap-1.5 text-xs"
+  1142→          variant={canEnter ? "default" : "outline"}
+  1143→          onClick={(e) => {
+  1144→            e.stopPropagation();
+  1145→            navigate(target);
+  1146→          }}
+  1147→        >
+  1148→          <Trophy className="h-3.5 w-3.5" />
+  1149→          {canEnter ? "Participar" : contest.status === "voting" ? "Votar" : "Ver concurso"}
+  1150→        </Button>
+  1151→      </CardContent>
+  1152→    </Card>
+  1153→  );
+  1154→}
+  1155→
+  1156→function ProductCard({
+  1157→  product,
+  1158→  navigate,
+  1159→  rankMeta,
+  1160→}: {
+  1161→  product: PrestacaoProduct;
+  1162→  navigate: ReturnType<typeof useNavigate>;
+  1163→  rankMeta?: { rank: number; total: number; criterion: string; scoreLabel?: string };
+  1164→}) {
+  1165→  const cover = Array.isArray(product.images) && product.images[0] ? product.images[0] : null;
+  1166→  const monthly = Math.max(
+  1167→    0,
+  1168→    (product.total_price - product.min_down_payment) / Math.max(1, product.max_months),
+  1169→  );
+  1170→  const target = `/prestacoes/${product.id}`;
+  1171→  return (
+  1172→    <Card
+  1173→      onClick={() => navigate(target)}
+  1174→      className="overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all border-border/60 group flex flex-col"
+  1175→    >
+  1176→      <div className="aspect-video relative overflow-hidden bg-muted">
+  1177→        {cover ? (
+  1178→          <img
+  1179→            src={cover}
+  1180→            alt={product.title}
+  1181→            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+  1182→          />
+  1183→        ) : (
+  1184→          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+  1185→            <ShoppingBag className="h-8 w-8 text-primary/40" />
+  1186→          </div>
+  1187→        )}
+  1188→        <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground border-0 text-[9px] sm:text-[10px] capitalize max-w-[60%] truncate">
+  1189→          {product.category}
+  1190→        </Badge>
+  1191→        {rankMeta ? (
+  1192→          <RankBadge
+  1193→            rank={rankMeta.rank}
+  1194→            total={rankMeta.total}
+  1195→            criterion={rankMeta.criterion}
+  1196→            scoreLabel={rankMeta.scoreLabel}
+  1197→          />
+  1198→        ) : (
+  1199→          (product.views_count ?? 0) > 0 && (
+  1200→            <Badge className="absolute top-2 right-2 bg-background/90 backdrop-blur text-foreground border-0 text-[10px] gap-1">
+  1201→              <Eye className="h-3 w-3" /> {product.views_count}
+  1202→            </Badge>
+  1203→          )
+  1204→        )}
+  1205→      </div>
+  1206→      <CardContent className="p-3 sm:p-4 flex-1 flex flex-col">
+  1207→        <h3 className="font-semibold text-xs sm:text-base line-clamp-1">{product.title}</h3>
+  1208→        {(product.brand || product.model) && (
+  1209→          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">
+  1210→            {[product.brand, product.model].filter(Boolean).join(" • ")}
+  1211→          </p>
+  1212→        )}
+  1213→
+  1214→        <div className="mt-2 flex items-baseline gap-1 flex-wrap">
+  1215→          <span className="text-[10px] sm:text-xs text-muted-foreground">desde</span>
+  1216→          <span className="text-sm sm:text-base font-bold text-primary">
+  1217→            {formatMZN(monthly)}
+  1218→          </span>
+  1219→          <span className="text-[10px] text-muted-foreground">/mês</span>
+  1220→        </div>
+  1221→
+  1222→        <div className="mt-1.5 flex flex-col sm:grid sm:grid-cols-2 gap-y-1 sm:gap-x-2 text-[10px] sm:text-[11px] text-muted-foreground">
+  1223→          <span className="flex items-center gap-1 min-w-0">
+  1224→            <Wallet className="h-3 w-3 shrink-0 text-primary/70" />
+  1225→            <span className="truncate">Entrada {formatMZN(product.min_down_payment)}</span>
+  1226→          </span>
+  1227→          <span className="flex items-center gap-1 min-w-0">
+  1228→            <Clock className="h-3 w-3 shrink-0 text-primary/70" />
+  1229→            <span className="truncate">até {product.max_months}m</span>
+  1230→          </span>
+  1231→          <span className="sm:col-span-2 text-foreground/80 font-medium truncate">
+  1232→            Total: {formatMZN(product.total_price)}
+  1233→          </span>
+  1234→        </div>
+  1235→
+  1236→        {(product.city || product.province) && (
+  1237→          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 flex items-center gap-1 min-w-0">
+  1238→            <MapPin className="h-3 w-3 shrink-0" />
+  1239→            <span className="truncate">{[product.city, product.province].filter(Boolean).join(", ")}</span>
+  1240→          </p>
+  1241→        )}
+  1242→
+  1243→        <Button
+  1244→          size="sm"
+  1245→          className="mt-3 w-full gap-1.5 text-[11px] sm:text-xs"
+  1246→          onClick={(e) => {
+  1247→            e.stopPropagation();
+  1248→            navigate(target);
+  1249→          }}
+  1250→        >
+  1251→          <Calculator className="h-3.5 w-3.5" />
+  1252→          <span className="truncate">Simular & solicitar</span>
+  1253→        </Button>
+  1254→      </CardContent>
+  1255→    </Card>
+  1256→  );
+  1257→}
+  1258→
+  1259→/* -------------------- Winners & Rankings -------------------- */
+  1260→
+  1261→function WinnersAndRankings({
+  1262→  winners,
+  1263→  rankings,
+  1264→  navigate,
+  1265→  full = false,
+  1266→}: {
+  1267→  winners: RaffleWinner[];
+  1268→  rankings: ContestRanking[];
+  1269→  navigate: ReturnType<typeof useNavigate>;
+  1270→  full?: boolean;
+  1271→}) {
+  1272→  return (
+  1273→    <div className="grid gap-4 lg:grid-cols-2">
+  1274→      <Card className="border-border/60">
+  1275→        <CardContent className="p-4 sm:p-5">
+  1276→          <div className="flex items-center gap-2 mb-3">
+  1277→            <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+  1278→            <h3 className="font-bold text-sm sm:text-base">Últimos Vencedores</h3>
+  1279→          </div>
+  1280→          {winners.length === 0 ? (
+  1281→            <p className="text-xs sm:text-sm text-muted-foreground">
+  1282→              Ainda sem vencedores. Os primeiros sorteios estão a decorrer.
+  1283→            </p>
+  1284→          ) : (
+  1285→            <ul className="space-y-2">
+  1286→              {(full ? winners : winners.slice(0, 4)).map((w, i) => {
+  1287→                const name = w.display_name || `Bilhete #${w.ticket_number}`;
+  1288→                const initials = name
+  1289→                  .split(" ")
+  1290→                  .map((n) => n[0])
+  1291→                  .join("")
+  1292→                  .slice(0, 2)
+  1293→                  .toUpperCase();
+  1294→                return (
+  1295→                  <li
+  1296→                    key={`${w.raffle_id}-${i}`}
+  1297→                    onClick={() => navigate(`/raffle/${w.slug || w.raffle_id}`)}
+  1298→                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+  1299→                  >
+  1300→                    <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs sm:text-sm font-bold text-primary-foreground">
+  1301→                      {initials}
+  1302→                    </div>
+  1303→                    <div className="flex-1 min-w-0">
+  1304→                      <p className="text-xs sm:text-sm font-semibold truncate">{name}</p>
+  1305→                      <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+  1306→                        Ganhou <span className="text-primary">{w.prize_title}</span>
+  1307→                      </p>
+  1308→                    </div>
+  1309→                    <Medal className="h-4 w-4 text-accent shrink-0" />
+  1310→                  </li>
+  1311→                );
+  1312→              })}
+  1313→            </ul>
+  1314→          )}
+  1315→        </CardContent>
+  1316→      </Card>
+  1317→
+  1318→      <Card className="border-border/60">
+  1319→        <CardContent className="p-4 sm:p-5">
+  1320→          <div className="flex items-center gap-2 mb-3">
+  1321→            <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+  1322→            <h3 className="font-bold text-sm sm:text-base">Rankings dos Concursos</h3>
+  1323→          </div>
+  1324→          {rankings.length === 0 ? (
+  1325→            <p className="text-xs sm:text-sm text-muted-foreground">
+  1326→              Sem concursos ativos com participações no momento.
+  1327→            </p>
+  1328→          ) : (
+  1329→            <div className="space-y-4">
+  1330→              {(full ? rankings : rankings.slice(0, 2)).map((r) => (
+  1331→                <div key={r.contest_id}>
+  1332→                  <div className="flex items-center justify-between mb-2 gap-2">
+  1333→                    <p
+  1334→                      className="text-xs sm:text-sm font-semibold truncate cursor-pointer hover:text-primary"
+  1335→                      onClick={() => navigate(`/concursos/${r.contest_id}`)}
+  1336→                    >
+  1337→                      {r.contest_title}
+  1338→                    </p>
+  1339→                    <Badge variant="outline" className="text-[9px] sm:text-[10px] shrink-0">
+  1340→                      {r.evaluation_type === "views" ? "👁 views" : "❤ votos"}
+  1341→                    </Badge>
+  1342→                  </div>
+  1343→                  <ol className="space-y-1.5">
+  1344→                    {r.top.map((s, idx) => {
+  1345→                      const medalColor =
+  1346→                        idx === 0
+  1347→                          ? "text-yellow-500"
+  1348→                          : idx === 1
+  1349→                          ? "text-gray-400"
+  1350→                          : "text-amber-700";
+  1351→                      return (
+  1352→                        <li
+  1353→                          key={s.submission_id}
+  1354→                          className="flex items-center gap-2 p-1.5 rounded-md hover:bg-secondary/40"
+  1355→                        >
+  1356→                          <span className={`text-xs font-bold w-5 ${medalColor}`}>
+  1357→                            #{idx + 1}
+  1358→                          </span>
+  1359→                          {s.photo_url ? (
+  1360→                            <img
+  1361→                              src={s.photo_url}
+  1362→                              alt={s.name}
+  1363→                              className="h-7 w-7 rounded-full object-cover border border-border"
+  1364→                            />
+  1365→                          ) : (
+  1366→                            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+  1367→                              {s.name.charAt(0).toUpperCase()}
+  1368→                            </div>
+  1369→                          )}
+  1370→                          <span className="text-[11px] sm:text-xs flex-1 truncate">{s.name}</span>
+  1371→                          <span className="text-[10px] sm:text-xs font-mono font-semibold text-foreground">
+  1372→                            {s.score}
+  1373→                          </span>
+  1374→                        </li>
+  1375→                      );
+  1376→                    })}
+  1377→                  </ol>
+  1378→                </div>
+  1379→              ))}
+  1380→            </div>
+  1381→          )}
+  1382→        </CardContent>
+  1383→      </Card>
+  1384→    </div>
+  1385→  );
+  1386→}
+  1387→
+  1388→/* -------------------- FilteredList: status filter + sort + pagination -------------------- */
+  1389→
+  1390→interface StatusOption { value: string; label: string }
+  1391→interface SortOption { value: string; label: string }
+  1392→
+  1393→function FilteredList<T extends { id: string; created_at?: string | null }>({
+  1394→  items,
+  1395→  statuses,
+  1396→  sorts,
+  1397→  renderItem,
+  1398→  getStatus,
+  1399→  getSortValue,
+  1400→  formatScore,
+  1401→  emptyMessage,
+  1402→  extraAction,
+  1403→  pageSize = 9,
+  1404→}: {
+  1405→  items: T[];
+  1406→  statuses: StatusOption[];
+  1407→  sorts: SortOption[];
+  1408→  renderItem: (item: T, meta: { rank: number; total: number; criterion: string; scoreLabel?: string }) => React.ReactNode;
+  1409→  getStatus: (item: T) => string;
+  1410→  getSortValue: (item: T, sort: string) => number;
+  1411→  formatScore?: (item: T, sort: string) => string | undefined;
+  1412→  emptyMessage: string;
+  1413→  extraAction?: React.ReactNode;
+  1414→  pageSize?: number;
+  1415→}) {
+  1416→  const [status, setStatus] = useState<string>(statuses[0]?.value ?? "all");
+  1417→  const [sort, setSort] = useState<string>(sorts[0]?.value ?? "recent");
+  1418→  const [page, setPage] = useState(1);
+  1419→  const [transitioning, setTransitioning] = useState(false);
+  1420→
+  1421→  // Reset page + show brief skeleton when filter/sort changes
+  1422→  useEffect(() => {
+  1423→    setPage(1);
+  1424→    setTransitioning(true);
+  1425→    const t = setTimeout(() => setTransitioning(false), 280);
+  1426→    return () => clearTimeout(t);
+  1427→  }, [status, sort]);
+  1428→
+  1429→  const filtered = useMemo(() => {
+  1430→    let list = status === "all" ? items : items.filter((i) => getStatus(i) === status);
+  1431→    if (sort === "recent") {
+  1432→      list = [...list].sort((a, b) => {
+  1433→        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+  1434→        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+  1435→        return tb - ta;
+  1436→      });
+  1437→    } else {
+  1438→      list = [...list].sort((a, b) => getSortValue(b, sort) - getSortValue(a, sort));
+  1439→    }
+  1440→    return list;
+  1441→  }, [items, status, sort, getStatus, getSortValue]);
+  1442→
+  1443→  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  1444→  const visible = filtered.slice(0, page * pageSize);
+  1445→  const canLoadMore = page < totalPages;
+  1446→
+  1447→  const counts = useMemo(() => {
+  1448→    const map: Record<string, number> = { all: items.length };
+  1449→    for (const i of items) {
+  1450→      const s = getStatus(i);
+  1451→      map[s] = (map[s] ?? 0) + 1;
+  1452→    }
+  1453→    return map;
+  1454→  }, [items, getStatus]);
+  1455→
+  1456→  const sortLabel = sorts.find((s) => s.value === sort)?.label || "Ordem";
+  1457→
+  1458→  if (items.length === 0) {
+  1459→    return <EmptyState message={emptyMessage} />;
+  1460→  }
+  1461→
+  1462→  return (
+  1463→    <div>
+  1464→      <div className="mb-4 flex flex-col gap-3">
+  1465→        <div className="flex flex-wrap gap-1.5">
+  1466→          {statuses.map((s) => {
+  1467→            const active = status === s.value;
+  1468→            const count = counts[s.value] ?? 0;
+  1469→            return (
+  1470→              <button
+  1471→                key={s.value}
+  1472→                onClick={() => setStatus(s.value)}
+  1473→                className={`text-[11px] sm:text-xs px-2.5 py-1.5 rounded-full border transition-all ${
+  1474→                  active
+  1475→                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+  1476→                    : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/40"
+  1477→                }`}
+  1478→              >
+  1479→                {s.label}
+  1480→                <span className="ml-1 opacity-70">({count})</span>
+  1481→              </button>
+  1482→            );
+  1483→          })}
+  1484→        </div>
+  1485→
+  1486→        <div className="flex items-center justify-between gap-2">
+  1487→          <p className="text-[11px] sm:text-xs text-muted-foreground">
+  1488→            {filtered.length} {filtered.length === 1 ? "item" : "itens"}
+  1489→            <span className="hidden sm:inline"> · ordenado por <span className="text-foreground font-medium">{sortLabel.toLowerCase()}</span></span>
+  1490→          </p>
+  1491→          <div className="flex items-center gap-2">
+  1492→            {extraAction}
+  1493→            <Select value={sort} onValueChange={setSort}>
+  1494→              <SelectTrigger className="h-8 text-xs w-[140px] sm:w-[170px]">
+  1495→                <SelectValue />
+  1496→              </SelectTrigger>
+  1497→              <SelectContent>
+  1498→                {sorts.map((s) => (
+  1499→                  <SelectItem key={s.value} value={s.value} className="text-xs">
+  1500→                    {s.label}
+  1501→                  </SelectItem>
+  1502→                ))}
+  1503→              </SelectContent>
+  1504→            </Select>
+  1505→          </div>
+  1506→        </div>
+  1507→      </div>
+  1508→
+  1509→      {transitioning ? (
+  1510→        <SkeletonCardGrid count={Math.min(pageSize, 6)} />
+  1511→      ) : filtered.length === 0 ? (
+  1512→        <EmptyState message="Nenhum resultado para os filtros selecionados." />
+  1513→      ) : (
+  1514→        <>
+  1515→          <Grid>
+  1516→            {visible.map((item, idx) =>
+  1517→              renderItem(item, {
+  1518→                rank: idx + 1,
+  1519→                total: filtered.length,
+  1520→                criterion: sortLabel,
+  1521→                scoreLabel: formatScore?.(item, sort),
+  1522→              }),
+  1523→            )}
+  1524→          </Grid>
+  1525→
+  1526→          {canLoadMore && (
+  1527→            <div className="mt-6 flex justify-center">
+  1528→              <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} className="gap-2">
+  1529→                Carregar mais
+  1530→                <span className="text-xs text-muted-foreground">
+  1531→                  ({visible.length}/{filtered.length})
+  1532→                </span>
+  1533→              </Button>
+  1534→            </div>
+  1535→          )}
+  1536→          {!canLoadMore && filtered.length > pageSize && (
+  1537→            <p className="mt-6 text-center text-[11px] text-muted-foreground">
+  1538→              Mostrando todos os {filtered.length} itens
+  1539→            </p>
+  1540→          )}
+  1541→        </>
+  1542→      )}
+  1543→    </div>
+  1544→  );
+  1545→}
+  1546→

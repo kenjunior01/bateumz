@@ -1,0 +1,985 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useRef, useCallback } from "react";
+     4→     4→import { motion, AnimatePresence } from "framer-motion";
+     5→     5→import { Shield, Swords, Heart, Zap, Crown, RotateCcw, ChevronRight, Star, Lock, Skull, ShoppingBag, Map as MapIcon, Play, Pause, ArrowLeft, Sparkles } from "lucide-react";
+     6→     6→import confetti from "canvas-confetti";
+     7→     7→
+     8→     8→// ============================================================
+     9→     9→// TYPES
+    10→    10→// ============================================================
+    11→    11→
+    12→    12→interface Props {
+    13→    13→  onScore?: (name: string, score: number) => void;
+    14→    14→  liveCode?: string;
+    15→    15→}
+    16→    16→
+    17→    17→interface Stats {
+    18→    18→  hp: number; maxHp: number;
+    19→    19→  atk: number; def: number; spd: number;
+    20→    20→  mp: number; maxMp: number;
+    21→    21→}
+    22→    22→
+    23→    23→interface Equipment {
+    24→    24→  id: string; name: string; type: "weapon" | "armor" | "accessory";
+    25→    25→  atk?: number; def?: number; spd?: number; hp?: number; mp?: number;
+    26→    26→  price: number; icon: string;
+    27→    27→}
+    28→    28→
+    29→    29→interface Enemy {
+    30→    30→  name: string; emoji: string; hp: number; maxHp: number;
+    31→    31→  atk: number; def: number; spd: number; xpReward: number;
+    32→    32→  goldReward: number; color: string;
+    33→    33→}
+    34→    34→
+    35→    35→interface Level {
+    36→    36→  id: number; name: string; enemies: Enemy[];
+    37→    37→  boss?: Enemy; stars: number[]; // damage thresholds for 3-star
+    38→    38→}
+    39→    39→
+    40→    40→interface World {
+    41→    41→  name: string; emoji: string; color: string;
+    42→    42→  levels: Level[];
+    43→    43→}
+    44→    44→
+    45→    45→interface PlayerState {
+    46→    46→  name: string; classId: number; level: number; xp: number;
+    47→    47→  gold: number; currentWorld: number; currentLevel: number;
+    48→    48→  equipment: (Equipment | null)[]; // [weapon, armor, accessory]
+    49→    49→  inventory: Equipment[];
+    50→    50→  worldStars: number[][]; // stars per level per world
+    51→    51→  totalStars: number;
+    52→    52→}
+    53→    53→
+    54→    54→// ============================================================
+    55→    55→// DATA
+    56→    56→// ============================================================
+    57→    57→
+    58→    58→const CLASSES = [
+    59→    59→  { name: "Guerreiro", emoji: "⚔️", desc: "Alto ataque e defesa", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
+    60→    60→  { name: "Mago", emoji: "🔮", desc: "Poder mag devastador", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
+    61→    61→  { name: "Arqueiro", emoji: "🏹", desc: "Ataques rapidos e precisos", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
+    62→    62→  { name: "Ladino", emoji: "🗡️", desc: "Criticos mortais", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
+    63→    63→  { name: "Clerigo", emoji: "✨", desc: "Curandeiro e suporte", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
+    64→    64→  { name: "Barbaro", emoji: "🪓", desc: "Furia bruta", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
+    65→    65→];
+    66→    66→
+    67→    67→const SKILLS: Record<number, { name: string; emoji: string; mpCost: number; type: "damage" | "heal" | "buff"; power: number; desc: string }[]> = {
+    68→    68→  0: [{ name: "Golpe Heroico", emoji: "⚔️", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }],
+    69→    69→  1: [{ name: "Bola de Fogo", emoji: "🔥", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "❄️", mpCost: 12, type: "damage", power: 1.6, desc: "Congela" }],
+    70→    70→  2: [{ name: "Tiro Preciso", emoji: "🎯", mpCost: 8, type: "damage", power: 2.0, desc: "Critico" }],
+    71→    71→  3: [{ name: "Golpe Sombrio", emoji: "🌑", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }],
+    72→    72→  4: [{ name: "Cura Divina", emoji: "💚", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "🛡️", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
+    73→    73→  5: [{ name: "Furia", emoji: "💢", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "🌋", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
+    74→    74→};
+    75→    75→
+    76→    76→const SHOP_ITEMS: Equipment[] = [
+    77→    77→  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "🗡️" },
+    78→    78→  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "⚔️" },
+    79→    79→  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "🔮" },
+    80→    80→  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "🏹" },
+    81→    81→  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "🗡️" },
+    82→    82→  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "🛡️" },
+    83→    83→  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "🛡️" },
+    84→    84→  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "🧥" },
+    85→    85→  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "🐉" },
+    86→    86→  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "💍" },
+    87→    87→  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "📿" },
+    88→    88→  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "👢" },
+    89→    89→  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "👑" },
+    90→    90→];
+    91→    91→
+    92→    92→function makeEnemy(name: string, emoji: string, hp: number, atk: number, def: number, spd: number, xp: number, gold: number, color: string): Enemy {
+    93→    93→  return { name, emoji, hp, maxHp: hp, atk, def, spd, xpReward: xp, goldReward: gold, color };
+    94→    94→}
+    95→    95→
+    96→    96→const WORLDS: World[] = [
+    97→    97→  {
+    98→    98→    name: "Floresta Escura", emoji: "🌲", color: "#22c55e",
+    99→    99→    levels: [
+   100→   100→      { id: 1, name: "Encontro Inicial", enemies: [makeEnemy("Goblin", "👺", 40, 8, 3, 5, 15, 20, "#4ade80")], stars: [30, 15, 0] },
+   101→   101→      { id: 2, name: "A Emboscada", enemies: [makeEnemy("Goblin", "👺", 45, 9, 3, 5, 18, 22, "#4ade80"), makeEnemy("Lobo", "🐺", 35, 10, 2, 8, 20, 25, "#94a3b8")], stars: [30, 15, 0] },
+   102→   102→      { id: 3, name: "Cova dos Lobos", enemies: [makeEnemy("Lobo", "🐺", 40, 11, 3, 8, 22, 28, "#94a3b8"), makeEnemy("Lobo Alfa", "🐺", 60, 13, 4, 7, 30, 35, "#64748b")], stars: [25, 12, 0] },
+   103→   103→      { id: 4, name: "O Sentinela", enemies: [makeEnemy("Goblin Guerreiro", "👺", 55, 12, 5, 6, 25, 30, "#166534"), makeEnemy("Lobo", "🐺", 40, 10, 2, 8, 18, 22, "#94a3b8")], stars: [25, 12, 0] },
+   104→   104→      { id: 5, name: "Chefe: Aranha Rainha", enemies: [makeEnemy("Aranha", "🕷️", 30, 8, 2, 10, 12, 15, "#a855f7")], boss: makeEnemy("Aranha Rainha", "🕷️", 120, 15, 6, 8, 60, 100, "#7c3aed"), stars: [25, 10, 0] },
+   105→   105→    ],
+   106→   106→  },
+   107→   107→  {
+   108→   108→    name: "Catacumbas", emoji: "💀", color: "#a855f7",
+   109→   109→    levels: [
+   110→   110→      { id: 6, name: "Corredor Sombrio", enemies: [makeEnemy("Esqueleto", "💀", 60, 12, 6, 7, 25, 30, "#c084fc")], stars: [30, 15, 0] },
+   111→   111→      { id: 7, name: "Armadilha Mortal", enemies: [makeEnemy("Esqueleto", "💀", 65, 13, 6, 7, 28, 32, "#c084fc"), makeEnemy("Zumbi", "🧟", 80, 10, 8, 4, 30, 35, "#65a30d")], stars: [25, 12, 0] },
+   112→   112→      { id: 8, name: "Sala dos Mortos", enemies: [makeEnemy("Zumbi", "🧟", 85, 11, 8, 4, 32, 38, "#65a30d"), makeEnemy("Fantasma", "👻", 50, 16, 3, 12, 35, 40, "#e2e8f0")], stars: [25, 12, 0] },
+   113→   113→      { id: 9, name: "O Necromante", enemies: [makeEnemy("Esqueleto Mago", "💀", 55, 18, 4, 9, 38, 42, "#9333ea"), makeEnemy("Fantasma", "👻", 50, 14, 3, 12, 30, 35, "#e2e8f0")], stars: [20, 10, 0] },
+   114→   114→      { id: 10, name: "Chefe: Lorde Morto", enemies: [makeEnemy("Esqueleto", "💀", 50, 12, 5, 7, 22, 28, "#c084fc")], boss: makeEnemy("Lorde Morto", "☠️", 200, 20, 10, 10, 100, 200, "#581c87"), stars: [25, 10, 0] },
+   115→   115→    ],
+   116→   116→  },
+   117→   117→  {
+   118→   118→    name: "Vulcao Ardente", emoji: "🌋", color: "#ef4444",
+   119→   119→    levels: [
+   120→   120→      { id: 11, name: "Rio de Lava", enemies: [makeEnemy("Salamandra", "🦎", 90, 16, 8, 10, 40, 45, "#f97316")], stars: [30, 15, 0] },
+   121→   121→      { id: 12, name: "Ponte de Pedra", enemies: [makeEnemy("Salamandra", "🦎", 95, 17, 8, 10, 42, 48, "#f97316"), makeEnemy("Golem de Fogo", "🔥", 110, 14, 12, 5, 45, 50, "#dc2626")], stars: [25, 12, 0] },
+   122→   122→      { id: 13, name: "Caverna de Magma", enemies: [makeEnemy("Golem de Fogo", "🔥", 120, 15, 12, 5, 48, 52, "#dc2626"), makeEnemy("Magma Slime", "🔴", 80, 20, 4, 8, 42, 46, "#b91c1c")], stars: [25, 12, 0] },
+   123→   123→      { id: 14, name: "A Forja", enemies: [makeEnemy("Ferreiro Demonio", "👿", 130, 18, 10, 9, 52, 58, "#991b1b"), makeEnemy("Golem", "🔥", 100, 14, 14, 5, 45, 50, "#dc2626")], stars: [20, 10, 0] },
+   124→   124→      { id: 15, name: "Chefe: Dragao de Fogo", enemies: [makeEnemy("Golem", "🔥", 80, 14, 10, 5, 35, 40, "#dc2626")], boss: makeEnemy("Dragao de Fogo", "🐉", 300, 25, 14, 12, 150, 350, "#7f1d1d"), stars: [25, 10, 0] },
+   125→   125→    ],
+   126→   126→  },
+   127→   127→  {
+   128→   128→    name: "Oceano Profundo", emoji: "🌊", color: "#3b82f6",
+   129→   129→    levels: [
+   130→   130→      { id: 16, name: "Recifes de Corais", enemies: [makeEnemy("Piranha", "🐟", 100, 18, 8, 12, 50, 55, "#38bdf8")], stars: [30, 15, 0] },
+   131→   131→      { id: 17, name: "Caverna Submersa", enemies: [makeEnemy("Piranha", "🐟", 105, 19, 8, 12, 52, 58, "#38bdf8"), makeEnemy("Medusa", "🪼", 90, 22, 5, 10, 55, 60, "#c084fc")], stars: [25, 12, 0] },
+   132→   132→      { id: 18, name: "Cidade Subaquatica", enemies: [makeEnemy("Tritao", "🧜", 120, 20, 10, 11, 58, 65, "#0ea5e9"), makeEnemy("Medusa", "🪼", 95, 22, 5, 10, 52, 58, "#c084fc")], stars: [25, 12, 0] },
+   133→   133→      { id: 19, name: "Abismo", enemies: [makeEnemy("Anguia Gigante", "🐍", 140, 22, 12, 13, 62, 70, "#1d4ed8"), makeEnemy("Tritao", "🧜", 110, 20, 10, 11, 52, 58, "#0ea5e9")], stars: [20, 10, 0] },
+   134→   134→      { id: 20, name: "Chefe: Kraken", enemies: [makeEnemy("Tritao", "🧜", 90, 18, 8, 10, 45, 50, "#0ea5e9")], boss: makeEnemy("Kraken", "🐙", 400, 28, 16, 14, 200, 500, "#1e3a5f"), stars: [25, 10, 0] },
+   135→   135→    ],
+   136→   136→  },
+   137→   137→  {
+   138→   138→    name: "Castelo do Demonio", emoji: "🏰", color: "#dc2626",
+   139→   139→    levels: [
+   140→   140→      { id: 21, name: "Portoes do Castelo", enemies: [makeEnemy("Demone Menor", "👿", 150, 24, 12, 12, 70, 75, "#f43f5e")], stars: [30, 15, 0] },
+   141→   141→      { id: 22, name: "Salao do Trono", enemies: [makeEnemy("Demone Menor", "👿", 155, 25, 12, 12, 72, 78, "#f43f5e"), makeEnemy("Cavaleiro Negro", "🛡️", 180, 22, 18, 8, 78, 85, "#1e293b")], stars: [25, 12, 0] },
+   142→   142→      { id: 23, name: "Torre Negra", enemies: [makeEnemy("Cavaleiro Negro", "🛡️", 190, 24, 18, 8, 82, 90, "#1e293b"), makeEnemy("Necromante", "🧙", 130, 30, 8, 14, 85, 95, "#6b21a8")], stars: [25, 12, 0] },
+   143→   143→      { id: 24, name: "Camera do Senhor", enemies: [makeEnemy("Demone Elite", "👹", 200, 28, 15, 13, 90, 100, "#be123c"), makeEnemy("Cavaleiro Negro", "🛡️", 170, 24, 18, 8, 78, 85, "#1e293b")], stars: [20, 10, 0] },
+   144→   144→      { id: 25, name: "Chefe: Senhor Demoniaco", enemies: [makeEnemy("Demone Elite", "👹", 150, 26, 14, 12, 70, 80, "#be123c")], boss: makeEnemy("Senhor Demoniaco", "😈", 550, 35, 20, 15, 300, 800, "#450a0a"), stars: [25, 10, 0] },
+   145→   145→    ],
+   146→   146→  },
+   147→   147→];
+   148→   148→
+   149→   149→// ============================================================
+   150→   150→// HELPERS
+   151→   151→// ============================================================
+   152→   152→
+   153→   153→const SAVE_KEY = "bateu_rpg_save";
+   154→   154→
+   155→   155→function loadSave(): PlayerState | null {
+   156→   156→  try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+   157→   157→}
+   158→   158→
+   159→   159→function persistSave(s: PlayerState) {
+   160→   160→  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch {}
+   161→   161→}
+   162→   162→
+   163→   163→function calcStats(p: PlayerState): Stats {
+   164→   164→  const c = CLASSES[p.classId];
+   165→   165→  const lvl = p.level;
+   166→   166→  let hp = c.baseHp + lvl * 12;
+   167→   167→  let maxHp = hp;
+   168→   168→  let atk = c.baseAtk + lvl * 2;
+   169→   169→  let def = c.baseDef + lvl * 1;
+   170→   170→  let spd = c.baseSpd + lvl * 1;
+   171→   171→  let mp = c.baseMp + lvl * 5;
+   172→   172→  let maxMp = mp;
+   173→   173→  for (const eq of p.equipment) {
+   174→   174→    if (!eq) continue;
+   175→   175→    hp += eq.hp || 0; maxHp += eq.hp || 0;
+   176→   176→    atk += eq.atk || 0;
+   177→   177→    def += eq.def || 0;
+   178→   178→    spd += eq.spd || 0;
+   179→   179→    mp += eq.mp || 0; maxMp += eq.mp || 0;
+   180→   180→  }
+   181→   181→  return { hp, maxHp, atk, def, spd, mp, maxMp };
+   182→   182→}
+   183→   183→
+   184→   184→// ============================================================
+   185→   185→// COMPONENT
+   186→   186→// ============================================================
+   187→   187→
+   188→   188→type Screen = "classSelect" | "worldMap" | "battle" | "shop" | "inventory" | "victory" | "gameOver" | "levelComplete";
+   189→   189→
+   190→   190→export default function CampaignRPGGame({ onScore, liveCode }: Props) {
+   191→   191→  // ---- Core State ----
+   192→   192→  const [screen, setScreen] = useState<Screen>("classSelect");
+   193→   193→  const [player, setPlayer] = useState<PlayerState | null>(null);
+   194→   194→  const [stats, setStats] = useState<Stats>({ hp: 100, maxHp: 100, atk: 10, def: 5, spd: 8, mp: 30, maxMp: 30 });
+   195→   195→
+   196→   196→  // ---- Battle State ----
+   197→   197→  const [battleEnemies, setBattleEnemies] = useState<Enemy[]>([]);
+   198→   198→  const [battleLog, setBattleLog] = useState<string[]>([]);
+   199→   199→  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+   200→   200→  const [battleOver, setBattleOver] = useState(false);
+   201→   201→  const [battleWon, setBattleWon] = useState(false);
+   202→   202→  const [damageTaken, setDamageTaken] = useState(0);
+   203→   203→  const [animatingHit, setAnimatingHit] = useState(-1); // -1=none, 0=player, 1+=enemy idx
+   204→   204→  const [defBuff, setDefBuff] = useState(1);
+   205→   205→  const [atkBuff, setAtkBuff] = useState(1);
+   206→   206→
+   207→   207→  // ---- Level Complete ----
+   208→   208→  const [earnedStars, setEarnedStars] = useState(0);
+   209→   209→  const [earnedXp, setEarnedXp] = useState(0);
+   210→   210→  const [earnedGold, setEarnedGold] = useState(0);
+   211→   211→
+   212→   212→  // ---- Canvas Refs ----
+   213→   213→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   214→   214→  const animRef = useRef<number>(0);
+   215→   215→  const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
+   216→   216→  const shakeRef = useRef(0);
+   217→   217→
+   218→   218→  const addLog = useCallback((msg: string) => {
+   219→   219→    setBattleLog(prev => [...prev.slice(-6), msg]);
+   220→   220→  }, []);
+   221→   221→
+   222→   222→  const recalcStats = useCallback((p: PlayerState) => {
+   223→   223→    setStats(calcStats(p));
+   224→   224→  }, []);
+   225→   225→
+   226→   226→  // ---- Load save ----
+   227→   227→  useEffect(() => {
+   228→   228→    const save = loadSave();
+   229→   229→    if (save) {
+   230→   230→      setPlayer(save);
+   231→   231→      recalcStats(save);
+   232→   232→      setScreen("worldMap");
+   233→   233→    }
+   234→   234→  }, []);
+   235→   235→
+   236→   236→  // ---- Canvas animation loop ----
+   237→   237→  useEffect(() => {
+   238→   238→    const canvas = canvasRef.current;
+   239→   239→    if (!canvas) return;
+   240→   240→    const ctx = canvas.getContext("2d");
+   241→   241→    if (!ctx) return;
+   242→   242→
+   243→   243→    const resize = () => {
+   244→   244→      canvas.width = canvas.offsetWidth * 2;
+   245→   245→      canvas.height = canvas.offsetHeight * 2;
+   246→   246→    };
+   247→   247→    resize();
+   248→   248→    window.addEventListener("resize", resize);
+   249→   249→
+   250→   250→    const loop = () => {
+   251→   251→      if (!ctx || !canvas) return;
+   252→   252→      ctx.clearRect(0, 0, canvas.width, canvas.height);
+   253→   253→
+   254→   254→      const cx = canvas.width / 2;
+   255→   255→      const cy = canvas.height / 2;
+   256→   256→      const shake = shakeRef.current;
+   257→   257→      const ox = (Math.random() - 0.5) * shake * 4;
+   258→   258→      const oy = (Math.random() - 0.5) * shake * 4;
+   259→   259→      if (shake > 0) shakeRef.current = Math.max(0, shake - 0.5);
+   260→   260→
+   261→   261→      if (screen === "battle" && player) {
+   262→   262→        const cl = CLASSES[player.classId];
+   263→   263→        const sx = shake > 0 ? ox : 0;
+   264→   264→        const sy = shake > 0 ? oy : 0;
+   265→   265→
+   266→   266→        // Draw player
+   267→   267→        const playerHit = animatingHit === 0;
+   268→   268→        const px = cx - 120 + sx;
+   269→   269→        const py = cy + 40 + sy;
+   270→   270→        ctx.save();
+   271→   271→        if (playerHit) ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+   272→   272→        ctx.font = `${playerHit ? 64 : 56}px serif`;
+   273→   273→        ctx.textAlign = "center";
+   274→   274→        ctx.fillText(cl.emoji, px, py);
+   275→   275→        ctx.restore();
+   276→   276→
+   277→   277→        // Player HP bar
+   278→   278→        const hpPct = stats.hp / stats.maxHp;
+   279→   279→        ctx.fillStyle = "#1f2937";
+   280→   280→        ctx.fillRect(px - 50, py + 10, 100, 8);
+   281→   281→        ctx.fillStyle = hpPct > 0.5 ? "#22c55e" : hpPct > 0.25 ? "#f59e0b" : "#ef4444";
+   282→   282→        ctx.fillRect(px - 50, py + 10, 100 * hpPct, 8);
+   283→   283→        ctx.fillStyle = "#e5e7eb";
+   284→   284→        ctx.font = "bold 14px sans-serif";
+   285→   285→        ctx.fillText(`${Math.ceil(stats.hp)}/${stats.maxHp}`, px, py + 36);
+   286→   286→
+   287→   287→        // Player MP bar
+   288→   288→        const mpPct = stats.mp / stats.maxMp;
+   289→   289→        ctx.fillStyle = "#1e1b4b";
+   290→   290→        ctx.fillRect(px - 50, py + 40, 100, 6);
+   291→   291→        ctx.fillStyle = "#6366f1";
+   292→   292→        ctx.fillRect(px - 50, py + 40, 100 * mpPct, 6);
+   293→   293→
+   294→   294→        // Draw enemies
+   295→   295→        battleEnemies.forEach((e, i) => {
+   296→   296→          if (e.hp <= 0) return;
+   297→   297→          const hit = animatingHit === i + 1;
+   298→   298→          const ex = cx + 120 + (i > 0 ? i * 60 : 0) + (hit ? (Math.random()-0.5)*16 : 0);
+   299→   299→          const ey = cy - 20 + (i > 0 ? i * -30 : 0);
+   300→   300→          ctx.save();
+   301→   301→          if (hit) ctx.globalAlpha = 0.4 + Math.random() * 0.6;
+   302→   302→          ctx.font = `${e.name.includes("Chefe") || e.name.includes("Dragao") || e.name.includes("Kraken") || e.name.includes("Senhor") || e.name.includes("Lorde") || e.name.includes("Aranha Rainha") ? 64 : 48}px serif`;
+   303→   303→          ctx.textAlign = "center";
+   304→   304→          ctx.fillText(e.emoji, ex, ey);
+   305→   305→          ctx.restore();
+   306→   306→
+   307→   307→          // Enemy HP bar
+   308→   308→          const ehp = e.hp / e.maxHp;
+   309→   309→          ctx.fillStyle = "#1f2937";
+   310→   310→          ctx.fillRect(ex - 40, ey + 8, 80, 6);
+   311→   311→          ctx.fillStyle = e.color || "#ef4444";
+   312→   312→          ctx.fillRect(ex - 40, ey + 8, 80 * ehp, 6);
+   313→   313→          ctx.fillStyle = "#9ca3af";
+   314→   314→          ctx.font = "12px sans-serif";
+   315→   315→          ctx.fillText(`${Math.ceil(e.hp)}/${e.maxHp}`, ex, ey + 28);
+   316→   316→        });
+   317→   317→      }
+   318→   318→
+   319→   319→      // Draw particles
+   320→   320→      particlesRef.current = particlesRef.current.filter(p => {
+   321→   321→        p.x += p.vx;
+   322→   322→        p.y += p.vy;
+   323→   323→        p.vy += 0.15;
+   324→   324→        p.life -= 0.02;
+   325→   325→        if (p.life <= 0) return false;
+   326→   326→        ctx.save();
+   327→   327→        ctx.globalAlpha = p.life;
+   328→   328→        ctx.fillStyle = p.color;
+   329→   329→        ctx.beginPath();
+   330→   330→        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+   331→   331→        ctx.fill();
+   332→   332→        ctx.restore();
+   333→   333→        return true;
+   334→   334→      });
+   335→   335→
+   336→   336→      animRef.current = requestAnimationFrame(loop);
+   337→   337→    };
+   338→   338→    animRef.current = requestAnimationFrame(loop);
+   339→   339→    return () => { cancelAnimationFrame(animRef.current); window.removeEventListener("resize", resize); };
+   340→   340→  }, [screen, player, stats, battleEnemies, animatingHit]);
+   341→   341→
+   342→   342→  const spawnParticles = useCallback((x: number, y: number, color: string, count: number) => {
+   343→   343→    const canvas = canvasRef.current;
+   344→   344→    if (!canvas) return;
+   345→   345→    const cx = canvas.width / 2;
+   346→   346→    const cy = canvas.height / 2;
+   347→   347→    for (let i = 0; i < count; i++) {
+   348→   348→      particlesRef.current.push({
+   349→   349→        x: cx + x, y: cy + y,
+   350→   350→        vx: (Math.random() - 0.5) * 8,
+   351→   351→        vy: (Math.random() - 0.5) * 8 - 3,
+   352→   352→        life: 0.6 + Math.random() * 0.4,
+   353→   353→        color,
+   354→   354→        size: 3 + Math.random() * 5,
+   355→   355→      });
+   356→   356→    }
+   357→   357→  }, []);
+   358→   358→
+   359→   359→  // ---- Battle Logic ----
+   360→   360→  const startLevel = useCallback((worldIdx: number, levelIdx: number) => {
+   361→   361→    if (!player) return;
+   362→   362→    const world = WORLDS[worldIdx];
+   363→   363→    const level = world.levels[levelIdx];
+   364→   364→    const allEnemies = [...level.enemies];
+   365→   365→    if (level.boss) allEnemies.push(level.boss);
+   366→   366→
+   367→   367→    setBattleEnemies(allEnemies.map(e => ({ ...e })));
+   368→   368→    setIsPlayerTurn(true);
+   369→   369→    setBattleOver(false);
+   370→   370→    setBattleWon(false);
+   371→   371→    setBattleLog([`Entraste em: ${level.name}`]);
+   372→   372→    setDamageTaken(0);
+   373→   373→    setDefBuff(1);
+   374→   374→    setAtkBuff(1);
+   375→   375→
+   376→   376→    // Restore HP/MP for battle
+   377→   377→    const newP = { ...player };
+   378→   378→    const s = calcStats(newP);
+   379→   379→ setStats({ ...s, hp: s.maxHp, mp: s.maxMp });
+   380→   380→    setPlayer(newP);
+   381→   381→    setScreen("battle");
+   382→   382→  }, [player]);
+   383→   383→
+   384→   384→  const playerAttack = useCallback((targetIdx: number) => {
+   385→   385→    if (!player || !isPlayerTurn || battleOver) return;
+   386→   386→    const enemy = battleEnemies[targetIdx];
+   387→   387→    if (!enemy || enemy.hp <= 0) return;
+   388→   388→
+   389→   389→    setIsPlayerTurn(false);
+   390→   390→    const s = calcStats(player);
+   391→   391→    const rawDmg = Math.max(1, s.atk * atkBuff - enemy.def * 0.5);
+   392→   392→    const dmg = Math.round(rawDmg * (0.9 + Math.random() * 0.2));
+   393→   393→
+   394→   394→    setBattleEnemies(prev => {
+   395→   395→      const next = [...prev];
+   396→   396→      next[targetIdx] = { ...next[targetIdx], hp: Math.max(0, next[targetIdx].hp - dmg) };
+   397→   397→      return next;
+   398→   398→    });
+   399→   399→    setAnimatingHit(targetIdx + 1);
+   400→   400→    setTimeout(() => setAnimatingHit(-1), 200);
+   401→   401→    spawnParticles(120 + targetIdx * 60, -20, CLASSES[player.classId].color, 8);
+   402→   402→    addLog(`${CLASSES[player.classId].emoji} Atacas ${enemy.emoji} ${enemy.name} por ${dmg}!`);
+   403→   403→
+   404→   404→    // Check if enemy died
+   405→   405→    if (enemy.hp - dmg <= 0) {
+   406→   406→      spawnParticles(120 + targetIdx * 60, -20, enemy.color, 15);
+   407→   407→      addLog(`${enemy.emoji} ${enemy.name} foi derrotado!`);
+   408→   408→    }
+   409→   409→
+   410→   410→    // Enemy turn after delay
+   411→   411→    setTimeout(() => enemyTurn(player, targetIdx), 800);
+   412→   412→  }, [player, isPlayerTurn, battleOver, battleEnemies, atkBuff, spawnParticles, addLog]);
+   413→   413→
+   414→   414→  const useSkill = useCallback((skillIdx: number) => {
+   415→   415→    if (!player || !isPlayerTurn || battleOver) return;
+   416→   416→    const skills = SKILLS[player.classId];
+   417→   417→    if (!skills || !skills[skillIdx]) return;
+   418→   418→    const skill = skills[skillIdx];
+   419→   419→    if (stats.mp < skill.mpCost) { addLog("MP insuficiente!"); return; }
+   420→   420→
+   421→   421→    setIsPlayerTurn(false);
+   422→   422→    setStats(prev => ({ ...prev, mp: prev.mp - skill.mpCost }));
+   423→   423→
+   424→   424→    if (skill.type === "damage") {
+   425→   425→      // Damage all enemies
+   426→   426→      const s = calcStats(player);
+   427→   427→ battleEnemies.forEach((enemy, i) => {
+   428→   428→        if (enemy.hp <= 0) return;
+   429→   429→        const dmg = Math.round(Math.max(1, s.atk * skill.power - enemy.def * 0.3) * (0.9 + Math.random() * 0.2));
+   430→   430→        setBattleEnemies(prev => {
+   431→   431→          const next = [...prev];
+   432→   432→          next[i] = { ...next[i], hp: Math.max(0, next[i].hp - dmg) };
+   433→   433→          return next;
+   434→   434→        });
+   435→   435→        setAnimatingHit(i + 1);
+   436→   436→        setTimeout(() => setAnimatingHit(-1), 200);
+   437→   437→        spawnParticles(120 + i * 60, -20, "#f59e0b", 10);
+   438→   438→        addLog(`${skill.emoji} ${skill.name}! ${dmg} dano a ${enemy.emoji}`);
+   439→   439→      });
+   440→   440→    } else if (skill.type === "heal") {
+   441→   441→      const heal = Math.round(stats.maxHp * skill.power);
+   442→   442→      setStats(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + heal) }));
+   443→   443→      spawnParticles(-120, 40, "#22c55e", 12);
+   444→   444→      addLog(`${skill.emoji} ${skill.name}! +${heal} HP`);
+   445→   445→    } else if (skill.type === "buff") {
+   446→   446→      if (player.classId === 4) { // Clerigo - def buff
+   447→   447→        setDefBuff(prev => prev * skill.power);
+   448→   448→        addLog(`${skill.emoji} ${skill.name}! Defesa aumentada!`);
+   449→   449→      } else {
+   450→   450→        setAtkBuff(prev => prev * skill.power);
+   451→   451→        addLog(`${skill.emoji} ${skill.name}! Ataque aumentado!`);
+   452→   452→      }
+   453→   453→      spawnParticles(-120, 40, "#f59e0b", 8);
+   454→   454→    }
+   455→   455→
+   456→   456→    setTimeout(() => enemyTurn(player, -1), 800);
+   457→   457→  }, [player, isPlayerTurn, battleOver, battleEnemies, stats, spawnParticles, addLog]);
+   458→   458→
+   459→   459→  const enemyTurn = useCallback((p: PlayerState, _lastTarget: number) => {
+   460→   460→    if (!p) return;
+   461→   461→    const alive = battleEnemies.filter(e => e.hp > 0);
+   462→   462→    if (alive.length === 0) return;
+   463→   463→
+   464→   464→    setStats(prev => {
+   465→   465→      let newHp = prev.hp;
+   466→   466→      let newMp = Math.min(prev.maxMp, prev.mp + 3); // regen 3 MP per turn
+   467→   467→
+   468→   468→      alive.forEach(enemy => {
+   469→   469→        const rawDmg = Math.max(1, enemy.atk - (prev.def * defBuff) * 0.5);
+   470→   470→        const dmg = Math.round(rawDmg * (0.85 + Math.random() * 0.3));
+   471→   471→        newHp = Math.max(0, newHp - dmg);
+   472→   472→        setDamageTaken(prev => prev + dmg);
+   473→   473→        shakeRef.current = 4;
+   474→   474→        setAnimatingHit(0);
+   475→   475→        setTimeout(() => setAnimatingHit(-1), 200);
+   476→   476→        spawnParticles(-120, 40, "#ef4444", 5);
+   477→   477→        addLog(`${enemy.emoji} ${enemy.name} ataca por ${dmg}!`);
+   478→   478→      });
+   479→   479→
+   480→   480→      if (newHp <= 0) {
+   481→   481→        setBattleOver(true);
+   482→   482→        setBattleWon(false);
+   483→   483→        addLog("Foste derrotado...");
+   484→   484→        setTimeout(() => setScreen("gameOver"), 1000);
+   485→   485→      }
+   486→   486→
+   487→   487→      return { ...prev, hp: newHp, mp: newMp };
+   488→   488→    });
+   489→   489→
+   490→   490→    // Check if all enemies dead
+   491→   491→    const allDead = battleEnemies.every(e => e.hp <= 0);
+   492→   492→    if (allDead) {
+   493→   493→      setBattleOver(true);
+   494→   494→      setBattleWon(true);
+   495→   495→      addLog("Vitoria!");
+   496→   496→      confetti({ particleCount: 80, spread: 60 });
+   497→   497→
+   498→   498→      // Calculate rewards
+   499→   499→      let totalXp = 0, totalGold = 0;
+   500→   500→      battleEnemies.forEach(e => { totalXp += e.xpReward; totalGold += e.goldReward; });
+   501→   501→      setEarnedXp(totalXp);
+   502→   502→      setEarnedGold(totalGold);
+   503→   503→
+   504→   504→      // Calculate stars
+   505→   505→      if (p.currentWorld < WORLDS.length && p.currentLevel < WORLDS[p.currentWorld].levels.length) {
+   506→   506→        const levelData = WORLDS[p.currentWorld].levels[p.currentLevel];
+   507→   507→        let stars = 0;
+   508→   508→        if (damageTaken <= (levelData.stars[0] || 999)) stars = 3;
+   509→   509→        else if (damageTaken <= (levelData.stars[1] || 999)) stars = 2;
+   510→   510→        else stars = 1;
+   511→   511→        setEarnedStars(stars);
+   512→   512→
+   513→   513→        // Update player
+   514→   514→        const newP = { ...p };
+   515→   515→        if (!newP.worldStars[p.currentWorld]) newP.worldStars[p.currentWorld] = [];
+   516→   516→        newP.worldStars[p.currentWorld][p.currentLevel] = Math.max(
+   517→   517→          newP.worldStars[p.currentWorld]?.[p.currentLevel] || 0, stars
+   518→   518→        );
+   519→   519→        newP.totalStars = Object.values(newP.worldStars).flat().reduce((a, b) => a + (b || 0), 0);
+   520→   520→        newP.xp += totalXp;
+   521→   521→        newP.gold += totalGold;
+   522→   522→
+   523→   523→        // Level up check
+   524→   524→        const xpNeeded = newP.level * 50 + 50;
+   525→   525→        while (newP.xp >= xpNeeded) {
+   526→   526→          newP.xp -= xpNeeded;
+   527→   527→          newP.level++;
+   528→   528→          addLog(`⬆️ Nivel ${newP.level}!`);
+   529→   529→        }
+   530→   530→
+   531→   531→        // Advance to next level
+   532→   532→        if (p.currentLevel + 1 < WORLDS[p.currentWorld].levels.length) {
+   533→   533→          newP.currentLevel++;
+   534→   534→        } else if (p.currentWorld + 1 < WORLDS.length) {
+   535→   535→          newP.currentWorld++;
+   536→   536→          newP.currentLevel = 0;
+   537→   537→        }
+   538→   538→
+   539→   539→        setPlayer(newP);
+   540→   540→        recalcStats(newP);
+   541→   541→        persistSave(newP);
+   542→   542→        onScore?.(CLASSES[newP.classId].name, totalXp + totalGold);
+   543→   543→      }
+   544→   544→
+   545→   545→      setTimeout(() => setScreen("levelComplete"), 1200);
+   546→   546→    } else {
+   547→   547→      setIsPlayerTurn(true);
+   548→   548→    }
+   549→   549→  }, [battleEnemies, defBuff, damageTaken, spawnParticles, addLog, recalcStats, onScore]);
+   550→   550→
+   551→   551→  // ---- Class Selection ----
+   552→   552→  const selectClass = useCallback((classId: number) => {
+   553→   553→    const newPlayer: PlayerState = {
+   554→   554→      name: CLASSES[classId].name,
+   555→   555→      classId,
+   556→   556→      level: 1, xp: 0, gold: 50,
+   557→   557→      currentWorld: 0, currentLevel: 0,
+   558→   558→      equipment: [null, null, null],
+   559→   559→      inventory: [],
+   560→   560→      worldStars: [],
+   561→   561→      totalStars: 0,
+   562→   562→    };
+   563→   563→    setPlayer(newPlayer);
+   564→   564→    recalcStats(newPlayer);
+   565→   565→    persistSave(newPlayer);
+   566→   566→    setScreen("worldMap");
+   567→   567→  }, [recalcStats]);
+   568→   568→
+   569→   569→  // ---- Shop ----
+   570→   570→  const buyItem = useCallback((item: Equipment) => {
+   571→   571→    if (!player || player.gold < item.price) return;
+   572→   572→    const newP = { ...player, gold: player.gold - item.price, inventory: [...player.inventory, { ...item }] };
+   573→   573→    setPlayer(newP);
+   574→   574→    persistSave(newP);
+   575→   575→  }, [player]);
+   576→   576→
+   577→   577→  const equipItem = useCallback((invIdx: number) => {
+   578→   578→    if (!player) return;
+   579→   579→    const item = player.inventory[invIdx];
+   580→   580→    if (!item) return;
+   581→   581→    const slot = item.type === "weapon" ? 0 : item.type === "armor" ? 1 : 2;
+   582→   582→    const newInv = [...player.inventory];
+   583→   583→    newInv.splice(invIdx, 1);
+   584→   584→    const oldItem = player.equipment[slot];
+   585→   585→    if (oldItem) newInv.push(oldItem);
+   586→   586→    const newEq = [...player.equipment];
+   587→   587→    newEq[slot] = item;
+   588→   588→    const newP = { ...player, inventory: newInv, equipment: newEq };
+   589→   589→    setPlayer(newP);
+   590→   590→    recalcStats(newP);
+   591→   591→    persistSave(newP);
+   592→   592→  }, [player, recalcStats]);
+   593→   593→
+   594→   594→  const resetGame = useCallback(() => {
+   595→   595→    try { localStorage.removeItem(SAVE_KEY); } catch {}
+   596→   596→    setPlayer(null);
+   597→   597→    setScreen("classSelect");
+   598→   598→  }, []);
+   599→   599→
+   600→   600→  // ---- PVP Simulation ----
+   601→   601→  const simulatePVP = useCallback(() => {
+   602→   602→    if (!player) return;
+   603→   603→    const s = calcStats(player);
+   604→   604→    const enemyClass = CLASSES[Math.floor(Math.random() * CLASSES.length)];
+   605→   605→    const enemyLvl = Math.max(1, player.level + Math.floor(Math.random() * 3) - 1);
+   606→   606→    const enemyStats = {
+   607→   607→      hp: enemyClass.baseHp + enemyLvl * 12,
+   608→   608→      maxHp: enemyClass.baseHp + enemyLvl * 12,
+   609→   609→      atk: enemyClass.baseAtk + enemyLvl * 2 + 5,
+   610→   610→      def: enemyClass.baseDef + enemyLvl * 1 + 3,
+   611→   611→      spd: enemyClass.baseSpd + enemyLvl,
+   612→   612→      mp: enemyClass.baseMp + enemyLvl * 5,
+   613→   613→      maxMp: enemyClass.baseMp + enemyLvl * 5,
+   614→   614→    };
+   615→   615→
+   616→   616→    let pHp = s.maxHp, eHp = enemyStats.maxHp;
+   617→   617→    let turn = 0;
+   618→   618→    while (pHp > 0 && eHp > 0 && turn < 50) {
+   619→   619→      turn++;
+   620→   620→      const pDmg = Math.max(1, s.atk - enemyStats.def * 0.4 + Math.random() * 5);
+   621→   621→      eHp -= pDmg;
+   622→   622→      if (eHp <= 0) break;
+   623→   623→      const eDmg = Math.max(1, enemyStats.atk - s.def * 0.4 + Math.random() * 5);
+   624→   624→      pHp -= eDmg;
+   625→   625→    }
+   626→   626→    const won = eHp <= 0;
+   627→   627→    const reward = won ? 50 + player.level * 10 : 0;
+   628→   628→    if (won) {
+   629→   629→      const newP = { ...player, gold: player.gold + reward, xp: player.xp + 30 };
+   630→   630→      const xpNeeded = newP.level * 50 + 50;
+   631→   631→      if (newP.xp >= xpNeeded) { newP.xp -= xpNeeded; newP.level++; }
+   632→   632→      setPlayer(newP);
+   633→   633→      recalcStats(newP);
+   634→   634→      persistSave(newP);
+   635→   635→      onScore?.(CLASSES[player.classId].name + " PVP", reward + 30);
+   636→   636→      confetti({ particleCount: 60, spread: 50 });
+   637→   637→    }
+   638→   638→    return { won, enemy: enemyClass, enemyLvl, reward };
+   639→   639→  }, [player, recalcStats, onScore]);
+   640→   640→
+   641→   641→  // ============================================================
+   642→   642→  // RENDER
+   643→   643→  // ============================================================
+   644→   644→
+   645→   645→  // ---- Class Select Screen ----
+   646→   646→  if (screen === "classSelect") {
+   647→   647→    return (
+   648→   648→      <div className="max-w-lg mx-auto p-4">
+   649→   649→        <div className="text-center mb-6">
+   650→   650→        <Sparkles className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
+   651→   651→        <h3 className="font-display text-xl font-bold text-foreground">Campanha RPG</h3>
+   652→   652→        <p className="text-xs text-muted-foreground">Escolhe a tua classe e conquista 5 mundos!</p>
+   653→   653→      </div>
+   654→   654→      <div className="grid grid-cols-2 gap-3">
+   655→   655→        {CLASSES.map((c, i) => (
+   656→   656→          <motion.button
+   657→   657→            key={i} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+   658→   658→            onClick={() => selectClass(i)}
+   659→   659→            className="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/50 transition-all"
+   660→   660→          >
+   661→   661→            <span className="text-3xl">{c.emoji}</span>
+   662→   662→            <p className="font-bold text-sm mt-1" style={{ color: c.color }}>{c.name}</p>
+   663→   663→            <p className="text-[10px] text-muted-foreground mt-0.5">{c.desc}</p>
+   664→   664→            <div className="flex gap-2 mt-2 text-[9px] text-muted-foreground">
+   665→   665→              <span>❤️{c.baseHp}</span><span>⚔️{c.baseAtk}</span><span>🛡️{c.baseDef}</span><span>💨{c.baseSpd}</span>
+   666→   666→            </div>
+   667→   667→          </motion.button>
+   668→   668→        ))}
+   669→   669→      </div>
+   670→   670→    </div>
+   671→   671→    );
+   672→   672→  }
+   673→   673→
+   674→   674→  if (!player) return null;
+   675→   675→  const cl = CLASSES[player.classId];
+   676→   676→  const skills = SKILLS[player.classId] || [];
+   677→   677→
+   678→   678→  // ---- World Map Screen ----
+   679→   679→  if (screen === "worldMap") {
+   680→   680→    return (
+   681→   681→      <div className="max-w-lg mx-auto p-4">
+   682→   682→      <div className="flex items-center justify-between mb-4">
+   683→   683→        <div className="flex items-center gap-2">
+   684→   684→          <span className="text-2xl">{cl.emoji}</span>
+   685→   685→          <div>
+   686→   686→            <p className="font-bold text-sm" style={{ color: cl.color }}>{player.name}</p>
+   687→   687→            <p className="text-[10px] text-muted-foreground">Nv.{player.level} | ⭐{player.totalStars} | 💰{player.gold}</p>
+   688→   688→          </div>
+   689→   689→        </div>
+   690→   690→        <div className="flex gap-2">
+   691→   691→          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setScreen("shop")}
+   692→   692→            className="p-2 rounded-lg bg-card border border-border hover:border-primary/50">
+   693→   693→            <ShoppingBag className="h-4 w-4 text-yellow-500" />
+   694→   694→          </motion.button>
+   695→   695→          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setScreen("inventory")}
+   696→   696→            className="p-2 rounded-lg bg-card border border-border hover:border-primary/50">
+   697→   697→            <Shield className="h-4 w-4 text-blue-400" />
+   698→   698→          </motion.button>
+   699→   699→          <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
+   700→   700→            const result = simulatePVP();
+   701→   701→            if (result) {
+   702→   702→              const msg = result.won
+   703→   703→                ? `Venceste ${result.enemy.emoji} ${result.enemy.name} Nv.${result.enemyLvl}! +${result.reward}💰`
+   704→   704→                : `Perdeste para ${result.enemy.emoji} ${result.enemy.name} Nv.${result.enemyLvl}`;
+   705→   705→              alert(msg);
+   706→   706→            }
+   707→   707→          }}
+   708→   708→            className="p-2 rounded-lg bg-card border border-border hover:border-primary/50">
+   709→   709→            <Swords className="h-4 w-4 text-red-400" />
+   710→   710→          </motion.button>
+   711→   711→          <motion.button whileTap={{ scale: 0.9 }} onClick={resetGame}
+   712→   712→            className="p-2 rounded-lg bg-card border border-border hover:border-red-500/50">
+   713→   713→            <RotateCcw className="h-4 w-4 text-muted-foreground" />
+   714→   714→          </motion.button>
+   715→   715→        </div>
+   716→   716→      </div>
+   717→   717→
+   718→   718→      {/* Stats bar */}
+   719→   719→      <div className="flex gap-2 mb-4 text-[10px]">
+   720→   720→        <span className="px-2 py-1 rounded-full bg-red-500/10 text-red-400">❤️ {stats.maxHp}</span>
+   721→   721→        <span className="px-2 py-1 rounded-full bg-orange-500/10 text-orange-400">⚔️ {stats.atk}</span>
+   722→   722→        <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400">🛡️ {stats.def}</span>
+   723→   723→        <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400">💨 {stats.spd}</span>
+   724→   724→        <span className="px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-400">🔮 {stats.maxMp}</span>
+   725→   725→      </div>
+   726→   726→
+   727→   727→      {/* Worlds */}
+   728→   728→      <div className="space-y-4">
+   729→   729→        {WORLDS.map((world, wi) => {
+   730→   730→          const unlocked = wi <= player.currentWorld;
+   731→   731→          const isCurrent = wi === player.currentWorld;
+   732→   732→          return (
+   733→   733→            <div key={wi}>
+   734→   734→              <div className={`flex items-center gap-2 mb-2 ${unlocked ? "" : "opacity-40"}`}>
+   735→   735→                <span className="text-lg">{world.emoji}</span>
+   736→   736→                <span className="font-bold text-sm" style={{ color: world.color }}>{world.name}</span>
+   737→   737→                {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+   738→   738→                <span className="ml-auto text-[10px] text-muted-foreground">
+   739→   739→                  {player.worldStars[wi]?.filter(Boolean).length || 0}/{world.levels.length} ⭐
+   740→   740→                </span>
+   741→   741→              </div>
+   742→   742→              <div className="grid grid-cols-5 gap-2">
+   743→   743→                {world.levels.map((level, li) => {
+   744→   744→                  const isPlayable = isCurrent && li <= player.currentLevel;
+   745→   745→                  const isCompleted = (player.worldStars[wi]?.[li] || 0) > 0;
+   746→   746→                  const stars = player.worldStars[wi]?.[li] || 0;
+   747→   747→                  return (
+   748→   748→                    <motion.button
+   749→   749→                      key={li} whileTap={isPlayable ? { scale: 0.9 } : undefined}
+   750→   750→                      onClick={() => isPlayable && startLevel(wi, li)}
+   751→   751→                      disabled={!isPlayable}
+   752→   752→                      className={`relative rounded-xl border p-2 text-center transition-all ${
+   753→   753→                        isPlayable
+   754→   754→                          ? "border-primary/40 bg-primary/5 hover:bg-primary/10 cursor-pointer"
+   755→   755→                          : isCompleted
+   756→   756→                          ? "border-border bg-card"
+   757→   757→                          : "border-border/50 bg-muted/20"
+   758→   758→                      }`}
+   759→   759→                    >
+   760→   760→                      {level.boss ? (
+   761→   761→                        <Skull className={`h-4 w-4 mx-auto mb-1 ${isPlayable ? "text-red-400" : "text-muted-foreground"}`} />
+   762→   762→                      ) : (
+   763→   763→                        <span className={`text-xs ${isPlayable ? "" : "text-muted-foreground"}`}>{level.emoji || "⚔️"}</span>
+   764→   764→                      )}
+   765→   765→                      <p className="text-[9px] font-medium truncate">{li + 1}</p>
+   766→   766→                      {isCompleted && (
+   767→   767→                        <div className="flex justify-center gap-0.5 mt-0.5">
+   768→   768→                          {[0,1,2].map(s => (
+   769→   769→                            <Star key={s} className={`h-2 w-2 ${s < stars ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30"}`} />
+   770→   770→                          ))}
+   771→   771→                        </div>
+   772→   772→                      )}
+   773→   773→                      {isPlayable && !isCompleted && (
+   774→   774→                        <Play className="h-3 w-3 text-primary mx-auto mt-0.5" />
+   775→   775→                      )}
+   776→   776→                    </motion.button>
+   777→   777→                  );
+   778→   778→                })}
+   779→   779→              </div>
+   780→   780→            </div>
+   781→   781→          );
+   782→   782→        })}
+   783→   783→      </div>
+   784→   784→    </div>
+   785→   785→    );
+   786→   786→  }
+   787→   787→
+   788→   788→  // ---- Battle Screen ----
+   789→   789→  if (screen === "battle") {
+   790→   790→    return (
+   791→   791→      <div className="max-w-lg mx-auto">
+   792→   792→        <canvas ref={canvasRef} className="w-full h-48 rounded-xl bg-black/20 mb-3" />
+   793→   793→
+   794→   794→        {/* Battle Log */}
+   795→   795→        <div className="h-20 overflow-y-auto rounded-lg bg-card border border-border p-2 mb-3 text-[11px] text-muted-foreground space-y-0.5">
+   796→   796→          {battleLog.map((log, i) => <p key={i}>{log}</p>)}
+   797→   797→        </div>
+   798→   798→
+   799→   799→        {/* Action Buttons */}
+   800→   800→        <div className="flex flex-col gap-2">
+   801→   801→          {/* Attack buttons for each alive enemy */}
+   802→   802→          <div className="flex gap-2 flex-wrap">
+   803→   803→            {battleEnemies.map((enemy, i) => (
+   804→   804→              enemy.hp > 0 && (
+   805→   805→                <motion.button
+   806→   806→                  key={i} whileTap={{ scale: 0.95 }}
+   807→   807→                  disabled={!isPlayerTurn || battleOver}
+   808→   808→                  onClick={() => playerAttack(i)}
+   809→   809→                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium disabled:opacity-30 hover:bg-red-500/20 transition"
+   810→   810→                >
+   811→   811→                  <span>{enemy.emoji}</span>
+   812→   812→                  <span>{enemy.name}</span>
+   813→   813→                  <span className="text-[9px] opacity-60">{Math.ceil(enemy.hp)}HP</span>
+   814→   814→                </motion.button>
+   815→   815→              )
+   816→   816→            ))}
+   817→   817→          </div>
+   818→   818→
+   819→   819→          {/* Skill buttons */}
+   820→   820→          <div className="flex gap-2 flex-wrap">
+   821→   821→            {skills.map((skill, i) => (
+   822→   822→              <motion.button
+   823→   823→                key={i} whileTap={{ scale: 0.95 }}
+   824→   824→                disabled={!isPlayerTurn || battleOver || stats.mp < skill.mpCost}
+   825→   825→                onClick={() => useSkill(i)}
+   826→   826→                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-medium disabled:opacity-30 hover:bg-indigo-500/20 transition"
+   827→   827→              >
+   828→   828→                <span>{skill.emoji}</span>
+   829→   829→                <span>{skill.name}</span>
+   830→   830→                <span className="text-[9px] opacity-60">{skill.mpCost}MP</span>
+   831→   831→              </motion.button>
+   832→   832→            ))}
+   833→   833→          </div>
+   834→   834→
+   835→   835→          {/* MP/HP display */}
+   836→   836→          <div className="flex gap-3 text-[10px] text-muted-foreground">
+   837→   837→            <span>❤️ {Math.ceil(stats.hp)}/{stats.maxHp}</span>
+   838→   838→            <span>🔮 {Math.ceil(stats.mp)}/{stats.maxMp}</span>
+   839→   839→            {defBuff > 1 && <span className="text-blue-400">🛡️ x{defBuff.toFixed(1)}</span>}
+   840→   840→            {atkBuff > 1 && <span className="text-orange-400">⚔️ x{atkBuff.toFixed(1)}</span>}
+   841→   841→          </div>
+   842→   842→        </div>
+   843→   843→      </div>
+   844→   844→    );
+   845→   845→  }
+   846→   846→
+   847→   847→  // ---- Shop Screen ----
+   848→   848→  if (screen === "shop") {
+   849→   849→    return (
+   850→   850→      <div className="max-w-lg mx-auto p-4">
+   851→   851→        <div className="flex items-center gap-2 mb-4">
+   852→   852→          <button onClick={() => setScreen("worldMap")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+   853→   853→          <h3 className="font-display text-lg font-bold">Loja</h3>
+   854→   854→          <span className="ml-auto text-sm font-bold text-yellow-400">💰 {player.gold}</span>
+   855→   855→        </div>
+   856→   856→        <div className="grid gap-2">
+   857→   857→          {SHOP_ITEMS.map(item => {
+   858→   858→            const owned = player.inventory.some(i => i.id === item.id) || player.equipment.some(e => e?.id === item.id);
+   859→   859→            return (
+   860→   860→              <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+   861→   861→                <span className="text-2xl">{item.icon}</span>
+   862→   862→                <div className="flex-1 min-w-0">
+   863→   863→                  <p className="text-sm font-medium truncate">{item.name}</p>
+   864→   864→                  <p className="text-[10px] text-muted-foreground">
+   865→   865→                    {item.atk ? `⚔️+${item.atk} ` : ""}
+   866→   866→                    {item.def ? `🛡️+${item.def} ` : ""}
+   867→   867→                    {item.spd ? `💨+${item.spd} ` : ""}
+   868→   868→                    {item.hp ? `❤️+${item.hp} ` : ""}
+   869→   869→                    {item.mp ? `🔮+${item.mp} ` : ""}
+   870→   870→                  </p>
+   871→   871→                </div>
+   872→   872→                <motion.button whileTap={{ scale: 0.9 }}
+   873→   873→                  disabled={owned || player.gold < item.price}
+   874→   874→                  onClick={() => buyItem(item)}
+   875→   875→                  className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold disabled:opacity-30"
+   876→   876→                >
+   877→   877→                  {owned ? "Comprado" : `💰${item.price}`}
+   878→   878→                </motion.button>
+   879→   879→              </div>
+   880→   880→            );
+   881→   881→          })}
+   882→   882→        </div>
+   883→   883→      </div>
+   884→   884→    );
+   885→   885→  }
+   886→   886→
+   887→   887→  // ---- Inventory Screen ----
+   888→   888→  if (screen === "inventory") {
+   889→   889→    return (
+   890→   890→      <div className="max-w-lg mx-auto p-4">
+   891→   891→        <div className="flex items-center gap-2 mb-4">
+   892→   892→          <button onClick={() => setScreen("worldMap")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+   893→   893→          <h3 className="font-display text-lg font-bold">Inventario</h3>
+   894→   894→        </div>
+   895→   895→
+   896→   896→        {/* Equipped */}
+   897→   897→        <p className="text-xs text-muted-foreground mb-2 font-medium">Equipado:</p>
+   898→   898→        <div className="flex gap-2 mb-4">
+   899→   899→          {player.equipment.map((eq, i) => (
+   900→   900→            <div key={i} className="flex-1 p-2 rounded-lg bg-primary/5 border border-primary/20 text-center">
+   901→   901→              <p className="text-[9px] text-muted-foreground">{["Arma", "Armadura", "Acessorio"][i]}</p>
+   902→   902→              {eq ? <><span className="text-xl">{eq.icon}</span><p className="text-[10px] font-medium truncate">{eq.name}</p></> : <span className="text-muted-foreground text-xs">Vazio</span>}
+   903→   903→            </div>
+   904→   904→          ))}
+   905→   905→        </div>
+   906→   906→
+   907→   907→        {/* Bag */}
+   908→   908→        <p className="text-xs text-muted-foreground mb-2 font-medium">Mochila ({player.inventory.length}):</p>
+   909→   909→        <div className="grid gap-2">
+   910→   910→          {player.inventory.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Mochila vazia. Visita a loja!</p>}
+   911→   911→          {player.inventory.map((item, i) => (
+   912→   912→            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+   913→   913→              <span className="text-2xl">{item.icon}</span>
+   914→   914→              <div className="flex-1 min-w-0">
+   915→   915→                <p className="text-sm font-medium truncate">{item.name}</p>
+   916→   916→                <p className="text-[10px] text-muted-foreground">{item.atk ? `⚔️+${item.atk} ` : ""}{item.def ? `🛡️+${item.def} ` : ""}{item.spd ? `💨+${item.spd} ` : ""}{item.hp ? `❤️+${item.hp} ` : ""}{item.mp ? `🔮+${item.mp}` : ""}</p>
+   917→   917→              </div>
+   918→   918→              <motion.button whileTap={{ scale: 0.9 }} onClick={() => equipItem(i)}
+   919→   919→                className="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold">
+   920→   920→                Equipar
+   921→   921→              </motion.button>
+   922→   922→            </div>
+   923→   923→          ))}
+   924→   924→        </div>
+   925→   925→      </div>
+   926→   926→    );
+   927→   927→  }
+   928→   928→
+   929→   929→  // ---- Level Complete Screen ----
+   930→   930→  if (screen === "levelComplete") {
+   931→   931→    return (
+   932→   932→      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+   933→   933→        className="max-w-sm mx-auto p-6 text-center">
+   934→   934→        <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+   935→   935→          <span className="text-6xl">🏆</span>
+   936→   936→        </motion.div>
+   937→   937→        <h3 className="font-display text-xl font-bold mt-4">Nivel Completo!</h3>
+   938→   938→        <div className="flex justify-center gap-1 mt-2">
+   939→   939→          {[0,1,2].map(s => (
+   940→   940→            <Star key={s} className={`h-6 w-6 ${s < earnedStars ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30"}`} />
+   941→   941→          ))}
+   942→   942→        </div>
+   943→   943→        <div className="flex justify-center gap-6 mt-4 text-sm">
+   944→   944→          <span className="text-blue-400">+{earnedXp} XP</span>
+   945→   945→          <span className="text-yellow-400">+{earnedGold} 💰</span>
+   946→   946→        </div>
+   947→   947→        <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("worldMap")}
+   948→   948→          className="mt-6 px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+   949→   949→          Continuar <ChevronRight className="h-4 w-4 inline" />
+   950→   950→        </motion.button>
+   951→   951→      </motion.div>
+   952→   952→    );
+   953→   953→  }
+   954→   954→
+   955→   955→  // ---- Game Over Screen ----
+   956→   956→  if (screen === "gameOver") {
+   957→   957→    return (
+   958→   958→      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+   959→   959→        className="max-w-sm mx-auto p-6 text-center">
+   960→   960→        <span className="text-6xl">💀</span>
+   961→   961→        <h3 className="font-display text-xl font-bold mt-4">Derrotado!</h3>
+   962→   962→        <p className="text-sm text-muted-foreground mt-2">Melhora o teu equipamento e tenta novamente.</p>
+   963→   963→        <div className="flex gap-3 justify-center mt-6">
+   964→   964→          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("worldMap")}
+   965→   965→            className="px-5 py-2.5 rounded-full bg-card border border-border font-medium text-sm">
+   966→   966→            Mapa
+   967→   967→          </motion.button>
+   968→   968→          <motion.button whileTap={{ scale: 0.95 }} onClick={() => {
+   969→   969→            if (player) {
+   970→   970→              const s = calcStats(player);
+   971→   971→              setStats({ ...s, hp: s.maxHp, mp: s.maxMp });
+   972→   972→              startLevel(player.currentWorld, player.currentLevel);
+   973→   973→            }
+   974→   974→          }}
+   975→   975→            className="px-5 py-2.5 rounded-full bg-primary text-primary-foreground font-medium text-sm">
+   976→   976→            Tentar Outra Vez
+   977→   977→          </motion.button>
+   978→   978→        </div>
+   979→   979→      </motion.div>
+   980→   980→    );
+   981→   981→  }
+   982→   982→
+   983→   983→  return null;
+   984→   984→}
+   985→   985→

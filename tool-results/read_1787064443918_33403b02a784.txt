@@ -1,0 +1,1683 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useRef, useCallback } from "react";
+     4→     4→import { motion, AnimatePresence } from "framer-motion";
+     5→     5→import {
+     6→     6→  Shield, Swords, Heart, Zap, Crown, RotateCcw, Star, Lock,
+     7→     7→  ShoppingBag, Send, Trophy, Users, Map as MapIcon, LogOut,
+     8→     8→  ArrowLeft, Sparkles, MessageCircle, Coins, Target, Skull,
+     9→     9→  ChevronRight, Gift, Swords as SwordsIcon, Globe, TrendingUp, Eye
+    10→    10→} from "lucide-react";
+    11→    11→import confetti from "canvas-confetti";
+    12→    12→import { supabase } from "@/integrations/supabase/client";
+    13→    13→
+    14→    14→// ============================================================
+    15→    15→// TYPES
+    16→    16→// ============================================================
+    17→    17→
+    18→    18→interface Props {
+    19→    19→  onScore?: (name: string, score: number) => void;
+    20→    20→  liveCode?: string;
+    21→    21→}
+    22→    22→
+    23→    23→interface CharStats {
+    24→    24→  hp: number; maxHp: number; atk: number; def: number; spd: number; mp: number; maxMp: number;
+    25→    25→}
+    26→    26→
+    27→    27→interface Equipment {
+    28→    28→  id: string; name: string; type: "weapon" | "armor" | "accessory";
+    29→    29→  atk?: number; def?: number; spd?: number; hp?: number; mp?: number;
+    30→    30→  price: number; icon: string;
+    31→    31→}
+    32→    32→
+    33→    33→interface Enemy {
+    34→    34→  name: string; emoji: string; hp: number; maxHp: number;
+    35→    35→  atk: number; def: number; spd: number; xpReward: number; goldReward: number; color: string;
+    36→    36→}
+    37→    37→
+    38→    38→interface OnlinePlayer {
+    39→    39→  charId: string; name: string; classId: number; level: number; gold: number;
+    40→    40→  zone: number; isOnline: boolean;
+    41→    41→}
+    42→    42→
+    43→    43→interface ChatMsg {
+    44→    44→  id: string; charName: string; classId: number; message: string; time: string;
+    45→    45→}
+    46→    46→
+    47→    47→interface DuelRequest {
+    48→    48→  id: string; challengerId: string; challengerName: string; challengerClass: number;
+    49→    49→  challengerLevel: number; stake: number; created_at: string;
+    50→    50→}
+    51→    51→
+    52→    52→interface LeaderboardEntry {
+    53→    53→  charId: string; name: string; classId: number; level: number; gold: number; kills: number; wins: number;
+    54→    54→}
+    55→    55→
+    56→    56→interface CharacterData {
+    57→    57→  charId: string; name: string; classId: number; level: number; xp: number; gold: number;
+    58→    58→  equipment: (Equipment | null)[]; inventory: Equipment[];
+    59→    59→  totalKills: number; totalDeaths: number; duelsWon: number; duelsLost: number; totalEarned: number;
+    60→    60→  currentZone: number;
+    61→    61→}
+    62→    62→
+    63→    63→// ============================================================
+    64→    64→// GAME DATA
+    65→    65→// ============================================================
+    66→    66→
+    67→    67→const CLASSES = [
+    68→    68→  { name: "Guerreiro", emoji: "\u2694\uFE0F", desc: "Alto ataque e defesa. Tanque do grupo.", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
+    69→    69→  { name: "Mago", emoji: "\uD83D\uDD2E", desc: "Poder magico devastador e controle.", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
+    70→    70→  { name: "Arqueiro", emoji: "\uD83C\uDFF9\uFE0F", desc: "Ataques rapidos, precisos e letais.", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
+    71→    71→  { name: "Ladino", emoji: "\uD83D\uDDE1\uFE0F", desc: "Criticos mortais, invisibilidade.", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
+    72→    72→  { name: "Clerigo", emoji: "\u2728", desc: "Curandeiro divino, suporte essencial.", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
+    73→    73→  { name: "Barbaro", emoji: "\uD83E\uDD8A", desc: "Furia bruta, dano insano.", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
+    74→    74→];
+    75→    75→
+    76→    76→const SKILLS: Record<number, { name: string; emoji: string; mpCost: number; type: "damage" | "heal" | "buff"; power: number; desc: string }[]> = {
+    77→    77→  0: [{ name: "Golpe Heroico", emoji: "\u2694\uFE0F", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }, { name: "Grito de Guerra", emoji: "\uD83C\uDFAF", mpCost: 8, type: "buff", power: 1.5, desc: "Aumenta ataque" }],
+    78→    78→  1: [{ name: "Bola de Fogo", emoji: "\uD83D\uDD25", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "\u2744\uFE0F", mpCost: 12, type: "damage", power: 1.6, desc: "Congela inimigo" }],
+    79→    79→  2: [{ name: "Tiro Preciso", emoji: "\uD83C\uDFAF", mpCost: 8, type: "damage", power: 2.0, desc: "Critico garantido" }, { name: "Chuva de Flechas", emoji: "\uD83C\uDF0D", mpCost: 14, type: "damage", power: 1.5, desc: "Dano em area" }],
+    80→    80→  3: [{ name: "Golpe Sombrio", emoji: "\uD83C\uDF11", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }, { name: "Evasao", emoji: "\uD83D\uDD38", mpCost: 8, type: "buff", power: 1.4, desc: "Aumenta defesa" }],
+    81→    81→  4: [{ name: "Cura Divina", emoji: "\uD83D\uDC9A", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "\uD83D\uDEE1\uFE0F", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
+    82→    82→  5: [{ name: "Furia", emoji: "\uD83D\uDCA2", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "\uD83C\uDF0B", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
+    83→    83→};
+    84→    84→
+    85→    85→const SHOP_ITEMS: Equipment[] = [
+    86→    86→  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "\uD83D\uDDE1\uFE0F" },
+    87→    87→  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "\u2694\uFE0F" },
+    88→    88→  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "\uD83D\uDD2E" },
+    89→    89→  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "\uD83C\uDFF9\uFE0F" },
+    90→    90→  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "\uD83D\uDDE1\uFE0F" },
+    91→    91→  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "\uD83D\uDEE1\uFE0F" },
+    92→    92→  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "\uD83D\uDEE1\uFE0F" },
+    93→    93→  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "\uD83E\uDDE5" },
+    94→    94→  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "\uD83D\uDC09" },
+    95→    95→  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "\uD83D\uDC8D" },
+    96→    96→  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "\uD83D\uDCFF" },
+    97→    97→  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "\uD83D\uDC62" },
+    98→    98→  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "\uD83D\uDC51" },
+    99→    99→  { id: "w6", name: "Espada Lendária", type: "weapon", atk: 25, spd: 3, price: 2000, icon: "\u2694\uFE0F" },
+   100→   100→  { id: "w7", name: "Cajado do Caos", type: "weapon", atk: 20, mp: 40, price: 1800, icon: "\uD83D\uDD2E" },
+   101→   101→  { id: "a5", name: "Armadura Abissal", type: "armor", def: 25, hp: 120, price: 1500, icon: "\uD83D\uDC7E" },
+   102→   102→  { id: "a6", name: "Manto Celestial", type: "armor", def: 15, mp: 50, hp: 60, price: 2200, icon: "\u2728" },
+   103→   103→  { id: "ac5", name: "Anel do Vazio", type: "accessory", atk: 10, spd: 10, mp: 20, price: 1500, icon: "\uD83D\uDC8D" },
+   104→   104→  { id: "ac6", name: "Pendente do Dragao", type: "accessory", atk: 8, def: 10, hp: 60, price: 2500, icon: "\uD83D\uDC9C" },
+   105→   105→];
+   106→   106→
+   107→   107→const ZONES = [
+   108→   108→  { name: "Planicie Verde", emoji: "\uD83C\uDF3F", color: "#22c55e", minLevel: 1, enemies: [
+   109→   109→    { name: "Goblin", emoji: "\uD83D\uDC7A", hp: 40, atk: 8, def: 3, spd: 5, xp: 15, gold: 20, color: "#4ade80" },
+   110→   110→    { name: "Lobo", emoji: "\uD83D\uDC3A", hp: 35, atk: 10, def: 2, spd: 8, xp: 20, gold: 25, color: "#94a3b8" },
+   111→   111→    { name: "Slime", emoji: "\uD83D\uDFE2", hp: 25, atk: 6, def: 1, spd: 4, xp: 10, gold: 12, color: "#22d3ee" },
+   112→   112→  ]},
+   113→   113→  { name: "Floresta Sombria", emoji: "\uD83C\uDF32", color: "#16a34a", minLevel: 3, enemies: [
+   114→   114→    { name: "Aranha", emoji: "\uD83D\uDD77\uFE0F", hp: 55, atk: 12, def: 5, spd: 10, xp: 30, gold: 35, color: "#a855f7" },
+   115→   115→    { name: "Bandido", emoji: "\uD83D\uDC63", hp: 60, atk: 14, def: 6, spd: 9, xp: 35, gold: 45, color: "#78716c" },
+   116→   116→    { name: "Lobo Alfa", emoji: "\uD83D\uDC3A", hp: 70, atk: 15, def: 7, spd: 11, xp: 40, gold: 50, color: "#64748b" },
+   117→   117→  ]},
+   118→   118→  { name: "Catacumbas", emoji: "\uD83D\uDC80", color: "#a855f7", minLevel: 5, enemies: [
+   119→   119→    { name: "Esqueleto", emoji: "\uD83D\uDC80", hp: 80, atk: 16, def: 10, spd: 7, xp: 50, gold: 55, color: "#c084fc" },
+   120→   120→    { name: "Zumbi", emoji: "\uD83E\uDDDF", hp: 100, atk: 14, def: 12, spd: 4, xp: 55, gold: 60, color: "#65a30d" },
+   121→   121→    { name: "Fantasma", emoji: "\uD83D\uDC7B", hp: 65, atk: 20, def: 5, spd: 14, xp: 60, gold: 65, color: "#e2e8f0" },
+   122→   122→  ]},
+   123→   123→  { name: "Vulcao Ardente", emoji: "\uD83C\uDF0B", color: "#ef4444", minLevel: 8, enemies: [
+   124→   124→    { name: "Salamandra", emoji: "\uD83E\uDD8E", hp: 120, atk: 22, def: 12, spd: 10, xp: 80, gold: 85, color: "#f97316" },
+   125→   125→    { name: "Golem de Fogo", emoji: "\uD83D\uDD25", hp: 160, atk: 18, def: 18, spd: 5, xp: 90, gold: 95, color: "#dc2626" },
+   126→   126→    { name: "Demonio Menor", emoji: "\uD83D\uDC7F", hp: 140, atk: 24, def: 14, spd: 12, xp: 100, gold: 110, color: "#f43f5e" },
+   127→   127→  ]},
+   128→   128→  { name: "Oceano Profundo", emoji: "\uD83C\uDF0A", color: "#3b82f6", minLevel: 11, enemies: [
+   129→   129→    { name: "Piranha", emoji: "\uD83D\uDC1F", hp: 150, atk: 26, def: 14, spd: 14, xp: 120, gold: 130, color: "#38bdf8" },
+   130→   130→    { name: "Medusa", emoji: "\uD83E\uDEBC", hp: 130, atk: 30, def: 10, spd: 12, xp: 130, gold: 140, color: "#c084fc" },
+   131→   131→    { name: "Tritao", emoji: "\uD83E\uDDDC", hp: 170, atk: 28, def: 16, spd: 13, xp: 140, gold: 150, color: "#0ea5e9" },
+   132→   132→  ]},
+   133→   133→  { name: "Castelo Demonio", emoji: "\uD83D\uDDF0", color: "#dc2626", minLevel: 15, enemies: [
+   134→   134→    { name: "Cavaleiro Negro", emoji: "\uD83D\uDEE1\uFE0F", hp: 200, atk: 32, def: 22, spd: 10, xp: 180, gold: 200, color: "#1e293b" },
+   135→   135→    { name: "Necromante", emoji: "\uD83E\uDDD9", hp: 160, atk: 38, def: 12, spd: 14, xp: 200, gold: 220, color: "#6b21a8" },
+   136→   136→    { name: "Demonio Elite", emoji: "\uD83D\uDC79", hp: 250, atk: 36, def: 20, spd: 15, xp: 250, gold: 280, color: "#be123c" },
+   137→   137→  ]},
+   138→   138→  { name: "Abismo Vazio", emoji: "\uD83C\uDF0C", color: "#7c3aed", minLevel: 18, enemies: [
+   139→   139→    { name: "Vazio Andarilho", emoji: "\u26AB", hp: 280, atk: 38, def: 25, spd: 16, xp: 300, gold: 320, color: "#7c3aed" },
+   140→   140→    { name: "Sombra Devoradora", emoji: "\uD83D\uDD2E", hp: 320, atk: 42, def: 20, spd: 18, xp: 350, gold: 380, color: "#4c1d95" },
+   141→   141→    { name: "Guardiao Abissal", emoji: "\uD83D\uDC7E", hp: 400, atk: 45, def: 30, spd: 14, xp: 400, gold: 450, color: "#3b0764" },
+   142→   142→  ]},
+   143→   143→  { name: "Celesstia", emoji: "\u2B50", color: "#f59e0b", minLevel: 22, enemies: [
+   144→   144→    { name: "Anjo Caído", emoji: "\uD83D\uDC7A", hp: 400, atk: 48, def: 32, spd: 16, xp: 500, gold: 550, color: "#fbbf24" },
+   145→   145→    { name: "Seraphim", emoji: "\u2728", hp: 350, atk: 55, def: 28, spd: 20, xp: 550, gold: 600, color: "#f59e0b" },
+   146→   146→    { name: "Arquidemónio", emoji: "\u2620\uFE0F", hp: 500, atk: 60, def: 35, spd: 18, xp: 700, gold: 800, color: "#dc2626" },
+   147→   147→  ]},
+   148→   148→];
+   149→   149→
+   150→   150→const BOSS_POOL = [
+   151→   151→  { name: "Dragao Antigo", emoji: "\uD83D\uDC09", hp: 2000, atk: 40, def: 25, xp: 500, gold: 1000, color: "#7f1d1d" },
+   152→   152→  { name: "Kraken", emoji: "\uD83D\uDC19", hp: 3000, atk: 45, def: 30, xp: 800, gold: 2000, color: "#1e3a5f" },
+   153→   153→  { name: "Senhor Demonio", emoji: "\uD83D\uDC7E", hp: 5000, atk: 55, def: 35, xp: 1500, gold: 5000, color: "#450a0a" },
+   154→   154→  { name: "Fenix Celestial", emoji: "\uD83D\uDD25", hp: 8000, atk: 65, def: 40, xp: 2500, gold: 8000, color: "#f59e0b" },
+   155→   155→  { name: "Serpente Cosmica", emoji: "\uD83D\uDC0D", hp: 12000, atk: 80, def: 50, xp: 5000, gold: 15000, color: "#6366f1" },
+   156→   156→];
+   157→   157→
+   158→   158→const RAID_BOSSES = [
+   159→   159→  { name: "Hydra", emoji: "\uD83D\uDC0D", hp: 5000, atk: 50, def: 30, xp: 2000, gold: 5000, color: "#22c55e" },
+   160→   160→  { name: "Golem Celestial", emoji: "\uD83E\uDDD8", hp: 8000, atk: 60, def: 45, xp: 3000, gold: 8000, color: "#f59e0b" },
+   161→   161→];
+   162→   162→
+   163→   163→// ============================================================
+   164→   164→// HELPERS
+   165→   165→// ============================================================
+   166→   166→
+   167→   167→const SAVE_KEY = "bateu_mmorpg_char";
+   168→   168→const GUEST_PREFIX = "guest_";
+   169→   169→
+   170→   170→function genId() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+   171→   171→
+   172→   172→function loadLocalChar(): CharacterData | null {
+   173→   173→  try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+   174→   174→}
+   175→   175→
+   176→   176→function saveLocalChar(c: CharacterData) {
+   177→   177→  try { localStorage.setItem(SAVE_KEY, JSON.stringify(c)); } catch {}
+   178→   178→}
+   179→   179→
+   180→   180→function calcStats(char: CharacterData): CharStats {
+   181→   181→  const c = CLASSES[char.classId];
+   182→   182→  const lvl = char.level;
+   183→   183→  let hp = c.baseHp + lvl * 12, maxHp = hp;
+   184→   184→  let atk = c.baseAtk + lvl * 2;
+   185→   185→  let def = c.baseDef + lvl * 1;
+   186→   186→  let spd = c.baseSpd + lvl * 1;
+   187→   187→  let mp = c.baseMp + lvl * 5, maxMp = mp;
+   188→   188→  for (const eq of char.equipment) {
+   189→   189→    if (!eq) continue;
+   190→   190→    hp += eq.hp || 0; maxHp += eq.hp || 0;
+   191→   191→    atk += eq.atk || 0; def += eq.def || 0; spd += eq.spd || 0;
+   192→   192→    mp += eq.mp || 0; maxMp += eq.mp || 0;
+   193→   193→  }
+   194→   194→  return { hp, maxHp, atk, def, spd, mp, maxMp };
+   195→   195→}
+   196→   196→
+   197→   197→function xpForLevel(lvl: number) { return lvl * 50 + 50; }
+   198→   198→
+   199→   199→function makeEnemy(e: typeof ZONES[0]["enemies"][0]): Enemy {
+   200→   200→  return { name: e.name, emoji: e.emoji, hp: e.hp, maxHp: e.hp, atk: e.atk, def: e.def, spd: e.spd, xpReward: e.xp, goldReward: e.gold, color: e.color };
+   201→   201→}
+   202→   202→
+   203→   203→function timeAgo(dateStr: string): string {
+   204→   204→  const s = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+   205→   205→  if (s < 60) return "agora";
+   206→   206→  if (s < 3600) return `${Math.floor(s / 60)}m atras`;
+   207→   207→  if (s < 86400) return `${Math.floor(s / 3600)}h atras`;
+   208→   208→  return `${Math.floor(s / 86400)}d atras`;
+   209→   209→}
+   210→   210→
+   211→   211→// ============================================================
+   212→   212→// SUPABASE HELPERS (com fallback para localStorage)
+   213→   213→// ============================================================
+   214→   214→
+   215→   215→async function dbUpsertChar(char: CharacterData, guestId?: string) {
+   216→   216→  try {
+   217→   217→    const stats = calcStats(char);
+   218→   218→    const row = {
+   219→   219→      guest_id: guestId || null,
+   220→   220→      name: char.name, class_id: char.classId, level: char.level, xp: char.xp, gold: char.gold,
+   221→   221→      hp: stats.maxHp, max_hp: stats.maxHp, mp: stats.maxMp, max_mp: stats.maxMp,
+   222→   222→      atk: stats.atk, def: stats.def, spd: stats.spd,
+   223→   223→      equipment: JSON.stringify(char.equipment), inventory: JSON.stringify(char.inventory),
+   224→   224→      total_stars: 0, total_kills: char.totalKills, total_deaths: char.totalDeaths,
+   225→   225→      total_duels_won: char.duelsWon, total_duels_lost: char.duelsLost, total_earned: char.totalEarned,
+   226→   226→      current_zone: char.currentZone, is_online: true, last_online: new Date().toISOString(),
+   227→   227→    };
+   228→   228→    const { error } = await (supabase as any).from("rpg_characters").upsert(row, { onConflict: "guest_id" });
+   229→   229→    if (error) throw error;
+   230→   230→  } catch { saveLocalChar(char); }
+   231→   231→}
+   232→   232→
+   233→   233→async function dbSetOffline(guestId: string) {
+   234→   234→  try { await (supabase as any).from("rpg_characters").update({ is_online: false }).eq("guest_id", guestId); } catch {}
+   235→   235→}
+   236→   236→
+   237→   237→async function dbSendChat(charId: string, charName: string, classId: number, message: string, zone: number) {
+   238→   238→  try {
+   239→   239→    await (supabase as any).from("rpg_chat").insert({ char_id: charId, char_name: charName, class_id: classId, message, zone });
+   240→   240→  } catch {}
+   241→   241→}
+   242→   242→
+   243→   243→async function dbSendTransfer(fromId: string, fromName: string, toId: string, toName: string, amount: number, desc: string) {
+   244→   244→  try {
+   245→   245→    await (supabase as any).from("rpg_transactions").insert({
+   246→   246→      from_char_id: fromId, from_name: fromName, to_char_id: toId, to_name: toName, amount, type: "transfer", description: desc,
+   247→   247→    });
+   248→   248→  } catch {}
+   249→   249→}
+   250→   250→
+   251→   251→// ============================================================
+   252→   252→// MAIN COMPONENT
+   253→   253→// ============================================================
+   254→   254→
+   255→   255→type Screen = "create" | "world" | "battle" | "pvpBattle" | "pvpResult";
+   256→   256→type Tab = "map" | "arena" | "economy" | "shop" | "chat" | "rank" | "profile" | "market";
+   257→   257→
+   258→   258→export default function MMORPGGame({ onScore, liveCode }: Props) {
+   259→   259→  // Core
+   260→   260→  const [char, setChar] = useState<CharacterData | null>(null);
+   261→   261→  const [stats, setStats] = useState<CharStats>({ hp: 100, maxHp: 100, atk: 10, def: 5, spd: 8, mp: 30, maxMp: 30 });
+   262→   262→  const [screen, setScreen] = useState<Screen>("create");
+   263→   263→  const [tab, setTab] = useState<Tab>("map");
+   264→   264→  const [guestId, setGuestId] = useState("");
+   265→   265→
+   266→   266→  // Multiplayer
+   267→   267→  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
+   268→   268→  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+   269→   269→  const [duelRequests, setDuelRequests] = useState<DuelRequest[]>([]);
+   270→   270→  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+   271→   271→  const [worldBoss, setWorldBoss] = useState<{ name: string; emoji: string; hp: number; maxHp: number; rewardsPool: number; isActive: boolean } | null>(null);
+   272→   272→
+   273→   273→  // Battle
+   274→   274→  const [battleEnemy, setBattleEnemy] = useState<Enemy | null>(null);
+   275→   275→  const [battleLog, setBattleLog] = useState<string[]>([]);
+   276→   276→  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+   277→   277→  const [battleOver, setBattleOver] = useState(false);
+   278→   278→  const [battleWon, setBattleWon] = useState(false);
+   279→   279→  const [defBuff, setDefBuff] = useState(1);
+   280→   280→  const [atkBuff, setAtkBuff] = useState(1);
+   281→   281→  const [battleHp, setBattleHp] = useState(100);
+   282→   282→  const [battleMp, setBattleMp] = useState(30);
+   283→   283→
+   284→   284→  // PVP
+   285→   285→  const [pvpOpponent, setPvpOpponent] = useState<OnlinePlayer | null>(null);
+   286→   286→  const [pvpStake, setPvpStake] = useState(0);
+   287→   287→  const [pvpHp, setPvpHp] = useState(100);
+   288→   288→  const [pvpEnemyHp, setPvpEnemyHp] = useState(100);
+   289→   289→  const [pvpLog, setPvpLog] = useState<string[]>([]);
+   290→   290→  const [pvpOver, setPvpOver] = useState(false);
+   291→   291→  const [pvpWon, setPvpWon] = useState(false);
+   292→   292→  const [pvpTurn, setPvpTurn] = useState(true);
+   293→   293→
+   294→   294→  // UI
+   295→   295→  const [chatInput, setChatInput] = useState("");
+   296→   296→  const [transferTarget, setTransferTarget] = useState("");
+   297→   297→  const [transferAmount, setTransferAmount] = useState("");
+   298→   298→  const [stakeInput, setStakeInput] = useState("");
+   299→   299→  const [selectedOpponent, setSelectedOpponent] = useState<OnlinePlayer | null>(null);
+   300→   300→  const [charNameInput, setCharNameInput] = useState("");
+   301→   301→  const [notification, setNotification] = useState("");
+   302→   302→  const [dailyCollected, setDailyCollected] = useState(false);
+   303→   303→
+   304→   304→  // Auto-grind
+   305→   305→  const [autoGrind, setAutoGrind] = useState(false);
+   306→   306→  const [grindLog, setGrindLog] = useState<string[]>([]);
+   307→   307→  const [grindStats, setGrindStats] = useState({ kills: 0, gold: 0, xp: 0, deaths: 0 });
+   308→   308→  const autoGrindRef = useRef<any>(null);
+   309→   309→
+   310→   310→  // Marketplace
+   311→   311→  const [marketListings, setMarketListings] = useState<{ id: string; sellerId: string; sellerName: string; item: Equipment; price: number; time: string }[]>([]);
+   312→   312→  const [marketSellPrice, setMarketSellPrice] = useState("");
+   313→   313→  const [marketSellItem, setMarketSellItem] = useState("");
+   314→   314→
+   315→   315→  // Time Events
+   316→   316→  const [eventBonus, setEventBonus] = useState<{ type: string; multiplier: number; label: string } | null>(null);
+   317→   317→  const [bossTimer, setBossTimer] = useState(0);
+   318→   318→
+   319→   319→  const chatEndRef = useRef<HTMLDivElement>(null);
+   320→   320→  const channelRef = useRef<any>(null);
+   321→   321→  const battleLogRef = useRef<HTMLDivElement>(null);
+   322→   322→  const grindLogRef = useRef<HTMLDivElement>(null);
+   323→   323→
+   324→   324→  const notify = useCallback((msg: string) => { setNotification(msg); setTimeout(() => setNotification(""), 3000); }, []);
+   325→   325→
+   326→   326→  // ---- Load Character ----
+   327→   327→  useEffect(() => {
+   328→   328→    let gid = localStorage.getItem("bateu_mmorpg_guestid");
+   329→   329→    if (!gid) { gid = GUEST_PREFIX + genId(); localStorage.setItem("bateu_mmorpg_guestid", gid); }
+   330→   330→    setGuestId(gid);
+   331→   331→
+   332→   332→    const saved = loadLocalChar();
+   333→   333→    if (saved) {
+   334→   334→      setChar(saved);
+   335→   335→      setStats(calcStats(saved));
+   336→   336→      setScreen("world");
+   337→   337→      dbUpsertChar(saved, gid);
+   338→   338→    }
+   339→   339→
+   340→   340→    // Daily reward check
+   341→   341→    const lastDaily = localStorage.getItem("bateu_mmorpg_daily");
+   342→   342→    if (lastDaily && Date.now() - parseInt(lastDaily) < 86400000) setDailyCollected(true);
+   343→   343→  }, []);
+   344→   344→
+   345→   345→  // ---- Supabase Realtime ----
+   346→   346→  useEffect(() => {
+   347→   347→    if (!guestId || !char) return;
+   348→   348→
+   349→   349→    const channel = (supabase as any).channel(`mmorpg_${guestId}`, { config: { broadcast: { self: true } } });
+   350→   350→    channelRef.current = channel;
+   351→   351→
+   352→   352→    // Subscribe to characters changes for online list
+   353→   353→    const charSub = (supabase as any)
+   354→   354→      .channel("rpg_chars_changes")
+   355→   355→      .on("postgres_changes", { event: "*", schema: "public", table: "rpg_characters" }, (payload: any) => {
+   356→   356→        if (payload.new && payload.new.guest_id !== guestId) {
+   357→   357→          setOnlinePlayers(prev => {
+   358→   358→            const existing = prev.filter(p => p.charId !== payload.new.guest_id);
+   359→   359→            if (payload.new.is_online) {
+   360→   360→              return [...existing, {
+   361→   361→                charId: payload.new.guest_id, name: payload.new.name, classId: payload.new.class_id,
+   362→   362→                level: payload.new.level, gold: payload.new.gold, zone: payload.new.current_zone, isOnline: true,
+   363→   363→              }];
+   364→   364→            }
+   365→   365→            return existing;
+   366→   366→          });
+   367→   367→        }
+   368→   368→      })
+   369→   369→      .subscribe();
+   370→   370→
+   371→   371→    // Subscribe to chat
+   372→   372→    const chatSub = (supabase as any)
+   373→   373→      .channel("rpg_chat_realtime")
+   374→   374→      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rpg_chat" }, (payload: any) => {
+   375→   375→        const m = payload.new;
+   376→   376→        setChatMessages(prev => [...prev.slice(-49), {
+   377→   377→          id: m.id, charName: m.char_name, classId: m.class_id, message: m.message, time: m.created_at,
+   378→   378→        }]);
+   379→   379→      })
+   380→   380→      .subscribe();
+   381→   381→
+   382→   382→    // Load initial data
+   383→   383→    (async () => {
+   384→   384→      try {
+   385→   385→        const { data: onlineData } = await (supabase as any).from("rpg_characters").select("*").eq("is_online", true).neq("guest_id", guestId).limit(50);
+   386→   386→        if (onlineData) {
+   387→   387→          setOnlinePlayers(onlineData.map((r: any) => ({
+   388→   388→            charId: r.guest_id, name: r.name, classId: r.class_id,
+   389→   389→            level: r.level, gold: r.gold, zone: r.current_zone, isOnline: true,
+   390→   390→          })));
+   391→   391→        }
+   392→   392→
+   393→   393→        const { data: chatData } = await (supabase as any).from("rpg_chat").select("*").order("created_at", { ascending: false }).limit(50);
+   394→   394→        if (chatData) {
+   395→   395→          setChatMessages(chatData.reverse().map((r: any) => ({
+   396→   396→            id: r.id, charName: r.char_name, classId: r.class_id, message: r.message, time: r.created_at,
+   397→   397→          })));
+   398→   398→        }
+   399→   399→
+   400→   400→        const { data: lbData } = await (supabase as any).from("rpg_characters").select("*").order("level", { ascending: false }).limit(20);
+   401→   401→        if (lbData) {
+   402→   402→          setLeaderboard(lbData.map((r: any) => ({
+   403→   403→            charId: r.guest_id, name: r.name, classId: r.class_id, level: r.level,
+   404→   404→            gold: r.gold, kills: r.total_kills || 0, wins: r.total_duels_won || 0,
+   405→   405→          })));
+   406→   406→        }
+   407→   407→
+   408→   408→        // World boss
+   409→   409→        const { data: bossData } = await (supabase as any).from("rpg_world_boss").select("*").eq("is_active", true).single();
+   410→   410→        if (bossData) {
+   411→   411→          setWorldBoss({ name: bossData.boss_name, emoji: bossData.boss_emoji, hp: bossData.boss_hp, maxHp: bossData.boss_max_hp, rewardsPool: bossData.rewards_pool || 0, isActive: true });
+   412→   412→        }
+   413→   413→      } catch {}
+   414→   414→    })();
+   415→   415→
+   416→   416→    // Set online
+   417→   417→    dbUpsertChar(char, guestId);
+   418→   418→
+   419→   419→    // Broadcast presence
+   420→   420→    const presence = channel.on("presence", { event: "sync" }, () => {
+   421→   421→      const state = channel.presenceState();
+   422→   422→      // Merge with DB online list
+   423→   423→    });
+   424→   424→
+   425→   425→    channel.subscribe(async (status: string) => {
+   426→   426→      if (status === "SUBSCRIBED") {
+   427→   427→        await channel.track({
+   428→   428→          guest_id: guestId, name: char.name, class_id: char.classId, level: char.level, zone: char.currentZone,
+   429→   429→        });
+   430→   430→      }
+   431→   431→    });
+   432→   432→
+   433→   433→    return () => {
+   434→   434→      channel.unsubscribe();
+   435→   435→      charSub.unsubscribe();
+   436→   436→      chatSub.unsubscribe();
+   437→   437→      dbSetOffline(guestId);
+   438→   438→    };
+   439→   439→  }, [guestId, char?.charId]);
+   440→   440→
+   441→   441→  // Auto-scroll chat
+   442→   442→  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+   443→   443→  useEffect(() => { battleLogRef.current?.scrollIntoView({ behavior: "smooth" }); }, [battleLog]);
+   444→   444→  useEffect(() => { grindLogRef.current?.scrollIntoView({ behavior: "smooth" }); }, [grindLog]);
+   445→   445→
+   446→   446→  // ---- Periodic DB Sync ----
+   447→   447→  useEffect(() => {
+   448→   448→    if (!char || !guestId) return;
+   449→   449→    const iv = setInterval(() => {
+   450→   450→      saveLocalChar(char);
+   451→   451→      dbUpsertChar(char, guestId);
+   452→   452→    }, 30000); // sync every 30s
+   453→   453→    return () => clearInterval(iv);
+   454→   454→  }, [char, guestId]);
+   455→   455→
+   456→   456→  // ---- World Boss Auto-Spawn ----
+   457→   457→  useEffect(() => {
+   458→   458→    if (!char || screen !== "world") return;
+   459→   459→
+   460→   460→    // Load saved boss state
+   461→   461→    const savedBoss = localStorage.getItem("bateu_mmorpg_boss");
+   462→   462→    if (savedBoss) {
+   463→   463→      try {
+   464→   464→        const b = JSON.parse(savedBoss);
+   465→   465→        if (b.isActive && Date.now() - b.spawnedAt < 3600000) {
+   466→   466→          setWorldBoss(b);
+   467→   467→          const elapsed = Math.floor((Date.now() - b.spawnedAt) / 1000);
+   468→   468→          setBossTimer(Math.max(0, 3600 - elapsed));
+   469→   469→        } else {
+   470→   470→          localStorage.removeItem("bateu_mmorpg_boss");
+   471→   471→        }
+   472→   472→      } catch {}
+   473→   473→    }
+   474→   474→
+   475→   475→    // Spawn boss every 30 min if none active
+   476→   476→    const spawnInterval = setInterval(() => {
+   477→   477→      if (worldBoss?.isActive) return;
+   478→   478→      const poolIdx = Math.min(Math.floor(Math.random() * BOSS_POOL.length), BOSS_POOL.length - 1);
+   479→   479→      const boss = BOSS_POOL[poolIdx];
+   480→   480→      const scaledHp = boss.hp + char.level * 100;
+   481→   481→      const newBoss = { name: boss.name, emoji: boss.emoji, hp: scaledHp, maxHp: scaledHp, rewardsPool: boss.gold + onlinePlayers.length * 100, isActive: true };
+   482→   482→      setWorldBoss(newBoss);
+   483→   483→      setBossTimer(3600);
+   484→   484→      localStorage.setItem("bateu_mmorpg_boss", JSON.stringify({ ...newBoss, spawnedAt: Date.now() }));
+   485→   485→      notify(`\uD83D\uDC7A ${boss.name} apareceu! Todos podem atacar!`);
+   486→   486→      confetti({ particleCount: 50, spread: 40 });
+   487→   487→    }, 1800000); // 30 min
+   488→   488→
+   489→   489→    // Boss timer countdown
+   490→   490→    const timerInterval = setInterval(() => {
+   491→   491→      setBossTimer(prev => {
+   492→   492→        if (prev <= 0) {
+   493→   493→          setWorldBoss(null);
+   494→   494→          localStorage.removeItem("bateu_mmorpg_boss");
+   495→   495→          return 0;
+   496→   496→        }
+   497→   497→        return prev - 1;
+   498→   498→      });
+   499→   499→    }, 1000);
+   500→   500→
+   501→   501→    return () => { clearInterval(spawnInterval); clearInterval(timerInterval); };
+   502→   502→  }, [char, screen, worldBoss?.isActive, onlinePlayers.length, notify]);
+   503→   503→
+   504→   504→  // ---- Time Events ----
+   505→   505→  useEffect(() => {
+   506→   506→    if (!char) return;
+   507→   507→    const check = () => {
+   508→   508→      const now = new Date();
+   509→   509→      const day = now.getDay();
+   510→   510→      const hour = now.getHours();
+   511→   511→      // Weekend: 2x gold
+   512→   512→      if (day === 0 || day === 6) {
+   513→   513→        setEventBonus({ type: "gold", multiplier: 2, label: "\uD83C\uDFB2 Fim de semana: 2x Ouro!" });
+   514→   514→      }
+   515→   515→      // Golden hour: 12h-13h = 1.5x XP
+   516→   516→      else if (hour >= 12 && hour < 13) {
+   517→   517→        setEventBonus({ type: "xp", multiplier: 1.5, label: "\u2B50 Hora Dourada: 1.5x XP!" });
+   518→   518→      }
+   519→   519→      // Happy hour: 18h-20h = 1.5x gold
+   520→   520→      else if (hour >= 18 && hour < 20) {
+   521→   521→        setEventBonus({ type: "gold", multiplier: 1.5, label: "\uD83C\uDF89 Happy Hour: 1.5x Ouro!" });
+   522→   522→      }
+   523→   523→      else {
+   524→   524→        setEventBonus(null);
+   525→   525→      }
+   526→   526→    };
+   527→   527→    check();
+   528→   528→    const iv = setInterval(check, 60000);
+   529→   529→    return () => clearInterval(iv);
+   530→   530→  }, [char]);
+   531→   531→
+   532→   532→  // ---- Auto-Grind ----
+   533→   533→  useEffect(() => {
+   534→   534→    if (!autoGrind || !char || screen !== "world") {
+   535→   535→      if (autoGrindRef.current) { clearInterval(autoGrindRef.current); autoGrindRef.current = null; }
+   536→   536→      return;
+   537→   537→    }
+   538→   538→    const zone = ZONES[char.currentZone];
+   539→   539→    if (!zone || char.level < zone.minLevel) { setAutoGrind(false); return; }
+   540→   540→
+   541→   541→    const s = calcStats(char);
+   542→   542→    const enemyTemplate = zone.enemies[Math.floor(Math.random() * zone.enemies.length)];
+   543→   543→    const scale = 1 + (char.level - zone.minLevel) * 0.05;
+   544→   544→    const eHp = Math.round(enemyTemplate.hp * scale);
+   545→   545→    const eAtk = Math.round(enemyTemplate.atk * scale);
+   546→   546→    const eDef = Math.round(enemyTemplate.def * scale);
+   547→   547→
+   548→   548→    autoGrindRef.current = setInterval(() => {
+   549→   549→      setChar(prev => {
+   550→   550→        if (!prev) return prev;
+   551→   551→        const ps = calcStats(prev);
+   552→   552→        let pHp = ps.maxHp; // Full HP each fight for auto
+   553→   553→        let eCurrentHp = eHp;
+   554→   554→        let turns = 0;
+   555→   555→
+   556→   556→        while (pHp > 0 && eCurrentHp > 0 && turns < 30) {
+   557→   557→          turns++;
+   558→   558→          const pDmg = Math.max(1, Math.round((ps.atk - eDef * 0.5) * (0.85 + Math.random() * 0.3)));
+   559→   559→          eCurrentHp -= pDmg;
+   560→   560→          if (eCurrentHp <= 0) break;
+   561→   561→          const eDmg = Math.max(1, Math.round((eAtk - ps.def * 0.5) * (0.85 + Math.random() * 0.3)));
+   562→   562→          pHp -= eDmg;
+   563→   563→        }
+   564→   564→
+   565→   565→        if (eCurrentHp <= 0) {
+   566→   566→          let goldG = enemyTemplate.gold;
+   567→   567→          let xpG = enemyTemplate.xp;
+   568→   568→          if (eventBonus?.type === "gold") goldG = Math.round(goldG * eventBonus.multiplier);
+   569→   569→          if (eventBonus?.type === "xp") xpG = Math.round(xpG * eventBonus.multiplier);
+   570→   570→
+   571→   571→          let nc = { ...prev, xp: prev.xp + xpG, gold: prev.gold + goldG, totalKills: prev.totalKills + 1, totalEarned: prev.totalEarned + goldG };
+   572→   572→          const needed = xpForLevel(nc.level);
+   573→   573→          if (nc.xp >= needed) { nc.xp -= needed; nc.level++; }
+   574→   574→          saveLocalChar(nc);
+   575→   575→
+   576→   576→          setGrindStats(gs => ({ ...gs, kills: gs.kills + 1, gold: gs.gold + goldG, xp: gs.xp + xpG }));
+   577→   577→          setGrindLog(gl => [...gl.slice(-19), `\u2705 ${enemyTemplate.emoji} ${enemyTemplate.name}: +${xpG}XP +${goldG}\uD83D\uDCB0`]);
+   578→   578→          return nc;
+   579→   579→        } else {
+   580→   580→          setGrindStats(gs => ({ ...gs, deaths: gs.deaths + 1 }));
+   581→   581→          setGrindLog(gl => [...gl.slice(-19), `\uD83D\uDC80 ${enemyTemplate.emoji} ${enemyTemplate.name}: Derrotado!`]);
+   582→   582→          return { ...prev, totalDeaths: prev.totalDeaths + 1 };
+   583→   583→        }
+   584→   584→      });
+   585→   585→    }, 1500);
+   586→   586→
+   587→   587→    return () => { if (autoGrindRef.current) { clearInterval(autoGrindRef.current); autoGrindRef.current = null; } };
+   588→   588→  }, [autoGrind, char, screen, char?.currentZone, eventBonus]);
+   589→   589→
+   590→   590→  // ---- Game Actions ----
+   591→   591→  const updateChar = useCallback((updater: (c: CharacterData) => CharacterData) => {
+   592→   592→    setChar(prev => {
+   593→   593→      if (!prev) return prev;
+   594→   594→      const next = updater(prev);
+   595→   595→      saveLocalChar(next);
+   596→   596→      dbUpsertChar(next, guestId);
+   597→   597→      return next;
+   598→   598→    });
+   599→   599→  }, [guestId]);
+   600→   600→
+   601→   601→  const recalcAndSet = useCallback((c: CharacterData) => {
+   602→   602→    setStats(calcStats(c));
+   603→   603→  }, []);
+   604→   604→
+   605→   605→  const createCharacter = useCallback((classId: number, name: string) => {
+   606→   606→    const newChar: CharacterData = {
+   607→   607→      charId: guestId, name: name || CLASSES[classId].name, classId, level: 1, xp: 0, gold: 100,
+   608→   608→      equipment: [null, null, null], inventory: [],
+   609→   609→      totalKills: 0, totalDeaths: 0, duelsWon: 0, duelsLost: 0, totalEarned: 0, currentZone: 0,
+   610→   610→    };
+   611→   611→    setChar(newChar);
+   612→   612→    setStats(calcStats(newChar));
+   613→   613→    saveLocalChar(newChar);
+   614→   614→    dbUpsertChar(newChar, guestId);
+   615→   615→    setScreen("world");
+   616→   616→    confetti({ particleCount: 100, spread: 70 });
+   617→   617→  }, [guestId]);
+   618→   618→
+   619→   619→  const collectDaily = useCallback(() => {
+   620→   620→    if (dailyCollected || !char) return;
+   621→   621→    const reward = 50 + char.level * 10;
+   622→   622→    updateChar(c => ({ ...c, gold: c.gold + reward, totalEarned: c.totalEarned + reward }));
+   623→   623→    localStorage.setItem("bateu_mmorpg_daily", Date.now().toString());
+   624→   624→    setDailyCollected(true);
+   625→   625→    notify(`\uD83C\uDF81 Recompensa diaria: +${reward} ouro!`);
+   626→   626→    onScore?.("Daily Reward", reward);
+   627→   627→  }, [dailyCollected, char, updateChar, notify, onScore]);
+   628→   628→
+   629→   629→  // ---- PVE Battle ----
+   630→   630→  const startPVE = useCallback((zoneIdx: number, enemyIdx: number) => {
+   631→   631→    if (!char) return;
+   632→   632→    const zone = ZONES[zoneIdx];
+   633→   633→    const e = zone.enemies[enemyIdx];
+   634→   634→    const enemy = makeEnemy(e);
+   635→   635→    // Scale enemy slightly with player level
+   636→   636→    const scale = 1 + (char.level - zone.minLevel) * 0.05;
+   637→   637→    enemy.hp = Math.round(enemy.hp * scale); enemy.maxHp = enemy.hp;
+   638→   638→    enemy.atk = Math.round(enemy.atk * scale); enemy.def = Math.round(enemy.def * scale);
+   639→   639→
+   640→   640→    setBattleEnemy(enemy);
+   641→   641→    setBattleLog([`\uD83E\uDD16 Entraste em ${zone.name}!`]);
+   642→   642→    setIsPlayerTurn(true); setBattleOver(false); setBattleWon(false);
+   643→   643→    setDefBuff(1); setAtkBuff(1);
+   644→   644→    const s = calcStats(char);
+   645→   645→    setBattleHp(s.maxHp); setBattleMp(s.maxMp);
+   646→   646→    setScreen("battle");
+   647→   647→  }, [char]);
+   648→   648→
+   649→   649→  const pveAttack = useCallback(() => {
+   650→   650→    if (!char || !battleEnemy || !isPlayerTurn || battleOver) return;
+   651→   651→    setIsPlayerTurn(false);
+   652→   652→    const dmg = Math.max(1, Math.round((stats.atk * atkBuff - battleEnemy.def * 0.5) * (0.9 + Math.random() * 0.2)));
+   653→   653→    const newEnemyHp = Math.max(0, battleEnemy.hp - dmg);
+   654→   654→    setBattleEnemy(prev => prev ? { ...prev, hp: newEnemyHp } : null);
+   655→   655→    setBattleLog(prev => [...prev.slice(-6), `${CLASSES[char.classId].emoji} Atacas ${battleEnemy.emoji} por ${dmg}!`]);
+   656→   656→
+   657→   657→    setTimeout(() => {
+   658→   658→      if (newEnemyHp <= 0) {
+   659→   659→        setBattleOver(true); setBattleWon(true);
+   660→   660→        setBattleLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 ${battleEnemy.emoji} ${battleEnemy.name} derrotado!`]);
+   661→   661→        confetti({ particleCount: 60, spread: 50 });
+   662→   662→        let xpG = battleEnemy.xpReward; let goldG = battleEnemy.goldReward;
+   663→   663→        if (eventBonus?.type === "gold") goldG = Math.round(goldG * eventBonus.multiplier);
+   664→   664→        if (eventBonus?.type === "xp") xpG = Math.round(xpG * eventBonus.multiplier);
+   665→   665→        updateChar(c => {
+   666→   666→          let nc = { ...c, xp: c.xp + xpG, gold: c.gold + goldG, totalKills: c.totalKills + 1, totalEarned: c.totalEarned + goldG };
+   667→   667→          const needed = xpForLevel(nc.level);
+   668→   668→          if (nc.xp >= needed) { nc.xp -= needed; nc.level++; }
+   669→   669→          return nc;
+   670→   670→        });
+   671→   671→        onScore?.("PVE Kill", xpG + goldG);
+   672→   672→        return;
+   673→   673→      }
+   674→   674→      // Enemy turn
+   675→   675→      const eDmg = Math.max(1, Math.round((battleEnemy.atk - (stats.def * defBuff) * 0.5) * (0.85 + Math.random() * 0.3)));
+   676→   676→      const newHp = Math.max(0, battleHp - eDmg);
+   677→   677→      setBattleHp(newHp);
+   678→   678→      setBattleLog(prev => [...prev.slice(-6), `${battleEnemy.emoji} ${battleEnemy.name} ataca por ${eDmg}!`]);
+   679→   679→
+   680→   680→      if (newHp <= 0) {
+   681→   681→        setBattleOver(true); setBattleWon(false);
+   682→   682→        setBattleLog(prev => [...prev.slice(-6), "\uD83D\uDC80 Foste derrotado!"]);
+   683→   683→        updateChar(c => ({ ...c, totalDeaths: c.totalDeaths + 1 }));
+   684→   684→        return;
+   685→   685→      }
+   686→   686→      setIsPlayerTurn(true);
+   687→   687→      setBattleMp(prev => Math.min(stats.maxMp, prev + 3));
+   688→   688→    }, 600);
+   689→   689→  }, [char, battleEnemy, isPlayerTurn, battleOver, stats, atkBuff, defBuff, battleHp, eventBonus, updateChar, onScore]);
+   690→   690→
+   691→   691→  const pveSkill = useCallback((skillIdx: number) => {
+   692→   692→    if (!char || !battleEnemy || !isPlayerTurn || battleOver) return;
+   693→   693→    const skills = SKILLS[char.classId];
+   694→   694→    if (!skills?.[skillIdx]) return;
+   695→   695→    const skill = skills[skillIdx];
+   696→   696→    if (battleMp < skill.mpCost) { notify("MP insuficiente!"); return; }
+   697→   697→    setBattleMp(prev => prev - skill.mpCost);
+   698→   698→    setIsPlayerTurn(false);
+   699→   699→
+   700→   700→    if (skill.type === "damage") {
+   701→   701→      const dmg = Math.max(1, Math.round((stats.atk * skill.power - battleEnemy.def * 0.3) * (0.9 + Math.random() * 0.2)));
+   702→   702→      const newEnemyHp = Math.max(0, battleEnemy.hp - dmg);
+   703→   703→      setBattleEnemy(prev => prev ? { ...prev, hp: newEnemyHp } : null);
+   704→   704→      setBattleLog(prev => [...prev.slice(-6), `${skill.emoji} ${skill.name}! ${dmg} dano!`]);
+   705→   705→
+   706→   706→      setTimeout(() => {
+   707→   707→        if (newEnemyHp <= 0) {
+   708→   708→          setBattleOver(true); setBattleWon(true);
+   709→   709→          setBattleLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 Vitoria!`]);
+   710→   710→          confetti({ particleCount: 60, spread: 50 });
+   711→   711→          updateChar(c => {
+   712→   712→            let nc = { ...c, xp: c.xp + battleEnemy.xpReward, gold: c.gold + battleEnemy.goldReward, totalKills: c.totalKills + 1, totalEarned: c.totalEarned + battleEnemy.goldReward };
+   713→   713→            const needed = xpForLevel(nc.level);
+   714→   714→            if (nc.xp >= needed) { nc.xp -= needed; nc.level++; }
+   715→   715→            return nc;
+   716→   716→          });
+   717→   717→          onScore?.("PVE Skill Kill", battleEnemy.xpReward + battleEnemy.goldReward);
+   718→   718→          return;
+   719→   719→        }
+   720→   720→        const eDmg = Math.max(1, Math.round((battleEnemy.atk - (stats.def * defBuff) * 0.5) * (0.85 + Math.random() * 0.3)));
+   721→   721→        const newHp = Math.max(0, battleHp - eDmg);
+   722→   722→        setBattleHp(newHp);
+   723→   723→        setBattleLog(prev => [...prev.slice(-6), `${battleEnemy.emoji} contra-ataca por ${eDmg}!`]);
+   724→   724→        if (newHp <= 0) { setBattleOver(true); setBattleWon(false); updateChar(c => ({ ...c, totalDeaths: c.totalDeaths + 1 })); return; }
+   725→   725→        setIsPlayerTurn(true);
+   726→   726→        setBattleMp(prev => Math.min(stats.maxMp, prev + 3));
+   727→   727→      }, 600);
+   728→   728→    } else if (skill.type === "heal") {
+   729→   729→      const heal = Math.round(stats.maxHp * skill.power);
+   730→   730→      setBattleHp(prev => Math.min(stats.maxHp, prev + heal));
+   731→   731→      setBattleLog(prev => [...prev.slice(-6), `${skill.emoji} ${skill.name}! +${heal} HP`]);
+   732→   732→      setTimeout(() => { setIsPlayerTurn(true); }, 400);
+   733→   733→    } else {
+   734→   734→      if (skill.name.includes("Defesa") || char.classId === 4) setDefBuff(prev => prev * skill.power);
+   735→   735→      else setAtkBuff(prev => prev * skill.power);
+   736→   736→      setBattleLog(prev => [...prev.slice(-6), `${skill.emoji} ${skill.name}! Buff ativado!`]);
+   737→   737→      setTimeout(() => { setIsPlayerTurn(true); }, 400);
+   738→   738→    }
+   739→   739→  }, [char, battleEnemy, isPlayerTurn, battleOver, stats, defBuff, atkBuff, battleHp, battleMp, updateChar, onScore, notify]);
+   740→   740→
+   741→   741→  // ---- PVP ----
+   742→   742→  const challengePlayer = useCallback((opponent: OnlinePlayer, stake: number) => {
+   743→   743→    if (!char || char.gold < stake) { notify("Ouro insuficiente!"); return; }
+   744→   744→    if (stake <= 0) { notify("Aposta deve ser maior que 0!"); return; }
+   745→   745→
+   746→   746→    // Start simulated real-time PVP (in production, this would use Supabase Realtime for true sync)
+   747→   747→    setPvpOpponent(opponent);
+   748→   748→    setPvpStake(stake);
+   749→   749→    setPvpHp(stats.maxHp);
+   750→   750→    const oppClass = CLASSES[opponent.classId];
+   751→   751→    const oppMaxHp = oppClass.baseHp + opponent.level * 12 + 50; // estimate
+   752→   752→    setPvpEnemyHp(oppMaxHp);
+   753→   753→    setPvpLog([`\u2694\uFE0F Duelo contra ${opponent.emoji || CLASSES[opponent.classId].emoji} ${opponent.name}!`]);
+   754→   754→    setPvpOver(false); setPvpWon(false); setPvpTurn(true);
+   755→   755→    setScreen("pvpBattle");
+   756→   756→  }, [char, stats, notify]);
+   757→   757→
+   758→   758→  const pvpAttack = useCallback(() => {
+   759→   759→    if (!char || !pvpOpponent || pvpOver || !pvpTurn) return;
+   760→   760→    setPvpTurn(false);
+   761→   761→    const oppClass = CLASSES[pvpOpponent.classId];
+   762→   762→    const oppDef = oppClass.baseDef + pvpOpponent.level;
+   763→   763→    const pDmg = Math.max(1, Math.round((stats.atk * atkBuff - oppDef * 0.4) * (0.85 + Math.random() * 0.3)));
+   764→   764→    const newEHp = Math.max(0, pvpEnemyHp - pDmg);
+   765→   765→    setPvpEnemyHp(newEHp);
+   766→   766→    setPvpLog(prev => [...prev.slice(-6), `${CLASSES[char.classId].emoji} Atacas ${CLASSES[pvpOpponent.classId].emoji} por ${pDmg}!`]);
+   767→   767→
+   768→   768→    setTimeout(() => {
+   769→   769→      if (newEHp <= 0) {
+   770→   770→        setPvpOver(true); setPvpWon(true);
+   771→   771→        // TODO: Implement server-side PVP with real stakes via Supabase RPC
+   772→   772→        setPvpLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 Venceste o duelo! +${pvpStake} ouro!`]);
+   773→   773→        confetti({ particleCount: 100, spread: 70 });
+   774→   774→        updateChar(c => ({ ...c, gold: c.gold + pvpStake, wins: (c.wins || 0) + 1, duelsWon: c.duelsWon + 1, totalEarned: c.totalEarned + pvpStake }));
+   775→   775→        dbSendTransfer(guestId, char!.name, pvpOpponent!.charId, pvpOpponent!.name, pvpStake, `Duelo PVP - aposta`);
+   776→   776→        onScore?.("PVP Win", pvpStake * 2);
+   777→   777→        return;
+   778→   778→      }
+   779→   779→      // Opponent counter-attack (AI simulated for opponent)
+   780→   780→      const oppAtk = oppClass.baseAtk + pvpOpponent.level * 2 + 5;
+   781→   781→      const eDmg = Math.max(1, Math.round((oppAtk - (stats.def * defBuff) * 0.4) * (0.85 + Math.random() * 0.3)));
+   782→   782→      const newHp = Math.max(0, pvpHp - eDmg);
+   783→   783→      setPvpHp(newHp);
+   784→   784→      setPvpLog(prev => [...prev.slice(-6), `${CLASSES[pvpOpponent.classId].emoji} ${pvpOpponent.name} contra-ataca por ${eDmg}!`]);
+   785→   785→
+   786→   786→      if (newHp <= 0) {
+   787→   787→        setPvpOver(true); setPvpWon(false);
+   788→   788→        setPvpLog(prev => [...prev.slice(-6), `\uD83D\uDC80 Perdeste o duelo! -${pvpStake} ouro`]);
+   789→   789→        updateChar(c => ({ ...c, gold: Math.max(0, c.gold - pvpStake), duelsLost: c.duelsLost + 1 }));
+   790→   790→        dbSendTransfer(guestId, char!.name, pvpOpponent!.charId, pvpOpponent!.name, pvpStake, `Duelo PVP - perda`);
+   791→   791→        onScore?.("PVP Loss", 0);
+   792→   792→        return;
+   793→   793→      }
+   794→   794→      setPvpTurn(true);
+   795→   795→    }, 700);
+   796→   796→  }, [char, pvpOpponent, pvpOver, pvpTurn, stats, atkBuff, defBuff, pvpHp, pvpEnemyHp, pvpStake, updateChar, onScore, guestId]);
+   797→   797→
+   798→   798→  // ---- Economy ----
+   799→   799→  const sendGold = useCallback((targetId: string, targetName: string, amount: number) => {
+   800→   800→    if (!char || char.gold < amount || amount <= 0) { notify("Transferencia invalida!"); return; }
+   801→   801→    updateChar(c => ({ ...c, gold: c.gold - amount }));
+   802→   802→    dbSendTransfer(guestId, char.name, targetId, targetName, amount, "Transferencia P2P");
+   803→   803→    // TODO: Add recipient gold via Supabase RPC — currently only logs the transfer
+   804→   804→    notify(`\u2705 Enviaste ${amount} ouro para ${targetName}`);
+   805→   805→    onScore?.("P2P Transfer", amount);
+   806→   806→  }, [char, guestId, updateChar, notify, onScore]);
+   807→   807→
+   808→   808→  // ---- Shop ----
+   809→   809→  const buyItem = useCallback((item: Equipment) => {
+   810→   810→    if (!char || char.gold < item.price) { notify("Ouro insuficiente!"); return; }
+   811→   811→    const owned = char.inventory.some(i => i.id === item.id) || char.equipment.some(e => e?.id === item.id);
+   812→   812→    if (owned) { notify("Ja possuis este item!"); return; }
+   813→   813→    updateChar(c => ({ ...c, gold: c.gold - item.price, inventory: [...c.inventory, { ...item }] }));
+   814→   814→    notify(`${item.icon} ${item.name} comprado!`);
+   815→   815→  }, [char, updateChar, notify]);
+   816→   816→
+   817→   817→  const equipItem = useCallback((invIdx: number) => {
+   818→   818→    if (!char) return;
+   819→   819→    const item = char.inventory[invIdx];
+   820→   820→    if (!item) return;
+   821→   821→    const slot = item.type === "weapon" ? 0 : item.type === "armor" ? 1 : 2;
+   822→   822→    updateChar(c => {
+   823→   823→      const newInv = [...c.inventory]; newInv.splice(invIdx, 1);
+   824→   824→      const oldItem = c.equipment[slot];
+   825→   825→      if (oldItem) newInv.push(oldItem);
+   826→   826→      const newEq = [...c.equipment]; newEq[slot] = item;
+   827→   827→      return { ...c, inventory: newInv, equipment: newEq };
+   828→   828→    });
+   829→   829→  }, [char, updateChar]);
+   830→   830→
+   831→   831→  const sellItem = useCallback((invIdx: number) => {
+   832→   832→    if (!char) return;
+   833→   833→    const item = char.inventory[invIdx];
+   834→   834→    if (!item) return;
+   835→   835→    const sellPrice = Math.floor(item.price * 0.6);
+   836→   836→    updateChar(c => {
+   837→   837→      const newInv = [...c.inventory]; newInv.splice(invIdx, 1);
+   838→   838→      return { ...c, inventory: newInv, gold: c.gold + sellPrice };
+   839→   839→    });
+   840→   840→    notify(`Vendido por ${sellPrice} ouro`);
+   841→   841→  }, [char, updateChar, notify]);
+   842→   842→
+   843→   843→  // ---- World Boss ----
+   844→   844→  const attackBoss = useCallback(() => {
+   845→   845→    if (!char || !worldBoss || !worldBoss.isActive) return;
+   846→   846→    const dmg = Math.max(1, Math.round(stats.atk * (0.8 + Math.random() * 0.4)));
+   847→   847→    const newBossHp = Math.max(0, worldBoss.hp - dmg);
+   848→   848→    setWorldBoss(prev => prev ? { ...prev, hp: newBossHp } : null);
+   849→   849→
+   850→   850→    (async () => {
+   851→   851→      try { await (supabase as any).from("rpg_world_boss").update({ boss_hp: newBossHp }).eq("is_active", true); } catch {}
+   852→   852→    })();
+   853→   853→
+   854→   854→    if (newBossHp <= 0) {
+   855→   855→      const reward = Math.floor(worldBoss.rewardsPool / Math.max(1, onlinePlayers.length + 1)) + 100;
+   856→   856→      updateChar(c => ({ ...c, gold: c.gold + reward, totalEarned: c.totalEarned + reward, xp: c.xp + 200 }));
+   857→   857→      setWorldBoss(null);
+   858→   858→      confetti({ particleCount: 200, spread: 100 });
+   859→   859→      notify(`\uD83C\uDFC6 Boss derrotado! +${reward} ouro!`);
+   860→   860→    }
+   861→   861→  }, [char, worldBoss, stats, onlinePlayers.length, updateChar, notify]);
+   862→   862→
+   863→   863→  // ---- Chat ----
+   864→   864→  const sendChat = useCallback(() => {
+   865→   865→    if (!char || !chatInput.trim()) return;
+   866→   866→    const msg = chatInput.trim().slice(0, 200);
+   867→   867→    dbSendChat(guestId, char.name, char.classId, msg, char.currentZone);
+   868→   868→    setChatMessages(prev => [...prev.slice(-49), {
+   869→   869→      id: genId(), charName: char.name, classId: char.classId, message: msg, time: new Date().toISOString(),
+   870→   870→    }]);
+   871→   871→    setChatInput("");
+   872→   872→  }, [char, chatInput, guestId]);
+   873→   873→
+   874→   874→  // ---- Delete & Reset ----
+   875→   875→  const deleteCharacter = useCallback(() => {
+   876→   876→    if (!confirm("Tens a certeza? Todo o progresso sera perdido!")) return;
+   877→   877→    localStorage.removeItem(SAVE_KEY);
+   878→   878→    localStorage.removeItem("bateu_mmorpg_guestid");
+   879→   879→    (async () => { try { await (supabase as any).from("rpg_characters").delete().eq("guest_id", guestId); } catch {} })();
+   880→   880→    setChar(null); setScreen("create");
+   881→   881→  }, [guestId]);
+   882→   882→
+   883→   883→  // ============================================================
+   884→   884→  // RENDER: Character Creation
+   885→   885→  // ============================================================
+   886→   886→
+   887→   887→  if (screen === "create") {
+   888→   888→    return (
+   889→   889→      <div className="max-w-lg mx-auto p-3 sm:p-4 pb-28 sm:pb-6">
+   890→   890→        <div className="text-center mb-6">
+   891→   891→          <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity }}>
+   892→   892→            <Globe className="h-10 w-10 text-blue-400 mx-auto mb-2" />
+   893→   893→          </motion.div>
+   894→   894→          <h3 className="font-display text-lg sm:text-xl font-bold text-foreground">MMORPG Bateu</h3>
+   895→   895→          <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Mundo persistente. Duelos PVP. Economia P2P.</p>
+   896→   896→        </div>
+   897→   897→
+   898→   898→        <div className="mb-3 sm:mb-4">
+   899→   899→          <label className="text-xs text-muted-foreground block mb-1">Nome do personagem</label>
+   900→   900→          <input
+   901→   901→            value={charNameInput} onChange={e => setCharNameInput(e.target.value.slice(0, 16))}
+   902→   902→            placeholder={"Heroi " + Math.floor(Math.random() * 9999)}
+   903→   903→            className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary"
+   904→   904→            maxLength={16}
+   905→   905→          />
+   906→   906→        </div>
+   907→   907→
+   908→   908→        <p className="text-xs text-muted-foreground mb-2 font-medium">Escolhe a tua classe:</p>
+   909→   909→        <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-3">
+   910→   910→          {CLASSES.map((c, i) => (
+   911→   911→            <motion.button
+   912→   912→              key={i} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+   913→   913→              onClick={() => createCharacter(i, charNameInput)}
+   914→   914→              className="rounded-xl border border-border bg-card p-2.5 sm:p-4 text-left hover:border-primary/50 transition-all"
+   915→   915→            >
+   916→   916→              <span className="text-2xl sm:text-3xl">{c.emoji}</span>
+   917→   917→              <p className="font-bold text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: c.color }}>{c.name}</p>
+   918→   918→              <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{c.desc}</p>
+   919→   919→              <div className="flex gap-1 sm:gap-2 mt-1.5 sm:mt-2 text-[8px] sm:text-[9px] text-muted-foreground">
+   920→   920→                <span>\u2764\uFE0F{c.baseHp}</span><span>\u2694\uFE0F{c.baseAtk}</span><span>\uD83D\uDEE1\uFE0F{c.baseDef}</span><span>\uD83D\uDCA8{c.baseSpd}</span>
+   921→   921→              </div>
+   922→   922→            </motion.button>
+   923→   923→          ))}
+   924→   924→        </div>
+   925→   925→      </div>
+   926→   926→    );
+   927→   927→  }
+   928→   928→
+   929→   929→  if (!char) return null;
+   930→   930→  const cl = CLASSES[char.classId];
+   931→   931→  const skills = SKILLS[char.classId] || [];
+   932→   932→
+   933→   933→  // ============================================================
+   934→   934→  // RENDER: PVE Battle
+   935→   935→  // ============================================================
+   936→   936→
+   937→   937→  if (screen === "battle" && battleEnemy) {
+   938→   938→    return (
+   939→   939→      <div className="max-w-lg mx-auto p-4">
+   940→   940→        <div className="flex items-center gap-2 mb-3">
+   941→   941→          <button onClick={() => setScreen("world")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+   942→   942→          <span className="font-bold text-sm">Combate - {ZONES[char.currentZone]?.name}</span>
+   943→   943→        </div>
+   944→   944→
+   945→   945→        {/* Enemy */}
+   946→   946→        <motion.div className={`text-center p-4 rounded-xl bg-card border border-border mb-3 ${battleEnemy.hp <= 0 ? "opacity-40" : ""}`} animate={battleEnemy.hp > 0 ? { x: [0, -3, 3, 0] } : {}} transition={{ duration: 0.3 }}>
+   947→   947→          <span className="text-5xl">{battleEnemy.emoji}</span>
+   948→   948→          <p className="font-bold text-sm mt-1" style={{ color: battleEnemy.color }}>{battleEnemy.name}</p>
+   949→   949→          <div className="w-40 mx-auto mt-2 h-2.5 rounded-full bg-gray-800 overflow-hidden">
+   950→   950→            <div className="h-full transition-all duration-300" style={{ width: `${(battleEnemy.hp / battleEnemy.maxHp) * 100}%`, backgroundColor: battleEnemy.color }} />
+   951→   951→          </div>
+   952→   952→          <p className="text-[10px] text-muted-foreground mt-1">{Math.ceil(battleEnemy.hp)}/{battleEnemy.maxHp} HP</p>
+   953→   953→        </motion.div>
+   954→   954→
+   955→   955→        {/* Player HP/MP */}
+   956→   956→        <div className="flex gap-3 mb-3 text-[11px]">
+   957→   957→          <div className="flex-1 p-2 rounded-lg bg-card border border-border">
+   958→   958→            <div className="flex items-center justify-between mb-1"><span>\u2764\uFE0F HP</span><span>{Math.ceil(battleHp)}/{stats.maxHp}</span></div>
+   959→   959→            <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-red-500 transition-all" style={{ width: `${(battleHp / stats.maxHp) * 100}%` }} /></div>
+   960→   960→          </div>
+   961→   961→          <div className="flex-1 p-2 rounded-lg bg-card border border-border">
+   962→   962→            <div className="flex items-center justify-between mb-1"><span>\uD83D\uDD2E MP</span><span>{Math.ceil(battleMp)}/{stats.maxMp}</span></div>
+   963→   963→            <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-indigo-500 transition-all" style={{ width: `${(battleMp / stats.maxMp) * 100}%` }} /></div>
+   964→   964→          </div>
+   965→   965→        </div>
+   966→   966→
+   967→   967→        {/* Actions */}
+   968→   968→        {!battleOver && (
+   969→   969→          <div className="space-y-2">
+   970→   970→            <motion.button whileTap={{ scale: 0.95 }} disabled={!isPlayerTurn} onClick={pveAttack}
+   971→   971→              className="w-full py-2.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
+   972→   972→              \u2694\uFE0F Ataque Basico
+   973→   973→            </motion.button>
+   974→   974→            <div className="flex gap-2">
+   975→   975→              {skills.map((sk, i) => (
+   976→   976→                <motion.button key={i} whileTap={{ scale: 0.95 }} disabled={!isPlayerTurn || battleMp < sk.mpCost} onClick={() => pveSkill(i)}
+   977→   977→                  className="flex-1 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-xs font-bold disabled:opacity-30">
+   978→   978→                  {sk.emoji} {sk.name} ({sk.mpCost})
+   979→   979→                </motion.button>
+   980→   980→              ))}
+   981→   981→            </div>
+   982→   982→          </div>
+   983→   983→        )}
+   984→   984→
+   985→   985→        {battleOver && (
+   986→   986→          <div className="text-center p-4 rounded-xl bg-card border border-border">
+   987→   987→            <span className="text-4xl">{battleWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+   988→   988→            <p className="font-bold mt-2">{battleWon ? "Vitoria!" : "Derrotado!"}</p>
+   989→   989→            {battleWon && <p className="text-xs text-muted-foreground">+{battleEnemy.xpReward} XP  +{battleEnemy.goldReward} \uD83D\uDCB0</p>}
+   990→   990→            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
+   991→   991→              className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+   992→   992→              Voltar
+   993→   993→            </motion.button>
+   994→   994→          </div>
+   995→   995→        )}
+   996→   996→
+   997→   997→        {/* Battle Log */}
+   998→   998→        <div className="h-20 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 mt-3 text-[11px] text-muted-foreground space-y-0.5">
+   999→   999→          {battleLog.map((l, i) => <p key={i}>{l}</p>)}
+  1000→  1000→          <div ref={battleLogRef} />
+  1001→  1001→        </div>
+  1002→  1002→      </div>
+  1003→  1003→    );
+  1004→  1004→  }
+  1005→  1005→
+  1006→  1006→  // ============================================================
+  1007→  1007→  // RENDER: PVP Battle
+  1008→  1008→  // ============================================================
+  1009→  1009→
+  1010→  1010→  if (screen === "pvpBattle" && pvpOpponent) {
+  1011→  1011→    const oppClass = CLASSES[pvpOpponent.classId];
+  1012→  1012→    return (
+  1013→  1013→      <div className="max-w-lg mx-auto p-4">
+  1014→  1014→        <div className="flex items-center gap-2 mb-3">
+  1015→  1015→          <button onClick={() => setScreen("world")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+  1016→  1016→          <span className="font-bold text-sm">\u2694\uFE0F Duelo PVP</span>
+  1017→  1017→          <span className="ml-auto text-xs text-yellow-400 font-bold">Aposta: {pvpStake} \uD83D\uDCB0</span>
+  1018→  1018→        </div>
+  1019→  1019→
+  1020→  1020→        <div className="grid grid-cols-2 gap-3 mb-3">
+  1021→  1021→          {/* Player side */}
+  1022→  1022→          <div className="text-center p-3 rounded-xl bg-card border border-primary/20">
+  1023→  1023→            <span className="text-3xl">{cl.emoji}</span>
+  1024→  1024→            <p className="font-bold text-xs mt-1" style={{ color: cl.color }}>{char.name}</p>
+  1025→  1025→            <p className="text-[10px] text-muted-foreground">Nv.{char.level}</p>
+  1026→  1026→            <div className="w-full mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
+  1027→  1027→              <div className="h-full bg-green-500 transition-all" style={{ width: `${(pvpHp / stats.maxHp) * 100}%` }} />
+  1028→  1028→            </div>
+  1029→  1029→            <p className="text-[10px] mt-0.5">{Math.ceil(pvpHp)}/{stats.maxHp}</p>
+  1030→  1030→          </div>
+  1031→  1031→          {/* Opponent side */}
+  1032→  1032→          <div className="text-center p-3 rounded-xl bg-card border border-red-500/20">
+  1033→  1033→            <span className="text-3xl">{oppClass.emoji}</span>
+  1034→  1034→            <p className="font-bold text-xs mt-1" style={{ color: oppClass.color }}>{pvpOpponent.name}</p>
+  1035→  1035→            <p className="text-[10px] text-muted-foreground">Nv.{pvpOpponent.level}</p>
+  1036→  1036→            <div className="w-full mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
+  1037→  1037→              <div className="h-full bg-red-500 transition-all" style={{ width: `${(pvpEnemyHp / (oppClass.baseHp + pvpOpponent.level * 12 + 50)) * 100}%` }} />
+  1038→  1038→            </div>
+  1039→  1039→            <p className="text-[10px] mt-0.5">{Math.ceil(pvpEnemyHp)}</p>
+  1040→  1040→          </div>
+  1041→  1041→        </div>
+  1042→  1042→
+  1043→  1043→        {!pvpOver ? (
+  1044→  1044→          <motion.button whileTap={{ scale: 0.95 }} disabled={!pvpTurn} onClick={pvpAttack}
+  1045→  1045→            className="w-full py-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
+  1046→  1046→            \u2694\uFE0F Atacar!
+  1047→  1047→          </motion.button>
+  1048→  1048→        ) : (
+  1049→  1049→          <div className="text-center p-4 rounded-xl bg-card border border-border">
+  1050→  1050→            <span className="text-5xl">{pvpWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+  1051→  1051→            <p className="font-bold text-lg mt-2">{pvpWon ? "Venceste!" : "Perdeste!"}</p>
+  1052→  1052→            <p className="text-sm text-yellow-400">{pvpWon ? `+${pvpStake * 2} \uD83D\uDCB0` : `-${pvpStake} \uD83D\uDCB0`}</p>
+  1053→  1053→            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
+  1054→  1054→              className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+  1055→  1055→              Continuar
+  1056→  1056→            </motion.button>
+  1057→  1057→          </div>
+  1058→  1058→        )}
+  1059→  1059→
+  1060→  1060→        <div className="h-20 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 mt-3 text-[11px] text-muted-foreground space-y-0.5">
+  1061→  1061→          {pvpLog.map((l, i) => <p key={i}>{l}</p>)}
+  1062→  1062→        </div>
+  1063→  1063→      </div>
+  1064→  1064→    );
+  1065→  1065→  }
+  1066→  1066→
+  1067→  1067→  // ============================================================
+  1068→  1068→  // RENDER: World Hub
+  1069→  1069→  // ============================================================
+  1070→  1070→
+  1071→  1071→  const tabs: { id: Tab; label: string; icon: any }[] = [
+  1072→  1072→    { id: "map", label: "Mundo", icon: MapIcon },
+  1073→  1073→    { id: "arena", label: "Arena", icon: Swords },
+  1074→  1074→    { id: "economy", label: "Economia", icon: Coins },
+  1075→  1075→    { id: "shop", label: "Loja", icon: ShoppingBag },
+  1076→  1076→    { id: "chat", label: "Chat", icon: MessageCircle },
+  1077→  1077→    { id: "rank", label: "Ranking", icon: Trophy },
+  1078→  1078→    { id: "profile", label: "Perfil", icon: Shield },
+  1079→  1079→    { id: "market", label: "Mercado", icon: TrendingUp },
+  1080→  1080→  ];
+  1081→  1081→
+  1082→  1082→  return (
+  1083→  1083→    <div className="max-w-lg mx-auto">
+  1084→  1084→      {/* Notification */}
+  1085→  1085→      <AnimatePresence>
+  1086→  1086→        {notification && (
+  1087→  1087→          <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }}
+  1088→  1088→            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-card border border-primary/30 text-sm font-medium shadow-lg">
+  1089→  1089→            {notification}
+  1090→  1090→          </motion.div>
+  1091→  1091→        )}
+  1092→  1092→      </AnimatePresence>
+  1093→  1093→
+  1094→  1094→      {/* Top Bar */}
+  1095→  1095→      <div className="px-3 pt-2 pb-2 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-30">
+  1096→  1096→        <div className="flex items-center gap-1.5 mb-1.5">
+  1097→  1097→          <span className="text-xl sm:text-2xl">{cl.emoji}</span>
+  1098→  1098→          <div className="flex-1 min-w-0">
+  1099→  1099→            <div className="flex items-center gap-2">
+  1100→  1100→              <p className="font-bold text-sm truncate" style={{ color: cl.color }}>{char.name}</p>
+  1101→  1101→              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">Nv.{char.level}</span>
+  1102→  1102→              {onlinePlayers.length > 0 && <span className="flex items-center gap-0.5 text-[10px] text-green-400"><Users className="h-3 w-3" />{onlinePlayers.length}</span>}
+  1103→  1103→            </div>
+  1104→  1104→            <div className="flex gap-3 text-[10px] text-muted-foreground">
+  1105→  1105→              <span>\u2B50{char.totalKills} kills</span>
+  1106→  1106→              <span>\uD83C\uDFC6{char.duelsWon}W</span>
+  1107→  1107→              <span>\uD83D\uDCB5{char.duelsLost}L</span>
+  1108→  1108→            </div>
+  1109→  1109→          </div>
+  1110→  1110→          <div className="text-right">
+  1111→  1111→            <p className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</p>
+  1112→  1112→            <p className="text-[10px] text-muted-foreground">{char.xp}/{xpForLevel(char.level)} XP</p>
+  1113→  1113→          </div>
+  1114→  1114→        </div>
+  1115→  1115→
+  1116→  1116→        {/* Daily Reward */}
+  1117→  1117→        {!dailyCollected && (
+  1118→  1118→          <motion.button whileTap={{ scale: 0.95 }} onClick={collectDaily}
+  1119→  1119→            className="w-full py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold mb-1.5">
+  1120→  1120→            \uD83C\uDF81 Recompensa Diaria - Clica para reclamar!
+  1121→  1121→          </motion.button>
+  1122→  1122→        )}
+  1123→  1123→
+  1124→  1124→        {/* Tabs */}
+  1125→  1125→        <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+  1126→  1126→          {tabs.map(t => (
+  1127→  1127→            <button key={t.id} onClick={() => setTab(t.id)}
+  1128→  1128→              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+  1129→  1129→                tab === t.id ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted"
+  1130→  1130→              }`}>
+  1131→  1131→              <t.icon className="h-3.5 w-3.5" />{t.label}
+  1132→  1132→            </button>
+  1133→  1133→          ))}
+  1134→  1134→        </div>
+  1135→  1135→      </div>
+  1136→  1136→
+  1137→  1137→      {/* Tab Content */}
+  1138→  1138→      <div className="p-3 min-h-[60vh]">
+  1139→  1139→        {/* Event Bonus Banner */}
+  1140→  1140→        {eventBonus && (
+  1141→  1141→          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+  1142→  1142→            className="mb-3 p-2 rounded-lg bg-gradient-to-r from-yellow-500/15 to-amber-500/15 border border-yellow-500/30 text-center">
+  1143→  1143→            <p className="text-xs font-bold text-yellow-400">{eventBonus.label}</p>
+  1144→  1144→          </motion.div>
+  1145→  1145→        )}
+  1146→  1146→
+  1147→  1147→        {/* ---- MAP TAB ---- */}
+  1148→  1148→        {tab === "map" && (
+  1149→  1149→          <div className="space-y-3">
+  1150→  1150→            {/* Auto-Grind Toggle */}
+  1151→  1151→            <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  1152→  1152→              <div className="flex-1">
+  1153→  1153→                <p className="text-xs font-bold">\uD83E\uDD16 Auto-Grind {autoGrind && "\u2705"}</p>
+  1154→  1154→                <p className="text-[10px] text-muted-foreground">Luta automatica na zona actual</p>
+  1155→  1155→                {autoGrind && <p className="text-[10px] text-green-400 mt-0.5">{grindStats.kills} kills | +{grindStats.gold}\uD83D\uDCB0 | +{grindStats.xp}XP | {grindStats.deaths} mortes</p>}
+  1156→  1156→              </div>
+  1157→  1157→              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setAutoGrind(!autoGrind); if (!autoGrind) { setGrindStats({ kills: 0, gold: 0, xp: 0, deaths: 0 }); setGrindLog([]); } }}
+  1158→  1158→                className={`px-4 py-2 rounded-lg text-xs font-bold ${autoGrind ? "bg-red-500/15 border border-red-500/30 text-red-400" : "bg-green-500/15 border border-green-500/30 text-green-400"}`}>
+  1159→  1159→                {autoGrind ? "Parar" : "Iniciar"}
+  1160→  1160→              </motion.button>
+  1161→  1161→            </div>
+  1162→  1162→
+  1163→  1163→            {/* Grind Log */}
+  1164→  1164→            {autoGrind && (
+  1165→  1165→              <div className="h-24 overflow-y-auto rounded-lg bg-card/50 border border-border p-2 text-[10px] text-muted-foreground space-y-0.5">
+  1166→  1166→                {grindLog.length === 0 && <p className="text-center py-4 opacity-50">A iniciar auto-grind...</p>}
+  1167→  1167→                {grindLog.map((l, i) => <p key={i}>{l}</p>)}
+  1168→  1168→                <div ref={grindLogRef} />
+  1169→  1169→              </div>
+  1170→  1170→            )}
+  1171→  1171→
+  1172→  1172→            {/* World Boss */}
+  1173→  1173→            {worldBoss?.isActive && (
+  1174→  1174→              <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 2, repeat: Infinity }}
+  1175→  1175→                className="p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+  1176→  1176→                <div className="flex items-center gap-2 mb-2">
+  1177→  1177→                  <Skull className="h-4 w-4 text-red-400" />
+  1178→  1178→                  <span className="font-bold text-sm text-red-400">BOSS MUNDIAL</span>
+  1179→  1179→                  <span className="ml-auto text-[10px] text-yellow-400">Recompensa: {worldBoss.rewardsPool} \uD83D\uDCB0</span>
+  1180→  1180→                </div>
+  1181→  1181→                <div className="flex items-center gap-3">
+  1182→  1182→                  <span className="text-3xl">{worldBoss.emoji}</span>
+  1183→  1183→                  <div className="flex-1">
+  1184→  1184→                    <p className="text-xs font-bold">{worldBoss.name}</p>
+  1185→  1185→                    <div className="w-full h-2.5 rounded-full bg-gray-800 overflow-hidden mt-1">
+  1186→  1186→                      <div className="h-full bg-red-500 transition-all" style={{ width: `${(worldBoss.hp / worldBoss.maxHp) * 100}%` }} />
+  1187→  1187→                    </div>
+  1188→  1188→                    <p className="text-[10px] text-muted-foreground mt-0.5">{Math.ceil(worldBoss.hp)}/{worldBoss.maxHp} | {Math.floor(bossTimer / 60)}:{String(bossTimer % 60).padStart(2, '0')}</p>
+  1189→  1189→                  </div>
+  1190→  1190→                  <motion.button whileTap={{ scale: 0.9 }} onClick={attackBoss}
+  1191→  1191→                    className="px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold">
+  1192→  1192→                    Atacar!
+  1193→  1193→                  </motion.button>
+  1194→  1194→                </div>
+  1195→  1195→              </motion.div>
+  1196→  1196→            )}
+  1197→  1197→
+  1198→  1198→            {/* Zone selection */}
+  1199→  1199→            {ZONES.map((zone, zi) => {
+  1200→  1200→              const unlocked = char.level >= zone.minLevel;
+  1201→  1201→              const isCurrent = zi === char.currentZone;
+  1202→  1202→              return (
+  1203→  1203→                <div key={zi}>
+  1204→  1204→                  <div className={`flex items-center gap-2 mb-2 ${unlocked ? "" : "opacity-40"}`}>
+  1205→  1205→                    <span className="text-lg">{zone.emoji}</span>
+  1206→  1206→                    <span className="font-bold text-xs" style={{ color: zone.color }}>{zone.name}</span>
+  1207→  1207→                    {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+  1208→  1208→                    <span className="ml-auto text-[10px] text-muted-foreground">Nv.{zone.minLevel}+</span>
+  1209→  1209→                    <button onClick={() => unlocked && updateChar(c => ({ ...c, currentZone: zi }))}
+  1210→  1210→                      className={`text-[10px] px-2 py-0.5 rounded-full ${isCurrent ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}>
+  1211→  1211→                      {isCurrent ? "Aqui" : "Ir"}
+  1212→  1212→                    </button>
+  1213→  1213→                  </div>
+  1214→  1214→                  {unlocked && isCurrent && (
+  1215→  1215→                    <div className="grid grid-cols-3 gap-2 mb-2">
+  1216→  1216→                      {zone.enemies.map((enemy, ei) => (
+  1217→  1217→                        <motion.button key={ei} whileTap={{ scale: 0.95 }} onClick={() => startPVE(zi, ei)}
+  1218→  1218→                          className="p-2.5 rounded-xl bg-card border border-border hover:border-primary/40 text-center transition-all">
+  1219→  1219→                          <span className="text-2xl">{enemy.emoji}</span>
+  1220→  1220→                          <p className="text-[10px] font-medium mt-1 truncate">{enemy.name}</p>
+  1221→  1221→                          <p className="text-[9px] text-muted-foreground">+{enemy.xp}XP +{enemy.gold}\uD83D\uDCB0</p>
+  1222→  1222→                        </motion.button>
+  1223→  1223→                      ))}
+  1224→  1224→                    </div>
+  1225→  1225→                  )}
+  1226→  1226→                </div>
+  1227→  1227→              );
+  1228→  1228→            })}
+  1229→  1229→          </div>
+  1230→  1230→        )}
+  1231→  1231→
+  1232→  1232→        {/* ---- ARENA TAB ---- */}
+  1233→  1233→        {tab === "arena" && (
+  1234→  1234→          <div className="space-y-3">
+  1235→  1235→            <div className="flex items-center gap-2 mb-2">
+  1236→  1236→              <Swords className="h-4 w-4 text-red-400" />
+  1237→  1237→              <span className="font-bold text-sm">Arena PVP</span>
+  1238→  1238→              <span className="ml-auto text-[10px] text-muted-foreground">{onlinePlayers.length} jogadores online</span>
+  1239→  1239→            </div>
+  1240→  1240→
+  1241→  1241→            {/* Challenge specific player */}
+  1242→  1242→            {selectedOpponent ? (
+  1243→  1243→              <div className="p-3 rounded-xl bg-card border border-border">
+  1244→  1244→                <div className="flex items-center gap-2 mb-3">
+  1245→  1245→                  <span className="text-2xl">{CLASSES[selectedOpponent.classId].emoji}</span>
+  1246→  1246→                  <div>
+  1247→  1247→                    <p className="font-bold text-sm" style={{ color: CLASSES[selectedOpponent.classId].color }}>{selectedOpponent.name}</p>
+  1248→  1248→                    <p className="text-[10px] text-muted-foreground">Nv.{selectedOpponent.level} | {selectedOpponent.gold} \uD83D\uDCB0</p>
+  1249→  1249→                  </div>
+  1250→  1250→                </div>
+  1251→  1251→                <div className="mb-3">
+  1252→  1252→                  <label className="text-[10px] text-muted-foreground block mb-1">Aposta (\uD83D\uDCB0):</label>
+  1253→  1253→                  <input type="number" value={stakeInput} onChange={e => setStakeInput(e.target.value)}
+  1254→  1254→                    placeholder="100" min="1" max={char.gold}
+  1255→  1255→                    className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  1256→  1256→                </div>
+  1257→  1257→                <div className="flex gap-2">
+  1258→  1258→                  <motion.button whileTap={{ scale: 0.95 }} onClick={() => { const s = parseInt(stakeInput) || 0; challengePlayer(selectedOpponent, s); setSelectedOpponent(null); }}
+  1259→  1259→                    className="flex-1 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold">
+  1260→  1260→                    \u2694\uFE0F Desafiar!
+  1261→  1261→                  </motion.button>
+  1262→  1262→                  <button onClick={() => setSelectedOpponent(null)} className="px-4 py-2 rounded-lg bg-muted text-sm">Cancelar</button>
+  1263→  1263→                </div>
+  1264→  1264→              </div>
+  1265→  1265→            ) : (
+  1266→  1266→              <>
+  1267→  1267→                <p className="text-[10px] text-muted-foreground mb-2">Seleciona um jogador para desafiar. O vencedor fica com a aposta!</p>
+  1268→  1268→                <div className="space-y-2">
+  1269→  1269→                  {onlinePlayers.length === 0 && (
+  1270→  1270→                    <div className="text-center py-8">
+  1271→  1271→                      <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  1272→  1272→                      <p className="text-xs text-muted-foreground">Nenhum jogador online agora</p>
+  1273→  1273→                      <p className="text-[10px] text-muted-foreground/60">Convida amigos para jogar!</p>
+  1274→  1274→                    </div>
+  1275→  1275→                  )}
+  1276→  1276→                  {onlinePlayers.map(p => (
+  1277→  1277→                    <motion.button key={p.charId} whileTap={{ scale: 0.98 }} onClick={() => setSelectedOpponent(p)}
+  1278→  1278→                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all">
+  1279→  1279→                      <span className="text-xl">{CLASSES[p.classId].emoji}</span>
+  1280→  1280→                      <div className="flex-1 text-left">
+  1281→  1281→                        <p className="text-sm font-bold" style={{ color: CLASSES[p.classId].color }}>{p.name}</p>
+  1282→  1282→                        <p className="text-[10px] text-muted-foreground">Nv.{p.level} | {ZONES[p.zone]?.emoji || "\uD83C\uDF0D"} {ZONES[p.zone]?.name || "Desconhecido"}</p>
+  1283→  1283→                      </div>
+  1284→  1284→                      <div className="text-right">
+  1285→  1285→                        <p className="text-xs font-bold text-yellow-400">{p.gold} \uD83D\uDCB0</p>
+  1286→  1286→                        <div className="w-2 h-2 rounded-full bg-green-400 ml-auto mt-1" />
+  1287→  1287→                      </div>
+  1288→  1288→                    </motion.button>
+  1289→  1289→                  ))}
+  1290→  1290→                </div>
+  1291→  1291→              </>
+  1292→  1292→            )}
+  1293→  1293→
+  1294→  1294→            {/* Quick PVP (random opponent) */}
+  1295→  1295→            {onlinePlayers.length > 0 && !selectedOpponent && (
+  1296→  1296→              <motion.button whileTap={{ scale: 0.95 }} onClick={() => {
+  1297→  1297→                const random = onlinePlayers[Math.floor(Math.random() * onlinePlayers.length)];
+  1298→  1298→                const stake = Math.min(50, char.gold);
+  1299→  1299→                if (stake > 0) challengePlayer(random, stake);
+  1300→  1300→              }} className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 text-sm font-bold">
+  1301→  1301→                \uD83C\uDFB2 Duelo Rapido (50 \uD83D\uDCB0)
+  1302→  1302→              </motion.button>
+  1303→  1303→            )}
+  1304→  1304→          </div>
+  1305→  1305→        )}
+  1306→  1306→
+  1307→  1307→        {/* ---- ECONOMY TAB ---- */}
+  1308→  1308→        {tab === "economy" && (
+  1309→  1309→          <div className="space-y-4">
+  1310→  1310→            <div className="flex items-center gap-2">
+  1311→  1311→              <Coins className="h-4 w-4 text-yellow-400" />
+  1312→  1312→              <span className="font-bold text-sm">Economia P2P</span>
+  1313→  1313→            </div>
+  1314→  1314→
+  1315→  1315→            {/* Balance */}
+  1316→  1316→            <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-center">
+  1317→  1317→              <p className="text-[10px] text-muted-foreground">Teu saldo</p>
+  1318→  1318→              <p className="text-2xl font-bold text-yellow-400">{char.gold} <span className="text-sm">\uD83D\uDCB0</span></p>
+  1319→  1319→              <p className="text-[10px] text-muted-foreground mt-1">Ganho total: {char.totalEarned} \uD83D\uDCB0</p>
+  1320→  1320→            </div>
+  1321→  1321→
+  1322→  1322→            {/* P2P Transfer */}
+  1323→  1323→            <div className="p-3 rounded-xl bg-card border border-border">
+  1324→  1324→              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Enviar Ouro (P2P)</p>
+  1325→  1325→              <div className="space-y-2">
+  1326→  1326→                <select value={transferTarget} onChange={e => setTransferTarget(e.target.value)}
+  1327→  1327→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
+  1328→  1328→                  <option value="">Seleciona jogador...</option>
+  1329→  1329→                  {onlinePlayers.map(p => (
+  1330→  1330→                    <option key={p.charId} value={`${p.charId}|${p.name}`}>{CLASSES[p.classId].emoji} {p.name} (Nv.{p.level})</option>
+  1331→  1331→                  ))}
+  1332→  1332→                </select>
+  1333→  1333→                <input type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)}
+  1334→  1334→                  placeholder="Quantidade" min="1" max={char.gold}
+  1335→  1335→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  1336→  1336→                <motion.button whileTap={{ scale: 0.95 }}
+  1337→  1337→                  disabled={!transferTarget || !transferAmount || parseInt(transferAmount) <= 0}
+  1338→  1338→                  onClick={() => {
+  1339→  1339→                    const [tid, tname] = transferTarget.split("|");
+  1340→  1340→                    sendGold(tid, tname, parseInt(transferAmount));
+  1341→  1341→                    setTransferTarget(""); setTransferAmount("");
+  1342→  1342→                  }}
+  1343→  1343→                  className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
+  1344→  1344→                  Enviar \uD83D\uDCE8
+  1345→  1345→                </motion.button>
+  1346→  1346→              </div>
+  1347→  1347→            </div>
+  1348→  1348→
+  1349→  1349→            {/* Economy info */}
+  1350→  1350→            <div className="p-3 rounded-xl bg-card border border-border">
+  1351→  1351→              <p className="text-xs font-bold mb-2">\uD83D\uDCCA Como ganhar ouro</p>
+  1352→  1352→              <div className="space-y-1.5 text-[11px] text-muted-foreground">
+  1353→  1353→                <p>\u2694\uFE0F <b>Derrota monstros</b> nos mapas - ganha XP e ouro</p>
+  1354→  1354→                <p>\uD83C\uDFC6 <b> Duelos PVP</b> - aposta ouro, vence e fica com tudo</p>
+  1355→  1355→                <p>\uD83D\uDCB0 <b>Recompensa diaria</b> - clica todos os dias</p>
+  1356→  1356→                <p>\uD83E\uDDD1\u200D\uD83E\uDD1D <b>Transferencias P2P</b> - envia e recebe de outros jogadores</p>
+  1357→  1357→                <p>\uD83C\uDF81 <b>World Boss</b> - contribui para derrotar e ganha recompensas</p>
+  1358→  1358→              </div>
+  1359→  1359→            </div>
+  1360→  1360→          </div>
+  1361→  1361→        )}
+  1362→  1362→
+  1363→  1363→        {/* ---- SHOP TAB ---- */}
+  1364→  1364→        {tab === "shop" && (
+  1365→  1365→          <div className="space-y-3">
+  1366→  1366→            <div className="flex items-center justify-between">
+  1367→  1367→              <div className="flex items-center gap-2">
+  1368→  1368→                <ShoppingBag className="h-4 w-4 text-yellow-400" />
+  1369→  1369→                <span className="font-bold text-sm">Loja</span>
+  1370→  1370→              </div>
+  1371→  1371→              <span className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+  1372→  1372→            </div>
+  1373→  1373→
+  1374→  1374→            {/* Current equipment */}
+  1375→  1375→            <div className="flex gap-2">
+  1376→  1376→              {char.equipment.map((eq, i) => (
+  1377→  1377→                <div key={i} className="flex-1 p-2 rounded-lg bg-primary/5 border border-primary/20 text-center">
+  1378→  1378→                  <p className="text-[9px] text-muted-foreground">{["Arma", "Armadura", "Acessorio"][i]}</p>
+  1379→  1379→                  {eq ? <><span className="text-lg">{eq.icon}</span><p className="text-[9px] font-medium truncate">{eq.name}</p></> : <span className="text-xs text-muted-foreground">Vazio</span>}
+  1380→  1380→                </div>
+  1381→  1381→              ))}
+  1382→  1382→            </div>
+  1383→  1383→
+  1384→  1384→            {/* Items for sale */}
+  1385→  1385→            {SHOP_ITEMS.map(item => {
+  1386→  1386→              const owned = char.inventory.some(i => i.id === item.id) || char.equipment.some(e => e?.id === item.id);
+  1387→  1387→              return (
+  1388→  1388→                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  1389→  1389→                  <span className="text-2xl">{item.icon}</span>
+  1390→  1390→                  <div className="flex-1 min-w-0">
+  1391→  1391→                    <p className="text-sm font-medium truncate">{item.name}</p>
+  1392→  1392→                    <p className="text-[10px] text-muted-foreground">
+  1393→  1393→                      {item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.spd ? `\uD83D\uDCA8+${item.spd} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp} ` : ""}{item.mp ? `\uD83D\uDD2E+${item.mp}` : ""}
+  1394→  1394→                    </p>
+  1395→  1395→                  </div>
+  1396→  1396→                  <motion.button whileTap={{ scale: 0.9 }} disabled={owned || char.gold < item.price} onClick={() => buyItem(item)}
+  1397→  1397→                    className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold disabled:opacity-30">
+  1398→  1398→                    {owned ? "\u2705" : `${item.price} \uD83D\uDCB0`}
+  1399→  1399→                  </motion.button>
+  1400→  1400→                </div>
+  1401→  1401→              );
+  1402→  1402→            })}
+  1403→  1403→
+  1404→  1404→            {/* Inventory */}
+  1405→  1405→            {char.inventory.length > 0 && (
+  1406→  1406→              <div className="mt-4">
+  1407→  1407→                <p className="text-xs font-bold mb-2">\uD83D\uDCBC Mochila ({char.inventory.length})</p>
+  1408→  1408→                <div className="space-y-2">
+  1409→  1409→                  {char.inventory.map((item, i) => (
+  1410→  1410→                    <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-card border border-border">
+  1411→  1411→                      <span className="text-xl">{item.icon}</span>
+  1412→  1412→                      <div className="flex-1 min-w-0">
+  1413→  1413→                        <p className="text-xs font-medium truncate">{item.name}</p>
+  1414→  1414→                        <p className="text-[9px] text-muted-foreground">{item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp}` : ""}</p>
+  1415→  1415→                      </div>
+  1416→  1416→                      <button onClick={() => equipItem(i)} className="px-2 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold">Equipar</button>
+  1417→  1417→                      <button onClick={() => sellItem(i)} className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold">Vender</button>
+  1418→  1418→                    </div>
+  1419→  1419→                  ))}
+  1420→  1420→                </div>
+  1421→  1421→              </div>
+  1422→  1422→            )}
+  1423→  1423→          </div>
+  1424→  1424→        )}
+  1425→  1425→
+  1426→  1426→        {/* ---- CHAT TAB ---- */}
+  1427→  1427→        {tab === "chat" && (
+  1428→  1428→          <div className="flex flex-col h-[55vh]">
+  1429→  1429→            <div className="flex items-center gap-2 mb-2">
+  1430→  1430→              <MessageCircle className="h-4 w-4 text-blue-400" />
+  1431→  1431→              <span className="font-bold text-sm">Chat Global</span>
+  1432→  1432→              <span className="ml-auto text-[10px] text-muted-foreground">{onlinePlayers.length + 1} online</span>
+  1433→  1433→            </div>
+  1434→  1434→
+  1435→  1435→            <div className="flex-1 overflow-y-auto rounded-xl bg-card border border-border p-3 space-y-2">
+  1436→  1436→              {chatMessages.length === 0 && <p className="text-xs text-muted-foreground text-center py-8">Nenhuma mensagem ainda. Sê o primeiro!</p>}
+  1437→  1437→              {chatMessages.map(msg => {
+  1438→  1438→                const isMe = msg.charName === char.name;
+  1439→  1439→                return (
+  1440→  1440→                  <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+  1441→  1441→                    <span className="text-lg flex-shrink-0">{CLASSES[msg.classId]?.emoji || "\uD83D\uDC64"}</span>
+  1442→  1442→                    <div className={`max-w-[75%] ${isMe ? "text-right" : ""}`}>
+  1443→  1443→                      <p className="text-[10px] font-bold" style={{ color: CLASSES[msg.classId]?.color }}>{msg.charName}</p>
+  1444→  1444→                      <p className="text-xs bg-muted rounded-lg px-2.5 py-1.5 inline-block text-left">{msg.message}</p>
+  1445→  1445→                      <p className="text-[9px] text-muted-foreground/60 mt-0.5">{timeAgo(msg.time)}</p>
+  1446→  1446→                    </div>
+  1447→  1447→                  </div>
+  1448→  1448→                );
+  1449→  1449→              })}
+  1450→  1450→              <div ref={chatEndRef} />
+  1451→  1451→            </div>
+  1452→  1452→
+  1453→  1453→            <div className="flex gap-2 mt-2">
+  1454→  1454→              <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()}
+  1455→  1455→                placeholder="Mensagem..." maxLength={200}
+  1456→  1456→                className="flex-1 px-3 py-2 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary" />
+  1457→  1457→              <motion.button whileTap={{ scale: 0.9 }} onClick={sendChat} disabled={!chatInput.trim()}
+  1458→  1458→                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-30">
+  1459→  1459→                <Send className="h-4 w-4" />
+  1460→  1460→              </motion.button>
+  1461→  1461→            </div>
+  1462→  1462→          </div>
+  1463→  1463→        )}
+  1464→  1464→
+  1465→  1465→        {/* ---- RANK TAB ---- */}
+  1466→  1466→        {tab === "rank" && (
+  1467→  1467→          <div className="space-y-3">
+  1468→  1468→            <div className="flex items-center gap-2">
+  1469→  1469→              <Trophy className="h-4 w-4 text-yellow-400" />
+  1470→  1470→              <span className="font-bold text-sm">Ranking Global</span>
+  1471→  1471→            </div>
+  1472→  1472→
+  1473→  1473→            {/* Build ranking from online + leaderboard data */}
+  1474→  1474→            {[...leaderboard, ...onlinePlayers.map(p => ({ charId: p.charId, name: p.name, classId: p.classId, level: p.level, gold: p.gold, kills: 0, wins: 0 }))]
+  1475→  1475→              .reduce((acc, entry) => { if (!acc.find(e => e.charId === entry.charId)) acc.push(entry); return acc; }, [] as LeaderboardEntry[])
+  1476→  1476→              .sort((a, b) => b.level - a.level || b.gold - a.gold)
+  1477→  1477→              .slice(0, 20)
+  1478→  1478→              .map((entry, i) => {
+  1479→  1479→                const isMe = entry.charId === guestId || entry.name === char.name;
+  1480→  1480→                return (
+  1481→  1481→                  <div key={entry.charId + i} className={`flex items-center gap-3 p-2.5 rounded-xl ${isMe ? "bg-primary/5 border border-primary/20" : "bg-card border border-border"}`}>
+  1482→  1482→                    <span className={`w-6 text-center font-bold text-sm ${i < 3 ? "text-yellow-400" : "text-muted-foreground"}`}>{i < 3 ? ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"][i] : i + 1}</span>
+  1483→  1483→                    <span className="text-xl">{CLASSES[entry.classId]?.emoji || "\uD83D\uDC64"}</span>
+  1484→  1484→                    <div className="flex-1">
+  1485→  1485→                      <p className="text-sm font-bold" style={{ color: isMe ? cl.color : CLASSES[entry.classId]?.color }}>{entry.name} {isMe && "(tu)"}</p>
+  1486→  1486→                    </div>
+  1487→  1487→                    <div className="text-right text-[10px]">
+  1488→  1488→                      <p className="font-bold">Nv.{entry.level}</p>
+  1489→  1489→                      <p className="text-muted-foreground">{entry.gold} \uD83D\uDCB0</p>
+  1490→  1490→                    </div>
+  1491→  1491→                  </div>
+  1492→  1492→                );
+  1493→  1493→              })}
+  1494→  1494→
+  1495→  1495→            {leaderboard.length === 0 && onlinePlayers.length === 0 && (
+  1496→  1496→              <div className="text-center py-8">
+  1497→  1497→                <Trophy className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  1498→  1498→                <p className="text-xs text-muted-foreground">Nenhum jogador no ranking ainda</p>
+  1499→  1499→              </div>
+  1500→  1500→            )}
+  1501→  1501→          </div>
+  1502→  1502→        )}
+  1503→  1503→
+  1504→  1504→        {/* ---- PROFILE TAB ---- */}
+  1505→  1505→        {tab === "profile" && (
+  1506→  1506→          <div className="space-y-4">
+  1507→  1507→            <div className="text-center">
+  1508→  1508→              <span className="text-5xl">{cl.emoji}</span>
+  1509→  1509→              <p className="font-bold text-lg mt-2" style={{ color: cl.color }}>{char.name}</p>
+  1510→  1510→              <p className="text-xs text-muted-foreground">{cl.name} - Nivel {char.level}</p>
+  1511→  1511→              <p className="text-[10px] text-muted-foreground">XP: {char.xp}/{xpForLevel(char.level)}</p>
+  1512→  1512→              <div className="w-40 mx-auto mt-1 h-2 rounded-full bg-gray-800 overflow-hidden">
+  1513→  1513→                <div className="h-full bg-blue-500" style={{ width: `${(char.xp / xpForLevel(char.level)) * 100}%` }} />
+  1514→  1514→              </div>
+  1515→  1515→            </div>
+  1516→  1516→
+  1517→  1517→            {/* Stats */}
+  1518→  1518→            <div className="grid grid-cols-3 gap-2">
+  1519→  1519→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1520→  1520→                <p className="text-[10px] text-muted-foreground">\u2764\uFE0F HP</p>
+  1521→  1521→                <p className="font-bold text-sm text-red-400">{stats.maxHp}</p>
+  1522→  1522→              </div>
+  1523→  1523→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1524→  1524→                <p className="text-[10px] text-muted-foreground">\u2694\uFE0F ATK</p>
+  1525→  1525→                <p className="font-bold text-sm text-orange-400">{stats.atk}</p>
+  1526→  1526→              </div>
+  1527→  1527→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1528→  1528→                <p className="text-[10px] text-muted-foreground">\uD83D\uDEE1\uFE0F DEF</p>
+  1529→  1529→                <p className="font-bold text-sm text-blue-400">{stats.def}</p>
+  1530→  1530→              </div>
+  1531→  1531→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1532→  1532→                <p className="text-[10px] text-muted-foreground">\uD83D\uDCA8 SPD</p>
+  1533→  1533→                <p className="font-bold text-sm text-green-400">{stats.spd}</p>
+  1534→  1534→              </div>
+  1535→  1535→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1536→  1536→                <p className="text-[10px] text-muted-foreground">\uD83D\uDD2E MP</p>
+  1537→  1537→                <p className="font-bold text-sm text-indigo-400">{stats.maxMp}</p>
+  1538→  1538→              </div>
+  1539→  1539→              <div className="p-2 rounded-lg bg-card border border-border text-center">
+  1540→  1540→                <p className="text-[10px] text-muted-foreground">\uD83D\uDCB0 Gold</p>
+  1541→  1541→                <p className="font-bold text-sm text-yellow-400">{char.gold}</p>
+  1542→  1542→              </div>
+  1543→  1543→            </div>
+  1544→  1544→
+  1545→  1545→            {/* Record */}
+  1546→  1546→            <div className="grid grid-cols-2 gap-2">
+  1547→  1547→              <div className="p-3 rounded-lg bg-card border border-border">
+  1548→  1548→                <p className="text-[10px] text-muted-foreground">Vitorias PVP</p>
+  1549→  1549→                <p className="text-xl font-bold text-green-400">{char.duelsWon}</p>
+  1550→  1550→              </div>
+  1551→  1551→              <div className="p-3 rounded-lg bg-card border border-border">
+  1552→  1552→                <p className="text-[10px] text-muted-foreground">Derrotas PVP</p>
+  1553→  1553→                <p className="text-xl font-bold text-red-400">{char.duelsLost}</p>
+  1554→  1554→              </div>
+  1555→  1555→              <div className="p-3 rounded-lg bg-card border border-border">
+  1556→  1556→                <p className="text-[10px] text-muted-foreground">Monstros Mortos</p>
+  1557→  1557→                <p className="text-xl font-bold text-orange-400">{char.totalKills}</p>
+  1558→  1558→              </div>
+  1559→  1559→              <div className="p-3 rounded-lg bg-card border border-border">
+  1560→  1560→                <p className="text-[10px] text-muted-foreground">Ganho Total</p>
+  1561→  1561→                <p className="text-xl font-bold text-yellow-400">{char.totalEarned}</p>
+  1562→  1562→              </div>
+  1563→  1563→            </div>
+  1564→  1564→
+  1565→  1565→            {/* Equipment detail */}
+  1566→  1566→            <div className="p-3 rounded-xl bg-card border border-border">
+  1567→  1567→              <p className="text-xs font-bold mb-2">Equipamento</p>
+  1568→  1568→              <div className="space-y-2">
+  1569→  1569→                {char.equipment.map((eq, i) => (
+  1570→  1570→                  <div key={i} className="flex items-center gap-2">
+  1571→  1571→                    <span className="text-xs text-muted-foreground w-16">{["Arma", "Armadura", "Acessorio"][i]}</span>
+  1572→  1572→                    {eq ? <><span className="text-lg">{eq.icon}</span><span className="text-xs font-medium">{eq.name}</span></> : <span className="text-xs text-muted-foreground">--</span>}
+  1573→  1573→                  </div>
+  1574→  1574→                ))}
+  1575→  1575→              </div>
+  1576→  1576→            </div>
+  1577→  1577→
+  1578→  1578→            {/* Actions */}
+  1579→  1579→            <div className="flex gap-2">
+  1580→  1580→              <motion.button whileTap={{ scale: 0.95 }} onClick={deleteCharacter}
+  1581→  1581→                className="flex-1 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold">
+  1582→  1582→                Apagar Personagem
+  1583→  1583→              </motion.button>
+  1584→  1584→            </div>
+  1585→  1585→          </div>
+  1586→  1586→        )}
+  1587→  1587→
+  1588→  1588→        {/* ---- MARKET TAB ---- */}
+  1589→  1589→        {tab === "market" && (
+  1590→  1590→          <div className="space-y-4">
+  1591→  1591→            <div className="flex items-center gap-2">
+  1592→  1592→              <TrendingUp className="h-4 w-4 text-green-400" />
+  1593→  1593→              <span className="font-bold text-sm">Mercado P2P</span>
+  1594→  1594→              <span className="ml-auto text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+  1595→  1595→            </div>
+  1596→  1596→
+  1597→  1597→            {/* Sell item */}
+  1598→  1598→            <div className="p-3 rounded-xl bg-card border border-border">
+  1599→  1599→              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Vender Item</p>
+  1600→  1600→              <div className="space-y-2">
+  1601→  1601→                <select value={marketSellItem} onChange={e => setMarketSellItem(e.target.value)}
+  1602→  1602→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
+  1603→  1603→                  <option value="">Seleciona item da mochila...</option>
+  1604→  1604→                  {char.inventory.map((item, i) => (
+  1605→  1605→                    <option key={i} value={`${i}`}>{item.icon} {item.name}</option>
+  1606→  1606→                  ))}
+  1607→  1607→                </select>
+  1608→  1608→                <input type="number" value={marketSellPrice} onChange={e => setMarketSellPrice(e.target.value)}
+  1609→  1609→                  placeholder="Preco" min="1"
+  1610→  1610→                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
+  1611→  1611→                <motion.button whileTap={{ scale: 0.95 }}
+  1612→  1612→                  disabled={!marketSellItem || !marketSellPrice || parseInt(marketSellPrice) <= 0}
+  1613→  1613→                  onClick={() => {
+  1614→  1614→                    const idx = parseInt(marketSellItem);
+  1615→  1615→                    const item = char.inventory[idx];
+  1616→  1616→                    if (!item) return;
+  1617→  1617→                    const price = parseInt(marketSellPrice);
+  1618→  1618→                    const listing = { id: genId(), sellerId: guestId, sellerName: char.name, item: { ...item }, price, time: new Date().toISOString() };
+  1619→  1619→                    setMarketListings(prev => [...prev, listing]);
+  1620→  1620→                    updateChar(c => { const inv = [...c.inventory]; inv.splice(idx, 1); return { ...c, inventory: inv }; });
+  1621→  1621→                    setMarketSellItem(""); setMarketSellPrice("");
+  1622→  1622→                    notify(`Item listado por ${price} \uD83D\uDCB0`);
+  1623→  1623→                  }}
+  1624→  1624→                  className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
+  1625→  1625→                  Listar no Mercado
+  1626→  1626→                </motion.button>
+  1627→  1627→              </div>
+  1628→  1628→            </div>
+  1629→  1629→
+  1630→  1630→            {/* Listings */}
+  1631→  1631→            <p className="text-xs font-bold">\uD83D\uDCCA Itens a Venda ({marketListings.length})</p>
+  1632→  1632→            {marketListings.length === 0 && (
+  1633→  1633→              <div className="text-center py-8">
+  1634→  1634→                <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+  1635→  1635→                <p className="text-xs text-muted-foreground">Nenhum item listado ainda</p>
+  1636→  1636→                <p className="text-[10px] text-muted-foreground/60">Vende itens da tua mochila!</p>
+  1637→  1637→              </div>
+  1638→  1638→            )}
+  1639→  1639→            <div className="space-y-2">
+  1640→  1640→              {marketListings.map(listing => (
+  1641→  1641→                <div key={listing.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+  1642→  1642→                  <span className="text-2xl">{listing.item.icon}</span>
+  1643→  1643→                  <div className="flex-1 min-w-0">
+  1644→  1644→                    <p className="text-sm font-medium truncate">{listing.item.name}</p>
+  1645→  1645→                    <p className="text-[10px] text-muted-foreground">
+  1646→  1646→                      {listing.item.atk ? `\u2694\uFE0F+${listing.item.atk} ` : ""}{listing.item.def ? `\uD83D\uDEE1\uFE0F+${listing.item.def} ` : ""}{listing.item.hp ? `\u2764\uFE0F+${listing.item.hp}` : ""}
+  1647→  1647→                    </p>
+  1648→  1648→                    <p className="text-[9px] text-muted-foreground">por {listing.sellerName}</p>
+  1649→  1649→                  </div>
+  1650→  1650→                  <div className="text-right">
+  1651→  1651→                    <p className="text-sm font-bold text-yellow-400">{listing.price} \uD83D\uDCB0</p>
+  1652→  1652→                    {listing.sellerId !== guestId ? (
+  1653→  1653→                      <motion.button whileTap={{ scale: 0.9 }}
+  1654→  1654→                        disabled={char.gold < listing.price}
+  1655→  1655→                        onClick={() => {
+  1656→  1656→                          updateChar(c => ({ ...c, gold: c.gold - listing.price, inventory: [...c.inventory, { ...listing.item }] }));
+  1657→  1657→                          setMarketListings(prev => prev.filter(l => l.id !== listing.id));
+  1658→  1658→                          notify(`\u2705 Compraste {listing.item.name}!`);
+  1659→  1659→                          dbSendTransfer(guestId, char!.name, listing.sellerId, listing.sellerName, listing.price, `Mercado: ${listing.item.name}`);
+  1660→  1660→                        }}
+  1661→  1661→                        className="mt-1 px-3 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-[10px] font-bold disabled:opacity-30">
+  1662→  1662→                        Comprar
+  1663→  1663→                      </motion.button>
+  1664→  1664→                    ) : (
+  1665→  1665→                      <button onClick={() => {
+  1666→  1666→                        updateChar(c => ({ ...c, inventory: [...c.inventory, { ...listing.item }] }));
+  1667→  1667→                        setMarketListings(prev => prev.filter(l => l.id !== listing.id));
+  1668→  1668→                        notify("Item cancelado do mercado");
+  1669→  1669→                      }} className="mt-1 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-[10px] font-bold">
+  1670→  1670→                        Cancelar
+  1671→  1671→                      </button>
+  1672→  1672→                    )}
+  1673→  1673→                  </div>
+  1674→  1674→                </div>
+  1675→  1675→              ))}
+  1676→  1676→            </div>
+  1677→  1677→          </div>
+  1678→  1678→        )}
+  1679→  1679→      </div>
+  1680→  1680→    </div>
+  1681→  1681→  );
+  1682→  1682→}
+  1683→  1683→

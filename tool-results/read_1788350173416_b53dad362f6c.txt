@@ -1,0 +1,831 @@
+     1→import { useState, useEffect } from "react";
+     2→import { motion } from "framer-motion";
+     3→import { Settings, Clock, Globe, Bell, Shield, Save, Loader2, Eye, EyeOff, Megaphone, CreditCard, Smartphone, Wallet } from "lucide-react";
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+     5→import { Input } from "@/components/ui/input";
+     6→import { Label } from "@/components/ui/label";
+     7→import { Button } from "@/components/ui/button";
+     8→import { Switch } from "@/components/ui/switch";
+     9→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    10→import { Textarea } from "@/components/ui/textarea";
+    11→import { Badge } from "@/components/ui/badge";
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    13→import { supabase as _supabase } from "@/integrations/supabase/client";
+    14→const supabase: any = _supabase;
+    15→import { logAudit } from "@/lib/audit";
+    16→import { toast } from "@/hooks/use-toast";
+    17→
+    18→import { Palette } from "lucide-react";
+    19→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+    20→
+    21→export default function AdminSettings() {
+    22→  const { rt, region, reload } = useRegionalTheme();
+    23→  const [themeConfig, setThemeConfig] = useState({
+    24→    primary: "#9b87f5",
+    25→    secondary: "#7E69AB",
+    26→    accent: "#F2FCE2",
+    27→    tagline: "",
+    28→    logo_url: ""
+    29→  });
+    30→
+    31→  useEffect(() => {
+    32→    if (region) {
+    33→      setThemeConfig({
+    34→        primary: (region.theme_colors as any)?.primary || "#9b87f5",
+    35→        secondary: (region.theme_colors as any)?.secondary || "#7E69AB",
+    36→        accent: (region.theme_colors as any)?.accent || "#F2FCE2",
+    37→        tagline: region.tagline || "",
+    38→        logo_url: region.logo_url || ""
+    39→      });
+    40→    }
+    41→  }, [region]);
+    42→
+    43→  const handleSaveTheme = async () => {
+    44→    try {
+    45→      const { error } = await supabase
+    46→        .from("regions")
+    47→        .update({
+    48→          theme_colors: {
+    49→            primary: themeConfig.primary,
+    50→            secondary: themeConfig.secondary,
+    51→            accent: themeConfig.accent
+    52→          },
+    53→          tagline: themeConfig.tagline,
+    54→          logo_url: themeConfig.logo_url
+    55→        })
+    56→        .eq("id", region?.id);
+    57→
+    58→      if (error) throw error;
+    59→      toast({ title: "Identidade visual atualizada!" });
+    60→      reload();
+    61→    } catch (err: any) {
+    62→      toast({ title: "Erro ao guardar", description: err.message, variant: "destructive" });
+    63→    }
+    64→  };
+    65→
+    66→  const [saving, setSaving] = useState(false);
+    67→  const [loading, setLoading] = useState(true);
+    68→  const [featuredRaffleId, setFeaturedRaffleId] = useState("");
+    69→  const [countdownEnabled, setCountdownEnabled] = useState(false);
+    70→  const [raffles, setRaffles] = useState<any[]>([]);
+    71→  const [general, setGeneral] = useState({
+    72→    platformName: "Bateu",
+    73→    platformTagline: "Sorteios que inspiram",
+    74→    supportEmail: "suporte@bateu.co.mz",
+    75→  });
+    76→  const [business, setBusiness] = useState({
+    77→    maxTicketsPerUser: 10,
+    78→    commissionRate: 5,
+    79→    autoApprovePayments: false,
+    80→    minTicketPrice: 10,
+    81→    maxRafflesPerBusiness: 20,
+    82→    requirePaymentProof: true,
+    83→  });
+    84→  const [maintenance, setMaintenance] = useState({ enabled: false, message: "Estamos em manutenção. Voltamos em breve!" });
+    85→  const [announcements, setAnnouncements] = useState({
+    86→    enabled: false,
+    87→    message: "",
+    88→    type: "info" as "info" | "warning" | "success",
+    89→  });
+    90→  const [payments, setPayments] = useState({
+    91→    // Moçambique
+    92→    mpesaEnabled: true,
+    93→    mpesaNumber: "",
+    94→    emolaEnabled: true,
+    95→    emolaNumber: "",
+    96→    paysuiteEnabled: false,
+    97→    paysuiteApiKey: "",
+    98→    paysuiteEntityId: "",
+    99→    paysuiteWebhookSecret: "",
+   100→    // Angola
+   101→    multicaixaEnabled: false,
+   102→    multicaixaNumber: "",
+   103→    multicaixaMerchantId: "",
+   104→    multicaixaApiKey: "",
+   105→    multicaixaTerminalId: "",
+   106→    unitelMoneyEnabled: false,
+   107→    unitelMoneyMerchantId: "",
+   108→    unitelMoneyApiKey: "",
+   109→    unitelMoneyNumber: "",
+   110→    africellMoneyEnabled: false,
+   111→    africellMoneyNumber: "",
+   112→    baiTransferEnabled: false,
+   113→    baiIban: "",
+   114→    baiHolder: "",
+   115→    bfaTransferEnabled: false,
+   116→    bfaIban: "",
+   117→    bfaHolder: "",
+   118→    // Brasil
+   119→    pixEnabled: false,
+   120→    pixKey: "",
+   121→    pixHolder: "",
+   122→    boletoEnabled: false,
+   123→    boletoInstructions: "",
+   124→    cardBREnabled: false,
+   125→    cardBRGateway: "" as "" | "stripe" | "mercadopago" | "pagseguro",
+   126→    cardBRApiKey: "",
+   127→    // Internacional
+   128→    paypalEnabled: false,
+   129→    paypalClientId: "",
+   130→    paypalSecret: "",
+   131→    paypalMode: "sandbox" as "sandbox" | "live",
+   132→  });
+   133→
+   134→  useEffect(() => {
+   135→    const load = async () => {
+   136→      const [{ data: settings }, { data: activeRaffles }] = await Promise.all([
+   137→        supabase.from("platform_settings").select("key, value"),
+   138→        supabase.from("raffles").select("id, title, status, end_date, prize_title").eq("status", "active").order("created_at", { ascending: false }),
+   139→      ]);
+   140→
+   141→      if (settings) {
+   142→        const map = new Map(settings.map((s: any) => [s.key, s.value]));
+   143→        if (map.has("general")) setGeneral(prev => ({ ...prev, ...(map.get("general") as any) }));
+   144→        if (map.has("business")) setBusiness(prev => ({ ...prev, ...(map.get("business") as any) }));
+   145→        if (map.has("maintenance")) setMaintenance(prev => ({ ...prev, ...(map.get("maintenance") as any) }));
+   146→        if (map.has("announcements")) setAnnouncements(prev => ({ ...prev, ...(map.get("announcements") as any) }));
+   147→        if (map.has("payments")) setPayments(prev => ({ ...prev, ...(map.get("payments") as any) }));
+   148→        if (map.has("featured")) {
+   149→          const f = map.get("featured") as any;
+   150→          setFeaturedRaffleId(f?.raffleId || "");
+   151→          setCountdownEnabled(f?.countdownEnabled === true);
+   152→        }
+   153→      }
+   154→      if (activeRaffles) setRaffles(activeRaffles);
+   155→      setLoading(false);
+   156→    };
+   157→    load();
+   158→  }, []);
+   159→
+   160→  const upsertSetting = async (key: string, value: any) => {
+   161→    const { data: existing } = await supabase.from("platform_settings").select("id").eq("key", key).maybeSingle();
+   162→    if (existing) {
+   163→      await supabase.from("platform_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", key);
+   164→    } else {
+   165→      await supabase.from("platform_settings").insert({ key, value: value as any });
+   166→    }
+   167→  };
+   168→
+   169→  const handleSave = async () => {
+   170→    setSaving(true);
+   171→    await Promise.all([
+   172→      upsertSetting("general", general),
+   173→      upsertSetting("business", business),
+   174→      upsertSetting("maintenance", maintenance),
+   175→      upsertSetting("announcements", announcements),
+   176→      upsertSetting("payments", payments),
+   177→      upsertSetting("featured", { raffleId: featuredRaffleId, countdownEnabled }),
+   178→    ]);
+   179→    await logAudit("settings_updated", "settings", undefined, { countdownEnabled, maintenance: maintenance.enabled });
+   180→    setSaving(false);
+   181→    toast({ title: "Configurações guardadas", description: "As alterações foram aplicadas com sucesso." });
+   182→  };
+   183→
+   184→  if (loading) {
+   185→    return (
+   186→      <div className="flex justify-center py-24">
+   187→        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+   188→      </div>
+   189→    );
+   190→  }
+   191→
+   192→  const selectedRaffle = raffles.find(r => r.id === featuredRaffleId);
+   193→
+   194→  return (
+   195→    <div className="space-y-6">
+   196→      <div className="flex items-center gap-3">
+   197→        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   198→          <Settings className="h-5 w-5 text-primary" />
+   199→        </div>
+   200→        <div>
+   201→          <h1 className="font-display text-2xl font-bold text-foreground">Configurações</h1>
+   202→          <p className="text-sm text-muted-foreground">Configurações gerais da plataforma</p>
+   203→        </div>
+   204→      </div>
+   205→
+   206→      <Tabs defaultValue="general" className="space-y-6">
+   207→        <TabsList className="grid w-full grid-cols-4">
+   208→          <TabsTrigger value="general">Geral</TabsTrigger>
+   209→          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+   210→          <TabsTrigger value="business">Negócio</TabsTrigger>
+   211→          <TabsTrigger value="system">Sistema</TabsTrigger>
+   212→        </TabsList>
+   213→
+   214→        <TabsContent value="general" className="space-y-6">
+   215→            <Card className="glass border-primary/20">
+   216→              <CardHeader>
+   217→                <CardTitle className="flex items-center gap-2">
+   218→                  <Palette className="h-5 w-5 text-primary" />
+   219→                  Identidade Visual Regional
+   220→                </CardTitle>
+   221→                <CardDescription>Personalize as cores e a marca para a sua região</CardDescription>
+   222→              </CardHeader>
+   223→              <CardContent className="space-y-6">
+   224→                <div className="grid gap-6 md:grid-cols-2">
+   225→                  <div className="space-y-4 border rounded-xl p-4">
+   226→                    <h3 className="font-semibold text-sm flex items-center gap-2">Cores da Marca</h3>
+   227→                    <div className="grid grid-cols-3 gap-4">
+   228→                      <div className="space-y-2">
+   229→                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Primária</label>
+   230→                        <input 
+   231→                          type="color" 
+   232→                          value={themeConfig.primary} 
+   233→                          onChange={(e) => setThemeConfig({...themeConfig, primary: e.target.value})}
+   234→                          className="w-full h-10 rounded cursor-pointer border-none bg-transparent"
+   235→                        />
+   236→                      </div>
+   237→                      <div className="space-y-2">
+   238→                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Secundária</label>
+   239→                        <input 
+   240→                          type="color" 
+   241→                          value={themeConfig.secondary} 
+   242→                          onChange={(e) => setThemeConfig({...themeConfig, secondary: e.target.value})}
+   243→                          className="w-full h-10 rounded cursor-pointer border-none bg-transparent"
+   244→                        />
+   245→                      </div>
+   246→                      <div className="space-y-2">
+   247→                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Acento</label>
+   248→                        <input 
+   249→                          type="color" 
+   250→                          value={themeConfig.accent} 
+   251→                          onChange={(e) => setThemeConfig({...themeConfig, accent: e.target.value})}
+   252→                          className="w-full h-10 rounded cursor-pointer border-none bg-transparent"
+   253→                        />
+   254→                      </div>
+   255→                    </div>
+   256→                  </div>
+   257→
+   258→                  <div className="space-y-4 border rounded-xl p-4">
+   259→                    <h3 className="font-semibold text-sm flex items-center gap-2">Marca e Slogan</h3>
+   260→                    <div className="space-y-3">
+   261→                      <div className="space-y-1">
+   262→                        <Label className="text-xs">Slogan Regional</Label>
+   263→                        <Input 
+   264→                          value={themeConfig.tagline} 
+   265→                          onChange={(e) => setThemeConfig({...themeConfig, tagline: e.target.value})}
+   266→                          placeholder="Ex: Os melhores sorteios de Moçambique"
+   267→                        />
+   268→                      </div>
+   269→                      <div className="space-y-1">
+   270→                        <Label className="text-xs">URL do Logótipo</Label>
+   271→                        <Input 
+   272→                          value={themeConfig.logo_url} 
+   273→                          onChange={(e) => setThemeConfig({...themeConfig, logo_url: e.target.value})}
+   274→                          placeholder="https://..."
+   275→                        />
+   276→                      </div>
+   277→                    </div>
+   278→                  </div>
+   279→                </div>
+   280→                <Button onClick={handleSaveTheme} className="w-full md:w-auto">Guardar Identidade Visual</Button>
+   281→              </CardContent>
+   282→            </Card>
+   283→
+   284→            <div className="grid gap-6 lg:grid-cols-2">
+   285→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+   286→              <Card className="glass border-primary/20">
+   287→                <CardHeader>
+   288→                  <CardTitle className="flex items-center gap-2">
+   289→                    <Clock className="h-5 w-5 text-primary" />
+   290→                    Temporizador Destaque
+   291→                  </CardTitle>
+   292→                  <CardDescription>Controla o temporizador da página inicial</CardDescription>
+   293→                </CardHeader>
+   294→                <CardContent className="space-y-4">
+   295→                  <div className="flex items-center justify-between rounded-xl bg-primary/5 p-3 border border-primary/20">
+   296→                    <div>
+   297→                      <p className="text-sm font-medium text-foreground">Ativar Temporizador</p>
+   298→                      <p className="text-xs text-muted-foreground">
+   299→                        {countdownEnabled ? "Visível na homepage" : "Oculto na homepage"}
+   300→                      </p>
+   301→                    </div>
+   302→                    <div className="flex items-center gap-2">
+   303→                      {countdownEnabled ? (
+   304→                        <Badge className="bg-primary/10 text-primary border-primary/20"><Eye className="h-3 w-3 mr-1" /> Online</Badge>
+   305→                      ) : (
+   306→                        <Badge variant="outline" className="text-muted-foreground"><EyeOff className="h-3 w-3 mr-1" /> Offline</Badge>
+   307→                      )}
+   308→                      <Switch checked={countdownEnabled} onCheckedChange={setCountdownEnabled} />
+   309→                    </div>
+   310→                  </div>
+   311→                  <div className="space-y-2">
+   312→                    <Label>Sorteio em Destaque</Label>
+   313→                    <Select value={featuredRaffleId || "none"} onValueChange={(v) => setFeaturedRaffleId(v === "none" ? "" : v)}>
+   314→                      <SelectTrigger><SelectValue placeholder="Selecione um sorteio..." /></SelectTrigger>
+   315→                      <SelectContent>
+   316→                        <SelectItem value="none">Nenhum</SelectItem>
+   317→                        {raffles.map((r) => (
+   318→                          <SelectItem key={r.id} value={r.id}>{r.title} — {r.prize_title}</SelectItem>
+   319→                        ))}
+   320→                      </SelectContent>
+   321→                    </Select>
+   322→                  </div>
+   323→                  {selectedRaffle && (
+   324→                    <div className="rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
+   325→                      <p className="font-medium text-foreground">{selectedRaffle.title}</p>
+   326→                      <p className="text-muted-foreground">Prémio: {selectedRaffle.prize_title}</p>
+   327→                      <p className="text-muted-foreground">Termina: {selectedRaffle.end_date ? new Date(selectedRaffle.end_date).toLocaleDateString("pt-MZ") : "Sem data"}</p>
+   328→                    </div>
+   329→                  )}
+   330→                </CardContent>
+   331→              </Card>
+   332→            </motion.div>
+   333→
+   334→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   335→              <Card className="glass border-accent/20">
+   336→                <CardHeader>
+   337→                  <CardTitle className="flex items-center gap-2">
+   338→                    <Megaphone className="h-5 w-5 text-accent" />
+   339→                    Banner de Anúncio
+   340→                  </CardTitle>
+   341→                  <CardDescription>Mensagem visível no topo de todas as páginas</CardDescription>
+   342→                </CardHeader>
+   343→                <CardContent className="space-y-4">
+   344→                  <div className="flex items-center justify-between rounded-xl bg-accent/5 p-3">
+   345→                    <div>
+   346→                      <p className="text-sm font-medium text-foreground">Ativar Banner</p>
+   347→                      <p className="text-xs text-muted-foreground">Exibir anúncio global</p>
+   348→                    </div>
+   349→                    <Switch checked={announcements.enabled} onCheckedChange={(v) => setAnnouncements({ ...announcements, enabled: v })} />
+   350→                  </div>
+   351→                  <div className="space-y-2">
+   352→                    <Label>Mensagem</Label>
+   353→                    <Textarea value={announcements.message} onChange={(e) => setAnnouncements({ ...announcements, message: e.target.value })} placeholder="Ex: Grande sorteio este fim de semana! 🎉" rows={2} />
+   354→                  </div>
+   355→                  <div className="space-y-2">
+   356→                    <Label>Tipo</Label>
+   357→                    <Select value={announcements.type} onValueChange={(v: any) => setAnnouncements({ ...announcements, type: v })}>
+   358→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   359→                      <SelectContent>
+   360→                        <SelectItem value="info">ℹ️ Informação</SelectItem>
+   361→                        <SelectItem value="warning">⚠️ Aviso</SelectItem>
+   362→                        <SelectItem value="success">✅ Sucesso</SelectItem>
+   363→                      </SelectContent>
+   364→                    </Select>
+   365→                  </div>
+   366→                </CardContent>
+   367→              </Card>
+   368→            </motion.div>
+   369→
+   370→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   371→              <Card className="glass">
+   372→                <CardHeader>
+   373→                  <CardTitle className="flex items-center gap-2">
+   374→                    <Globe className="h-5 w-5 text-primary" />
+   375→                    Plataforma
+   376→                  </CardTitle>
+   377→                  <CardDescription>Informações gerais da plataforma</CardDescription>
+   378→                </CardHeader>
+   379→                <CardContent className="space-y-4">
+   380→                  <div className="space-y-2">
+   381→                    <Label>Nome da Plataforma</Label>
+   382→                    <Input value={general.platformName} onChange={(e) => setGeneral({ ...general, platformName: e.target.value })} />
+   383→                  </div>
+   384→                  <div className="space-y-2">
+   385→                    <Label>Slogan</Label>
+   386→                    <Input value={general.platformTagline} onChange={(e) => setGeneral({ ...general, platformTagline: e.target.value })} />
+   387→                  </div>
+   388→                  <div className="space-y-2">
+   389→                    <Label>Email de Suporte</Label>
+   390→                    <Input type="email" value={general.supportEmail} onChange={(e) => setGeneral({ ...general, supportEmail: e.target.value })} />
+   391→                  </div>
+   392→                </CardContent>
+   393→              </Card>
+   394→            </motion.div>
+   395→          </div>
+   396→        </TabsContent>
+   397→
+   398→        <TabsContent value="payments" className="space-y-6">
+   399→          <div className="grid gap-6 lg:grid-cols-2">
+   400→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+   401→              <Card className="glass border-[#E21B1B]/20">
+   402→                <CardHeader>
+   403→                  <CardTitle className="flex items-center gap-2">
+   404→                    <Smartphone className="h-5 w-5 text-[#E21B1B]" />
+   405→                    M-Pesa
+   406→                    <Badge variant="outline" className="ml-auto text-[10px]">🇲🇿 Moçambique</Badge>
+   407→                  </CardTitle>
+   408→                  <CardDescription>Pagamento via Vodacom M-Pesa</CardDescription>
+   409→                </CardHeader>
+   410→                <CardContent className="space-y-4">
+   411→                  <div className="flex items-center justify-between rounded-xl bg-[#E21B1B]/5 p-3">
+   412→                    <p className="text-sm font-medium text-foreground">Ativar M-Pesa</p>
+   413→                    <Switch checked={payments.mpesaEnabled} onCheckedChange={(v) => setPayments({ ...payments, mpesaEnabled: v })} />
+   414→                  </div>
+   415→                  <div className="space-y-2">
+   416→                    <Label>Número M-Pesa</Label>
+   417→                    <Input value={payments.mpesaNumber} onChange={(e) => setPayments({ ...payments, mpesaNumber: e.target.value })} placeholder="84XXXXXXX" />
+   418→                  </div>
+   419→                </CardContent>
+   420→              </Card>
+   421→            </motion.div>
+   422→
+   423→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   424→              <Card className="glass border-[#FF6600]/20">
+   425→                <CardHeader>
+   426→                  <CardTitle className="flex items-center gap-2">
+   427→                    <Wallet className="h-5 w-5 text-[#FF6600]" />
+   428→                    e-Mola
+   429→                    <Badge variant="outline" className="ml-auto text-[10px]">🇲🇿 Moçambique</Badge>
+   430→                  </CardTitle>
+   431→                  <CardDescription>Pagamento via Movitel e-Mola</CardDescription>
+   432→                </CardHeader>
+   433→                <CardContent className="space-y-4">
+   434→                  <div className="flex items-center justify-between rounded-xl bg-[#FF6600]/5 p-3">
+   435→                    <p className="text-sm font-medium text-foreground">Ativar e-Mola</p>
+   436→                    <Switch checked={payments.emolaEnabled} onCheckedChange={(v) => setPayments({ ...payments, emolaEnabled: v })} />
+   437→                  </div>
+   438→                  <div className="space-y-2">
+   439→                    <Label>Número e-Mola</Label>
+   440→                    <Input value={payments.emolaNumber} onChange={(e) => setPayments({ ...payments, emolaNumber: e.target.value })} placeholder="86XXXXXXX" />
+   441→                  </div>
+   442→                </CardContent>
+   443→              </Card>
+   444→            </motion.div>
+   445→
+   446→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   447→              <Card className="glass border-primary/20">
+   448→                <CardHeader>
+   449→                  <CardTitle className="flex items-center gap-2">
+   450→                    <CreditCard className="h-5 w-5 text-primary" />
+   451→                    PaySuite
+   452→                    <Badge variant="outline" className="ml-auto text-[10px]">🇲🇿 Moçambique</Badge>
+   453→                  </CardTitle>
+   454→                  <CardDescription>Gateway de pagamentos PaySuite API</CardDescription>
+   455→                </CardHeader>
+   456→                <CardContent className="space-y-4">
+   457→                  <div className="flex items-center justify-between rounded-xl bg-primary/5 p-3">
+   458→                    <p className="text-sm font-medium text-foreground">Ativar PaySuite</p>
+   459→                    <Switch checked={payments.paysuiteEnabled} onCheckedChange={(v) => setPayments({ ...payments, paysuiteEnabled: v })} />
+   460→                  </div>
+   461→                  <div className="space-y-2">
+   462→                    <Label>API Key</Label>
+   463→                    <Input type="password" value={payments.paysuiteApiKey} onChange={(e) => setPayments({ ...payments, paysuiteApiKey: e.target.value })} placeholder="pk_live_..." />
+   464→                  </div>
+   465→                  <div className="space-y-2">
+   466→                    <Label>Entity ID</Label>
+   467→                    <Input value={payments.paysuiteEntityId} onChange={(e) => setPayments({ ...payments, paysuiteEntityId: e.target.value })} placeholder="ID da entidade PaySuite" />
+   468→                  </div>
+   469→                  <div className="space-y-2">
+   470→                    <Label>Webhook Secret</Label>
+   471→                    <Input type="password" value={payments.paysuiteWebhookSecret} onChange={(e) => setPayments({ ...payments, paysuiteWebhookSecret: e.target.value })} placeholder="whsec_..." />
+   472→                  </div>
+   473→                </CardContent>
+   474→              </Card>
+   475→            </motion.div>
+   476→
+   477→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   478→              <Card className="glass border-[#0066CC]/20">
+   479→                <CardHeader>
+   480→                  <CardTitle className="flex items-center gap-2">
+   481→                    <Smartphone className="h-5 w-5 text-[#0066CC]" />
+   482→                    Multicaixa Express
+   483→                    <Badge variant="outline" className="ml-auto text-[10px]">🇦🇴 Angola</Badge>
+   484→                  </CardTitle>
+   485→                  <CardDescription>Pagamento móvel via Multicaixa Express (MCX)</CardDescription>
+   486→                </CardHeader>
+   487→                <CardContent className="space-y-4">
+   488→                  <div className="flex items-center justify-between rounded-xl bg-[#0066CC]/5 p-3">
+   489→                    <p className="text-sm font-medium text-foreground">Ativar Multicaixa Express</p>
+   490→                    <Switch checked={payments.multicaixaEnabled} onCheckedChange={(v) => setPayments({ ...payments, multicaixaEnabled: v })} />
+   491→                  </div>
+   492→                  <div className="space-y-2">
+   493→                    <Label>Número Comerciante (instruções)</Label>
+   494→                    <Input value={payments.multicaixaNumber} onChange={(e) => setPayments({ ...payments, multicaixaNumber: e.target.value })} placeholder="9XXXXXXXX (mostrado ao cliente)" />
+   495→                  </div>
+   496→                  <div className="space-y-2">
+   497→                    <Label>Merchant ID</Label>
+   498→                    <Input value={payments.multicaixaMerchantId} onChange={(e) => setPayments({ ...payments, multicaixaMerchantId: e.target.value })} placeholder="ID do comerciante" />
+   499→                  </div>
+   500→                  <div className="space-y-2">
+   501→                    <Label>API Key</Label>
+   502→                    <Input type="password" value={payments.multicaixaApiKey} onChange={(e) => setPayments({ ...payments, multicaixaApiKey: e.target.value })} placeholder="Chave API Multicaixa" />
+   503→                  </div>
+   504→                  <div className="space-y-2">
+   505→                    <Label>Terminal ID</Label>
+   506→                    <Input value={payments.multicaixaTerminalId} onChange={(e) => setPayments({ ...payments, multicaixaTerminalId: e.target.value })} placeholder="ID do terminal" />
+   507→                  </div>
+   508→                </CardContent>
+   509→              </Card>
+   510→            </motion.div>
+   511→
+   512→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   513→              <Card className="glass border-[#FF0000]/20">
+   514→                <CardHeader>
+   515→                  <CardTitle className="flex items-center gap-2">
+   516→                    <Wallet className="h-5 w-5 text-[#FF0000]" />
+   517→                    Unitel Money
+   518→                    <Badge variant="outline" className="ml-auto text-[10px]">🇦🇴 Angola</Badge>
+   519→                  </CardTitle>
+   520→                  <CardDescription>Pagamento móvel via Unitel Money</CardDescription>
+   521→                </CardHeader>
+   522→                <CardContent className="space-y-4">
+   523→                  <div className="flex items-center justify-between rounded-xl bg-[#FF0000]/5 p-3">
+   524→                    <p className="text-sm font-medium text-foreground">Ativar Unitel Money</p>
+   525→                    <Switch checked={payments.unitelMoneyEnabled} onCheckedChange={(v) => setPayments({ ...payments, unitelMoneyEnabled: v })} />
+   526→                  </div>
+   527→                  <div className="space-y-2">
+   528→                    <Label>Merchant ID</Label>
+   529→                    <Input value={payments.unitelMoneyMerchantId} onChange={(e) => setPayments({ ...payments, unitelMoneyMerchantId: e.target.value })} placeholder="ID do comerciante Unitel" />
+   530→                  </div>
+   531→                  <div className="space-y-2">
+   532→                    <Label>API Key</Label>
+   533→                    <Input type="password" value={payments.unitelMoneyApiKey} onChange={(e) => setPayments({ ...payments, unitelMoneyApiKey: e.target.value })} placeholder="Chave API Unitel Money" />
+   534→                  </div>
+   535→                  <div className="space-y-2">
+   536→                    <Label>Número Comerciante</Label>
+   537→                    <Input value={payments.unitelMoneyNumber} onChange={(e) => setPayments({ ...payments, unitelMoneyNumber: e.target.value })} placeholder="9XXXXXXXX" />
+   538→                  </div>
+   539→                </CardContent>
+   540→              </Card>
+   541→            </motion.div>
+   542→
+   543→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+   544→              <Card className="glass border-pink-500/20">
+   545→                <CardHeader>
+   546→                  <CardTitle className="flex items-center gap-2">
+   547→                    <Wallet className="h-5 w-5 text-pink-600" />
+   548→                    Africell Money
+   549→                    <Badge variant="outline" className="ml-auto text-[10px]">🇦🇴 Angola</Badge>
+   550→                  </CardTitle>
+   551→                  <CardDescription>Carteira móvel Africell Angola</CardDescription>
+   552→                </CardHeader>
+   553→                <CardContent className="space-y-4">
+   554→                  <div className="flex items-center justify-between rounded-xl bg-pink-500/5 p-3">
+   555→                    <p className="text-sm font-medium text-foreground">Ativar Africell Money</p>
+   556→                    <Switch checked={payments.africellMoneyEnabled} onCheckedChange={(v) => setPayments({ ...payments, africellMoneyEnabled: v })} />
+   557→                  </div>
+   558→                  <div className="space-y-2">
+   559→                    <Label>Número Comerciante</Label>
+   560→                    <Input value={payments.africellMoneyNumber} onChange={(e) => setPayments({ ...payments, africellMoneyNumber: e.target.value })} placeholder="9XXXXXXXX (mostrado ao cliente)" />
+   561→                  </div>
+   562→                </CardContent>
+   563→              </Card>
+   564→            </motion.div>
+   565→
+   566→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
+   567→              <Card className="glass border-emerald-500/20">
+   568→                <CardHeader>
+   569→                  <CardTitle className="flex items-center gap-2">
+   570→                    <CreditCard className="h-5 w-5 text-emerald-600" />
+   571→                    Transferência BAI
+   572→                    <Badge variant="outline" className="ml-auto text-[10px]">🇦🇴 Angola</Badge>
+   573→                  </CardTitle>
+   574→                  <CardDescription>Transferência bancária IBAN Banco BAI</CardDescription>
+   575→                </CardHeader>
+   576→                <CardContent className="space-y-4">
+   577→                  <div className="flex items-center justify-between rounded-xl bg-emerald-500/5 p-3">
+   578→                    <p className="text-sm font-medium text-foreground">Ativar Transferência BAI</p>
+   579→                    <Switch checked={payments.baiTransferEnabled} onCheckedChange={(v) => setPayments({ ...payments, baiTransferEnabled: v })} />
+   580→                  </div>
+   581→                  <div className="space-y-2">
+   582→                    <Label>IBAN</Label>
+   583→                    <Input value={payments.baiIban} onChange={(e) => setPayments({ ...payments, baiIban: e.target.value })} placeholder="AO06 0040 0000 ..." />
+   584→                  </div>
+   585→                  <div className="space-y-2">
+   586→                    <Label>Titular da conta</Label>
+   587→                    <Input value={payments.baiHolder} onChange={(e) => setPayments({ ...payments, baiHolder: e.target.value })} placeholder="Nome do titular" />
+   588→                  </div>
+   589→                </CardContent>
+   590→              </Card>
+   591→            </motion.div>
+   592→
+   593→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+   594→              <Card className="glass border-amber-500/20">
+   595→                <CardHeader>
+   596→                  <CardTitle className="flex items-center gap-2">
+   597→                    <CreditCard className="h-5 w-5 text-amber-600" />
+   598→                    Transferência BFA
+   599→                    <Badge variant="outline" className="ml-auto text-[10px]">🇦🇴 Angola</Badge>
+   600→                  </CardTitle>
+   601→                  <CardDescription>Transferência bancária IBAN Banco BFA</CardDescription>
+   602→                </CardHeader>
+   603→                <CardContent className="space-y-4">
+   604→                  <div className="flex items-center justify-between rounded-xl bg-amber-500/5 p-3">
+   605→                    <p className="text-sm font-medium text-foreground">Ativar Transferência BFA</p>
+   606→                    <Switch checked={payments.bfaTransferEnabled} onCheckedChange={(v) => setPayments({ ...payments, bfaTransferEnabled: v })} />
+   607→                  </div>
+   608→                  <div className="space-y-2">
+   609→                    <Label>IBAN</Label>
+   610→                    <Input value={payments.bfaIban} onChange={(e) => setPayments({ ...payments, bfaIban: e.target.value })} placeholder="AO06 0006 0000 ..." />
+   611→                  </div>
+   612→                  <div className="space-y-2">
+   613→                    <Label>Titular da conta</Label>
+   614→                    <Input value={payments.bfaHolder} onChange={(e) => setPayments({ ...payments, bfaHolder: e.target.value })} placeholder="Nome do titular" />
+   615→                  </div>
+   616→                </CardContent>
+   617→              </Card>
+   618→            </motion.div>
+   619→
+   620→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+   621→              <Card className="glass border-emerald-500/20">
+   622→                <CardHeader>
+   623→                  <CardTitle className="flex items-center gap-2">
+   624→                    <Smartphone className="h-5 w-5 text-emerald-600" />
+   625→                    Pix
+   626→                    <Badge variant="outline" className="ml-auto text-[10px]">🇧🇷 Brasil</Badge>
+   627→                  </CardTitle>
+   628→                  <CardDescription>Pagamento instantâneo brasileiro via chave Pix</CardDescription>
+   629→                </CardHeader>
+   630→                <CardContent className="space-y-4">
+   631→                  <div className="flex items-center justify-between rounded-xl bg-emerald-500/5 p-3">
+   632→                    <p className="text-sm font-medium text-foreground">Ativar Pix</p>
+   633→                    <Switch checked={payments.pixEnabled} onCheckedChange={(v) => setPayments({ ...payments, pixEnabled: v })} />
+   634→                  </div>
+   635→                  <div className="space-y-2">
+   636→                    <Label>Chave Pix</Label>
+   637→                    <Input value={payments.pixKey} onChange={(e) => setPayments({ ...payments, pixKey: e.target.value })} placeholder="CPF/CNPJ, e-mail, telefone ou aleatória" />
+   638→                  </div>
+   639→                  <div className="space-y-2">
+   640→                    <Label>Titular da chave</Label>
+   641→                    <Input value={payments.pixHolder} onChange={(e) => setPayments({ ...payments, pixHolder: e.target.value })} placeholder="Nome do titular" />
+   642→                  </div>
+   643→                </CardContent>
+   644→              </Card>
+   645→            </motion.div>
+   646→
+   647→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+   648→              <Card className="glass border-slate-500/20">
+   649→                <CardHeader>
+   650→                  <CardTitle className="flex items-center gap-2">
+   651→                    <CreditCard className="h-5 w-5 text-slate-600" />
+   652→                    Boleto Bancário
+   653→                    <Badge variant="outline" className="ml-auto text-[10px]">🇧🇷 Brasil</Badge>
+   654→                  </CardTitle>
+   655→                  <CardDescription>Boleto com vencimento em 1-3 dias úteis</CardDescription>
+   656→                </CardHeader>
+   657→                <CardContent className="space-y-4">
+   658→                  <div className="flex items-center justify-between rounded-xl bg-slate-500/5 p-3">
+   659→                    <p className="text-sm font-medium text-foreground">Ativar Boleto</p>
+   660→                    <Switch checked={payments.boletoEnabled} onCheckedChange={(v) => setPayments({ ...payments, boletoEnabled: v })} />
+   661→                  </div>
+   662→                  <div className="space-y-2">
+   663→                    <Label>Instruções/observações</Label>
+   664→                    <Textarea value={payments.boletoInstructions} onChange={(e) => setPayments({ ...payments, boletoInstructions: e.target.value })} placeholder="Texto de instruções para o cliente (ex.: emissão manual, prazo, contacto)" />
+   665→                  </div>
+   666→                </CardContent>
+   667→              </Card>
+   668→            </motion.div>
+   669→
+   670→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+   671→              <Card className="glass border-primary/20">
+   672→                <CardHeader>
+   673→                  <CardTitle className="flex items-center gap-2">
+   674→                    <CreditCard className="h-5 w-5 text-primary" />
+   675→                    Cartão (Brasil)
+   676→                    <Badge variant="outline" className="ml-auto text-[10px]">🇧🇷 Brasil</Badge>
+   677→                  </CardTitle>
+   678→                  <CardDescription>Crédito ou débito com parcelamento</CardDescription>
+   679→                </CardHeader>
+   680→                <CardContent className="space-y-4">
+   681→                  <div className="flex items-center justify-between rounded-xl bg-primary/5 p-3">
+   682→                    <p className="text-sm font-medium text-foreground">Ativar Cartão (BR)</p>
+   683→                    <Switch checked={payments.cardBREnabled} onCheckedChange={(v) => setPayments({ ...payments, cardBREnabled: v })} />
+   684→                  </div>
+   685→                  <div className="space-y-2">
+   686→                    <Label>Gateway</Label>
+   687→                    <Select value={payments.cardBRGateway || ""} onValueChange={(v: any) => setPayments({ ...payments, cardBRGateway: v })}>
+   688→                      <SelectTrigger><SelectValue placeholder="Selecione o gateway" /></SelectTrigger>
+   689→                      <SelectContent>
+   690→                        <SelectItem value="stripe">Stripe</SelectItem>
+   691→                        <SelectItem value="mercadopago">Mercado Pago</SelectItem>
+   692→                        <SelectItem value="pagseguro">PagSeguro</SelectItem>
+   693→                      </SelectContent>
+   694→                    </Select>
+   695→                  </div>
+   696→                  <div className="space-y-2">
+   697→                    <Label>API Key</Label>
+   698→                    <Input type="password" value={payments.cardBRApiKey} onChange={(e) => setPayments({ ...payments, cardBRApiKey: e.target.value })} placeholder="Chave secreta do gateway" />
+   699→                  </div>
+   700→                </CardContent>
+   701→              </Card>
+   702→            </motion.div>
+   703→
+   704→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+   705→              <Card className="glass border-[#003087]/20">
+   706→                <CardHeader>
+   707→                  <CardTitle className="flex items-center gap-2">
+   708→                    <CreditCard className="h-5 w-5 text-[#003087]" />
+   709→                    PayPal
+   710→                    <Badge variant="outline" className="ml-auto text-[10px]">🌍 Internacional</Badge>
+   711→                  </CardTitle>
+   712→                  <CardDescription>Pagamentos internacionais via PayPal</CardDescription>
+   713→                </CardHeader>
+   714→                <CardContent className="space-y-4">
+   715→                  <div className="flex items-center justify-between rounded-xl bg-[#003087]/5 p-3">
+   716→                    <p className="text-sm font-medium text-foreground">Ativar PayPal</p>
+   717→                    <Switch checked={payments.paypalEnabled} onCheckedChange={(v) => setPayments({ ...payments, paypalEnabled: v })} />
+   718→                  </div>
+   719→                  <div className="space-y-2">
+   720→                    <Label>Client ID</Label>
+   721→                    <Input value={payments.paypalClientId} onChange={(e) => setPayments({ ...payments, paypalClientId: e.target.value })} placeholder="Client ID do PayPal" />
+   722→                  </div>
+   723→                  <div className="space-y-2">
+   724→                    <Label>Secret</Label>
+   725→                    <Input type="password" value={payments.paypalSecret} onChange={(e) => setPayments({ ...payments, paypalSecret: e.target.value })} placeholder="Secret do PayPal" />
+   726→                  </div>
+   727→                  <div className="space-y-2">
+   728→                    <Label>Modo</Label>
+   729→                    <Select value={payments.paypalMode} onValueChange={(v: any) => setPayments({ ...payments, paypalMode: v })}>
+   730→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   731→                      <SelectContent>
+   732→                        <SelectItem value="sandbox">🧪 Sandbox (Teste)</SelectItem>
+   733→                        <SelectItem value="live">🔴 Live (Produção)</SelectItem>
+   734→                      </SelectContent>
+   735→                    </Select>
+   736→                  </div>
+   737→                </CardContent>
+   738→              </Card>
+   739→            </motion.div>
+   740→          </div>
+   741→        </TabsContent>
+   742→
+   743→        <TabsContent value="business" className="space-y-6">
+   744→          <div className="grid gap-6 lg:grid-cols-2">
+   745→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+   746→              <Card className="glass">
+   747→                <CardHeader>
+   748→                  <CardTitle className="flex items-center gap-2">
+   749→                    <Shield className="h-5 w-5 text-primary" />
+   750→                    Regras de Negócio
+   751→                  </CardTitle>
+   752→                  <CardDescription>Limites, comissões e regras</CardDescription>
+   753→                </CardHeader>
+   754→                <CardContent className="space-y-4">
+   755→                  <div className="grid grid-cols-2 gap-3">
+   756→                    <div className="space-y-2">
+   757→                      <Label>Máx. bilhetes/utilizador</Label>
+   758→                      <Input type="number" value={business.maxTicketsPerUser} onChange={(e) => setBusiness({ ...business, maxTicketsPerUser: parseInt(e.target.value) || 0 })} />
+   759→                    </div>
+   760→                    <div className="space-y-2">
+   761→                      <Label>Comissão (%)</Label>
+   762→                      <Input type="number" value={business.commissionRate} onChange={(e) => setBusiness({ ...business, commissionRate: parseInt(e.target.value) || 0 })} />
+   763→                    </div>
+   764→                    <div className="space-y-2">
+   765→                      <Label>Preço mín. bilhete (MZN)</Label>
+   766→                      <Input type="number" value={business.minTicketPrice} onChange={(e) => setBusiness({ ...business, minTicketPrice: parseInt(e.target.value) || 0 })} />
+   767→                    </div>
+   768→                    <div className="space-y-2">
+   769→                      <Label>Máx. sorteios/empresa</Label>
+   770→                      <Input type="number" value={business.maxRafflesPerBusiness} onChange={(e) => setBusiness({ ...business, maxRafflesPerBusiness: parseInt(e.target.value) || 0 })} />
+   771→                    </div>
+   772→                  </div>
+   773→                  <div className="flex items-center justify-between rounded-xl bg-secondary/30 p-3">
+   774→                    <div>
+   775→                      <p className="text-sm font-medium text-foreground">Aprovar pagamentos automaticamente</p>
+   776→                      <p className="text-xs text-muted-foreground">Sem revisão manual</p>
+   777→                    </div>
+   778→                    <Switch checked={business.autoApprovePayments} onCheckedChange={(v) => setBusiness({ ...business, autoApprovePayments: v })} />
+   779→                  </div>
+   780→                  <div className="flex items-center justify-between rounded-xl bg-secondary/30 p-3">
+   781→                    <div>
+   782→                      <p className="text-sm font-medium text-foreground">Exigir comprovativo de pagamento</p>
+   783→                      <p className="text-xs text-muted-foreground">Upload obrigatório de recibo</p>
+   784→                    </div>
+   785→                    <Switch checked={business.requirePaymentProof} onCheckedChange={(v) => setBusiness({ ...business, requirePaymentProof: v })} />
+   786→                  </div>
+   787→                </CardContent>
+   788→              </Card>
+   789→            </motion.div>
+   790→          </div>
+   791→        </TabsContent>
+   792→
+   793→        <TabsContent value="system" className="space-y-6">
+   794→          <div className="grid gap-6 lg:grid-cols-2">
+   795→            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+   796→              <Card className="glass">
+   797→                <CardHeader>
+   798→                  <CardTitle className="flex items-center gap-2">
+   799→                    <Bell className="h-5 w-5 text-primary" />
+   800→                    Manutenção
+   801→                  </CardTitle>
+   802→                </CardHeader>
+   803→                <CardContent className="space-y-4">
+   804→                  <div className="flex items-center justify-between rounded-xl bg-destructive/10 p-3">
+   805→                    <div>
+   806→                      <p className="text-sm font-medium text-foreground">Modo Manutenção</p>
+   807→                      <p className="text-xs text-muted-foreground">Desativa o acesso público temporariamente</p>
+   808→                    </div>
+   809→                    <Switch checked={maintenance.enabled} onCheckedChange={(v) => setMaintenance({ ...maintenance, enabled: v })} />
+   810→                  </div>
+   811→                  <div className="space-y-2">
+   812→                    <Label>Mensagem de manutenção</Label>
+   813→                    <Input value={maintenance.message} onChange={(e) => setMaintenance({ ...maintenance, message: e.target.value })} placeholder="Estamos em manutenção..." />
+   814→                  </div>
+   815→                </CardContent>
+   816→              </Card>
+   817→            </motion.div>
+   818→          </div>
+   819→        </TabsContent>
+   820→      </Tabs>
+   821→
+   822→      <div className="flex justify-end">
+   823→        <Button onClick={handleSave} disabled={saving} size="lg" className="gap-2">
+   824→          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+   825→          Guardar Configurações
+   826→        </Button>
+   827→      </div>
+   828→    </div>
+   829→  );
+   830→}
+   831→

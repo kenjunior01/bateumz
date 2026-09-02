@@ -1,0 +1,1786 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Swords, Users, Trophy, Flame, Crown, Clock, Coins,
+     7→  Plus, X, Send, Copy, Eye, MessageSquare, Shield,
+     8→  ChevronDown, Zap, TrendingUp, Target, Skull, Star,
+     9→  AlertTriangle, CheckCircle, XCircle, Minus, ArrowRight,
+    10→  Search, Filter, Sparkles, Volume2, VolumeX, UserCheck, UserX,
+    11→  CircleDot, Hash, Timer, Gift, BarChart3, Heart,
+    12→} from 'lucide-react';
+    13→import { useToast } from '@/hooks/use-toast';
+    14→import { useSoundEffects } from '@/hooks/useSoundEffects';
+    15→import useHapticFeedback from '@/hooks/useHapticFeedback';
+    16→import { useCountUp } from '@/hooks/useCountUp';
+    17→import {
+    18→  ButtonRipple, CardTilt3D, CountUp, ShakeOnError,
+    19→  MagneticButton, MorphingText, AnimatedTooltip,
+    20→  NotificationBadge, ProgressRing, TextReveal,
+    21→  ScaleBounce, SkeletonShimmer, StaggerChildren,
+    22→  AnimatedGlowBorder, FloatingAction,
+    23→} from '@/components/effects/MicroAnimations';
+    24→import {
+    25→  ConfettiBurst, CoinRain, ScreenShake, ArenaParticles,
+    26→  StreakFire, GlowPulseRing, NumberTicker, P2PToast,
+    27→  EnergyWave, haptics,
+    28→} from '@/components/esports/P2PArenaEffects';
+    29→import { useConfetti } from '@/components/effects/ConfettiSystem';
+    30→import type {
+    31→  P2PChallenge, P2PChallengeType, P2PChallengeStatus,
+    32→  P2PDuelStats, P2PParticipant, P2PChallengeFormat,
+    33→} from '@/lib/esports-advanced';
+    34→import {
+    35→  P2P_CHALLENGE_TYPE_LABELS, P2P_CHALLENGE_STATUS_LABELS,
+    36→  P2P_FORMAT_LABELS, P2P_WAGER_PRESETS,
+    37→} from '@/lib/esports-advanced';
+    38→import FairPlayShield from '@/components/FairPlayShield';
+    39→
+    40→// ============================================================
+    41→// INITIALIZE AUDIO ON FIRST INTERACTION
+    42→// ============================================================
+    43→
+    44→function initAudioOnInteraction() {
+    45→  try {
+    46→    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    47→    if (AudioCtx && AudioCtx.state === 'suspended') AudioCtx.resume();
+    48→  } catch (e) { /* ok */ }
+    49→}
+    50→if (typeof window !== 'undefined') {
+    51→  document.addEventListener('click', initAudioOnInteraction, { once: true });
+    52→  document.addEventListener('touchstart', initAudioOnInteraction, { once: true });
+    53→}
+    54→
+    55→// ============================================================
+    56→// MOCK DATA (substituir por Supabase quando a tabela existir)
+    57→// ============================================================
+    58→
+    59→const MOCK_OPEN_DUELS: P2PChallenge[] = [
+    60→  {
+    61→    id: 'd1', challenge_type: 'duel', status: 'waiting_opponent',
+    62→    creator_id: 'u1', creator_display_name: 'xNightFury', creator_avatar_url: '',
+    63→    creator_prediction: 'Team Alpha vence', creator_score: 0,
+    64→    opponent_id: undefined, opponent_display_name: undefined, opponent_score: 0,
+    65→    match_id: 'm1', championship_name: 'Liga MZ Pro',
+    66→    match_label: 'Alpha vs Omega', market_type: 'match_winner',
+    67→    wager_amount: 100, prize_pool: 100, platform_fee: 5,
+    68→    format: 'single_match', total_rounds: 1, current_round: 0,
+    69→    expires_at: new Date(Date.now() + 18 * 3600000).toISOString(),
+    70→    is_public: true, spectator_count: 12, chat_enabled: true,
+    71→    trash_talk: 'Tens coragem para me enfrentar?',
+    72→    invite_code: 'NR7K2M', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    73→  },
+    74→  {
+    75→    id: 'd2', challenge_type: 'duel', status: 'waiting_opponent',
+    76→    creator_id: 'u2', creator_display_name: 'QueenSlayer', creator_avatar_url: '',
+    77→    creator_prediction: 'Map Nuke vai para OT', creator_score: 0,
+    78→    opponent_id: undefined, opponent_display_name: undefined, opponent_score: 0,
+    79→    match_id: 'm2', championship_name: 'CS2 Masters',
+    80→    match_label: 'Nexus vs Flames', market_type: 'map_winner',
+    81→    wager_amount: 250, prize_pool: 250, platform_fee: 12,
+    82→    format: 'best_of_3', total_rounds: 3, current_round: 0,
+    83→    expires_at: new Date(Date.now() + 6 * 3600000).toISOString(),
+    84→    is_public: true, spectator_count: 34, chat_enabled: true,
+    85→    trash_talk: 'Sou imbativel em BO3. Provem o contrario.',
+    86→    invite_code: 'K3P9XZ', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    87→  },
+    88→  {
+    89→    id: 'd3', challenge_type: 'duel', status: 'waiting_opponent',
+    90→    creator_id: 'u3', creator_display_name: 'BlazeMaster', creator_avatar_url: '',
+    91→    creator_prediction: 'MVP vai ser xNightFury', creator_score: 0,
+    92→    opponent_id: undefined, opponent_display_name: undefined, opponent_score: 0,
+    93→    match_id: 'm3', championship_name: 'Valorant Challengers',
+    94→    match_label: 'Storm vs Phoenix', market_type: 'mvp',
+    95→    wager_amount: 50, prize_pool: 50, platform_fee: 2,
+    96→    format: 'single_match', total_rounds: 1, current_round: 0,
+    97→    expires_at: new Date(Date.now() + 36 * 3600000).toISOString(),
+    98→    is_public: true, spectator_count: 5, chat_enabled: true,
+    99→    invite_code: 'ABC123', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+   100→  },
+   101→  {
+   102→    id: 'd4', challenge_type: 'duel', status: 'waiting_opponent',
+   103→    creator_id: 'u4', creator_display_name: 'ShadowKing', creator_avatar_url: '',
+   104→    creator_prediction: 'Primeira eliminacao em < 2min', creator_score: 0,
+   105→    opponent_id: undefined, opponent_display_name: undefined, opponent_score: 0,
+   106→    match_id: 'm4', championship_name: 'PUBG Mobile Cup',
+   107→    match_label: 'Final Grande', market_type: 'first_blood',
+   108→    wager_amount: 500, prize_pool: 500, platform_fee: 25,
+   109→    format: 'single_match', total_rounds: 1, current_round: 0,
+   110→    expires_at: new Date(Date.now() + 2 * 3600000).toISOString(),
+   111→    is_public: true, spectator_count: 67, chat_enabled: true,
+   112→    trash_talk: '500 moedas. Sem fraquezas.',
+   113→    invite_code: 'QW4RTY', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+   114→  },
+   115→];
+   116→
+   117→const MOCK_GROUP_CHALLENGES: P2PChallenge[] = [
+   118→  {
+   119→    id: 'g1', challenge_type: 'group', status: 'active',
+   120→    creator_id: 'u5', creator_display_name: 'TournamentKing', creator_avatar_url: '',
+   121→    creator_prediction: 'Team Alpha', creator_score: 0, opponent_score: 0,
+   122→    participants: [
+   123→      { user_id: 'u5', display_name: 'TournamentKing', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   124→      { user_id: 'u6', display_name: 'SniperElite', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   125→      { user_id: 'u7', display_name: 'QuickScope', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   126→    ],
+   127→    max_participants: 8, match_id: 'm5', championship_name: 'Liga MZ Pro',
+   128→    match_label: 'Semi-Final: Alpha vs Beta', market_type: 'match_winner',
+   129→    wager_amount: 100, prize_pool: 300, platform_fee: 15,
+   130→    format: 'single_match', total_rounds: 1, current_round: 1,
+   131→    expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
+   132→    is_public: true, spectator_count: 45, chat_enabled: true,
+   133→    invite_code: 'GRP001', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+   134→  },
+   135→  {
+   136→    id: 'g2', challenge_type: 'group', status: 'active',
+   137→    creator_id: 'u8', creator_display_name: 'PredictPro', creator_avatar_url: '',
+   138→    creator_prediction: 'OT Nuke', creator_score: 0, opponent_score: 0,
+   139→    participants: [
+   140→      { user_id: 'u8', display_name: 'PredictPro', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   141→      { user_id: 'u9', display_name: 'AceHigh', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   142→      { user_id: 'u10', display_name: 'BlazeRun', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   143→      { user_id: 'u11', display_name: 'ViperStrike', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   144→      { user_id: 'u12', display_name: 'FrostByte', score: 0, wager_paid: true, joined_at: new Date().toISOString() },
+   145→    ],
+   146→    max_participants: 6, match_id: 'm6', championship_name: 'CS2 Masters',
+   147→    match_label: 'Nexus vs Flames', market_type: 'map_winner',
+   148→    wager_amount: 50, prize_pool: 250, platform_fee: 12,
+   149→    format: 'single_match', total_rounds: 1, current_round: 1,
+   150→    expires_at: new Date(Date.now() + 12 * 3600000).toISOString(),
+   151→    is_public: true, spectator_count: 28, chat_enabled: true,
+   152→    invite_code: 'GRP002', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+   153→  },
+   154→];
+   155→
+   156→const MOCK_MY_CHALLENGES: P2PChallenge[] = [
+   157→  {
+   158→    id: 'mc1', challenge_type: 'duel', status: 'active',
+   159→    creator_id: 'me', creator_display_name: 'Tu', creator_avatar_url: '',
+   160→    creator_prediction: 'Alpha vence 2-0', creator_score: 2,
+   161→    opponent_id: 'u2', opponent_display_name: 'QueenSlayer', opponent_avatar_url: '',
+   162→    opponent_prediction: 'Flames vence', opponent_score: 1,
+   163→    match_id: 'm10', championship_name: 'CS2 Masters',
+   164→    match_label: 'Alpha vs Omega', market_type: 'match_winner',
+   165→    wager_amount: 200, prize_pool: 400, platform_fee: 20,
+   166→    winner_id: undefined,
+   167→    format: 'best_of_3', total_rounds: 3, current_round: 3,
+   168→    expires_at: new Date(Date.now() + 48 * 3600000).toISOString(),
+   169→    is_public: true, spectator_count: 89, chat_enabled: true,
+   170→    trash_talk: 'Vais ver o que e bom!',
+   171→    invite_code: 'MYD001', started_at: new Date(Date.now() - 3600000).toISOString(),
+   172→    created_at: new Date(Date.now() - 7200000).toISOString(), updated_at: new Date().toISOString(),
+   173→  },
+   174→  {
+   175→    id: 'mc2', challenge_type: 'duel', status: 'completed',
+   176→    creator_id: 'u3', creator_display_name: 'BlazeMaster', creator_avatar_url: '',
+   177→    creator_prediction: 'Phoenix vence', creator_score: 0,
+   178→    opponent_id: 'me', opponent_display_name: 'Tu', opponent_avatar_url: '',
+   179→    opponent_prediction: 'Storm vence', opponent_score: 1,
+   180→    match_id: 'm11', championship_name: 'Valorant Challengers',
+   181→    match_label: 'Storm vs Phoenix', market_type: 'match_winner',
+   182→    wager_amount: 150, prize_pool: 300, platform_fee: 15,
+   183→    winner_id: 'me', winner_display_name: 'Tu',
+   184→    format: 'single_match', total_rounds: 1, current_round: 1,
+   185→    expires_at: new Date(Date.now() - 24 * 3600000).toISOString(),
+   186→    is_public: true, spectator_count: 56, chat_enabled: true,
+   187→    invite_code: 'MYD002', started_at: new Date(Date.now() - 48 * 3600000).toISOString(),
+   188→    completed_at: new Date(Date.now() - 24 * 3600000).toISOString(),
+   189→    created_at: new Date(Date.now() - 72 * 3600000).toISOString(), updated_at: new Date().toISOString(),
+   190→  },
+   191→  {
+   192→    id: 'mc3', challenge_type: 'group', status: 'completed',
+   193→    creator_id: 'u8', creator_display_name: 'PredictPro', creator_avatar_url: '',
+   194→    creator_prediction: 'Flames', creator_score: 0, opponent_score: 0,
+   195→    participants: [
+   196→      { user_id: 'u8', display_name: 'PredictPro', score: 0, wager_paid: true, joined_at: new Date(Date.now() - 72 * 3600000).toISOString() },
+   197→      { user_id: 'me', display_name: 'Tu', score: 1, wager_paid: true, joined_at: new Date(Date.now() - 71 * 3600000).toISOString() },
+   198→      { user_id: 'u9', display_name: 'AceHigh', score: 0, wager_paid: true, joined_at: new Date(Date.now() - 70 * 3600000).toISOString() },
+   199→      { user_id: 'u10', display_name: 'BlazeRun', score: 0, wager_paid: true, joined_at: new Date(Date.now() - 69 * 3600000).toISOString() },
+   200→    ],
+   201→    max_participants: 6, match_id: 'm12', championship_name: 'Liga MZ Pro',
+   202→    match_label: 'Final: Nexus vs Storm', market_type: 'match_winner',
+   203→    wager_amount: 100, prize_pool: 400, platform_fee: 20,
+   204→    winner_id: 'me', winner_display_name: 'Tu',
+   205→    format: 'single_match', total_rounds: 1, current_round: 1,
+   206→    expires_at: new Date(Date.now() - 48 * 3600000).toISOString(),
+   207→    is_public: true, spectator_count: 102, chat_enabled: true,
+   208→    invite_code: 'GRP003', started_at: new Date(Date.now() - 72 * 3600000).toISOString(),
+   209→    completed_at: new Date(Date.now() - 48 * 3600000).toISOString(),
+   210→    created_at: new Date(Date.now() - 96 * 3600000).toISOString(), updated_at: new Date().toISOString(),
+   211→  },
+   212→];
+   213→
+   214→const MOCK_TOP_DUELERS: P2PDuelStats[] = [
+   215→  { user_id: 'u1', total_duels: 47, duels_won: 35, duels_lost: 10, duels_draw: 2, win_rate: 74, current_streak: 5, best_streak: 12, total_wagered: 12500, total_won: 18200, total_profit: 5700, biggest_win: 1200 },
+   216→  { user_id: 'u2', total_duels: 63, duels_won: 44, duels_lost: 16, duels_draw: 3, win_rate: 70, current_streak: 3, best_streak: 9, total_wagered: 18900, total_won: 24600, total_profit: 5700, biggest_win: 950 },
+   217→  { user_id: 'u5', total_duels: 31, duels_won: 22, duels_lost: 7, duels_draw: 2, win_rate: 71, current_streak: 0, best_streak: 8, total_wagered: 7750, total_won: 10500, total_profit: 2750, biggest_win: 800 },
+   218→  { user_id: 'u3', total_duels: 28, duels_won: 18, duels_lost: 9, duels_draw: 1, win_rate: 64, current_streak: 1, best_streak: 6, total_wagered: 5600, total_won: 7200, total_profit: 1600, biggest_win: 600 },
+   219→  { user_id: 'u4', total_duels: 55, duels_won: 33, duels_lost: 20, duels_draw: 2, win_rate: 60, current_streak: 2, best_streak: 7, total_wagered: 22000, total_won: 28500, total_profit: 6500, biggest_win: 1500 },
+   220→];
+   221→
+   222→const MOCK_USER_STATS: P2PDuelStats = {
+   223→  user_id: 'me', total_duels: 12, duels_won: 8, duels_lost: 3, duels_draw: 1,
+   224→  win_rate: 67, current_streak: 2, best_streak: 5,
+   225→  total_wagered: 2400, total_won: 3200, total_profit: 800, biggest_win: 570,
+   226→};
+   227→
+   228→// ============================================================
+   229→// HELPERS
+   230→// ============================================================
+   231→
+   232→function getInitials(name: string): string {
+   233→  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+   234→}
+   235→
+   236→function getAvatarColor(name: string): string {
+   237→  const colors = ['#00d4ff', '#7b2ff7', '#ff4655', '#fbbf24', '#2ea043', '#ff6b6b', '#58a6ff', '#f97316'];
+   238→  let hash = 0;
+   239→  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+   240→  return colors[Math.abs(hash) % colors.length];
+   241→}
+   242→
+   243→function getTimeRemaining(expiresAt: string): string {
+   244→  const diff = new Date(expiresAt).getTime() - Date.now();
+   245→  if (diff <= 0) return 'Expirado';
+   246→  const hours = Math.floor(diff / 3600000);
+   247→  const minutes = Math.floor((diff % 3600000) / 60000);
+   248→  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+   249→  if (hours > 0) return `${hours}h ${minutes}m`;
+   250→  return `${minutes}m`;
+   251→}
+   252→
+   253→// ============================================================
+   254→// MAIN COMPONENT
+   255→// ============================================================
+   256→
+   257→type Tab = 'arena' | 'meus' | 'ranking';
+   258→
+   259→export default function DuelosPage() {
+   260→  const { toast } = useToast();
+   261→  const { sfx, isMuted, toggleMute, settings } = useSoundEffects();
+   262→  const { haptics } = useHapticFeedback();
+   263→  const { firePreset } = useConfetti();
+   264→  const pageRef = useRef<HTMLDivElement>(null);
+   265→  const [activeTab, setActiveTab] = useState<Tab>('arena');
+   266→  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+   267→  const [challengeDetail, setChallengeDetail] = useState<P2PChallenge | null>(null);
+   268→  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+   269→
+   270→  // Effects state
+   271→  const [confettiTrigger, setConfettiTrigger] = useState(0);
+   272→  const [coinRainTrigger, setCoinRainTrigger] = useState(0);
+   273→  const [shakeTrigger, setShakeTrigger] = useState(0);
+   274→  const [energyTrigger, setEnergyTrigger] = useState(0);
+   275→  const [toastState, setToastState] = useState({ show: false, message: '', icon: '', color: '' });
+   276→  const [soundPanelOpen, setSoundPanelOpen] = useState(false);
+   277→
+   278→  // CountUp for hero stats
+   279→  const totalPool = useCountUp({ end: 12450, duration: 2000, separator: '.' });
+   280→  const activeDuels = useCountUp({ end: 23, duration: 1500 });
+   281→  const groupChallenges = useCountUp({ end: 8, duration: 1200 });
+   282→  const streakRecord = useCountUp({ end: 12, duration: 1800 });
+   283→
+   284→  // Tab switch with sound + haptic
+   285→  const handleTabSwitch = useCallback((tab: Tab) => {
+   286→    setActiveTab(tab);
+   287→    sfx.tabClick();
+   288→    haptics.click();
+   289→  }, [sfx, haptics]);
+   290→
+   291→  // Show a P2P toast notification
+   292→  const showP2PToast = useCallback((message: string, icon: string, color: string) => {
+   293→    setToastState({ show: true, message, icon, color });
+   294→    sfx.notification();
+   295→    haptics.notification();
+   296→    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 3500);
+   297→  }, [sfx, haptics]);
+   298→
+   299→  // Create form state
+   300→  const [challengeType, setChallengeType] = useState<P2PChallengeType>('duel');
+   301→  const [opponentUsername, setOpponentUsername] = useState('');
+   302→  const [matchLabel, setMatchLabel] = useState('');
+   303→  const [championshipName, setChampionshipName] = useState('');
+   304→  const [wagerAmount, setWagerAmount] = useState(100);
+   305→  const [customWager, setCustomWager] = useState('');
+   306→  const [prediction, setPrediction] = useState('');
+   307→  const [format, setFormat] = useState<P2PChallengeFormat>('single_match');
+   308→  const [expiresIn, setExpiresIn] = useState(24);
+   309→  const [isPublic, setIsPublic] = useState(true);
+   310→  const [trashTalk, setTrashTalk] = useState('');
+   311→  const [creating, setCreating] = useState(false);
+   312→
+   313→  const tabs: { id: Tab; label: string; icon: any }[] = [
+   314→    { id: 'arena', label: 'Arena de Duelos', icon: Swords },
+   315→    { id: 'meus', label: 'Meus Desafios', icon: Target },
+   316→    { id: 'ranking', label: 'Ranking P2P', icon: Trophy },
+   317→  ];
+   318→
+   319→  const handleCopyCode = (code: string) => {
+   320→    navigator.clipboard.writeText(code);
+   321→    setCopiedCode(code);
+   322→    sfx.inviteCopied();
+   323→    haptics.success();
+   324→    toast({ title: 'Codigo copiado!', description: `${code} — envia ao teu amigo` });
+   325→    setTimeout(() => setCopiedCode(null), 2000);
+   326→  };
+   327→
+   328→  const handleCreateChallenge = async () => {
+   329→    setCreating(true);
+   330→    sfx.escrowLock();
+   331→    haptics.heavy();
+   332→    setEnergyTrigger(prev => prev + 1);
+   333→    // Simulate API call
+   334→    await new Promise(r => setTimeout(r, 1500));
+   335→    sfx.duelCreated();
+   336→    setConfettiTrigger(prev => prev + 1);
+   337→    setCreating(false);
+   338→    setCreateDialogOpen(false);
+   339→    sfx.modalClose();
+   340→    showP2PToast(
+   341→      challengeType === 'duel'
+   342→        ? `Duelo lancado! A espera de ${opponentUsername || 'oponente'}...`
+   343→        : 'Desafio de grupo criado!',
+   344→      challengeType === 'duel' ? '\u2694\uFE0F' : '\uD83C\uDFB2',
+   345→      challengeType === 'duel' ? '#00d4ff' : '#7b2ff7',
+   346→    );
+   347→    toast({
+   348→      title: 'Desafio criado!',
+   349→      description: challengeType === 'duel'
+   350→        ? `Duelo criado! A espera de ${opponentUsername || 'oponente'}...`
+   351→        : 'Desafio de grupo criado! Partilha o codigo de convite.',
+   352→    });
+   353→  };
+   354→
+   355→  return (
+   356→    <div className={"min-h-screen pb-8 " + (shakeTrigger > 0 ? 'p2p-shake-active' : '')}>
+   357→      {/* Global Visual Effects */}
+   358→      <ArenaParticles />
+   359→      <ConfettiBurst trigger={confettiTrigger} x={50} y={40} count={60} />
+   360→      <CoinRain trigger={coinRainTrigger} count={25} />
+   361→      <ScreenShake trigger={shakeTrigger} intensity="medium" />
+   362→      <P2PToast
+   363→        message={toastState.message}
+   364→        icon={toastState.icon}
+   365→        color={toastState.color}
+   366→        show={toastState.show}
+   367→      />
+   368→      {/* Hero Banner */}
+   369→      <div className="relative overflow-hidden px-4 pt-6 pb-8">
+   370→        <div className="absolute inset-0 p2p-arena-bg" />
+   371→        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[var(--area-bg,#0a0a0f)]" />
+   372→        <div className="relative z-10 max-w-6xl mx-auto">
+   373→          <motion.div
+   374→            initial={{ opacity: 0, y: 20 }}
+   375→            animate={{ opacity: 1, y: 0 }}
+   376→            transition={{ duration: 0.5 }}
+   377→          >
+   378→            <div className="flex items-center gap-3 mb-2">
+   379→              <div
+   380→                className="relative flex items-center justify-center w-10 h-10 rounded-xl press-effect"
+   381→                style={{
+   382→                  background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(123,47,247,0.2))',
+   383→                  border: '1px solid rgba(0,212,255,0.3)',
+   384→                  boxShadow: '0 0 20px rgba(0,212,255,0.15)',
+   385→                }}
+   386→              >
+   387→                <Swords className="w-5 h-5 text-[#00d4ff]" />
+   388→              </div>
+   389→              <div className="flex-1">
+   390→                <h1
+   391→                  className="text-2xl md:text-3xl font-black text-white tracking-tight"
+   392→                  style={{ fontFamily: 'var(--font-display, system-ui)' }}
+   393→                >
+   394→                  <TextReveal text="ARENA DE DUELOS P2P" delay={0.1} perCharDelay={0.02} />
+   395→                </h1>
+   396→                <p className="text-xs text-[#00d4ff]/60 tracking-[0.15em] uppercase font-semibold">
+   397→                  <MorphingText texts={['Desafia. Prova. Conquista.', 'Moeda Virtual, Emocao Real', 'Arena P2P da Comunidade']} interval={4000} className="text-xs text-[#00d4ff]/60" />
+   398→                </p>
+   399→              </div>
+   400→              {/* Sound Toggle */}
+   401→              <MagneticButton intensity={0.15}>
+   402→                <motion.button
+   403→                  className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors relative"
+   404→                  whileTap={{ scale: 0.9 }}
+   405→                  onClick={() => { toggleMute(); haptics.click(); }}
+   406→                >
+   407→                  <AnimatePresence mode="wait">
+   408→                    {isMuted
+   409→                      ? <motion.div key="muted" initial={{scale:0,rotate:-90}} animate={{scale:1,rotate:0}} exit={{scale:0,rotate:90}}><VolumeX className="w-5 h-5 text-red-400" /></motion.div>
+   410→                      : <motion.div key="on" initial={{scale:0,rotate:-90}} animate={{scale:1,rotate:0}} exit={{scale:0,rotate:90}}><Volume2 className="w-5 h-5 text-white/70" /></motion.div>
+   411→                    }
+   412→                  </AnimatePresence>
+   413→                  {!isMuted && (
+   414→                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#2ea043] live-dot-pulse" />
+   415→                  )}
+   416→                </motion.button>
+   417→              </MagneticButton>
+   418→            </div>
+   419→            <p className="text-sm text-zinc-400 mt-3 max-w-2xl leading-relaxed">
+   420→              Enfrenta outros utilizadores em duelos de previsoes com moedas virtuais.
+   421→              Cada jogador aposta, o vencedor leva o pool. Sem dinheiro real, pura habilidade.
+   422→            </p>
+   423→          </motion.div>
+   424→
+   425→          {/* Quick Stats Bar */}
+   426→          <motion.div
+   427→            initial={{ opacity: 0, y: 10 }}
+   428→            animate={{ opacity: 1, y: 0 }}
+   429→            transition={{ delay: 0.2, duration: 0.4 }}
+   430→            className="mt-5 flex flex-wrap gap-3"
+   431→          >
+   432→            <AnimatedQuickStat icon={Swords} label="Duelos Ativos" endValue={23} color="#00d4ff" />
+   433→            <AnimatedQuickStat icon={Users} label="Desafios de Grupo" endValue={8} color="#7b2ff7" />
+   434→            <AnimatedQuickStat icon={Coins} label="Pool Total" endValue={12450} color="#fbbf24" prefix="" suffix="" formatNumber />
+   435→            <AnimatedQuickStat icon={Flame} label="Streak Record" endValue={12} color="#ff4655" />
+   436→          </motion.div>
+   437→
+   438→          {/* Create Challenge Button */}
+   439→          <motion.div
+   440→            initial={{ opacity: 0, scale: 0.95 }}
+   441→            animate={{ opacity: 1, scale: 1 }}
+   442→            transition={{ delay: 0.3, duration: 0.3 }}
+   443→            className="mt-5"
+   444→          >
+   445→            <button
+   446→              onClick={() => setCreateDialogOpen(true)}
+   447→              className="p2p-create-btn flex items-center gap-2.5 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+   448→              style={{
+   449→                background: 'linear-gradient(135deg, #00d4ff, #7b2ff7)',
+   450→                boxShadow: '0 4px 25px rgba(0,212,255,0.3), 0 0 60px rgba(123,47,247,0.1)',
+   451→              }}
+   452→            >
+   453→              <Plus className="w-5 h-5" />
+   454→              Criar Desafio P2P
+   455→              <Sparkles className="w-4 h-4 text-white/70" />
+   456→            </button>
+   457→          </motion.div>
+   458→        </div>
+   459→      </div>
+   460→
+   461→      {/* Tabs */}
+   462→      <div className="sticky top-14 z-40 px-4" style={{ background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(20px)' }}>
+   463→        <div className="max-w-6xl mx-auto flex gap-1 py-2 border-b border-white/5">
+   464→          {tabs.map((tab) => {
+   465→            const Icon = tab.icon;
+   466→            const isActive = activeTab === tab.id;
+   467→            return (
+   468→              <button
+   469→                key={tab.id}
+   470→                onClick={() => { handleTabSwitch(tab.id); }}
+   471→                onMouseEnter={() => sfx.tabHover()}
+   472→                className={"relative flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 " + (isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300')}
+   473→              >
+   474→                {isActive && (
+   475→                  <motion.div
+   476→                    layoutId="p2p-tab-indicator"
+   477→                    className="absolute inset-0 rounded-lg"
+   478→                    style={{
+   479→                      background: 'linear-gradient(135deg, rgba(0,212,255,0.1), rgba(123,47,247,0.08))',
+   480→                      border: '1px solid rgba(0,212,255,0.2)',
+   481→                    }}
+   482→                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+   483→                  />
+   484→                )}
+   485→                <Icon className={"relative z-10 w-4 h-4 " + (isActive ? 'text-[#00d4ff]' : '')} />
+   486→                <span className="relative z-10">{tab.label}</span>
+   487→                {tab.id === 'arena' && (
+   488→                  <span className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#ff4655] text-[10px] font-black text-white">
+   489→                    {MOCK_OPEN_DUELS.length + MOCK_GROUP_CHALLENGES.length}
+   490→                  </span>
+   491→                )}
+   492→                {tab.id === 'meus' && MOCK_MY_CHALLENGES.filter(c => c.status === 'active').length > 0 && (
+   493→                  <span className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#fbbf24] text-[10px] font-black text-black">
+   494→                    {MOCK_MY_CHALLENGES.filter(c => c.status === 'active').length}
+   495→                  </span>
+   496→                )}
+   497→              </button>
+   498→            );
+   499→          })}
+   500→        </div>
+   501→      </div>
+   502→
+   503→      {/* Tab Content */}
+   504→      <div className="max-w-6xl mx-auto px-4 mt-6">
+   505→        <AnimatePresence mode="wait">
+   506→          {activeTab === 'arena' && (
+   507→            <motion.div
+   508→              key="arena"
+   509→              initial={{ opacity: 0, y: 10 }}
+   510→              animate={{ opacity: 1, y: 0 }}
+   511→              exit={{ opacity: 0, y: -10 }}
+   512→              transition={{ duration: 0.25 }}
+   513→            >
+   514→              {/* Invite Code Search */}
+   515→              <div className="mb-6">
+   516→                <div
+   517→                  className="flex items-center gap-2 p-1.5 rounded-xl max-w-md"
+   518→                  style={{
+   519→                    background: 'rgba(0,212,255,0.05)',
+   520→                    border: '1px solid rgba(0,212,255,0.15)',
+   521→                  }}
+   522→                >
+   523→                  <Hash className="w-4 h-4 text-[#00d4ff] ml-2" />
+   524→                  <input
+   525→                    type="text"
+   526→                    placeholder="Codigo de convite (ex: NR7K2M)"
+   527→                    className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder-zinc-600"
+   528→                    maxLength={6}
+   529→                  />
+   530→                  <button className="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-[#00d4ff] hover:bg-[#00d4ff]/90 transition-all">
+   531→                    Entrar
+   532→                  </button>
+   533→                </div>
+   534→              </div>
+   535→
+   536→              {/* Duel Type Sections */}
+   537→              <div className="space-y-8">
+   538→                {/* 1v1 Duels */}
+   539→                <section>
+   540→                  <div className="flex items-center gap-3 mb-4">
+   541→                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)' }}>
+   542→                      <Swords className="w-4 h-4 text-[#00d4ff]" />
+   543→                      <span className="text-sm font-bold text-[#00d4ff]">DUELOS 1v1</span>
+   544→                    </div>
+   545→                    <span className="text-xs text-zinc-600">{MOCK_OPEN_DUELS.length} duelos abertos</span>
+   546→                    <div className="flex-1 h-px bg-gradient-to-r from-[#00d4ff]/20 to-transparent" />
+   547→                  </div>
+   548→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   549→                    {MOCK_OPEN_DUELS.map((duel) => (
+   550→                      <DuelCard
+   551→                        key={duel.id}
+   552→                        challenge={duel}
+   553→                        onAccept={() => {
+   554→                          sfx.duelAccepted();
+   555→                          sfx.battleStart();
+   556→                          setShakeTrigger(prev => prev + 1);
+   557→                          setEnergyTrigger(prev => prev + 1);
+   558→                          haptics.heavy();
+   559→                          toast({ title: 'Duelo aceite!', description: `Preparado para enfrentar ${duel.creator_display_name}!` });
+   560→                        }}
+   561→                        onCopyCode={handleCopyCode}
+   562→                        onView={() => setChallengeDetail(duel)}
+   563→                        copiedCode={copiedCode}
+   564→                      />
+   565→                    ))}
+   566→                  </div>
+   567→                </section>
+   568→
+   569→                {/* Group Challenges */}
+   570→                <section>
+   571→                  <div className="flex items-center gap-3 mb-4">
+   572→                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(123,47,247,0.08)', border: '1px solid rgba(123,47,247,0.15)' }}>
+   573→                      <Users className="w-4 h-4 text-[#7b2ff7]" />
+   574→                      <span className="text-sm font-bold text-[#7b2ff7]">DESAFIOS DE GRUPO</span>
+   575→                    </div>
+   576→                    <span className="text-xs text-zinc-600">{MOCK_GROUP_CHALLENGES.length} grupos abertos</span>
+   577→                    <div className="flex-1 h-px bg-gradient-to-r from-[#7b2ff7]/20 to-transparent" />
+   578→                  </div>
+   579→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   580→                    {MOCK_GROUP_CHALLENGES.map((gc) => (
+   581→                      <GroupChallengeCard
+   582→                        key={gc.id}
+   583→                        challenge={gc}
+   584→                        onJoin={() => {
+   585→                          sfx.escrowLock();
+   586→                          haptics.medium();
+   587→                          setTimeout(() => {
+   588→                            sfx.success();
+   589→                            setConfettiTrigger(prev => prev + 1);
+   590→                            toast({ title: 'Entraste!', description: `Entraste no desafio de ${gc.creator_display_name}` });
+   591→                          }, 600);
+   592→                        }}
+   593→                        onCopyCode={handleCopyCode}
+   594→                        onView={() => setChallengeDetail(gc)}
+   595→                        copiedCode={copiedCode}
+   596→                      />
+   597→                    ))}
+   598→                  </div>
+   599→                </section>
+   600→              </div>
+   601→
+   602→              {/* How It Works */}
+   603→              <div className="mt-10">
+   604→                <HowItWorks />
+   605→              </div>
+   606→            </motion.div>
+   607→          )}
+   608→
+   609→          {activeTab === 'meus' && (
+   610→            <motion.div
+   611→              key="meus"
+   612→              initial={{ opacity: 0, y: 10 }}
+   613→              animate={{ opacity: 1, y: 0 }}
+   614→              exit={{ opacity: 0, y: -10 }}
+   615→              transition={{ duration: 0.25 }}
+   616→            >
+   617→              {/* User Stats Card */}
+   618→              <MyDuelStatsCard stats={MOCK_USER_STATS} />
+   619→
+   620→              {/* My Challenges List */}
+   621→              <div className="mt-6 space-y-4">
+   622→                <h3 className="text-lg font-bold text-white">Historico de Desafios</h3>
+   623→                {MOCK_MY_CHALLENGES.map((c) => (
+   624→                  <MyChallengeRow key={c.id} challenge={c} />
+   625→                ))}
+   626→              </div>
+   627→            </motion.div>
+   628→          )}
+   629→
+   630→          {activeTab === 'ranking' && (
+   631→            <motion.div
+   632→              key="ranking"
+   633→              initial={{ opacity: 0, y: 10 }}
+   634→              animate={{ opacity: 1, y: 0 }}
+   635→              exit={{ opacity: 0, y: -10 }}
+   636→              transition={{ duration: 0.25 }}
+   637→            >
+   638→              <P2PRankingTable duelers={MOCK_TOP_DUELERS} />
+   639→            </motion.div>
+   640→          )}
+   641→        </AnimatePresence>
+   642→
+   643→        {/* Fair Play Shield at bottom */}
+   644→        <div className="mt-10">
+   645→          <FairPlayShield variant="banner" />
+   646→        </div>
+   647→      </div>
+   648→
+   649→      {/* Create Challenge Dialog */}
+   650→      <AnimatePresence>
+   651→        {createDialogOpen && (
+   652→          <CreateP2PDialog
+   653→            challengeType={challengeType}
+   654→            setChallengeType={setChallengeType}
+   655→            opponentUsername={opponentUsername}
+   656→            setOpponentUsername={setOpponentUsername}
+   657→            matchLabel={matchLabel}
+   658→            setMatchLabel={setMatchLabel}
+   659→            championshipName={championshipName}
+   660→            setChampionshipName={setChampionshipName}
+   661→            wagerAmount={wagerAmount}
+   662→            setWagerAmount={setWagerAmount}
+   663→            customWager={customWager}
+   664→            setCustomWager={setCustomWager}
+   665→            prediction={prediction}
+   666→            setPrediction={setPrediction}
+   667→            format={format}
+   668→            setFormat={setFormat}
+   669→            expiresIn={expiresIn}
+   670→            setExpiresIn={setExpiresIn}
+   671→            isPublic={isPublic}
+   672→            setIsPublic={setIsPublic}
+   673→            trashTalk={trashTalk}
+   674→            setTrashTalk={setTrashTalk}
+   675→            creating={creating}
+   676→            onClose={() => setCreateDialogOpen(false)}
+   677→            onSubmit={handleCreateChallenge}
+   678→          />
+   679→        )}
+   680→      </AnimatePresence>
+   681→
+   682→      {/* Challenge Detail Modal */}
+   683→      <AnimatePresence>
+   684→        {challengeDetail && (
+   685→          <ChallengeDetailModal
+   686→            challenge={challengeDetail}
+   687→            onClose={() => setChallengeDetail(null)}
+   688→            onCopyCode={handleCopyCode}
+   689→            copiedCode={copiedCode}
+   690→          />
+   691→        )}
+   692→      </AnimatePresence>
+   693→    </div>
+   694→  );
+   695→}
+   696→
+   697→// ============================================================
+   698→// SUB-COMPONENTS
+   699→// ============================================================
+   700→
+   701→function QuickStat({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
+   702→  return (
+   703→    <motion.div
+   704→      className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl cursor-default"
+   705→      style={{
+   706→        background: `linear-gradient(135deg, ${color}08, ${color}04)`,
+   707→        border: `1px solid ${color}20`,
+   708→      }}
+   709→      whileHover={{ scale: 1.03, borderColor: `${color}40` }}
+   710→      whileTap={{ scale: 0.98 }}
+   711→      onHoverStart={() => sfx.buttonHover()}
+   712→      onClick={() => sfx.coinClink()}
+   713→    >
+   714→      <Icon className="w-4 h-4" style={{ color }} />
+   715→      <div>
+   716→        <div className="text-xs text-zinc-500 font-medium">{label}</div>
+   717→        <div className="text-sm font-bold text-white">{value}</div>
+   718→      </div>
+   719→    </motion.div>
+   720→  );
+   721→}
+   722→
+   723→function AnimatedQuickStat({ icon: Icon, label, endValue, color, prefix = '', suffix = '', formatNumber = false }: {
+   724→  icon: any; label: string; endValue: number; color: string; prefix?: string; suffix?: string; formatNumber?: boolean;
+   725→}) {
+   726→  const { formatted } = useCountUp({ end: endValue, duration: 2000, separator: formatNumber ? '.' : undefined });
+   727→  return <QuickStat icon={Icon} label={label} value={prefix + formatted + suffix} color={color} />;
+   728→}
+   729→
+   730→// ============================================================
+   731→// DUEL CARD (1v1)
+   732→// ============================================================
+   733→
+   734→function DuelCard({ challenge, onAccept, onCopyCode, onView, copiedCode }: {
+   735→  challenge: P2PChallenge;
+   736→  onAccept: () => void;
+   737→  onCopyCode: (code: string) => void;
+   738→  onView: () => void;
+   739→  copiedCode: string | null;
+   740→}) {
+   741→  const timeLeft = getTimeRemaining(challenge.expires_at);
+   742→  const potentialPayout = challenge.wager_amount * 2 - challenge.platform_fee;
+   743→
+   744→  return (
+   745→    <CardTilt3D tiltAmount={6} glareEnabled={true} glareColor="rgba(0,212,255,0.06)" className="card-stagger-1">
+   746→      <div
+   747→        className="p2p-duel-card relative rounded-2xl p-5 cursor-pointer transition-all duration-300"
+   748→        style={{
+   749→          background: 'linear-gradient(160deg, rgba(15,15,25,0.95), rgba(10,10,18,0.98))',
+   750→          border: '1px solid rgba(0,212,255,0.12)',
+   751→        }}
+   752→        onClick={onView}
+   753→      >
+   754→      {/* Top Row: Championship + Timer */}
+   755→      <div className="flex items-center justify-between mb-4">
+   756→        <div className="flex items-center gap-2">
+   757→          <Trophy className="w-3.5 h-3.5 text-[#fbbf24]" />
+   758→          <span className="text-xs font-semibold text-[#fbbf24]/80">{challenge.championship_name}</span>
+   759→        </div>
+   760→        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(255,70,85,0.08)', border: '1px solid rgba(255,70,85,0.15)' }}>
+   761→          <Timer className="w-3 h-3 text-[#ff4655]" />
+   762→          <span className="text-xs font-bold text-[#ff4655]">{timeLeft}</span>
+   763→        </div>
+   764→      </div>
+   765→
+   766→      {/* Match Label */}
+   767→      <div className="text-center mb-4">
+   768→        <div className="text-xs text-zinc-600 uppercase tracking-wider font-medium mb-1">Jogo</div>
+   769→        <div className="text-sm font-bold text-white">{challenge.match_label}</div>
+   770→        <div className="text-xs text-zinc-500 mt-1">{P2P_FORMAT_LABELS[challenge.format]} • {P2P_CHALLENGE_TYPE_LABELS[challenge.market_type] || challenge.market_type}</div>
+   771→      </div>
+   772→
+   773→      {/* VS Battle Layout */}
+   774→      <div className="flex items-center gap-2 mb-4">
+   775→        {/* Creator Side */}
+   776→        <div className="flex-1 flex flex-col items-center text-center">
+   777→          <div
+   778→            className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-black text-white mb-1.5"
+   779→            style={{ background: `linear-gradient(135deg, ${getAvatarColor(challenge.creator_display_name)}, ${getAvatarColor(challenge.creator_display_name)}88)`, boxShadow: `0 0 15px ${getAvatarColor(challenge.creator_display_name)}30` }}
+   780→          >
+   781→            {getInitials(challenge.creator_display_name)}
+   782→          </div>
+   783→          <div className="text-xs font-bold text-white truncate max-w-full">{challenge.creator_display_name}</div>
+   784→          <div className="text-[10px] text-[#00d4ff]/70 truncate max-w-full">"{challenge.creator_prediction}"</div>
+   785→        </div>
+   786→
+   787→        {/* VS Badge */}
+   788→        <div className="p2p-vs-badge relative flex items-center justify-center w-10 h-10 rounded-full flex-shrink-0">
+   789→          <span className="text-xs font-black text-white relative z-10">VS</span>
+   790→        </div>
+   791→
+   792→        {/* Opponent Side (Empty) */}
+   793→        <div className="flex-1 flex flex-col items-center text-center">
+   794→          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-1.5" style={{ border: '2px dashed rgba(255,255,255,0.15)' }}>
+   795→            <Plus className="w-5 h-5 text-zinc-600" />
+   796→          </div>
+   797→          <div className="text-xs font-semibold text-zinc-600">A espera...</div>
+   798→          <div className="text-[10px] text-zinc-700">Aceita o desafio</div>
+   799→        </div>
+   800→      </div>
+   801→
+   802→      {/* Wager + Prize Pool */}
+   803→      <div className="flex items-center justify-between p-3 rounded-xl mb-4" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.1)' }}>
+   804→        <div className="text-center">
+   805→          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Aposta</div>
+   806→          <div className="flex items-center gap-1 justify-center">
+   807→            <Coins className="w-3.5 h-3.5 text-[#fbbf24]" />
+   808→            <span className="text-sm font-black text-[#fbbf24]">{challenge.wager_amount}</span>
+   809→          </div>
+   810→        </div>
+   811→        <ArrowRight className="w-4 h-4 text-zinc-600" />
+   812→        <div className="text-center">
+   813→          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Vencedor Leva</div>
+   814→          <div className="flex items-center gap-1 justify-center">
+   815→            <Gift className="w-3.5 h-3.5 text-[#2ea043]" />
+   816→            <NumberTicker value={potentialPayout} className="text-sm font-black text-[#2ea043]" />
+   817→          </div>
+   818→        </div>
+   819→      </div>
+   820→
+   821→      {/* Trash Talk */}
+   822→      {challenge.trash_talk && (
+   823→        <div className="mb-4 p-2.5 rounded-lg" style={{ background: 'rgba(255,70,85,0.05)', border: '1px solid rgba(255,70,85,0.1)' }}>
+   824→          <div className="flex items-center gap-1.5 mb-1">
+   825→            <Volume2 className="w-3 h-3 text-[#ff4655]" />
+   826→            <span className="text-[10px] font-bold text-[#ff4655] uppercase tracking-wider">Trash Talk</span>
+   827→          </div>
+   828→          <p className="text-xs text-zinc-400 italic">"{challenge.trash_talk}"</p>
+   829→        </div>
+   830→      )}
+   831→
+   832→      {/* Bottom Row: Invite Code + Spectators + Accept */}
+   833→      <div className="flex items-center gap-2">
+   834→        <button
+   835→          onClick={(e) => { e.stopPropagation(); onCopyCode(challenge.invite_code || ''); }}
+   836→          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+   837→          style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+   838→        >
+   839→          {copiedCode === challenge.invite_code ? <CheckCircle className="w-3.5 h-3.5 text-[#2ea043]" /> : <Copy className="w-3.5 h-3.5" />}
+   840→          {challenge.invite_code}
+   841→        </button>
+   842→        <div className="flex items-center gap-1 text-xs text-zinc-600">
+   843→          <Eye className="w-3.5 h-3.5" />{challenge.spectator_count}
+   844→        </div>
+   845→        <div className="flex-1" />
+   846→        <button
+   847→          onClick={(e) => { e.stopPropagation(); onAccept(); sfx.buttonClick(); haptics.medium(); }}
+   848→          className="p2p-accept-btn flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black text-black bg-[#00d4ff] hover:bg-[#00d4ff]/90 transition-all hover:scale-105 active:scale-95"
+   849→          onMouseEnter={() => sfx.buttonHover()}
+   850→        >
+   851→          <Swords className="w-3.5 h-3.5" />
+   852→          ACEITAR
+   853→          <EnergyWave trigger={0} color="#00d4ff" />
+   854→        </button>
+   855→      </div>
+   856→    </div>
+   857→    </CardTilt3D>
+   858→  );
+   859→}
+   860→
+   861→// ============================================================
+   862→// GROUP CHALLENGE CARD
+   863→// ============================================================
+   864→
+   865→function GroupChallengeCard({ challenge, onJoin, onCopyCode, onView, copiedCode }: {
+   866→  challenge: P2PChallenge;
+   867→  onJoin: () => void;
+   868→  onCopyCode: (code: string) => void;
+   869→  onView: () => void;
+   870→  copiedCode: string | null;
+   871→}) {
+   872→  const participants = (challenge.participants || []) as unknown as P2PParticipant[];
+   873→  const spotsLeft = (challenge.max_participants || 8) - participants.length;
+   874→  const potentialPayout = challenge.prize_pool - challenge.platform_fee;
+   875→
+   876→  return (
+   877→    <CardTilt3D tiltAmount={6} glareEnabled={true} glareColor="rgba(123,47,247,0.06)" className="card-stagger-2">
+   878→      <div
+   879→        className="p2p-group-card relative rounded-2xl p-5 cursor-pointer transition-all duration-300"
+   880→        style={{
+   881→          background: 'linear-gradient(160deg, rgba(15,15,25,0.95), rgba(10,10,18,0.98))',
+   882→          border: '1px solid rgba(123,47,247,0.12)',
+   883→        }}
+   884→        onClick={onView}
+   885→      >
+   886→      {/* Header */}
+   887→      <div className="flex items-center justify-between mb-3">
+   888→        <div className="flex items-center gap-2">
+   889→          <Users className="w-4 h-4 text-[#7b2ff7]" />
+   890→          <span className="text-xs font-bold text-[#7b2ff7]">DESAFIO DE GRUPO</span>
+   891→        </div>
+   892→        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: 'rgba(123,47,247,0.08)', border: '1px solid rgba(123,47,247,0.15)' }}>
+   893→          <span className="text-xs font-bold text-[#7b2ff7]">{spotsLeft} vagas</span>
+   894→        </div>
+   895→      </div>
+   896→
+   897→      {/* Match */}
+   898→      <div className="mb-3">
+   899→        <div className="text-xs text-zinc-600 mb-0.5">{challenge.championship_name}</div>
+   900→        <div className="text-sm font-bold text-white">{challenge.match_label}</div>
+   901→      </div>
+   902→
+   903→      {/* Participants Row */}
+   904→      <div className="flex items-center gap-1.5 mb-4">
+   905→        {participants.slice(0, 5).map((p, i) => (
+   906→          <div
+   907→            key={p.user_id}
+   908→            className="relative -ml-1 first:ml-0"
+   909→            title={p.display_name}
+   910→          >
+   911→            <div
+   912→              className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white ring-2 ring-[#0a0a12]"
+   913→              style={{ background: getAvatarColor(p.display_name) }}
+   914→            >
+   915→              {getInitials(p.display_name)}
+   916→            </div>
+   917→          </div>
+   918→        ))}
+   919→        {participants.length > 5 && (
+   920→          <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-zinc-400 ring-2 ring-[#0a0a12] bg-zinc-800">
+   921→            +{participants.length - 5}
+   922→          </div>
+   923→        )}
+   924→        {/* Empty slots */}
+   925→        {Array.from({ length: Math.min(spotsLeft, 3) }).map((_, i) => (
+   926→          <div
+   927→            key={`empty-${i}`}
+   928→            className="w-8 h-8 rounded-full ring-2 ring-[#0a0a12]"
+   929→            style={{ border: '2px dashed rgba(123,47,247,0.3)' }}
+   930→          />
+   931→        ))}
+   932→        <div className="ml-2 text-xs text-zinc-500">
+   933→          {participants.length}/{challenge.max_participants || 8} jogadores
+   934→        </div>
+   935→      </div>
+   936→
+   937→      {/* Prize Pool */}
+   938→      <div className="flex items-center justify-between p-3 rounded-xl mb-4" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.1)' }}>
+   939→        <div>
+   940→          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Aposta por jogador</div>
+   941→          <div className="flex items-center gap-1">
+   942→            <Coins className="w-3.5 h-3.5 text-[#fbbf24]" />
+   943→            <span className="text-sm font-black text-[#fbbf24]">{challenge.wager_amount}</span>
+   944→          </div>
+   945→        </div>
+   946→        <div className="text-right">
+   947→          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Pool Atual</div>
+   948→          <div className="flex items-center gap-1 justify-end">
+   949→            <Gift className="w-3.5 h-3.5 text-[#2ea043]" />
+   950→            <span className="text-sm font-black text-[#2ea043]">{challenge.prize_pool}</span>
+   951→          </div>
+   952→        </div>
+   953→      </div>
+   954→
+   955→      {/* Footer */}
+   956→      <div className="flex items-center gap-2">
+   957→        <button
+   958→          onClick={(e) => { e.stopPropagation(); onCopyCode(challenge.invite_code || ''); }}
+   959→          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+   960→          style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+   961→        >
+   962→          {copiedCode === challenge.invite_code ? <CheckCircle className="w-3.5 h-3.5 text-[#2ea043]" /> : <Copy className="w-3.5 h-3.5" />}
+   963→          {challenge.invite_code}
+   964→        </button>
+   965→        <div className="flex-1" />
+   966→        <button
+   967→          onClick={(e) => { e.stopPropagation(); onJoin(); }}
+   968→          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black text-white transition-all hover:scale-105 active:scale-95"
+   969→          style={{
+   970→            background: 'linear-gradient(135deg, #7b2ff7, #00d4ff)',
+   971→            boxShadow: '0 2px 15px rgba(123,47,247,0.3)',
+   972→          }}
+   973→        >
+   974→          <UserCheck className="w-3.5 h-3.5" />
+   975→          ENTRAR
+   976→        </button>
+   977→      </div>
+   978→    </motion.div>
+   979→  );
+   980→}
+   981→
+   982→// ============================================================
+   983→// MY CHALLENGE ROW
+   984→// ============================================================
+   985→
+   986→function MyChallengeRow({ challenge }: { challenge: P2PChallenge }) {
+   987→  const isWinner = challenge.winner_id === 'me';
+   988→  const isDraw = !challenge.winner_id && challenge.status === 'completed';
+   989→  const isActive = challenge.status === 'active';
+   990→  const isDuel = challenge.challenge_type === 'duel';
+   991→
+   992→  const statusConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
+   993→    active: { icon: Flame, color: '#00d4ff', bg: 'rgba(0,212,255,0.08)', label: 'Em Curso' },
+   994→    completed: isWinner
+   995→      ? { icon: Trophy, color: '#2ea043', bg: 'rgba(46,160,67,0.08)', label: 'Vitoria' }
+   996→      : isDraw
+   997→        ? { icon: Minus, color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', label: 'Empate' }
+   998→        : { icon: XCircle, color: '#ff4655', bg: 'rgba(255,70,85,0.08)', label: 'Derrota' },
+   999→    waiting_opponent: { icon: Clock, color: '#fbbf24', bg: 'rgba(251,191,36,0.08)', label: 'A Esperar' },
+  1000→  };
+  1001→
+  1002→  const cfg = statusConfig[challenge.status] || statusConfig.active;
+  1003→  const StatusIcon = cfg.icon;
+  1004→
+  1005→  return (
+  1006→    <motion.div
+  1007→      initial={{ opacity: 0, x: -10 }}
+  1008→      animate={{ opacity: 1, x: 0 }}
+  1009→      className={"p2p-my-challenge-row flex items-center gap-4 p-4 rounded-xl transition-all duration-300 " + (isWinner ? 'challenge-card-win' : isActive ? '' : '')}
+  1010→      style={{
+  1011→        background: cfg.bg,
+  1012→        border: `1px solid ${cfg.color}20`,
+  1013→      }}
+  1014→    >
+  1015→      {/* Status Icon */}
+  1016→      <div className="flex-shrink-0">
+  1017→        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${cfg.color}15` }}>
+  1018→          <StatusIcon className="w-5 h-5" style={{ color: cfg.color }} />
+  1019→        </div>
+  1020→      </div>
+  1021→
+  1022→      {/* Info */}
+  1023→      <div className="flex-1 min-w-0">
+  1024→        <div className="flex items-center gap-2 mb-0.5">
+  1025→          <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: `${cfg.color}15`, color: cfg.color }}>
+  1026→            {isDuel ? '1v1' : `Grupo (${(challenge.participants || []).length}p)`}
+  1027→          </span>
+  1028→          <span className="text-xs text-zinc-600">{challenge.championship_name}</span>
+  1029→        </div>
+  1030→        <div className="text-sm font-bold text-white truncate">{challenge.match_label}</div>
+  1031→        {isDuel && challenge.opponent_display_name && (
+  1032→          <div className="text-xs text-zinc-500 mt-0.5">vs {challenge.opponent_display_name}</div>
+  1033→        )}
+  1034→      </div>
+  1035→
+  1036→      {/* Score (for duels) */}
+  1037→      {isDuel && challenge.status === 'active' && (
+  1038→        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(0,212,255,0.05)' }}>
+  1039→          <span className="text-sm font-black text-[#00d4ff]">{challenge.creator_score}</span>
+  1040→          <span className="text-xs text-zinc-600">-</span>
+  1041→          <span className="text-sm font-black text-[#7b2ff7]">{challenge.opponent_score}</span>
+  1042→        </div>
+  1043→      )}
+  1044→
+  1045→      {/* Wager Result */}
+  1046→      <div className="text-right flex-shrink-0">
+  1047→        <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
+  1048→          {isWinner ? 'Ganhaste' : isDraw ? 'Devolvido' : 'Perdeste'}
+  1049→        </div>
+  1050→        <div className={"text-sm font-black " + (isWinner ? 'text-[#2ea043]' : isDraw ? 'text-[#fbbf24]' : 'text-[#ff4655]')}>
+  1051→          {isWinner ? `+${challenge.prize_pool - challenge.platform_fee}` : isDraw ? challenge.wager_amount : `-${challenge.wager_amount}`}
+  1052→        </div>
+  1053→      </div>
+  1054→    </motion.div>
+  1055→  );
+  1056→}
+  1057→
+  1058→// ============================================================
+  1059→// MY DUEL STATS CARD
+  1060→// ============================================================
+  1061→
+  1062→function MyDuelStatsCard({ stats }: { stats: P2PDuelStats }) {
+  1063→  const statItems = [
+  1064→    { icon: Swords, label: 'Total', value: stats.total_duels, color: '#00d4ff' },
+  1065→    { icon: Trophy, label: 'Vitorias', value: stats.duels_won, color: '#2ea043' },
+  1066→    { icon: XCircle, label: 'Derrotas', value: stats.duels_lost, color: '#ff4655' },
+  1067→    { icon: Flame, label: 'Streak', value: stats.current_streak, color: '#f97316' },
+  1068→    { icon: TrendingUp, label: 'Win Rate', value: `${stats.win_rate}%`, color: '#7b2ff7' },
+  1069→    { icon: Coins, label: 'Lucro Total', value: (stats.total_profit >= 0 ? '+' : '') + stats.total_profit, color: stats.total_profit >= 0 ? '#2ea043' : '#ff4655' },
+  1070→  ];
+  1071→
+  1072→  return (
+  1073→    <div
+  1074→      className="rounded-2xl p-5"
+  1075→      style={{
+  1076→        background: 'linear-gradient(160deg, rgba(15,15,25,0.95), rgba(10,10,18,0.98))',
+  1077→        border: '1px solid rgba(0,212,255,0.1)',
+  1078→      }}
+  1079→    >
+  1080→      <div className="flex items-center gap-2 mb-4">
+  1081→        <Crown className="w-4 h-4 text-[#fbbf24]" />
+  1082→        <span className="text-sm font-bold text-white">As Tuas Estatisticas P2P</span>
+  1083→        <div className="ml-auto">
+  1084→          <StreakFire streak={stats.current_streak} />
+  1085→          <span className="text-xs font-bold text-[#f97316] ml-1">{stats.current_streak}x streak</span>
+  1086→        </div>
+  1087→      </div>
+  1088→
+  1089→      {/* Win Rate Highlight */}
+  1090→      <div className="flex items-center gap-4 mb-5">
+  1091→        <div className="relative w-20 h-20">
+  1092→          <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+  1093→            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+  1094→            <circle
+  1095→              cx="40" cy="40" r="34" fill="none"
+  1096→              stroke={stats.win_rate >= 60 ? '#2ea043' : stats.win_rate >= 40 ? '#fbbf24' : '#ff4655'}
+  1097→              strokeWidth="6"
+  1098→              strokeLinecap="round"
+  1099→              strokeDasharray={`${(stats.win_rate / 100) * 213.6} 213.6`}
+  1100→            />
+  1101→          </svg>
+  1102→          <div className="absolute inset-0 flex items-center justify-center">
+  1103→            <span className="text-lg font-black text-white">{stats.win_rate}%</span>
+  1104→          </div>
+  1105→        </div>
+  1106→        <div>
+  1107→          <div className="text-xs text-zinc-500 mb-1">Taxa de vitoria</div>
+  1108→          <div className="text-2xl font-black text-white">{stats.duels_won}<span className="text-zinc-600 text-base font-normal">/{stats.total_duels}</span></div>
+  1109→          <div className="text-xs text-zinc-600 mt-0.5">Melhor streak: {stats.best_streak} vitorias</div>
+  1110→        </div>
+  1111→      </div>
+  1112→
+  1113→      {/* Stats Grid */}
+  1114→      <div className="grid grid-cols-3 gap-3">
+  1115→        {statItems.map((item) => {
+  1116→          const Icon = item.icon;
+  1117→          return (
+  1118→            <div key={item.label} className="text-center p-2.5 rounded-xl" style={{ background: `${item.color}06`, border: `1px solid ${item.color}12` }}>
+  1119→              <Icon className="w-4 h-4 mx-auto mb-1" style={{ color: item.color }} />
+  1120→              <div className="text-sm font-black text-white">{item.value}</div>
+  1121→              <div className="text-[10px] text-zinc-600">{item.label}</div>
+  1122→            </div>
+  1123→          );
+  1124→        })}
+  1125→      </div>
+  1126→    </div>
+  1127→  );
+  1128→}
+  1129→
+  1130→// ============================================================
+  1131→// P2P RANKING TABLE
+  1132→// ============================================================
+  1133→
+  1134→function P2PRankingTable({ duelers }: { duelers: P2PDuelStats[] }) {
+  1135→  const getRankColor = (rank: number) => {
+  1136→    if (rank === 1) return '#fbbf24';
+  1137→    if (rank === 2) return '#C0C0C0';
+  1138→    if (rank === 3) return '#CD7F32';
+  1139→    return '#71717a';
+  1140→  };
+  1141→
+  1142→  const getRankIcon = (rank: number) => {
+  1143→    if (rank === 1) return <Crown className="w-4 h-4" />;
+  1144→    if (rank === 2) return <Star className="w-4 h-4" />;
+  1145→    if (rank === 3) return <Star className="w-4 h-4" />;
+  1146→    return <span className="text-xs font-bold">#{rank}</span>;
+  1147→  };
+  1148→
+  1149→  return (
+  1150→    <div
+  1151→      className="rounded-2xl overflow-hidden"
+  1152→      style={{
+  1153→        background: 'linear-gradient(160deg, rgba(15,15,25,0.95), rgba(10,10,18,0.98))',
+  1154→        border: '1px solid rgba(251,191,36,0.1)',
+  1155→      }}
+  1156→    >
+  1157→      <div className="flex items-center gap-2 p-5 pb-3">
+  1158→        <Trophy className="w-4 h-4 text-[#fbbf24]" />
+  1159→        <span className="text-sm font-bold text-white">Melhores Duelistas</span>
+  1160→        <span className="text-[10px] text-zinc-600 ml-auto">Baseado em win rate + volume</span>
+  1161→      </div>
+  1162→
+  1163→      {/* Table Header */}
+  1164→      <div className="grid grid-cols-12 gap-2 px-5 py-2 text-[10px] font-bold text-zinc-600 uppercase tracking-wider border-b border-white/5">
+  1165→        <div className="col-span-1">#</div>
+  1166→        <div className="col-span-3">Jogador</div>
+  1167→        <div className="col-span-2 text-center">Duelos</div>
+  1168→        <div className="col-span-2 text-center">Win Rate</div>
+  1169→        <div className="col-span-2 text-center">Streak</div>
+  1170→        <div className="col-span-2 text-right">Lucro</div>
+  1171→      </div>
+  1172→
+  1173→      {/* Rows */}
+  1174→      {duelers.map((d, i) => {
+  1175→        const rank = i + 1;
+  1176→        const color = getRankColor(rank);
+  1177→        return (
+  1178→          <motion.div
+  1179→            key={d.user_id}
+  1180→            initial={{ opacity: 0, x: -10 }}
+  1181→            animate={{ opacity: 1, x: 0 }}
+  1182→            transition={{ delay: i * 0.05 }}
+  1183→            className="grid grid-cols-12 gap-2 items-center px-5 py-3 border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+  1184→          >
+  1185→            <div className="col-span-1" style={{ color }}>{getRankIcon(rank)}</div>
+  1186→            <div className="col-span-3 flex items-center gap-2">
+  1187→              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: getAvatarColor(`user${rank}`) }}>
+  1188→                {getInitials(`Duelist${rank}`)}
+  1189→              </div>
+  1190→              <span className="text-xs font-bold text-white truncate">Duelist #{rank}</span>
+  1191→            </div>
+  1192→            <div className="col-span-2 text-center">
+  1193→              <span className="text-xs font-bold text-white">{d.duels_won}</span>
+  1194→              <span className="text-[10px] text-zinc-600">/{d.total_duels}</span>
+  1195→            </div>
+  1196→            <div className="col-span-2 text-center">
+  1197→              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ background: `${d.win_rate >= 60 ? '#2ea043' : d.win_rate >= 40 ? '#fbbf24' : '#ff4655'}15` }}>
+  1198→                <div className="w-1.5 h-1.5 rounded-full" style={{ background: d.win_rate >= 60 ? '#2ea043' : d.win_rate >= 40 ? '#fbbf24' : '#ff4655' }} />
+  1199→                <span className="text-xs font-bold" style={{ color: d.win_rate >= 60 ? '#2ea043' : d.win_rate >= 40 ? '#fbbf24' : '#ff4655' }}>{d.win_rate}%</span>
+  1200→              </div>
+  1201→            </div>
+  1202→            <div className="col-span-2 text-center">
+  1203→              {d.current_streak > 0 ? (
+  1204→                <div className="flex items-center justify-center gap-1">
+  1205→                  <Flame className="w-3 h-3 text-[#f97316]" />
+  1206→                  <span className="text-xs font-bold text-[#f97316]">{d.current_streak}</span>
+  1207→                </div>
+  1208→              ) : (
+  1209→                <span className="text-xs text-zinc-600">—</span>
+  1210→              )}
+  1211→            </div>
+  1212→            <div className={"col-span-2 text-right text-xs font-bold " + (d.total_profit >= 0 ? 'text-[#2ea043]' : 'text-[#ff4655]')}>
+  1213→              {d.total_profit >= 0 ? '+' : ''}{d.total_profit.toLocaleString()}
+  1214→            </div>
+  1215→          </motion.div>
+  1216→        );
+  1217→      })}
+  1218→    </div>
+  1219→  );
+  1220→}
+  1221→
+  1222→// ============================================================
+  1223→// HOW IT WORKS
+  1224→// ============================================================
+  1225→
+  1226→function HowItWorks() {
+  1227→  const steps = [
+  1228→    {
+  1229→      icon: Plus,
+  1230→      title: 'Crias o Desafio',
+  1231→      description: 'Escolhes o jogo, a tua previsao e o valor da aposta. As tuas moedas ficam em escrow seguro.',
+  1232→      color: '#00d4ff',
+  1233→    },
+  1234→    {
+  1235→      icon: UserCheck,
+  1236→      title: 'Oponente Aceita',
+  1237→      description: 'O teu oponente aceita o desafio e deposita a mesma quantia. O prize pool e formado.',
+  1238→      color: '#7b2ff7',
+  1239→    },
+  1240→    {
+  1241→      icon: Target,
+  1242→      title: 'Esperam o Resultado',
+  1243→      description: 'Quando o jogo acabar, o resultado e verificado automaticamente contra os dados oficiais.',
+  1244→      color: '#fbbf24',
+  1245→    },
+  1246→    {
+  1247→      icon: Trophy,
+  1248→      title: 'Vencedor Leva Tudo',
+  1249→      description: 'Quem acertou a previsao ganha o prize pool (menos 5% taxa da plataforma). Moeda virtual!',
+  1250→      color: '#2ea043',
+  1251→    },
+  1252→  ];
+  1253→
+  1254→  return (
+  1255→    <div
+  1256→      className="rounded-2xl p-6"
+  1257→      style={{
+  1258→        background: 'linear-gradient(160deg, rgba(15,15,25,0.9), rgba(10,10,18,0.95))',
+  1259→        border: '1px solid rgba(255,255,255,0.05)',
+  1260→      }}
+  1261→    >
+  1262→      <h3 className="text-sm font-bold text-white mb-5 flex items-center gap-2">
+  1263→        <Zap className="w-4 h-4 text-[#fbbf24]" />
+  1264→        Como Funcionam os Duelos P2P
+  1265→      </h3>
+  1266→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  1267→        {steps.map((step, i) => {
+  1268→          const Icon = step.icon;
+  1269→          return (
+  1270→            <div key={i} className="relative">
+  1271→              {i < steps.length - 1 && (
+  1272→                <ArrowRight className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 z-10" />
+  1273→              )}
+  1274→              <div className="p-4 rounded-xl" style={{ background: `${step.color}05`, border: `1px solid ${step.color}10` }}>
+  1275→                <div className="flex items-center gap-2 mb-2">
+  1276→                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${step.color}15` }}>
+  1277→                    <Icon className="w-4 h-4" style={{ color: step.color }} />
+  1278→                  </div>
+  1279→                  <span className="text-xs font-bold text-zinc-500">PASSO {i + 1}</span>
+  1280→                </div>
+  1281→                <div className="text-sm font-bold text-white mb-1">{step.title}</div>
+  1282→                <p className="text-xs text-zinc-500 leading-relaxed">{step.description}</p>
+  1283→              </div>
+  1284→            </div>
+  1285→          );
+  1286→        })}
+  1287→      </div>
+  1288→    </div>
+  1289→  );
+  1290→}
+  1291→
+  1292→// ============================================================
+  1293→// CREATE P2P DIALOG
+  1294→// ============================================================
+  1295→
+  1296→function CreateP2PDialog({
+  1297→  challengeType, setChallengeType,
+  1298→  opponentUsername, setOpponentUsername,
+  1299→  matchLabel, setMatchLabel,
+  1300→  championshipName, setChampionshipName,
+  1301→  wagerAmount, setWagerAmount,
+  1302→  customWager, setCustomWager,
+  1303→  prediction, setPrediction,
+  1304→  format, setFormat,
+  1305→  expiresIn, setExpiresIn,
+  1306→  isPublic, setIsPublic,
+  1307→  trashTalk, setTrashTalk,
+  1308→  creating, onClose, onSubmit,
+  1309→}: {
+  1310→  challengeType: P2PChallengeType; setChallengeType: (t: P2PChallengeType) => void;
+  1311→  opponentUsername: string; setOpponentUsername: (s: string) => void;
+  1312→  matchLabel: string; setMatchLabel: (s: string) => void;
+  1313→  championshipName: string; setChampionshipName: (s: string) => void;
+  1314→  wagerAmount: number; setWagerAmount: (n: number) => void;
+  1315→  customWager: string; setCustomWager: (s: string) => void;
+  1316→  prediction: string; setPrediction: (s: string) => void;
+  1317→  format: P2PChallengeFormat; setFormat: (f: P2PChallengeFormat) => void;
+  1318→  expiresIn: number; setExpiresIn: (n: number) => void;
+  1319→  isPublic: boolean; setIsPublic: (b: boolean) => void;
+  1320→  trashTalk: string; setTrashTalk: (s: string) => void;
+  1321→  creating: boolean; onClose: () => void; onSubmit: () => void;
+  1322→}) {
+  1323→  const effectiveWager = customWager ? parseInt(customWager) || 0 : wagerAmount;
+  1324→  const potentialPrize = challengeType === 'duel'
+  1325→    ? effectiveWager * 2 - Math.floor(effectiveWager * 2 * 0.05)
+  1326→    : effectiveWager * 4 - Math.floor(effectiveWager * 4 * 0.05);
+  1327→
+  1328→  return (
+  1329→    <motion.div
+  1330→      initial={{ opacity: 0 }}
+  1331→      animate={{ opacity: 1 }}
+  1332→      exit={{ opacity: 0 }}
+  1333→      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+  1334→      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+  1335→      onClick={onClose}
+  1336→    >
+  1337→      <motion.div
+  1338→        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+  1339→        animate={{ scale: 1, opacity: 1, y: 0 }}
+  1340→        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+  1341→        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+  1342→        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
+  1343→        style={{
+  1344→          background: 'linear-gradient(160deg, #12121a, #0a0a12)',
+  1345→          border: '1px solid rgba(0,212,255,0.15)',
+  1346→          boxShadow: '0 0 60px rgba(0,212,255,0.08), 0 25px 50px rgba(0,0,0,0.5)',
+  1347→        }}
+  1348→        onClick={(e) => e.stopPropagation()}
+  1349→      >
+  1350→        {/* Header */}
+  1351→        <div className="flex items-center justify-between p-5 border-b border-white/5">
+  1352→          <div className="flex items-center gap-2">
+  1353→            <Swords className="w-5 h-5 text-[#00d4ff]" />
+  1354→            <span className="text-lg font-black text-white">Criar Desafio</span>
+  1355→          </div>
+  1356→          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
+  1357→            <X className="w-4 h-4" />
+  1358→          </button>
+  1359→        </div>
+  1360→
+  1361→        <div className="p-5 space-y-5">
+  1362→          {/* Challenge Type Selector */}
+  1363→          <div>
+  1364→            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Tipo de Desafio</label>
+  1365→            <div className="grid grid-cols-2 gap-2">
+  1366→              {([['duel', 'Duelo 1v1', Swords, '#00d4ff'], ['group', 'Grupo (2-8)', Users, '#7b2ff7']] as const).map(([type, label, Icon, color]) => (
+  1367→                <button
+  1368→                  key={type}
+  1369→                  onClick={() => { setChallengeType(type); sfx.toggleOn(); haptics.light(); }}
+  1370→                  onMouseEnter={() => sfx.buttonHover()}
+  1371→                  className={"flex items-center gap-2 p-3 rounded-xl text-sm font-semibold transition-all " + (challengeType === type ? 'text-white' : 'text-zinc-500 hover:text-zinc-300')}
+  1372→                  style={challengeType === type ? {
+  1373→                    background: `linear-gradient(135deg, ${color}15, ${color}08)`,
+  1374→                    border: `1px solid ${color}40`,
+  1375→                    boxShadow: `0 0 20px ${color}15`,
+  1376→                  } : {
+  1377→                    border: '1px solid rgba(255,255,255,0.05)',
+  1378→                  }}
+  1379→                >
+  1380→                  <Icon className="w-4 h-4" style={{ color: challengeType === type ? color : undefined }} />
+  1381→                  {label}
+  1382→                </button>
+  1383→              ))}
+  1384→            </div>
+  1385→          </div>
+  1386→
+  1387→          {/* Opponent (for duels) */}
+  1388→          {challengeType === 'duel' && (
+  1389→            <div>
+  1390→              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Oponente (username)</label>
+  1391→              <input
+  1392→                type="text"
+  1393→                value={opponentUsername}
+  1394→                onChange={(e) => setOpponentUsername(e.target.value)}
+  1395→                placeholder="Ex: QueenSlayer"
+  1396→                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#00d4ff]/30"
+  1397→                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+  1398→              />
+  1399→            </div>
+  1400→          )}
+  1401→
+  1402→          {/* Match Info */}
+  1403→          <div className="grid grid-cols-2 gap-3">
+  1404→            <div className="col-span-2">
+  1405→              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Jogo / Evento</label>
+  1406→              <input
+  1407→                type="text"
+  1408→                value={matchLabel}
+  1409→                onChange={(e) => setMatchLabel(e.target.value)}
+  1410→                placeholder="Ex: Alpha vs Omega"
+  1411→                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#00d4ff]/30"
+  1412→                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+  1413→              />
+  1414→            </div>
+  1415→            <div className="col-span-2">
+  1416→              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Campeonato</label>
+  1417→              <input
+  1418→                type="text"
+  1419→                value={championshipName}
+  1420→                onChange={(e) => setChampionshipName(e.target.value)}
+  1421→                placeholder="Ex: Liga MZ Pro"
+  1422→                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#00d4ff]/30"
+  1423→                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+  1424→              />
+  1425→            </div>
+  1426→          </div>
+  1427→
+  1428→          {/* Prediction */}
+  1429→          <div>
+  1430→            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">A Tua Previsao</label>
+  1431→            <input
+  1432→              type="text"
+  1433→              value={prediction}
+  1434→              onChange={(e) => setPrediction(e.target.value)}
+  1435→              placeholder="Ex: Alpha vence 2-0"
+  1436→              className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#00d4ff]/30"
+  1437→              style={{ background: 'rgba(0,212,255,0.03)', border: '1px solid rgba(0,212,255,0.12)' }}
+  1438→            />
+  1439→          </div>
+  1440→
+  1441→          {/* Wager Amount */}
+  1442→          <div>
+  1443→            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Valor da Aposta (moedas virtuais)</label>
+  1444→            <div className="flex flex-wrap gap-2 mb-2">
+  1445→              {P2P_WAGER_PRESETS.map((preset) => (
+  1446→                <button
+  1447→                  key={preset}
+  1448→                  onClick={() => { setWagerAmount(preset); setCustomWager(''); sfx.wagerPreset(); haptics.light(); }}
+  1449→                  onMouseEnter={() => sfx.buttonHover()}
+  1450→                  className={"px-3 py-1.5 rounded-lg text-xs font-bold transition-all " + (wagerAmount === preset && !customWager ? 'text-black bg-[#fbbf24]' : 'text-zinc-400 hover:text-white')}
+  1451→                  style={wagerAmount === preset && !customWager ? {} : { border: '1px solid rgba(255,255,255,0.08)' }}
+  1452→                >
+  1453→                  {preset}
+  1454→                </button>
+  1455→              ))}
+  1456→            </div>
+  1457→            <input
+  1458→              type="number"
+  1459→              value={customWager}
+  1460→              onChange={(e) => setCustomWager(e.target.value)}
+  1461→              placeholder="Valor personalizado..."
+  1462→              className="w-full px-4 py-2.5 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#fbbf24]/30"
+  1463→              style={{ background: 'rgba(251,191,36,0.03)', border: '1px solid rgba(251,191,36,0.12)' }}
+  1464→            />
+  1465→          </div>
+  1466→
+  1467→          {/* Format (duels only) */}
+  1468→          {challengeType === 'duel' && (
+  1469→            <div>
+  1470→              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Formato</label>
+  1471→              <div className="grid grid-cols-2 gap-2">
+  1472→                {([['single_match', 'Jogo Unico'], ['best_of_3', 'Melhor de 3'], ['best_of_5', 'Melhor de 5'], ['best_of_7', 'Melhor de 7']] as const).map(([f, label]) => (
+  1473→                  <button
+  1474→                    key={f}
+  1475→                    onClick={() => { setFormat(f); sfx.toggleOn(); haptics.light(); }}
+  1476→                    onMouseEnter={() => sfx.buttonHover()}
+  1477→                    className={"px-3 py-2 rounded-lg text-xs font-semibold transition-all " + (format === f ? 'text-white' : 'text-zinc-500')}
+  1478→                    style={format === f ? {
+  1479→                      background: 'rgba(0,212,255,0.1)',
+  1480→                      border: '1px solid rgba(0,212,255,0.3)',
+  1481→                    } : {
+  1482→                      border: '1px solid rgba(255,255,255,0.05)',
+  1483→                    }}
+  1484→                  >
+  1485→                    {label}
+  1486→                  </button>
+  1487→                ))}
+  1488→              </div>
+  1489→            </div>
+  1490→          )}
+  1491→
+  1492→          {/* Expires In */}
+  1493→          <div>
+  1494→            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Expira em</label>
+  1495→            <div className="flex gap-2">
+  1496→              {[6, 12, 24, 48, 72].map((h) => (
+  1497→                <button
+  1498→                  key={h}
+  1499→                  onClick={() => { setExpiresIn(h); sfx.toggleOn(); haptics.light(); }}
+  1500→                  onMouseEnter={() => sfx.buttonHover()}
+  1501→                  className={"flex-1 py-2 rounded-lg text-xs font-semibold transition-all " + (expiresIn === h ? 'text-white' : 'text-zinc-500')}
+  1502→                  style={expiresIn === h ? {
+  1503→                    background: 'rgba(0,212,255,0.1)',
+  1504→                    border: '1px solid rgba(0,212,255,0.3)',
+  1505→                  } : {
+  1506→                    border: '1px solid rgba(255,255,255,0.05)',
+  1507→                  }}
+  1508→                >
+  1509→                  {h < 24 ? `${h}h` : `${h / 24}d`}
+  1510→                </button>
+  1511→              ))}
+  1512→            </div>
+  1513→          </div>
+  1514→
+  1515→          {/* Trash Talk */}
+  1516→          <div>
+  1517→            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+  1518→              <Volume2 className="w-3 h-3 text-[#ff4655]" />
+  1519→              Trash Talk (opcional)
+  1520→            </label>
+  1521→            <textarea
+  1522→              value={trashTalk}
+  1523→              onChange={(e) => setTrashTalk(e.target.value)}
+  1524→              placeholder="Deixa a tua marca..."
+  1525→              rows={2}
+  1526→              className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 outline-none transition-all focus:ring-1 focus:ring-[#ff4655]/30 resize-none"
+  1527→              style={{ background: 'rgba(255,70,85,0.03)', border: '1px solid rgba(255,70,85,0.12)' }}
+  1528→            />
+  1529→          </div>
+  1530→
+  1531→          {/* Visibility Toggle */}
+  1532→          <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+  1533→            <div>
+  1534→              <div className="text-sm font-semibold text-white">Desafio Publico</div>
+  1535→              <div className="text-xs text-zinc-600">Qualquer pessoa pode aceitar via codigo</div>
+  1536→            </div>
+  1537→            <button
+  1538→              onClick={() => { setIsPublic(!isPublic); sfx.toggleOn(); haptics.light(); }}
+  1539→              className={"w-11 h-6 rounded-full relative transition-all duration-300 " + (isPublic ? 'bg-[#00d4ff]' : 'bg-zinc-700')}
+  1540→            >
+  1541→              <div className={"absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 " + (isPublic ? 'left-6' : 'left-1')} />
+  1542→            </button>
+  1543→          </div>
+  1544→
+  1545→          {/* Summary */}
+  1546→          <div className="p-4 rounded-xl" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.1)' }}>
+  1547→            <div className="flex items-center justify-between mb-2">
+  1548→              <span className="text-xs text-zinc-500">Aposta</span>
+  1549→              <span className="text-sm font-bold text-[#fbbf24]">{effectiveWager} moedas</span>
+  1550→            </div>
+  1551→            <div className="flex items-center justify-between mb-2">
+  1552→              <span className="text-xs text-zinc-500">Taxa plataforma (5%)</span>
+  1553→              <span className="text-sm font-bold text-zinc-500">-{Math.floor(effectiveWager * 2 * 0.05)} moedas</span>
+  1554→            </div>
+  1555→            <div className="h-px bg-white/5 my-2" />
+  1556→            <div className="flex items-center justify-between">
+  1557→              <span className="text-xs font-bold text-zinc-400">Prize Pool Estimado</span>
+  1558→              <span className="text-lg font-black text-[#2ea043]">~{potentialPrize}</span>
+  1559→            </div>
+  1560→          </div>
+  1561→
+  1562→          {/* Submit */}
+  1563→          <button
+  1564→            onClick={onSubmit}
+  1565→            disabled={creating || effectiveWager <= 0 || !prediction || !matchLabel}
+  1566→            onMouseEnter={() => { if (!creating) sfx.buttonHover(); }}
+  1567→            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-black text-black bg-[#00d4ff] hover:bg-[#00d4ff]/90 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+  1568→            style={{ boxShadow: '0 4px 25px rgba(0,212,255,0.25)' }}
+  1569→          >
+  1570→            {creating ? (
+  1571→              <>
+  1572→                <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+  1573→                A criar desafio...
+  1574→              </>
+  1575→            ) : (
+  1576→              <>
+  1577→                <Swords className="w-4 h-4" />
+  1578→                {challengeType === 'duel' ? 'LANCAR DUELO' : 'CRIAR DESAFIO DE GRUPO'}
+  1579→              </>
+  1580→            )}
+  1581→          </button>
+  1582→
+  1583→          {/* Fair Play Notice */}
+  1584→          <div className="flex items-center gap-2 text-center justify-center">
+  1585→            <Shield className="w-3.5 h-3.5 text-[#00d4ff]/50" />
+  1586→            <span className="text-[10px] text-zinc-600">Moeda virtual • Sem dinheiro real • Jogo responsavel</span>
+  1587→          </div>
+  1588→        </div>
+  1589→      </motion.div>
+  1590→    </motion.div>
+  1591→  );
+  1592→}
+  1593→
+  1594→// ============================================================
+  1595→// CHALLENGE DETAIL MODAL
+  1596→// ============================================================
+  1597→
+  1598→function ChallengeDetailModal({ challenge, onClose, onCopyCode, copiedCode }: {
+  1599→  challenge: P2PChallenge;
+  1600→  onClose: () => void;
+  1601→  onCopyCode: (code: string) => void;
+  1602→  copiedCode: string | null;
+  1603→}) {
+  1604→  const isGroup = challenge.challenge_type === 'group';
+  1605→  const participants = (challenge.participants || []) as unknown as P2PParticipant[];
+  1606→
+  1607→  return (
+  1608→    <motion.div
+  1609→      initial={{ opacity: 0 }}
+  1610→      animate={{ opacity: 1 }}
+  1611→      exit={{ opacity: 0 }}
+  1612→      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+  1613→      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+  1614→      onClick={onClose}
+  1615→    >
+  1616→      <motion.div
+  1617→        initial={{ scale: 0.9, opacity: 0 }}
+  1618→        animate={{ scale: 1, opacity: 1 }}
+  1619→        exit={{ scale: 0.9, opacity: 0 }}
+  1620→        className="w-full max-w-md rounded-2xl"
+  1621→        style={{
+  1622→          background: 'linear-gradient(160deg, #12121a, #0a0a12)',
+  1623→          border: '1px solid rgba(0,212,255,0.15)',
+  1624→          boxShadow: '0 0 60px rgba(0,212,255,0.08)',
+  1625→        }}
+  1626→        onClick={(e) => e.stopPropagation()}
+  1627→      >
+  1628→        <div className="flex items-center justify-between p-5 border-b border-white/5">
+  1629→          <span className="text-sm font-bold text-white">Detalhes do Desafio</span>
+  1630→          <button onClick={() => { onClose(); sfx.modalClose(); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
+  1631→            <X className="w-4 h-4" />
+  1632→          </button>
+  1633→        </div>
+  1634→
+  1635→        <div className="p-5 space-y-4">
+  1636→          {/* Type Badge + Status */}
+  1637→          <div className="flex items-center gap-2">
+  1638→            <span className="px-2.5 py-1 rounded-lg text-xs font-bold" style={{ background: isGroup ? 'rgba(123,47,247,0.1)' : 'rgba(0,212,255,0.1)', color: isGroup ? '#7b2ff7' : '#00d4ff' }}>
+  1639→              {P2P_CHALLENGE_TYPE_LABELS[challenge.challenge_type]}
+  1640→            </span>
+  1641→            <span className="px-2.5 py-1 rounded-lg text-xs font-bold" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+  1642→              {P2P_CHALLENGE_STATUS_LABELS[challenge.status]}
+  1643→            </span>
+  1644→            {challenge.invite_code && (
+  1645→              <button
+  1646→                onClick={() => onCopyCode(challenge.invite_code!)}
+  1647→                className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold text-zinc-500 hover:text-white transition-all"
+  1648→                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+  1649→              >
+  1650→                {copiedCode === challenge.invite_code ? <CheckCircle className="w-3 h-3 text-[#2ea043]" /> : <Copy className="w-3 h-3" />}
+  1651→                {challenge.invite_code}
+  1652→              </button>
+  1653→            )}
+  1654→          </div>
+  1655→
+  1656→          {/* Match Info */}
+  1657→          <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+  1658→            <div className="text-xs text-zinc-600">{challenge.championship_name}</div>
+  1659→            <div className="text-base font-bold text-white mt-0.5">{challenge.match_label}</div>
+  1660→            <div className="text-xs text-zinc-500 mt-1">{P2P_FORMAT_LABELS[challenge.format]} • {challenge.market_type}</div>
+  1661→          </div>
+  1662→
+  1663→          {/* For Duels: VS Display */}
+  1664→          {!isGroup && (
+  1665→            <div className="flex items-center gap-4">
+  1666→              <div className="flex-1 text-center">
+  1667→                <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-lg font-black text-white mb-2" style={{ background: getAvatarColor(challenge.creator_display_name) }}>
+  1668→                  {getInitials(challenge.creator_display_name)}
+  1669→                </div>
+  1670→                <div className="text-sm font-bold text-white">{challenge.creator_display_name}</div>
+  1671→                {challenge.creator_prediction && (
+  1672→                  <div className="text-xs text-[#00d4ff]/70 mt-0.5">"{challenge.creator_prediction}"</div>
+  1673→                )}
+  1674→                {challenge.status === 'active' && (
+  1675→                  <div className="mt-2 text-2xl font-black text-white">{challenge.creator_score}</div>
+  1676→                )}
+  1677→              </div>
+  1678→              <div className="p2p-vs-badge w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
+  1679→                <span className="text-sm font-black text-white relative z-10">VS</span>
+  1680→              </div>
+  1681→              <div className="flex-1 text-center">
+  1682→                {challenge.opponent_id ? (
+  1683→                  <>
+  1684→                    <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-lg font-black text-white mb-2" style={{ background: getAvatarColor(challenge.opponent_display_name || 'Opponent') }}>
+  1685→                      {getInitials(challenge.opponent_display_name || 'Opponent')}
+  1686→                    </div>
+  1687→                    <div className="text-sm font-bold text-white">{challenge.opponent_display_name}</div>
+  1688→                    {challenge.opponent_prediction && (
+  1689→                      <div className="text-xs text-[#7b2ff7]/70 mt-0.5">"{challenge.opponent_prediction}"</div>
+  1690→                    )}
+  1691→                    {challenge.status === 'active' && (
+  1692→                      <div className="mt-2 text-2xl font-black text-white">{challenge.opponent_score}</div>
+  1693→                    )}
+  1694→                  </>
+  1695→                ) : (
+  1696→                  <>
+  1697→                    <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-2" style={{ border: '2px dashed rgba(255,255,255,0.15)' }}>
+  1698→                      <Plus className="w-6 h-6 text-zinc-600" />
+  1699→                    </div>
+  1700→                    <div className="text-sm font-semibold text-zinc-600">A espera...</div>
+  1701→                  </>
+  1702→                )}
+  1703→              </div>
+  1704→            </div>
+  1705→          )}
+  1706→
+  1707→          {/* For Groups: Participants List */}
+  1708→          {isGroup && (
+  1709→            <div>
+  1710→              <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+  1711→                Participantes ({participants.length}/{challenge.max_participants || 8})
+  1712→              </div>
+  1713→              <div className="space-y-2">
+  1714→                {participants.map((p) => (
+  1715→                  <div key={p.user_id} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+  1716→                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: getAvatarColor(p.display_name) }}>
+  1717→                      {getInitials(p.display_name)}
+  1718→                    </div>
+  1719→                    <span className="text-xs font-semibold text-white flex-1">{p.display_name}</span>
+  1720→                    {p.prediction && (
+  1721→                      <span className="text-[10px] text-zinc-500">"{p.prediction}"</span>
+  1722→                    )}
+  1723→                    <Coins className="w-3 h-3 text-[#fbbf24]" />
+  1724→                  </div>
+  1725→                ))}
+  1726→              </div>
+  1727→            </div>
+  1728→          )}
+  1729→
+  1730→          {/* Prize Pool */}
+  1731→          <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.1)' }}>
+  1732→            <div className="text-xs text-zinc-500">Prize Pool</div>
+  1733→            <div className="flex items-center justify-center gap-1.5 mt-1">
+  1734→              <Coins className="w-5 h-5 text-[#fbbf24]" />
+  1735→              <span className="text-2xl font-black text-[#fbbf24]">{challenge.prize_pool}</span>
+  1736→            </div>
+  1737→            <div className="text-[10px] text-zinc-600 mt-1">Taxa: {challenge.platform_fee} • Vencedor leva: {challenge.prize_pool - challenge.platform_fee}</div>
+  1738→          </div>
+  1739→
+  1740→          {/* Trash Talk */}
+  1741→          {challenge.trash_talk && (
+  1742→            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,70,85,0.05)', border: '1px solid rgba(255,70,85,0.1)' }}>
+  1743→              <div className="flex items-center gap-1.5 mb-1">
+  1744→                <Volume2 className="w-3 h-3 text-[#ff4655]" />
+  1745→                <span className="text-[10px] font-bold text-[#ff4655] uppercase">Trash Talk</span>
+  1746→              </div>
+  1747→              <p className="text-sm text-zinc-400 italic">"{challenge.trash_talk}"</p>
+  1748→            </div>
+  1749→          )}
+  1750→
+  1751→          {/* Action Buttons */}
+  1752→          {challenge.status === 'waiting_opponent' && (
+  1753→            <div className="flex gap-2">
+  1754→              <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-black bg-[#00d4ff] hover:bg-[#00d4ff]/90 transition-all hover:scale-[1.01] active:scale-[0.99]">
+  1755→                <Swords className="w-4 h-4" />
+  1756→                ACEITAR DUELO
+  1757→              </button>
+  1758→              <button className="px-4 py-3 rounded-xl text-sm font-bold text-zinc-500 hover:text-white transition-all" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+  1759→                Recusar
+  1760→              </button>
+  1761→            </div>
+  1762→          )}
+  1763→
+  1764→          {challenge.status === 'active' && isGroup && (
+  1765→            <button
+  1766→              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white transition-all hover:scale-[1.01]"
+  1767→              style={{ background: 'linear-gradient(135deg, #7b2ff7, #00d4ff)', boxShadow: '0 2px 15px rgba(123,47,247,0.3)' }}
+  1768→            >
+  1769→              <UserCheck className="w-4 h-4" />
+  1770→              ENTRAR NESTE DESAFIO
+  1771→            </button>
+  1772→          )}
+  1773→
+  1774→          {/* Spectators + Chat */}
+  1775→          <div className="flex items-center justify-between pt-2">
+  1776→            <div className="flex items-center gap-3 text-xs text-zinc-600">
+  1777→              <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{challenge.spectator_count}</span>
+  1778→              <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />Chat {challenge.chat_enabled ? 'On' : 'Off'}</span>
+  1779→              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{getTimeRemaining(challenge.expires_at)}</span>
+  1780→            </div>
+  1781→          </div>
+  1782→        </div>
+  1783→      </motion.div>
+  1784→    </motion.div>
+  1785→  );
+  1786→}

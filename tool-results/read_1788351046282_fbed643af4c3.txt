@@ -1,0 +1,658 @@
+     1→import { useState, useEffect } from "react";
+     2→import { supabase } from "@/integrations/supabase/client";
+     3→import { useAuth } from "@/contexts/AuthContext";
+     4→import { Card, CardContent } from "@/components/ui/card";
+     5→import { Badge } from "@/components/ui/badge";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Input } from "@/components/ui/input";
+     8→import { Textarea } from "@/components/ui/textarea";
+     9→import { Label } from "@/components/ui/label";
+    10→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    11→import { Switch } from "@/components/ui/switch";
+    12→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+    13→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    14→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+    15→import { useToast } from "@/hooks/use-toast";
+    16→import { Plus, Edit, Trophy, Trash2, Check, X, Eye, ThumbsUp, Video, Users, Calendar, ArrowLeft, ArrowRight, Sparkles, Layers } from "lucide-react";
+    17→import { motion, AnimatePresence } from "framer-motion";
+    18→import { CONTEST_CATEGORIES, getCategory, PHASE_TEMPLATES } from "@/lib/contestCategories";
+    19→import ImageUploadField from "@/components/ImageUploadField";
+    20→
+    21→interface Contest {
+    22→  id: string;
+    23→  title: string;
+    24→  description: string | null;
+    25→  prize_description: string | null;
+    26→  image_url: string | null;
+    27→  status: string;
+    28→  evaluation_type: string;
+    29→  start_date: string | null;
+    30→  end_date: string | null;
+    31→  max_submissions_per_user: number;
+    32→  category: string;
+    33→  rules: any;
+    34→  submission_fields: any;
+    35→  requires_video: boolean;
+    36→  requires_photo: boolean;
+    37→  hashtag: string | null;
+    38→  min_age: number | null;
+    39→  created_by: string;
+    40→  created_at: string;
+    41→}
+    42→
+    43→interface Submission {
+    44→  id: string;
+    45→  contest_id: string;
+    46→  participant_name: string;
+    47→  description: string | null;
+    48→  photo_url: string | null;
+    49→  video_url: string | null;
+    50→  votes_count: number;
+    51→  views_count: number;
+    52→  status: string;
+    53→  is_winner: boolean;
+    54→  user_id: string;
+    55→  created_at: string;
+    56→}
+    57→
+    58→const initialForm = {
+    59→  title: "", description: "", prize_description: "", image_url: "",
+    60→  status: "draft", evaluation_type: "votes", start_date: "", end_date: "",
+    61→  max_submissions_per_user: 1, category: "", hashtag: "",
+    62→  requires_video: false, requires_photo: false, min_age: "",
+    63→  rules: [] as string[], submission_fields: [] as any[],
+    64→  contest_mode: "single" as "single" | "multi",
+    65→  phases: [] as { name: string; description: string; durationDays: number; type: string }[],
+    66→  sponsor_name: "", sponsor_logo_url: "",
+    67→  entry_fee: 0, max_participants: "",
+    68→};
+    69→
+    70→export default function DashboardContests() {
+    71→  const { user } = useAuth();
+    72→  const { toast } = useToast();
+    73→  const [contests, setContests] = useState<Contest[]>([]);
+    74→  const [submissions, setSubmissions] = useState<Submission[]>([]);
+    75→  const [selectedContest, setSelectedContest] = useState<string | null>(null);
+    76→  const [loading, setLoading] = useState(true);
+    77→  const [showCreate, setShowCreate] = useState(false);
+    78→  const [editContest, setEditContest] = useState<Contest | null>(null);
+    79→  const [activeTab, setActiveTab] = useState("contests");
+    80→  const [step, setStep] = useState<"category" | "details">("category");
+    81→  const [form, setForm] = useState(initialForm);
+    82→
+    83→  const loadContests = async () => {
+    84→    if (!user) return;
+    85→    const { data } = await supabase
+    86→      .from("contests").select("*")
+    87→      .eq("created_by", user.id)
+    88→      .order("created_at", { ascending: false });
+    89→    setContests((data || []) as Contest[]);
+    90→    setLoading(false);
+    91→  };
+    92→
+    93→  const loadSubmissions = async (contestId: string) => {
+    94→    setSelectedContest(contestId);
+    95→    const { data } = await supabase
+    96→      .from("contest_submissions").select("*")
+    97→      .eq("contest_id", contestId)
+    98→      .order("votes_count", { ascending: false });
+    99→    setSubmissions(data || []);
+   100→    setActiveTab("submissions");
+   101→  };
+   102→
+   103→  useEffect(() => { loadContests(); }, [user]);
+   104→
+   105→  const resetForm = () => { setForm(initialForm); setStep("category"); };
+   106→
+   107→  const pickCategory = (catId: string) => {
+   108→    const cat = getCategory(catId);
+   109→    setForm((f) => ({
+   110→      ...f,
+   111→      category: catId,
+   112→      evaluation_type: cat.defaultEvaluation,
+   113→      requires_photo: cat.requiresPhoto,
+   114→      requires_video: cat.requiresVideo,
+   115→      rules: [...cat.defaultRules],
+   116→      submission_fields: [...cat.submissionFields],
+   117→      prize_description: f.prize_description || cat.prizeIdea,
+   118→    }));
+   119→    setStep("details");
+   120→  };
+   121→
+   122→  const handleSave = async () => {
+   123→    if (!user || !form.title.trim() || !form.category) return;
+   124→    const payload = {
+   125→      title: form.title.trim(),
+   126→      description: form.description || null,
+   127→      prize_description: form.prize_description || null,
+   128→      image_url: form.image_url || null,
+   129→      status: form.status,
+   130→      evaluation_type: form.evaluation_type,
+   131→      start_date: form.start_date || null,
+   132→      end_date: form.end_date || null,
+   133→      max_submissions_per_user: form.max_submissions_per_user,
+   134→      category: form.category,
+   135→      hashtag: form.hashtag.trim().replace(/^#/, "") || null,
+   136→      requires_video: form.requires_video,
+   137→      requires_photo: form.requires_photo,
+   138→      min_age: form.min_age ? parseInt(form.min_age) : null,
+   139→      rules: form.rules,
+   140→      submission_fields: form.submission_fields,
+   141→      contest_mode: form.contest_mode,
+   142→      phases: form.phases,
+   143→      sponsor_name: form.sponsor_name || null,
+   144→      sponsor_logo_url: form.sponsor_logo_url || null,
+   145→      entry_fee: form.entry_fee || 0,
+   146→      max_participants: form.max_participants ? parseInt(form.max_participants as string) : null,
+   147→    };
+   148→    try {
+   149→      if (editContest) {
+   150→        await supabase.from("contests").update(payload).eq("id", editContest.id);
+   151→        toast({ title: "Concurso atualizado!" });
+   152→      } else {
+   153→        await supabase.from("contests").insert({ ...payload, created_by: user.id });
+   154→        toast({ title: "Concurso criado!", description: "Está disponível na secção /concursos" });
+   155→      }
+   156→      setShowCreate(false);
+   157→      setEditContest(null);
+   158→      resetForm();
+   159→      loadContests();
+   160→    } catch (e: any) {
+   161→      toast({ title: "Erro ao guardar", description: e.message, variant: "destructive" });
+   162→    }
+   163→  };
+   164→
+   165→  const handleDelete = async (id: string) => {
+   166→    if (!confirm("Tem certeza que deseja eliminar este concurso?")) return;
+   167→    await supabase.from("contests").delete().eq("id", id);
+   168→    toast({ title: "Concurso eliminado" });
+   169→    loadContests();
+   170→  };
+   171→
+   172→  const handleSubStatus = async (subId: string, status: string) => {
+   173→    await supabase.from("contest_submissions").update({ status }).eq("id", subId);
+   174→    if (selectedContest) loadSubmissions(selectedContest);
+   175→    toast({ title: `Submissão ${status === "approved" ? "aprovada" : "rejeitada"}` });
+   176→  };
+   177→
+   178→  const handleToggleWinner = async (sub: Submission) => {
+   179→    await supabase.from("contest_submissions").update({ is_winner: !sub.is_winner }).eq("id", sub.id);
+   180→    if (selectedContest) loadSubmissions(selectedContest);
+   181→    toast({ title: sub.is_winner ? "Vencedor removido" : "Vencedor definido!" });
+   182→  };
+   183→
+   184→  const openEdit = (c: Contest) => {
+   185→    setEditContest(c);
+   186→    setForm({
+   187→      title: c.title, description: c.description || "",
+   188→      prize_description: c.prize_description || "",
+   189→      image_url: c.image_url || "", status: c.status,
+   190→      evaluation_type: c.evaluation_type,
+   191→      start_date: c.start_date?.slice(0, 16) || "",
+   192→      end_date: c.end_date?.slice(0, 16) || "",
+   193→      max_submissions_per_user: c.max_submissions_per_user,
+   194→      category: c.category || "general",
+   195→      hashtag: c.hashtag || "",
+   196→      requires_photo: c.requires_photo || false,
+   197→      requires_video: c.requires_video || false,
+   198→      min_age: c.min_age?.toString() || "",
+   199→      rules: Array.isArray(c.rules) ? c.rules : [],
+   200→      submission_fields: Array.isArray(c.submission_fields) ? c.submission_fields : [],
+   201→      contest_mode: (c as any).contest_mode || "single",
+   202→      phases: Array.isArray((c as any).phases) ? (c as any).phases : [],
+   203→      sponsor_name: (c as any).sponsor_name || "",
+   204→      sponsor_logo_url: (c as any).sponsor_logo_url || "",
+   205→      entry_fee: (c as any).entry_fee || 0,
+   206→      max_participants: (c as any).max_participants?.toString() || "",
+   207→    });
+   208→    setStep("details");
+   209→    setShowCreate(true);
+   210→  };
+   211→
+   212→  const updateRule = (i: number, val: string) => {
+   213→    const r = [...form.rules]; r[i] = val; setForm({ ...form, rules: r });
+   214→  };
+   215→  const addRule = () => setForm({ ...form, rules: [...form.rules, ""] });
+   216→  const removeRule = (i: number) => setForm({ ...form, rules: form.rules.filter((_, idx) => idx !== i) });
+   217→
+   218→  const statusLabels: Record<string, string> = {
+   219→    draft: "Rascunho", active: "Ativo", voting: "Em Votação", completed: "Encerrado",
+   220→  };
+   221→  const statusColors: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+   222→    draft: "secondary", active: "default", voting: "outline", completed: "destructive",
+   223→  };
+   224→  const activeContests = contests.filter(c => c.status === "active" || c.status === "voting").length;
+   225→
+   226→  return (
+   227→    <div className="space-y-6">
+   228→      <div className="flex items-center justify-between">
+   229→        <div>
+   230→          <h1 className="text-2xl font-bold">Meus Concursos</h1>
+   231→          <p className="text-sm text-muted-foreground">Crie concursos por categoria com estrutura adaptada</p>
+   232→        </div>
+   233→        <Dialog open={showCreate} onOpenChange={(o) => { setShowCreate(o); if (!o) { setEditContest(null); resetForm(); } }}>
+   234→          <DialogTrigger asChild>
+   235→            <Button><Plus className="mr-2 h-4 w-4" /> Novo Concurso</Button>
+   236→          </DialogTrigger>
+   237→          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   238→            <DialogHeader>
+   239→              <DialogTitle className="flex items-center gap-2">
+   240→                {editContest ? "Editar Concurso" : (
+   241→                  step === "category" ? <>Escolha o tipo de concurso <Sparkles className="h-4 w-4 text-primary" /></> : "Detalhes do Concurso"
+   242→                )}
+   243→              </DialogTitle>
+   244→            </DialogHeader>
+   245→
+   246→            <AnimatePresence mode="wait">
+   247→              {!editContest && step === "category" && (
+   248→                <motion.div
+   249→                  key="cat"
+   250→                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+   251→                  className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+   252→                >
+   253→                  {CONTEST_CATEGORIES.map((cat, i) => {
+   254→                    const Icon = cat.icon;
+   255→                    return (
+   256→                      <motion.button
+   257→                        key={cat.id}
+   258→                        type="button"
+   259→                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+   260→                        transition={{ delay: i * 0.04 }}
+   261→                        whileHover={{ scale: 1.03, y: -2 }}
+   262→                        onClick={() => pickCategory(cat.id)}
+   263→                        className={`text-left rounded-xl border border-border/50 hover:border-primary/50 p-3 bg-gradient-to-br ${cat.gradient} transition-all`}
+   264→                      >
+   265→                        <div className={`h-9 w-9 rounded-lg bg-background/60 backdrop-blur flex items-center justify-center mb-2 ${cat.iconColor}`}>
+   266→                          <Icon className="h-5 w-5" />
+   267→                        </div>
+   268→                        <p className="font-semibold text-sm text-foreground">{cat.label}</p>
+   269→                        <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{cat.description}</p>
+   270→                        <Badge variant="outline" className="mt-1.5 text-[9px] h-4 px-1.5 bg-background/60">
+   271→                          {cat.defaultEvaluation === "views" ? "👁️ Views" : "❤️ Votos"}
+   272→                        </Badge>
+   273→                      </motion.button>
+   274→                    );
+   275→                  })}
+   276→                </motion.div>
+   277→              )}
+   278→
+   279→              {(editContest || step === "details") && (
+   280→                <motion.div
+   281→                  key="details"
+   282→                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+   283→                  className="space-y-4"
+   284→                >
+   285→                  {!editContest && (
+   286→                    <button type="button" onClick={() => setStep("category")} className="text-xs text-primary flex items-center gap-1 hover:underline">
+   287→                      <ArrowLeft className="h-3 w-3" /> Mudar categoria
+   288→                    </button>
+   289→                  )}
+   290→
+   291→                  {form.category && (() => {
+   292→                    const cat = getCategory(form.category);
+   293→                    const Icon = cat.icon;
+   294→                    return (
+   295→                      <div className={`rounded-lg border border-border/50 p-3 bg-gradient-to-br ${cat.gradient} flex items-center gap-3`}>
+   296→                        <div className={`h-10 w-10 rounded-lg bg-background/60 flex items-center justify-center ${cat.iconColor}`}>
+   297→                          <Icon className="h-5 w-5" />
+   298→                        </div>
+   299→                        <div>
+   300→                          <p className="font-semibold text-sm">{cat.label}</p>
+   301→                          <p className="text-[11px] text-muted-foreground">{cat.example}</p>
+   302→                        </div>
+   303→                      </div>
+   304→                    );
+   305→                  })()}
+   306→
+   307→                  <div><Label>Título *</Label><Input maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Melhor receita tradicional 2026" /></div>
+   308→                  <div><Label>Descrição</Label><Textarea maxLength={1000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} /></div>
+   309→                  <div className="grid grid-cols-2 gap-4">
+   310→                    <div><Label>Prémio</Label><Input maxLength={200} value={form.prize_description} onChange={(e) => setForm({ ...form, prize_description: e.target.value })} /></div>
+   311→                    <div><Label>Hashtag oficial</Label><Input maxLength={40} value={form.hashtag} onChange={(e) => setForm({ ...form, hashtag: e.target.value })} placeholder="MeuConcurso2026" /></div>
+   312→                  </div>
+   313→                  <ImageUploadField
+   314→                    label="Imagem de capa"
+   315→                    bucket="contest-media"
+   316→                    pathPrefix={`covers/${user?.id || "anon"}`}
+   317→                    value={form.image_url}
+   318→                    onChange={(url) => setForm({ ...form, image_url: url })}
+   319→                    helper="Recomendado 1200×630. PNG ou JPG."
+   320→                  />
+   321→
+   322→                  <div className="grid grid-cols-2 gap-4">
+   323→                    <div>
+   324→                      <Label>Estado</Label>
+   325→                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+   326→                        <SelectTrigger><SelectValue /></SelectTrigger>
+   327→                        <SelectContent>
+   328→                          <SelectItem value="draft">Rascunho</SelectItem>
+   329→                          <SelectItem value="active">Ativo</SelectItem>
+   330→                          <SelectItem value="voting">Em Votação</SelectItem>
+   331→                          <SelectItem value="completed">Encerrado</SelectItem>
+   332→                        </SelectContent>
+   333→                      </Select>
+   334→                    </div>
+   335→                    <div>
+   336→                      <Label>Avaliação</Label>
+   337→                      <Select value={form.evaluation_type} onValueChange={(v) => setForm({ ...form, evaluation_type: v })}>
+   338→                        <SelectTrigger><SelectValue /></SelectTrigger>
+   339→                        <SelectContent>
+   340→                          <SelectItem value="votes">❤️ Votos do público</SelectItem>
+   341→                          <SelectItem value="views">👁️ Visualizações de vídeo</SelectItem>
+   342→                        </SelectContent>
+   343→                      </Select>
+   344→                    </div>
+   345→                  </div>
+   346→
+   347→                  <div className="grid grid-cols-2 gap-4">
+   348→                    <div><Label>Início</Label><Input type="datetime-local" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+   349→                    <div><Label>Fim</Label><Input type="datetime-local" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+   350→                  </div>
+   351→
+   352→                  <div className="grid grid-cols-2 gap-4">
+   353→                    <div><Label>Máx. submissões / utilizador</Label><Input type="number" min={1} value={form.max_submissions_per_user} onChange={(e) => setForm({ ...form, max_submissions_per_user: parseInt(e.target.value) || 1 })} /></div>
+   354→                    <div><Label>Idade mínima</Label><Input type="number" min={0} placeholder="opcional" value={form.min_age} onChange={(e) => setForm({ ...form, min_age: e.target.value })} /></div>
+   355→                  </div>
+   356→
+   357→                  <div className="rounded-lg border border-border/50 p-3 space-y-3">
+   358→                    <p className="text-sm font-semibold">Requisitos da submissão</p>
+   359→                    <div className="flex items-center justify-between">
+   360→                      <Label className="text-sm font-normal">📷 Foto obrigatória</Label>
+   361→                      <Switch checked={form.requires_photo} onCheckedChange={(v) => setForm({ ...form, requires_photo: v })} />
+   362→                    </div>
+   363→                    <div className="flex items-center justify-between">
+   364→                      <Label className="text-sm font-normal">🎬 Vídeo obrigatório</Label>
+   365→                      <Switch checked={form.requires_video} onCheckedChange={(v) => setForm({ ...form, requires_video: v })} />
+   366→                    </div>
+   367→                  </div>
+   368→
+   369→                  <div className="rounded-lg border border-primary/20 p-3 space-y-3 bg-gradient-to-br from-primary/5 to-transparent">
+   370→                    <div className="flex items-center gap-2">
+   371→                      <Layers className="h-4 w-4 text-primary" />
+   372→                      <p className="text-sm font-semibold">Modo do Concurso</p>
+   373→                    </div>
+   374→                    <Select value={form.contest_mode} onValueChange={(v: "single" | "multi") => setForm({ ...form, contest_mode: v, phases: v === "single" ? [] : form.phases })}>
+   375→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   376→                      <SelectContent>
+   377→                        <SelectItem value="single">🎯 Fase Única — submissão e votação simples</SelectItem>
+   378→                        <SelectItem value="multi">🏆 Multi-fases — eliminação progressiva</SelectItem>
+   379→                      </SelectContent>
+   380→                    </Select>
+   381→                    {form.contest_mode === "multi" && (
+   382→                      <div className="space-y-3">
+   383→                        <p className="text-xs text-muted-foreground">Escolha um modelo de fases ou personalize:</p>
+   384→                        <div className="grid grid-cols-3 gap-2">
+   385→                          {PHASE_TEMPLATES.map((tmpl, i) => (
+   386→                            <Button key={i} type="button" size="sm" variant={form.phases.length === tmpl.length ? "default" : "outline"} className="text-xs" onClick={() => setForm({ ...form, phases: [...tmpl] })}>
+   387→                              {tmpl.length} Fases
+   388→                            </Button>
+   389→                          ))}
+   390→                        </div>
+   391→                        {form.phases.length > 0 && (
+   392→                          <div className="space-y-2">
+   393→                            {form.phases.map((phase, i) => (
+   394→                              <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+   395→                                className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-background/50">
+   396→                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{i + 1}</div>
+   397→                                <div className="flex-1 min-w-0">
+   398→                                  <Input value={phase.name} onChange={(e) => { const p = [...form.phases]; p[i] = { ...p[i], name: e.target.value }; setForm({ ...form, phases: p }); }} className="h-7 text-xs" />
+   399→                                </div>
+   400→                                <Input type="number" min={1} value={phase.durationDays} onChange={(e) => { const p = [...form.phases]; p[i] = { ...p[i], durationDays: parseInt(e.target.value) || 1 }; setForm({ ...form, phases: p }); }} className="h-7 w-16 text-xs" />
+   401→                                <span className="text-[10px] text-muted-foreground">dias</span>
+   402→                                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setForm({ ...form, phases: form.phases.filter((_, idx) => idx !== i) })}>
+   403→                                  <Trash2 className="h-3 w-3" />
+   404→                                </Button>
+   405→                              </motion.div>
+   406→                            ))}
+   407→                          </div>
+   408→                        )}
+   409→                      </div>
+   410→                    )}
+   411→                  </div>
+   412→
+   413→                  <div className="rounded-lg border border-border/50 p-3 space-y-3">
+   414→                    <p className="text-sm font-semibold">💼 Patrocínio & Acesso</p>
+   415→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   416→                      <div><Label className="text-xs">Nome do patrocinador</Label><Input maxLength={80} value={form.sponsor_name} onChange={(e) => setForm({ ...form, sponsor_name: e.target.value })} placeholder="Opcional" /></div>
+   417→                      <ImageUploadField
+   418→                        label="Logo do patrocinador"
+   419→                        bucket="contest-media"
+   420→                        pathPrefix={`sponsors/${user?.id || "anon"}`}
+   421→                        value={form.sponsor_logo_url}
+   422→                        onChange={(url) => setForm({ ...form, sponsor_logo_url: url })}
+   423→                        maxSizeMB={2}
+   424→                      />
+   425→                    </div>
+   426→                    <div className="grid grid-cols-2 gap-3">
+   427→                      <div><Label className="text-xs">Taxa de inscrição (MZN)</Label><Input type="number" min={0} value={form.entry_fee} onChange={(e) => setForm({ ...form, entry_fee: parseFloat(e.target.value) || 0 })} /></div>
+   428→                      <div><Label className="text-xs">Máx. participantes</Label><Input type="number" min={0} placeholder="Ilimitado" value={form.max_participants} onChange={(e) => setForm({ ...form, max_participants: e.target.value })} /></div>
+   429→                    </div>
+   430→                  </div>
+   431→
+   432→                  <div className="rounded-lg border border-border/50 p-3 space-y-2">
+   433→                    <div className="flex items-center justify-between">
+   434→                      <p className="text-sm font-semibold">Regras do concurso</p>
+   435→                      <Button type="button" size="sm" variant="outline" onClick={addRule}><Plus className="h-3 w-3 mr-1" />Regra</Button>
+   436→                    </div>
+   437→                    {form.rules.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma regra definida.</p>}
+   438→                    {form.rules.map((rule, i) => (
+   439→                      <div key={i} className="flex gap-2">
+   440→                        <Input value={rule} onChange={(e) => updateRule(i, e.target.value)} placeholder={`Regra ${i + 1}`} />
+   441→                        <Button type="button" size="icon" variant="ghost" onClick={() => removeRule(i)}><Trash2 className="h-4 w-4" /></Button>
+   442→                      </div>
+   443→                    ))}
+   444→                  </div>
+   445→
+   446→                  {form.submission_fields.length > 0 && (
+   447→                    <div className="rounded-lg border border-border/50 p-3 space-y-1">
+   448→                      <p className="text-sm font-semibold">Campos pedidos ao participante</p>
+   449→                      <p className="text-xs text-muted-foreground mb-2">Adaptados à categoria escolhida</p>
+   450→                      <div className="flex flex-wrap gap-1.5">
+   451→                        {form.submission_fields.map((f: any) => (
+   452→                          <Badge key={f.key} variant="outline" className="text-[10px]">
+   453→                            {f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}
+   454→                          </Badge>
+   455→                        ))}
+   456→                      </div>
+   457→                    </div>
+   458→                  )}
+   459→
+   460→                  <Button onClick={handleSave} className="w-full" disabled={!form.title.trim() || !form.category}>
+   461→                    {editContest ? "Guardar Alterações" : <>Criar Concurso <ArrowRight className="ml-2 h-4 w-4" /></>}
+   462→                  </Button>
+   463→                </motion.div>
+   464→              )}
+   465→            </AnimatePresence>
+   466→          </DialogContent>
+   467→        </Dialog>
+   468→      </div>
+   469→
+   470→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   471→        <Card><CardContent className="p-4 text-center">
+   472→          <p className="text-2xl font-bold">{contests.length}</p>
+   473→          <p className="text-xs text-muted-foreground">Total Concursos</p>
+   474→        </CardContent></Card>
+   475→        <Card><CardContent className="p-4 text-center">
+   476→          <p className="text-2xl font-bold text-primary">{activeContests}</p>
+   477→          <p className="text-xs text-muted-foreground">Ativos</p>
+   478→        </CardContent></Card>
+   479→        <Card><CardContent className="p-4 text-center">
+   480→          <p className="text-2xl font-bold">{submissions.length}</p>
+   481→          <p className="text-xs text-muted-foreground">Submissões</p>
+   482→        </CardContent></Card>
+   483→        <Card><CardContent className="p-4 text-center">
+   484→          <p className="text-2xl font-bold text-yellow-500">{submissions.filter(s => s.is_winner).length}</p>
+   485→          <p className="text-xs text-muted-foreground">Vencedores</p>
+   486→        </CardContent></Card>
+   487→      </div>
+   488→
+   489→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   490→        <TabsList>
+   491→          <TabsTrigger value="contests">Concursos ({contests.length})</TabsTrigger>
+   492→          <TabsTrigger value="submissions" disabled={!selectedContest}>
+   493→            Submissões ({submissions.length})
+   494→          </TabsTrigger>
+   495→        </TabsList>
+   496→
+   497→        <TabsContent value="contests">
+   498→          {loading ? (
+   499→            <div className="flex justify-center py-12">
+   500→              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+   501→            </div>
+   502→          ) : contests.length === 0 ? (
+   503→            <Card>
+   504→              <CardContent className="flex flex-col items-center justify-center py-12">
+   505→                <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
+   506→                <p className="text-lg font-medium mb-2">Nenhum concurso criado</p>
+   507→                <p className="text-sm text-muted-foreground mb-4">Crie o seu primeiro concurso e escolha a categoria</p>
+   508→                <Button onClick={() => setShowCreate(true)}>
+   509→                  <Plus className="mr-2 h-4 w-4" /> Criar Concurso
+   510→                </Button>
+   511→              </CardContent>
+   512→            </Card>
+   513→          ) : (
+   514→            <div className="grid gap-4">
+   515→              {contests.map((c) => {
+   516→                const cat = getCategory(c.category || "general");
+   517→                const Icon = cat.icon;
+   518→                return (
+   519→                  <Card key={c.id} className="overflow-hidden">
+   520→                    <CardContent className="flex items-center justify-between p-4 gap-3">
+   521→                      <div className="flex items-center gap-4 flex-1 min-w-0">
+   522→                        {c.image_url ? (
+   523→                          <img src={c.image_url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
+   524→                        ) : (
+   525→                          <div className={`h-14 w-14 rounded-lg flex items-center justify-center bg-gradient-to-br ${cat.gradient} shrink-0`}>
+   526→                            <Icon className={`h-6 w-6 ${cat.iconColor}`} />
+   527→                          </div>
+   528→                        )}
+   529→                        <div className="min-w-0 flex-1">
+   530→                          <div className="flex items-center gap-2">
+   531→                            <p className="font-semibold truncate">{c.title}</p>
+   532→                            <Badge variant="outline" className="text-[10px] shrink-0">{cat.label}</Badge>
+   533→                          </div>
+   534→                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+   535→                            <Badge variant={statusColors[c.status] || "outline"}>
+   536→                              {statusLabels[c.status] || c.status}
+   537→                            </Badge>
+   538→                            <span className="text-xs text-muted-foreground">
+   539→                              {c.evaluation_type === "views" ? "📹 Views" : "👍 Votos"}
+   540→                            </span>
+   541→                            {c.hashtag && <span className="text-xs text-primary">#{c.hashtag}</span>}
+   542→                            {c.end_date && (
+   543→                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+   544→                                <Calendar className="h-3 w-3" />
+   545→                                {new Date(c.end_date).toLocaleDateString("pt-MZ")}
+   546→                              </span>
+   547→                            )}
+   548→                          </div>
+   549→                          {c.prize_description && (
+   550→                            <p className="text-xs text-muted-foreground mt-1 truncate">🏆 {c.prize_description}</p>
+   551→                          )}
+   552→                        </div>
+   553→                      </div>
+   554→                      <div className="flex items-center gap-2 shrink-0">
+   555→                        <Button size="sm" variant="outline" onClick={() => loadSubmissions(c.id)}>
+   556→                          <Users className="mr-1 h-4 w-4" /> Submissões
+   557→                        </Button>
+   558→                        <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
+   559→                          <Edit className="h-4 w-4" />
+   560→                        </Button>
+   561→                        <Button size="sm" variant="destructive" onClick={() => handleDelete(c.id)}>
+   562→                          <Trash2 className="h-4 w-4" />
+   563→                        </Button>
+   564→                      </div>
+   565→                    </CardContent>
+   566→                  </Card>
+   567→                );
+   568→              })}
+   569→            </div>
+   570→          )}
+   571→        </TabsContent>
+   572→
+   573→        <TabsContent value="submissions">
+   574→          {submissions.length === 0 ? (
+   575→            <Card>
+   576→              <CardContent className="flex flex-col items-center justify-center py-12">
+   577→                <Users className="h-12 w-12 text-muted-foreground mb-4" />
+   578→                <p className="text-muted-foreground">Nenhuma submissão neste concurso.</p>
+   579→              </CardContent>
+   580→            </Card>
+   581→          ) : (
+   582→            <div className="rounded-md border overflow-auto">
+   583→              <div data-mobile-wrapped className="overflow-x-auto">
+   584→<Table>
+   585→                <TableHeader>
+   586→                  <TableRow>
+   587→                    <TableHead>Participante</TableHead>
+   588→                    <TableHead>Media</TableHead>
+   589→                    <TableHead>Votos</TableHead>
+   590→                    <TableHead>Views</TableHead>
+   591→                    <TableHead>Estado</TableHead>
+   592→                    <TableHead>Data</TableHead>
+   593→                    <TableHead>Ações</TableHead>
+   594→                  </TableRow>
+   595→                </TableHeader>
+   596→                <TableBody>
+   597→                  {submissions.map((s) => (
+   598→                    <TableRow key={s.id} className={s.is_winner ? "bg-yellow-500/10" : ""}>
+   599→                      <TableCell>
+   600→                        <div>
+   601→                          <p className="font-medium">{s.participant_name}</p>
+   602→                          {s.description && <p className="text-xs text-muted-foreground line-clamp-2">{s.description}</p>}
+   603→                        </div>
+   604→                      </TableCell>
+   605→                      <TableCell>
+   606→                        <div className="flex gap-2">
+   607→                          {s.photo_url && (
+   608→                            <a href={s.photo_url} target="_blank" rel="noopener noreferrer">
+   609→                              <Badge variant="outline"><Eye className="h-3 w-3 mr-1" />Foto</Badge>
+   610→                            </a>
+   611→                          )}
+   612→                          {s.video_url && (
+   613→                            <a href={s.video_url} target="_blank" rel="noopener noreferrer">
+   614→                              <Badge variant="outline"><Video className="h-3 w-3 mr-1" />Vídeo</Badge>
+   615→                            </a>
+   616→                          )}
+   617→                        </div>
+   618→                      </TableCell>
+   619→                      <TableCell><ThumbsUp className="h-3 w-3 inline mr-1" />{s.votes_count}</TableCell>
+   620→                      <TableCell><Eye className="h-3 w-3 inline mr-1" />{s.views_count}</TableCell>
+   621→                      <TableCell>
+   622→                        <Badge variant={s.status === "approved" ? "default" : s.status === "pending" ? "secondary" : "destructive"}>
+   623→                          {s.status === "approved" ? "Aprovado" : s.status === "pending" ? "Pendente" : "Rejeitado"}
+   624→                        </Badge>
+   625→                      </TableCell>
+   626→                      <TableCell className="text-xs text-muted-foreground">
+   627→                        {new Date(s.created_at).toLocaleDateString("pt-MZ")}
+   628→                      </TableCell>
+   629→                      <TableCell>
+   630→                        <div className="flex gap-1">
+   631→                          {s.status === "pending" && (
+   632→                            <>
+   633→                              <Button size="sm" variant="outline" onClick={() => handleSubStatus(s.id, "approved")}>
+   634→                                <Check className="h-4 w-4 text-green-500" />
+   635→                              </Button>
+   636→                              <Button size="sm" variant="outline" onClick={() => handleSubStatus(s.id, "rejected")}>
+   637→                                <X className="h-4 w-4 text-red-500" />
+   638→                              </Button>
+   639→                            </>
+   640→                          )}
+   641→                          <Button size="sm" variant={s.is_winner ? "default" : "outline"} onClick={() => handleToggleWinner(s)}>
+   642→                            <Trophy className={`h-4 w-4 ${s.is_winner ? "text-yellow-300" : ""}`} />
+   643→                          </Button>
+   644→                        </div>
+   645→                      </TableCell>
+   646→                    </TableRow>
+   647→                  ))}
+   648→                </TableBody>
+   649→              </Table>
+   650→</div>
+   651→            </div>
+   652→          )}
+   653→        </TabsContent>
+   654→      </Tabs>
+   655→    </div>
+   656→  );
+   657→}
+   658→

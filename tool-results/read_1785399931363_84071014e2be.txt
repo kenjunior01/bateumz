@@ -1,0 +1,819 @@
+     1→import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+     2→import { useSearchParams } from "react-router-dom";
+     3→import { motion, AnimatePresence } from "framer-motion";
+     4→import {
+     5→  Trophy, Radio, Sparkles, Clock, Gamepad2, Flame, Star, Crown,
+     6→  Zap, Users, ChevronUp, ChevronDown, Minus,
+     7→  Activity, Fingerprint
+     8→} from "lucide-react";
+     9→import confetti from "canvas-confetti";
+    10→import {
+    11→  subscribe, readLatest, bindLiveCode,
+    12→  type RoundState, type LiveBusEvent
+    13→} from "@/lib/liveBus";
+    14→import { supabase } from "@/integrations/supabase/client";
+    15→
+    16→type OverlayStyle = 'modern' | 'minimal' | 'neon' | 'classic' | 'gaming';
+    17→type LayoutMode = 'leaderboard' | 'scoreboard' | 'minimal' | 'fullscreen';
+    18→
+    19→interface LeaderEntry {
+    20→  id: string;
+    21→  name: string;
+    22→  score: number;
+    23→  game: string;
+    24→  at: number;
+    25→}
+    26→
+    27→interface LeaderEntryEx extends LeaderEntry {
+    28→  prevScore?: number;
+    29→  prevRank?: number;
+    30→  isNew?: boolean;
+    31→  scoreDelta?: number;
+    32→}
+    33→
+    34→interface OverlayBranding {
+    35→  companyName?: string;
+    36→  companySlogan?: string;
+    37→  companyLogoUrl?: string;
+    38→  primaryColor: string;
+    39→  secondaryColor: string;
+    40→  accentColor: string;
+    41→  backgroundColor: string;
+    42→  textColor: string;
+    43→  backgroundImageUrl?: string;
+    44→  overlayStyle?: OverlayStyle;
+    45→}
+    46→
+    47→interface TickerEvent {
+    48→  id: string;
+    49→  text: string;
+    50→  icon: string;
+    51→  color: string;
+    52→  at: number;
+    53→}
+    54→
+    55→const DEFAULT_BRANDING: OverlayBranding = {
+    56→  primaryColor: '#fbbf24',
+    57→  secondaryColor: '#3b82f6',
+    58→  accentColor: '#8b5cf6',
+    59→  backgroundColor: 'transparent',
+    60→  textColor: '#ffffff',
+    61→  overlayStyle: 'neon',
+    62→};
+    63→
+    64→const getBranding = async (code: string): Promise<OverlayBranding> => {
+    65→  try {
+    66→    const { data: session } = await supabase
+    67→      .from('scheduled_lives')
+    68→      .select('business_user_id')
+    69→      .eq('live_code', code)
+    70→      .single();
+    71→    if (session?.business_user_id) {
+    72→      const { data: brand } = await supabase
+    73→        .from('company_branding')
+    74→        .select('*')
+    75→        .eq('user_id', session.business_user_id)
+    76→        .single();
+    77→      if (brand) {
+    78→        return {
+    79→          companyName: brand.company_name || undefined,
+    80→          companySlogan: brand.company_slogan || undefined,
+    81→          companyLogoUrl: brand.company_logo_url || undefined,
+    82→          primaryColor: brand.primary_color || DEFAULT_BRANDING.primaryColor,
+    83→          secondaryColor: brand.secondary_color || DEFAULT_BRANDING.secondaryColor,
+    84→          accentColor: brand.accent_color || DEFAULT_BRANDING.accentColor,
+    85→          backgroundColor: 'transparent',
+    86→          textColor: brand.text_color || DEFAULT_BRANDING.textColor,
+    87→          backgroundImageUrl: brand.background_image_url || undefined,
+    88→          overlayStyle: (brand.overlay_style as OverlayStyle) || 'neon',
+    89→        };
+    90→      }
+    91→    }
+    92→  } catch { /* noop */ }
+    93→  return DEFAULT_BRANDING;
+    94→};
+    95→
+    96→const AnimatedNumber = ({ value, color, size = 'text-2xl' }: { value: number; color?: string; size?: string }) => {
+    97→  const prevRef = useRef(value);
+    98→  const [displayVal, setDisplayVal] = useState(value);
+    99→  const [animating, setAnimating] = useState(false);
+   100→
+   101→  useEffect(() => {
+   102→    if (value !== prevRef.current) {
+   103→      const diff = value - prevRef.current;
+   104→      prevRef.current = value;
+   105→      setAnimating(true);
+   106→      let cur = displayVal;
+   107→      const steps = 14;
+   108→      let step = 0;
+   109→      const inc = diff / steps;
+   110→      const iv = setInterval(() => {
+   111→        step++;
+   112→        cur += inc;
+   113→        setDisplayVal(Math.round(cur));
+   114→        if (step >= steps) {
+   115→          clearInterval(iv);
+   116→          setDisplayVal(value);
+   117→          setTimeout(() => setAnimating(false), 200);
+   118→        }
+   119→      }, 25);
+   120→      return () => clearInterval(iv);
+   121→    }
+   122→  }, [value]);
+   123→
+   124→  return (
+   125→    <motion.span
+   126→      className={`${size} font-black tabular-nums leading-none inline-block`}
+   127→      style={{ color }}
+   128→      animate={animating ? { scale: [1, 1.18, 1], y: [0, -4, 0] } : { scale: 1, y: 0 }}
+   129→      transition={{ type: 'spring', stiffness: 400, damping: 12 }}
+   130→    >
+   131→      {displayVal.toLocaleString()}
+   132→    </motion.span>
+   133→  );
+   134→};
+   135→
+   136→const ParticleBurst = ({ x, y, color }: { x: number; y: number; color: string }) => {
+   137→  const particles = useMemo(() =>
+   138→    Array.from({ length: 10 }, (_, i) => ({
+   139→      id: i,
+   140→      angle: (i / 10) * 360,
+   141→      distance: 25 + Math.random() * 50,
+   142→      size: 3 + Math.random() * 5,
+   143→      duration: 0.35 + Math.random() * 0.35,
+   144→    })), []);
+   145→
+   146→  return (
+   147→    <div className="absolute pointer-events-none" style={{ left: x, top: y }}>
+   148→      {particles.map(p => (
+   149→        <motion.div
+   150→          key={p.id}
+   151→          className="absolute rounded-full"
+   152→          style={{ width: p.size, height: p.size, backgroundColor: color, left: -p.size / 2, top: -p.size / 2 }}
+   153→          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+   154→          animate={{
+   155→            x: Math.cos(p.angle * Math.PI / 180) * p.distance,
+   156→            y: Math.sin(p.angle * Math.PI / 180) * p.distance,
+   157→            opacity: 0, scale: 0,
+   158→          }}
+   159→          transition={{ duration: p.duration, ease: 'easeOut' }}
+   160→        />
+   161→      ))}
+   162→    </div>
+   163→  );
+   164→};
+   165→
+   166→const RankIndicator = ({ prev, curr }: { prev?: number; curr: number }) => {
+   167→  if (prev === undefined || prev === curr) return <Minus className="w-3 h-3 opacity-30" />;
+   168→  if (prev > curr) return <ChevronUp className="w-3 h-3" style={{ color: '#22c55e' }} />;
+   169→  return <ChevronDown className="w-3 h-3" style={{ color: '#ef4444' }} />;
+   170→};
+   171→
+   172→const OverlayPro = () => {
+   173→  const [params] = useSearchParams();
+   174→  const codeFromUrl = params.get("code") || "";
+   175→  const layoutParam = (params.get("layout") || 'leaderboard') as LayoutMode;
+   176→  const [code, setCode] = useState(codeFromUrl || "LIVE");
+   177→  const [branding, setBranding] = useState<OverlayBranding>(DEFAULT_BRANDING);
+   178→  const [entries, setEntries] = useState<LeaderEntryEx[]>([]);
+   179→  const [sorted, setSorted] = useState<LeaderEntryEx[]>([]);
+   180→  const [winner, setWinner] = useState<{ name: string; meta?: string } | null>(null);
+   181→  const [round, setRound] = useState<RoundState | null>(null);
+   182→  const [prevRound, setPrevRound] = useState<RoundState | null>(null);
+   183→  const [ended, setEnded] = useState(false);
+   184→  const [isLive, setIsLive] = useState(false);
+   185→  const [elapsed, setElapsed] = useState(0);
+   186→  const [showWinnerAnimation, setShowWinnerAnimation] = useState(false);
+   187→  const [currentScore, setCurrentScore] = useState(0);
+   188→  const [displayScore, setDisplayScore] = useState(0);
+   189→  const [totalPlayers, setTotalPlayers] = useState(0);
+   190→  const [totalGames, setTotalGames] = useState(0);
+   191→  const [winnerCount, setWinnerCount] = useState(0);
+   192→  const [tickerEvents, setTickerEvents] = useState<TickerEvent[]>([]);
+   193→  const [screenFlash, setScreenFlash] = useState(false);
+   194→  const [screenShake, setScreenShake] = useState(false);
+   195→  const [newPlayerNotify, setNewPlayerNotify] = useState<{ name: string; id: string } | null>(null);
+   196→  const [roundTransition, setRoundTransition] = useState(false);
+   197→  const [pulseEffect, setPulseEffect] = useState(false);
+   198→  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+   199→  const [scanlineY, setScanlineY] = useState(0);
+   200→
+   201→  const prevEntriesRef = useRef<LeaderEntryEx[]>([]);
+   202→  const winnerTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+   203→  const particleIdRef = useRef(0);
+   204→  const prevScoreRef = useRef(0);
+   205→
+   206→  const sty = branding.overlayStyle || 'neon';
+   207→  const pc = branding.primaryColor;
+   208→  const sc = branding.secondaryColor;
+   209→  const ac = branding.accentColor;
+   210→  const isNeon = sty === 'neon' || sty === 'gaming';
+   211→  const isMinimal = sty === 'minimal' || layoutParam === 'minimal';
+   212→
+   213→  useEffect(() => {
+   214→    if (codeFromUrl) {
+   215→      bindLiveCode(codeFromUrl);
+   216→      getBranding(codeFromUrl).then(setBranding);
+   217→    } else {
+   218→      const c = readLatest<string>("liveCode");
+   219→      if (c) {
+   220→        setCode(c);
+   221→        bindLiveCode(c);
+   222→        getBranding(c).then(setBranding);
+   223→      }
+   224→    }
+   225→  }, [codeFromUrl]);
+   226→
+   227→  useEffect(() => {
+   228→    const started = readLatest<{ code: string; at: number }>("liveStarted");
+   229→    const endedEvt = readLatest<{ code: string; at: number }>("liveEnded");
+   230→    const startedAt = started?.at || 0;
+   231→    const endedAt = endedEvt?.at || 0;
+   232→    setEnded(endedAt > startedAt);
+   233→    setIsLive(startedAt > 0 && endedAt <= startedAt);
+   234→  }, []);
+   235→
+   236→  useEffect(() => {
+   237→    if (!isLive) return;
+   238→    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+   239→    return () => clearInterval(t);
+   240→  }, [isLive]);
+   241→
+   242→  useEffect(() => {
+   243→    if (!round || round.phase !== "running" || !round.timeLeft) return;
+   244→    const baseAt = round.at;
+   245→    const baseLeft = round.timeLeft;
+   246→    const t = setInterval(() => {
+   247→      const left = Math.max(0, baseLeft - Math.floor((Date.now() - baseAt) / 1000));
+   248→      setRound(r => (r ? { ...r, timeLeft: left } : r));
+   249→      if (left === 0) clearInterval(t);
+   250→    }, 200);
+   251→    return () => clearInterval(t);
+   252→  }, [round?.at, round?.phase]);
+   253→
+   254→  useEffect(() => {
+   255→    if (currentScore !== prevScoreRef.current) {
+   256→      const diff = currentScore - prevScoreRef.current;
+   257→      prevScoreRef.current = currentScore;
+   258→      let cur = displayScore;
+   259→      const steps = 20;
+   260→      let step = 0;
+   261→      const inc = diff / steps;
+   262→      const iv = setInterval(() => {
+   263→        step++;
+   264→        cur += inc;
+   265→        setDisplayScore(Math.round(cur));
+   266→        if (step >= steps) {
+   267→          clearInterval(iv);
+   268→          setDisplayScore(currentScore);
+   269→        }
+   270→      }, 25);
+   271→      return () => clearInterval(iv);
+   272→    }
+   273→  }, [currentScore]);
+   274→
+   275→  useEffect(() => {
+   276→    if (!isNeon || !isLive) return;
+   277→    const t = setInterval(() => { setScanlineY(y => (y + 1) % 100); }, 50);
+   278→    return () => clearInterval(t);
+   279→  }, [isNeon, isLive]);
+   280→
+   281→  const spawnParticles = useCallback((x: number, y: number, color: string, count = 6) => {
+   282→    const newP = Array.from({ length: count }, () => ({
+   283→      id: particleIdRef.current++,
+   284→      x: x + (Math.random() - 0.5) * 60,
+   285→      y: y + (Math.random() - 0.5) * 40,
+   286→      color,
+   287→    }));
+   288→    setParticles(prev => [...prev, ...newP]);
+   289→    setTimeout(() => setParticles(prev => prev.filter(p => !newP.includes(p))), 900);
+   290→  }, []);
+   291→
+   292→  const fireConfetti = useCallback(() => {
+   293→    const colors = [pc, sc, ac, '#ff6b6b', '#51cf66', '#ffd43b', '#ff922b', '#cc5de8'];
+   294→    confetti({ spread: 360, ticks: 60, gravity: 0.6, decay: 0.94, startVelocity: 30, shapes: ['square'] as any[], colors, particleCount: 60, origin: { x: 0.3, y: 0.6 } });
+   295→    confetti({ spread: 360, ticks: 60, gravity: 0.6, decay: 0.94, startVelocity: 30, shapes: ['square'] as any[], colors, particleCount: 60, origin: { x: 0.7, y: 0.6 } });
+   296→    setTimeout(() => confetti({ spread: 360, ticks: 60, gravity: 0.6, decay: 0.94, startVelocity: 45, shapes: ['square'] as any[], colors, particleCount: 40, origin: { x: 0.5, y: 0.4 } }), 250);
+   297→    setTimeout(() => {
+   298→      confetti({ spread: 360, ticks: 60, gravity: 0.6, decay: 0.94, startVelocity: 30, shapes: ['square'] as any[], colors, particleCount: 30, origin: { x: 0.2, y: 0.3 } });
+   299→      confetti({ spread: 360, ticks: 60, gravity: 0.6, decay: 0.94, startVelocity: 30, shapes: ['square'] as any[], colors, particleCount: 30, origin: { x: 0.8, y: 0.3 } });
+   300→    }, 500);
+   301→  }, [pc, sc, ac]);
+   302→
+   303→  const addTicker = useCallback((text: string, icon: string, color: string) => {
+   304→    const ev: TickerEvent = { id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, icon, color, at: Date.now() };
+   305→    setTickerEvents(prev => [...prev.slice(-12), ev]);
+   306→    setTimeout(() => setTickerEvents(prev => prev.filter(t => t.id !== ev.id)), 15000);
+   307→  }, []);
+   308→
+   309→  useEffect(() => {
+   310→    const unsub = subscribe((evt: LiveBusEvent) => {
+   311→      switch (evt.type) {
+   312→        case "leaderboard": {
+   313→          const raw = evt.payload as LeaderEntry[];
+   314→          const newEntries: LeaderEntryEx[] = raw.map(e => {
+   315→            const prev = prevEntriesRef.current.find(p => p.id === e.id);
+   316→            return { ...e, prevScore: prev?.score, isNew: !prev, scoreDelta: prev ? e.score - prev.score : 0 };
+   317→          });
+   318→          setEntries(newEntries);
+   319→          const s = [...newEntries].sort((a, b) => b.score - a.score).slice(0, 10);
+   320→          setSorted(s);
+   321→          setTotalPlayers(new Set(newEntries.map(e => e.name)).size);
+   322→          setTotalGames(new Set(newEntries.map(e => e.game)).size);
+   323→          const fresh = newEntries.find(e => !prevEntriesRef.current.find(p => p.id === e.id));
+   324→          if (fresh) {
+   325→            setNewPlayerNotify({ name: fresh.name, id: fresh.id });
+   326→            addTicker(`${fresh.name} entrou no jogo!`, 'user', pc);
+   327→            spawnParticles(70, 50, pc, 4);
+   328→            setTimeout(() => setNewPlayerNotify(null), 3000);
+   329→          }
+   330→          const sj = newEntries.find(e => {
+   331→            const prev = prevEntriesRef.current.find(p => p.id === e.id);
+   332→            return prev && e.score - prev.score > 50;
+   333→          });
+   334→          if (sj) {
+   335→            addTicker(`${sj.name} +${sj.score - (prevEntriesRef.current.find(p => p.id === sj.id)?.score || 0)} pontos!`, 'zap', ac);
+   336→          }
+   337→          prevEntriesRef.current = newEntries;
+   338→          break;
+   339→        }
+   340→        case "winner": {
+   341→          const w = evt.payload as { name: string; meta?: string; at: number };
+   342→          setWinner({ name: w.name, meta: w.meta });
+   343→          setWinnerCount(c => c + 1);
+   344→          setShowWinnerAnimation(true);
+   345→          setPulseEffect(true);
+   346→          setScreenFlash(true);
+   347→          setScreenShake(true);
+   348→          fireConfetti();
+   349→          addTicker(`${w.name} VENCEU! ${w.meta || ''}`, 'trophy', pc);
+   350→          setTimeout(() => { setScreenFlash(false); setScreenShake(false); }, 600);
+   351→          setTimeout(() => { setShowWinnerAnimation(false); setPulseEffect(false); }, 7000);
+   352→          if (winnerTimeoutRef.current) clearTimeout(winnerTimeoutRef.current);
+   353→          winnerTimeoutRef.current = setTimeout(() => setWinner(null), 9000);
+   354→          break;
+   355→        }
+   356→        case "liveCode":
+   357→          if (!codeFromUrl) setCode((evt.payload as string) || "LIVE");
+   358→          break;
+   359→        case "roundState": {
+   360→          const rs = evt.payload as RoundState;
+   361→          if (round && round.game !== rs.game && round.phase === 'running') {
+   362→            setPrevRound(round);
+   363→            setRoundTransition(true);
+   364→            addTicker(`Novo jogo: ${rs.game}`, 'gamepad', sc);
+   365→            setTimeout(() => { setRoundTransition(false); setPrevRound(null); }, 1500);
+   366→          }
+   367→          setRound(rs);
+   368→          if (rs.phase === "running") { setEnded(false); setIsLive(true); }
+   369→          if (rs.score !== undefined) setCurrentScore(rs.score);
+   370→          break;
+   371→        }
+   372→        case "liveStarted":
+   373→          setEnded(false); setIsLive(true);
+   374→          setEntries([]); setSorted([]); setWinnerCount(0);
+   375→          setTotalPlayers(0); setTotalGames(0);
+   376→          setCurrentScore(0); setDisplayScore(0); prevScoreRef.current = 0;
+   377→          addTicker('Live iniciada!', 'radio', '#22c55e');
+   378→          break;
+   379→        case "liveEnded":
+   380→          setEnded(true); setIsLive(false);
+   381→          setRound(r => r ? { ...r, phase: 'ended' } : r);
+   382→          addTicker('Live encerrada.', 'alert', '#ef4444');
+   383→          break;
+   384→        case "config": {
+   385→          const cfg = evt.payload as any;
+   386→          if (cfg?.branding) setBranding(cfg.branding);
+   387→          break;
+   388→        }
+   389→      }
+   390→    });
+   391→    return unsub;
+   392→  }, [codeFromUrl, fireConfetti, addTicker, spawnParticles, pc, sc, ac, round, sorted]);
+   393→
+   394→  const fmtTime = (s: number) => {
+   395→    const h = Math.floor(s / 3600);
+   396→    const m = Math.floor((s % 3600) / 60);
+   397→    const sec = s % 60;
+   398→    if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+   399→    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+   400→  };
+   401→
+   402→  const getRankIcon = (i: number) => {
+   403→    if (i === 0) return <Crown className="h-4 w-4 text-yellow-400" />;
+   404→    if (i === 1) return <Star className="h-4 w-4 text-gray-300" />;
+   405→    if (i === 2) return <Star className="h-3.5 w-3.5 text-amber-600" />;
+   406→    return <span className="text-[10px] font-bold opacity-50">{i + 1}</span>;
+   407→  };
+   408→
+   409→  const barWidth = (score: number) => {
+   410→    const max = sorted[0]?.score || 1;
+   411→    return Math.max(8, (score / max) * 100);
+   412→  };
+   413→
+   414→  const getRankBorderColor = (i: number) => {
+   415→    if (i === 0) return '#fbbf24';
+   416→    if (i === 1) return '#9ca3af';
+   417→    if (i === 2) return '#d97706';
+   418→    return 'transparent';
+   419→  };
+   420→
+   421→  const getRankGlow = (i: number) => {
+   422→    if (i === 0) return `0 0 12px ${pc}60, 0 0 24px ${pc}20`;
+   423→    if (i === 1) return '0 0 8px rgba(156,163,175,0.3)';
+   424→    if (i === 2) return '0 0 8px rgba(217,119,6,0.3)';
+   425→    return 'none';
+   426→  };
+   427→
+   428→  const cssKeyframes = `
+   429→    html, body, #root, #overlay-root { background: transparent !important; margin: 0 !important; padding: 0 !important; }
+   430→    * { box-sizing: border-box; }
+   431→    @keyframes neonPulse {
+   432→      0%, 100% { box-shadow: 0 0 8px ${pc}50, 0 0 20px ${pc}25; }
+   433→      50% { box-shadow: 0 0 16px ${pc}80, 0 0 40px ${pc}40, 0 0 60px ${pc}20; }
+   434→    }
+   435→    @keyframes glowText {
+   436→      0%, 100% { text-shadow: 0 0 8px ${pc}80, 0 0 16px ${pc}40; }
+   437→      50% { text-shadow: 0 0 16px ${pc}CC, 0 0 32px ${pc}60, 0 0 48px ${pc}30; }
+   438→    }
+   439→    @keyframes borderGlow {
+   440→      0%, 100% { border-color: ${pc}40; }
+   441→      50% { border-color: ${pc}AA; }
+   442→    }
+   443→    @keyframes shimmer {
+   444→      0% { background-position: -200% center; }
+   445→      100% { background-position: 200% center; }
+   446→    }
+   447→    @keyframes floatSlow {
+   448→      0%, 100% { transform: translateY(0px); }
+   449→      50% { transform: translateY(-8px); }
+   450→    }
+   451→    @keyframes trophySpin {
+   452→      0% { transform: rotateY(0deg) scale(1); }
+   453→      25% { transform: rotateY(90deg) scale(1.15); }
+   454→      50% { transform: rotateY(180deg) scale(1.3); }
+   455→      75% { transform: rotateY(270deg) scale(1.15); }
+   456→      100% { transform: rotateY(360deg) scale(1); }
+   457→    }
+   458→    @keyframes winnerGlow {
+   459→      0%, 100% { filter: drop-shadow(0 0 10px ${pc}80) drop-shadow(0 0 20px ${ac}60); }
+   460→      50% { filter: drop-shadow(0 0 20px ${pc}CC) drop-shadow(0 0 40px ${ac}80) drop-shadow(0 0 60px ${pc}40); }
+   461→    }
+   462→    @keyframes ambientOrb1 {
+   463→      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+   464→      33% { transform: translate(30px, -20px) scale(1.1); opacity: 0.5; }
+   465→      66% { transform: translate(-20px, 10px) scale(0.9); opacity: 0.2; }
+   466→    }
+   467→    @keyframes ambientOrb2 {
+   468→      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+   469→      33% { transform: translate(-40px, 20px) scale(1.2); opacity: 0.4; }
+   470→      66% { transform: translate(20px, -30px) scale(0.8); opacity: 0.15; }
+   471→    }
+   472→    .neon-pulse { animation: neonPulse 2s ease-in-out infinite; }
+   473→    .glow-text { animation: glowText 2s ease-in-out infinite; }
+   474→    .border-glow { animation: borderGlow 2s ease-in-out infinite; }
+   475→    .shimmer-text {
+   476→      background: linear-gradient(90deg, ${pc}, #ffffff, ${ac}, ${pc});
+   477→      background-size: 200% auto;
+   478→      -webkit-background-clip: text;
+   479→      -webkit-text-fill-color: transparent;
+   480→      background-clip: text;
+   481→      animation: shimmer 3s linear infinite;
+   482→    }
+   483→    .float-slow { animation: floatSlow 4s ease-in-out infinite; }
+   484→    .winner-glow { animation: winnerGlow 1.5s ease-in-out infinite; }
+   485→    .trophy-spin { animation: trophySpin 3s ease-in-out infinite; }
+   486→  `;
+   487→
+   488→  return (
+   489→    <div className="fixed inset-0 overflow-hidden font-sans" style={{ color: branding.textColor }}>
+   490→      <style>{cssKeyframes}</style>
+   491→
+   492→      {branding.backgroundImageUrl && (
+   493→        <div className="fixed inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `url(${branding.backgroundImageUrl})` }} />
+   494→      )}
+   495→
+   496→      {isNeon && isLive && (
+   497→        <>
+   498→          <div className="fixed w-[300px] h-[300px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${pc}25, transparent 70%)`, top: '10%', left: '5%', animation: 'ambientOrb1 8s ease-in-out infinite', filter: 'blur(40px)' }} />
+   499→          <div className="fixed w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}20, transparent 70%)`, bottom: '15%', right: '10%', animation: 'ambientOrb2 10s ease-in-out infinite', filter: 'blur(40px)' }} />
+   500→        </>
+   501→      )}
+   502→
+   503→      {isNeon && isLive && (
+   504→        <div className="fixed left-0 right-0 h-[2px] pointer-events-none z-[1]" style={{ top: `${scanlineY}%`, background: `linear-gradient(90deg, transparent, ${pc}30, ${pc}60, ${pc}30, transparent)`, filter: 'blur(1px)' }} />
+   505→      )}
+   506→
+   507→      <AnimatePresence>
+   508→        {screenFlash && (
+   509→          <motion.div className="fixed inset-0 z-[100] pointer-events-none" style={{ background: `radial-gradient(circle, ${pc}40, transparent 70%)` }} initial={{ opacity: 0 }} animate={{ opacity: [0, 0.8, 0] }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} />
+   510→        )}
+   511→      </AnimatePresence>
+   512→
+   513→      <motion.div className="fixed inset-0" animate={screenShake ? { x: [0, -5, 5, -3, 3, 0], y: [0, 3, -3, 5, -5, 0] } : { x: 0, y: 0 }} transition={{ duration: 0.5 }}>
+   514→
+   515→        <div className="absolute top-5 left-5 flex flex-col gap-2.5 items-start z-30">
+   516→          <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 20 }} className={`relative flex items-center gap-3 px-5 py-2.5 rounded-2xl backdrop-blur-2xl shadow-2xl border ${isLive ? 'bg-black/80 border-red-500/50 neon-pulse' : ended ? 'bg-black/80 border-gray-600/40' : 'bg-black/80 border-white/10'}`}>
+   517→            <div className="relative">
+   518→              <Radio className={`h-5 w-5 ${isLive ? 'text-red-500 animate-pulse' : 'text-gray-500'}`} />
+   519→              <div className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${isLive ? 'bg-red-500 animate-ping' : 'bg-gray-600'}`} />
+   520→            </div>
+   521→            <div className="flex flex-col">
+   522→              <span className={`text-[11px] font-black tracking-[0.2em] uppercase ${isLive ? 'text-red-400' : ''}`}>{isLive ? 'AO VIVO' : ended ? 'ENCERRADA' : 'EM BREVE'}</span>
+   523→              <span className="text-[9px] opacity-50 font-mono tracking-wider">{code}</span>
+   524→            </div>
+   525→            {isLive && (
+   526→              <motion.span key={elapsed} initial={{ y: -4, opacity: 0.5 }} animate={{ y: 0, opacity: 1 }} className="text-[13px] font-mono font-black ml-3 pl-3 border-l border-white/10" style={{ color: pc }}>{fmtTime(elapsed)}</motion.span>
+   527→            )}
+   528→            {isLive && (
+   529→              <motion.div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+   530→                <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, transparent, ${pc}15, transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 4s linear infinite' }} />
+   531→              </motion.div>
+   532→            )}
+   533→          </motion.div>
+   534→
+   535→          <AnimatePresence mode="wait">
+   536→            {round && !ended && (
+   537→              <motion.div key={round.game + round.phase} initial={{ x: -80, opacity: 0, scale: 0.95 }} animate={{ x: 0, opacity: 1, scale: 1 }} exit={{ x: -80, opacity: 0, scale: 0.95 }} transition={{ type: 'spring', stiffness: 200, damping: 22 }} className={`flex items-center gap-2.5 px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'bg-black/70 border-glow' : 'bg-black/70 border-white/10'}`} style={{ borderColor: `${sc}40` }}>
+   538→                <Gamepad2 className="h-4 w-4" style={{ color: ac }} />
+   539→                <span className="text-[11px] font-bold uppercase tracking-wider">{round.game}</span>
+   540→                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${round.phase === 'running' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{round.phase}</span>
+   541→                {round.timeLeft > 0 && (
+   542→                  <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-white/10">
+   543→                    <Clock className="h-3.5 w-3.5" />
+   544→                    <motion.span key={round.timeLeft} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="font-mono text-[12px] font-black" style={{ color: round.timeLeft <= 5 ? '#ef4444' : pc }}>{round.timeLeft}s</motion.span>
+   545→                  </div>
+   546→                )}
+   547→              </motion.div>
+   548→            )}
+   549→          </AnimatePresence>
+   550→
+   551→          <AnimatePresence>
+   552→            {roundTransition && prevRound && (
+   553→              <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.9 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }} className="px-4 py-2 rounded-xl bg-black/80 backdrop-blur-xl border" style={{ borderColor: `${ac}50` }}>
+   554→                <span className="text-[10px] uppercase tracking-[0.15em] opacity-60">Proximo jogo</span>
+   555→                <div className="flex items-center gap-2 mt-0.5">
+   556→                  <Gamepad2 className="h-3.5 w-3.5" style={{ color: sc }} />
+   557→                  <span className="text-sm font-black shimmer-text">{round?.game || ''}</span>
+   558→                </div>
+   559→              </motion.div>
+   560→            )}
+   561→          </AnimatePresence>
+   562→        </div>
+   563→
+   564→        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5">
+   565→          {branding.companyLogoUrl && (
+   566→            <motion.div initial={{ scale: 0, opacity: 0, rotate: -180 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className={`relative ${isNeon ? 'neon-pulse' : ''}`} style={{ borderRadius: 12 }}>
+   567→              <img src={branding.companyLogoUrl} alt="" className="h-12 w-12 rounded-xl object-cover shadow-lg" style={{ border: `2px solid ${pc}50` }} />
+   568→            </motion.div>
+   569→          )}
+   570→          {branding.companyName && (
+   571→            <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }} className="px-5 py-1.5 rounded-full backdrop-blur-xl border" style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderColor: `${pc}30` }}>
+   572→              <span className={`text-[11px] font-black tracking-[0.2em] uppercase ${isNeon ? 'glow-text' : ''}`} style={{ color: pc }}>{branding.companyName}</span>
+   573→            </motion.div>
+   574→          )}
+   575→          {branding.companySlogan && !isMinimal && (
+   576→            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 0.3, duration: 1 }} className="text-[9px] tracking-widest uppercase max-w-[200px] text-center truncate">{branding.companySlogan}</motion.span>
+   577→          )}
+   578→        </div>
+   579→
+   580→        <div className="absolute top-5 right-5 flex flex-col items-end gap-2.5 z-30">
+   581→          <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 20 }} className="flex gap-2">
+   582→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${sc}30` }}>
+   583→              <Users className="h-4 w-4 mb-1" style={{ color: sc }} />
+   584→              <AnimatedNumber value={totalPlayers} color={branding.textColor} size="text-xl" />
+   585→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Players</span>
+   586→            </motion.div>
+   587→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${ac}30` }}>
+   588→              <Flame className="h-4 w-4 mb-1" style={{ color: ac }} />
+   589→              <AnimatedNumber value={winnerCount} color={branding.textColor} size="text-xl" />
+   590→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Wins</span>
+   591→            </motion.div>
+   592→            <motion.div whileHover={{ scale: 1.05 }} className={`flex flex-col items-center px-4 py-2 rounded-xl backdrop-blur-xl border shadow-lg ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.7)', borderColor: `${pc}30` }}>
+   593→              <Gamepad2 className="h-4 w-4 mb-1" style={{ color: pc }} />
+   594→              <AnimatedNumber value={totalGames} color={branding.textColor} size="text-xl" />
+   595→              <span className="text-[8px] opacity-40 uppercase tracking-wider font-bold">Games</span>
+   596→            </motion.div>
+   597→          </motion.div>
+   598→        </div>
+   599→
+   600→        <AnimatePresence>
+   601→          {isLive && currentScore > 0 && (layoutParam === 'scoreboard' || layoutParam === 'fullscreen') && (
+   602→            <motion.div initial={{ y: 50, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 50, opacity: 0, scale: 0.9 }} transition={{ type: 'spring', stiffness: 200, damping: 18 }} className="absolute bottom-20 left-5 z-30">
+   603→              <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl backdrop-blur-2xl border shadow-2xl ${isNeon ? 'neon-pulse' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: `${pc}40`, background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(0,0,0,0.7))' }}>
+   604→                <Zap className="h-6 w-6" style={{ color: pc }} />
+   605→                <div className="flex flex-col">
+   606→                  <span className="text-[9px] opacity-50 uppercase tracking-wider font-bold">Pontuacao</span>
+   607→                  <motion.span key={displayScore} className="text-3xl font-black tabular-nums leading-none" style={{ color: pc }} initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>{displayScore.toLocaleString()}</motion.span>
+   608→                </div>
+   609→              </div>
+   610→            </motion.div>
+   611→          )}
+   612→        </AnimatePresence>
+   613→
+   614→        {layoutParam !== 'minimal' && (
+   615→          <div className={`absolute z-30 ${layoutParam === 'fullscreen' ? 'top-24 left-5 w-[420px]' : 'top-5 right-5 w-[380px]'} ${layoutParam === 'scoreboard' ? 'top-24 right-5 w-[340px]' : ''}`}>
+   616→            <motion.div initial={layoutParam === 'fullscreen' ? { x: -100, opacity: 0 } : { x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 22 }} className={`relative rounded-2xl overflow-hidden backdrop-blur-2xl border shadow-2xl ${pulseEffect ? 'neon-pulse' : ''} ${isNeon ? 'border-glow' : ''}`} style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: `${pc}30` }}>
+   617→
+   618→              <div className="relative px-5 py-3.5 flex items-center gap-3 overflow-hidden" style={{ background: `linear-gradient(135deg, ${pc}30, ${ac}20, ${sc}15)`, borderBottom: `1px solid ${pc}25` }}>
+   619→                <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, ${pc}20, transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 3s linear infinite' }} />
+   620→                <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}>
+   621→                  <Trophy className="h-5 w-5 relative z-10" style={{ color: pc }} />
+   622→                </motion.div>
+   623→                <span className={`text-sm font-black tracking-[0.1em] uppercase relative z-10 ${isNeon ? 'glow-text' : ''}`}>{layoutParam === 'scoreboard' ? 'PLACAR' : 'TOP JOGADORES'}</span>
+   624→                <span className="ml-auto text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-white/10 relative z-10">{sorted.length}</span>
+   625→              </div>
+   626→
+   627→              {sorted.length === 0 ? (
+   628→                <div className="py-12 text-center">
+   629→                  <motion.div animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}>
+   630→                    <Gamepad2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+   631→                  </motion.div>
+   632→                  <p className="text-[12px] opacity-30 font-bold tracking-wider">AGUARDANDO JOGADORES...</p>
+   633→                  <div className="flex justify-center gap-1 mt-3">
+   634→                    {[0, 1, 2].map(i => (
+   635→                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pc, opacity: 0.3 }} animate={{ opacity: [0.3, 0.8, 0.3], y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} />
+   636→                    ))}
+   637→                  </div>
+   638→                </div>
+   639→              ) : (
+   640→                <ul className="divide-y divide-white/[0.04]">
+   641→                  <AnimatePresence initial={false}>
+   642→                    {sorted.map((e, i) => (
+   643→                      <motion.li key={e.id} layout initial={{ opacity: 0, x: layoutParam === 'fullscreen' ? -40 : 40, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1, backgroundColor: e.isNew ? `${pc}15` : i === 0 ? `${pc}08` : 'transparent' }} exit={{ opacity: 0, x: -30, scale: 0.85 }} transition={{ type: 'spring', stiffness: 350, damping: 28, backgroundColor: { duration: 1.5 } }} className="relative px-4 py-3 border-l-[3px] cursor-default" style={{ borderLeftColor: getRankBorderColor(i), boxShadow: getRankGlow(i) }}>
+   644→
+   645→                        {i === 0 && <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(90deg, ${pc}08, transparent 60%)` }} />}
+   646→
+   647→                        <div className="flex items-center gap-3 relative z-10">
+   648→                          <motion.div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${i === 0 ? 'bg-yellow-500/20' : i === 1 ? 'bg-gray-400/15' : i === 2 ? 'bg-amber-600/15' : 'bg-white/[0.06]'}`} style={i === 0 ? { boxShadow: `0 0 10px ${pc}30` } : {}} whileHover={{ scale: 1.15, rotate: 5 }}>
+   649→                            {getRankIcon(i)}
+   650→                          </motion.div>
+   651→
+   652→                          <div className="flex-1 min-w-0">
+   653→                            <div className="flex items-center gap-1.5">
+   654→                              <p className={`text-[12px] font-black truncate ${i === 0 ? 'shimmer-text' : i < 3 ? 'text-white' : 'text-white/80'}`}>{e.name}</p>
+   655→                              {i === 0 && <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0 float-slow" />}
+   656→                              <RankIndicator prev={e.prevRank} curr={i} />
+   657→                            </div>
+   658→                            <p className="text-[9px] opacity-40 truncate mt-0.5">{e.game}</p>
+   659→                          </div>
+   660→
+   661→                          <div className="flex flex-col items-end shrink-0">
+   662→                            <div className="flex items-center gap-1.5">
+   663→                              <AnimatedNumber value={e.score} color={i === 0 ? pc : i < 3 ? '#e5e5e5' : branding.textColor} size="text-[15px]" />
+   664→                              {e.scoreDelta !== undefined && e.scoreDelta > 0 && (
+   665→                                <motion.span initial={{ opacity: 1, y: 0 }} animate={{ opacity: 0, y: -12 }} transition={{ duration: 1.5 }} className="text-[9px] font-black text-emerald-400">+{e.scoreDelta}</motion.span>
+   666→                              )}
+   667→                            </div>
+   668→                            <span className="text-[8px] opacity-30 font-bold">pts</span>
+   669→                          </div>
+   670→                        </div>
+   671→
+   672→                        <div className="mt-2 ml-11 h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
+   673→                          <motion.div className="h-full rounded-full" style={{ backgroundColor: i === 0 ? pc : i === 1 ? '#9ca3af' : i === 2 ? ac : `${sc}80`, boxShadow: i === 0 ? `0 0 8px ${pc}60` : 'none' }} initial={{ width: 0 }} animate={{ width: `${barWidth(e.score)}%` }} transition={{ type: 'spring', stiffness: 200, damping: 25, delay: 0.05 }} />
+   674→                        </div>
+   675→                      </motion.li>
+   676→                    ))}
+   677→                  </AnimatePresence>
+   678→                </ul>
+   679→              )}
+   680→            </motion.div>
+   681→          </div>
+   682→        )}
+   683→
+   684→        {layoutParam !== 'minimal' && (
+   685→          <div className="absolute bottom-0 left-0 right-0 z-30">
+   686→            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 22, delay: 0.3 }} className="relative" style={{ background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.85))', paddingTop: 30 }}>
+   687→              <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl backdrop-blur-xl border overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderColor: `${pc}20`, borderTop: `1px solid ${pc}30` }}>
+   688→                <div className="flex items-center gap-3 overflow-hidden">
+   689→                  <div className="flex items-center gap-1.5 shrink-0">
+   690→                    <Activity className="h-3.5 w-3.5" style={{ color: pc }} />
+   691→                    <span className="text-[9px] font-black uppercase tracking-[0.15em] opacity-60">Live</span>
+   692→                  </div>
+   693→                  <div className="w-px h-4 bg-white/10 shrink-0" />
+   694→                  <div className="flex-1 overflow-hidden relative h-5">
+   695→                    <AnimatePresence mode="popLayout">
+   696→                      {tickerEvents.length > 0 ? (
+   697→                        tickerEvents.map(ev => (
+   698→                          <motion.div key={ev.id} initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 0.8 }} exit={{ x: -100, opacity: 0 }} transition={{ type: 'spring', stiffness: 200, damping: 25 }} className="absolute inset-0 flex items-center gap-2 whitespace-nowrap">
+   699→                            <Fingerprint className="h-3 w-3 shrink-0" style={{ color: ev.color }} />
+   700→                            <span className="text-[11px] font-bold">{ev.text}</span>
+   701→                          </motion.div>
+   702→                        ))
+   703→                      ) : (
+   704→                        <motion.div key="empty" className="absolute inset-0 flex items-center" initial={{ opacity: 0 }} animate={{ opacity: 0.3 }}>
+   705→                          <span className="text-[10px] tracking-wider">Aguardando eventos...</span>
+   706→                        </motion.div>
+   707→                      )}
+   708→                    </AnimatePresence>
+   709→                  </div>
+   710→                </div>
+   711→              </div>
+   712→            </motion.div>
+   713→          </div>
+   714→        )}
+   715→
+   716→        <AnimatePresence>
+   717→          {newPlayerNotify && layoutParam !== 'minimal' && (
+   718→            <motion.div key={newPlayerNotify.id} initial={{ x: 200, opacity: 0, scale: 0.8 }} animate={{ x: 0, opacity: 1, scale: 1 }} exit={{ x: 200, opacity: 0, scale: 0.8 }} transition={{ type: 'spring', stiffness: 250, damping: 22 }} className={`absolute top-1/2 -translate-y-1/2 ${layoutParam === 'fullscreen' ? 'right-5' : 'right-[400px]'} z-40`}>
+   719→              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl backdrop-blur-2xl border shadow-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.85)', borderColor: `${sc}50`, boxShadow: `0 0 20px ${sc}30, 0 0 40px ${sc}15` }}>
+   720→                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${sc}, ${ac})`, boxShadow: `0 0 15px ${sc}50` }}>
+   721→                  <Users className="h-5 w-5 text-white" />
+   722→                </motion.div>
+   723→                <div className="flex flex-col">
+   724→                  <span className="text-[9px] uppercase tracking-[0.15em] opacity-50 font-bold">Novo jogador</span>
+   725→                  <span className="text-sm font-black" style={{ color: sc }}>{newPlayerNotify.name}</span>
+   726→                </div>
+   727→                <motion.div initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.2 }}>
+   728→                  <Sparkles className="h-5 w-5" style={{ color: pc }} />
+   729→                </motion.div>
+   730→              </div>
+   731→            </motion.div>
+   732→          )}
+   733→        </AnimatePresence>
+   734→
+   735→        {particles.map(p => (
+   736→          <ParticleBurst key={p.id} x={p.x} y={p.y} color={p.color} />
+   737→        ))}
+   738→
+   739→        <AnimatePresence>
+   740→          {winner && showWinnerAnimation && (
+   741→            <motion.div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+   742→              <motion.div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+   743→
+   744→              <motion.div initial={{ opacity: 0, scale: 0.3, y: 80, rotateX: -30 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }} exit={{ opacity: 0, scale: 0.8, y: 40, transition: { duration: 0.5, ease: 'easeIn' } }} transition={{ type: 'spring', stiffness: 180, damping: 18 }} className="relative winner-glow">
+   745→                <motion.div className="absolute -inset-4 rounded-[28px] pointer-events-none" style={{ background: `linear-gradient(135deg, ${pc}60, ${ac}40, ${sc}60)`, filter: 'blur(20px)' }} animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }} />
+   746→
+   747→                <div className="relative px-14 py-8 rounded-3xl backdrop-blur-2xl border-2 shadow-2xl" style={{ background: `linear-gradient(135deg, ${pc}E6, ${ac}CC, ${pc}E6)`, borderColor: 'rgba(255,255,255,0.3)', backgroundSize: '200% 200%', animation: 'shimmer 3s ease infinite' }}>
+   748→                  <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite' }} />
+   749→
+   750→                  <div className="flex items-center gap-6 relative z-10">
+   751→                    <div className="flex flex-col items-center gap-2">
+   752→                      <div className="trophy-spin">
+   753→                        <Trophy className="h-16 w-16 text-yellow-900 drop-shadow-lg" />
+   754→                      </div>
+   755→                      <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+   756→                        <Sparkles className="h-6 w-6 text-yellow-800" />
+   757→                      </motion.div>
+   758→                    </div>
+   759→
+   760→                    <div className="flex-1 min-w-[200px]">
+   761→                      <div className="flex items-center gap-2 mb-2">
+   762→                        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}>
+   763→                          <Crown className="h-5 w-5 text-yellow-800" />
+   764→                        </motion.div>
+   765→                        <span className="text-[11px] uppercase tracking-[0.3em] font-black text-black/60">VENCEDOR</span>
+   766→                        <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut', delay: 0.3 }}>
+   767→                          <Crown className="h-5 w-5 text-yellow-800" />
+   768→                        </motion.div>
+   769→                      </div>
+   770→                      <motion.p className="text-4xl font-black text-black leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.15)' }} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 18 }}>{winner.name}</motion.p>
+   771→                      {winner.meta && (
+   772→                        <motion.p className="text-base font-bold text-black/60 mt-1" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>{winner.meta}</motion.p>
+   773→                      )}
+   774→                    </div>
+   775→
+   776→                    <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 1.2, ease: 'easeInOut' }}>
+   777→                      <Trophy className="h-14 w-14 text-yellow-900" />
+   778→                    </motion.div>
+   779→                  </div>
+   780→
+   781→                  <div className="flex justify-center gap-2 mt-4 relative z-10">
+   782→                    {Array.from({ length: 7 }).map((_, i) => (
+   783→                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full bg-yellow-700/60" animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.3, 0.8], y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.15, ease: 'easeInOut' }} />
+   784→                    ))}
+   785→                  </div>
+   786→                </div>
+   787→              </motion.div>
+   788→            </motion.div>
+   789→          )}
+   790→        </AnimatePresence>
+   791→
+   792→      </motion.div>
+   793→
+   794→      {isNeon && isLive && layoutParam !== 'minimal' && (
+   795→        <>
+   796→          <div className="absolute top-0 left-0 w-20 h-20 pointer-events-none z-20">
+   797→            <div className="absolute top-3 left-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   798→            <div className="absolute top-3 left-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   799→          </div>
+   800→          <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none z-20">
+   801→            <div className="absolute top-3 right-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   802→            <div className="absolute top-3 right-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   803→          </div>
+   804→          <div className="absolute bottom-0 left-0 w-20 h-20 pointer-events-none z-20">
+   805→            <div className="absolute bottom-3 left-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   806→            <div className="absolute bottom-3 left-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   807→          </div>
+   808→          <div className="absolute bottom-0 right-0 w-20 h-20 pointer-events-none z-20">
+   809→            <div className="absolute bottom-3 right-3 w-8 h-[2px]" style={{ backgroundColor: `${pc}50` }} />
+   810→            <div className="absolute bottom-3 right-3 w-[2px] h-8" style={{ backgroundColor: `${pc}50` }} />
+   811→          </div>
+   812→        </>
+   813→      )}
+   814→    </div>
+   815→  );
+   816→};
+   817→
+   818→export default OverlayPro;
+   819→

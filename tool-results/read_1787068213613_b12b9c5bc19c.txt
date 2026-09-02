@@ -1,0 +1,524 @@
+     1→import { useState, useRef } from "react";
+     2→import { motion } from "framer-motion";
+     3→import { ArrowLeft, Upload, Calendar, Ticket, Info, Image, X, MapPin, Eye, EyeOff, Timer, Zap, Trophy, Users } from "lucide-react";
+     4→import { PROVINCES, CITIES_BY_PROVINCE } from "@/lib/provinces";
+     5→import { COUNTRIES, getRegions } from "@/lib/regions";
+     6→import { formatMZN } from "@/lib/currency";
+     7→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     8→import { Button } from "@/components/ui/button";
+     9→import { useNavigate } from "react-router-dom";
+    10→import { supabase } from "@/integrations/supabase/client";
+    11→import { useAuth } from "@/contexts/AuthContext";
+    12→import { validateImageFile, DEFAULT_MAX_UPLOAD_MB } from "@/lib/upload-utils";
+    13→import { toast } from "sonner";
+    14→
+    15→export default function CreateRaffle() {
+    16→  const navigate = useNavigate();
+    17→  const { user } = useAuth();
+    18→  const [saving, setSaving] = useState(false);
+    19→  const [imageFile, setImageFile] = useState<File | null>(null);
+    20→  const [imagePreview, setImagePreview] = useState<string | null>(null);
+    21→  const [uploading, setUploading] = useState(false);
+    22→  const fileInputRef = useRef<HTMLInputElement>(null);
+    23→  const [form, setForm] = useState({
+    24→    title: "",
+    25→    description: "",
+    26→    prize_title: "",
+    27→    prize_value: "",
+    28→    ticket_price: "",
+    29→    total_tickets: "",
+    30→    start_date: "",
+    31→    end_date: "",
+    32→    raffle_type: "paid" as "paid" | "free" | "points" | "social",
+    33→    points_cost: "",
+    34→    country: "MZ",
+    35→    province: "",
+    36→    city: "",
+    37→    draw_mode: "manual" as "manual" | "auto_sold_out",
+    38→    hide_prize_value: false,
+    39→    auto_draw_days: "",
+    40→    tickets_threshold: "",
+    41→    social_actions: [] as { platform: string; action: string; url: string; requires_proof: boolean; requires_approval: boolean }[],
+    42→    max_winners: "1",
+    43→    max_tickets_per_user: "",
+    44→  });
+    45→
+    46→  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    47→    setForm({ ...form, [e.target.name]: e.target.value });
+    48→  };
+    49→
+    50→  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    51→    const file = e.target.files?.[0];
+    52→    if (!file) return;
+    53→    const err = validateImageFile(file, DEFAULT_MAX_UPLOAD_MB);
+    54→    if (err) { toast.error(err); return; }
+    55→    setImageFile(file);
+    56→    setImagePreview(URL.createObjectURL(file));
+    57→  };
+    58→
+    59→  const removeImage = () => {
+    60→    setImageFile(null);
+    61→    setImagePreview(null);
+    62→    if (fileInputRef.current) fileInputRef.current.value = "";
+    63→  };
+    64→
+    65→  const uploadImage = async (): Promise<string | null> => {
+    66→    if (!imageFile || !user) return null;
+    67→    setUploading(true);
+    68→    const ext = imageFile.name.split(".").pop();
+    69→    const path = `${user.id}/${Date.now()}.${ext}`;
+    70→    const { error } = await supabase.storage.from("raffle-images").upload(path, imageFile);
+    71→    setUploading(false);
+    72→    if (error) { toast.error("Erro ao enviar imagem: " + error.message); return null; }
+    73→    const { data: urlData } = supabase.storage.from("raffle-images").getPublicUrl(path);
+    74→    return urlData.publicUrl;
+    75→  };
+    76→
+    77→  const handleSubmit = async () => {
+    78→    if (!user) return;
+    79→    if (!form.title || !form.prize_title || !form.total_tickets) {
+    80→      toast.error("Preencha todos os campos obrigatórios.");
+    81→      return;
+    82→    }
+    83→    if (form.draw_mode === "auto_sold_out" && !form.auto_draw_days) {
+    84→      toast.error("Defina o número de dias para o sorteio automático.");
+    85→      return;
+    86→    }
+    87→    setSaving(true);
+    88→
+    89→    let imageUrl: string | null = null;
+    90→    if (imageFile) imageUrl = await uploadImage();
+    91→
+    92→    const thresholdValue = form.tickets_threshold ? Number(form.tickets_threshold) : null;
+    93→
+    94→    const { error } = await supabase.from("raffles").insert({
+    95→      business_user_id: user.id,
+    96→      title: form.title,
+    97→      description: form.description || null,
+    98→      prize_title: form.prize_title,
+    99→      prize_value: Number(form.prize_value) || 0,
+   100→      ticket_price: form.raffle_type === "free" || form.raffle_type === "social" ? 0 : Number(form.ticket_price) || 0,
+   101→      total_tickets: Number(form.total_tickets) || 100,
+   102→      start_date: form.start_date || null,
+   103→      end_date: form.draw_mode === "auto_sold_out" ? null : (form.end_date || null),
+   104→      image_url: imageUrl,
+   105→      status: "pending_activation",
+   106→      raffle_type: form.raffle_type,
+   107→      points_cost: form.raffle_type === "points" ? Number(form.points_cost) || 0 : 0,
+   108→      province: form.province || null,
+   109→      city: form.city || null,
+   110→      draw_mode: form.draw_mode,
+   111→      hide_prize_value: form.hide_prize_value,
+   112→      auto_draw_days: form.draw_mode === "auto_sold_out" ? Number(form.auto_draw_days) || 1 : null,
+   113→      tickets_threshold: form.draw_mode === "auto_sold_out" ? thresholdValue : null,
+   114→      social_actions: form.raffle_type === "social" ? form.social_actions : [],
+   115→      max_winners: Number(form.max_winners) || 1,
+   116→      max_tickets_per_user: form.max_tickets_per_user ? Number(form.max_tickets_per_user) : null,
+   117→    } as any);
+   118→    setSaving(false);
+   119→    if (error) { toast.error("Erro ao criar sorteio: " + error.message); return; }
+   120→    toast.success("Sorteio criado! Aguarde a aprovação do administrador.");
+   121→    navigate("/dashboard/raffles");
+   122→  };
+   123→
+   124→  const estimatedRevenue = form.raffle_type === "free" || form.raffle_type === "social" ? 0 : (Number(form.ticket_price) || 0) * (Number(form.total_tickets) || 0);
+   125→
+   126→  const addSocialAction = () => {
+   127→    setForm({ ...form, social_actions: [...form.social_actions, { platform: "instagram", action: "follow", url: "", requires_proof: true, requires_approval: true }] });
+   128→  };
+   129→  const removeSocialAction = (idx: number) => {
+   130→    setForm({ ...form, social_actions: form.social_actions.filter((_, i) => i !== idx) });
+   131→  };
+   132→  const updateSocialAction = (idx: number, field: string, value: string) => {
+   133→    const updated = [...form.social_actions];
+   134→    const parsedValue = value === "true" ? true : value === "false" ? false : value;
+   135→    updated[idx] = { ...updated[idx], [field]: parsedValue };
+   136→    setForm({ ...form, social_actions: updated });
+   137→  };
+   138→
+   139→  return (
+   140→    <div className="mx-auto max-w-3xl space-y-6">
+   141→      <div className="flex items-center gap-4">
+   142→        <button onClick={() => navigate("/dashboard/raffles")}
+   143→          className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground">
+   144→          <ArrowLeft className="h-4 w-4" />
+   145→        </button>
+   146→        <div>
+   147→          <h1 className="font-display text-2xl font-bold text-foreground">Criar Novo Sorteio</h1>
+   148→          <p className="text-sm text-muted-foreground">Configure os detalhes do seu sorteio</p>
+   149→        </div>
+   150→      </div>
+   151→
+   152→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+   153→        <Card className="glass border-glass-border">
+   154→          <CardHeader><CardTitle className="text-lg">Informações do Prémio</CardTitle></CardHeader>
+   155→          <CardContent className="space-y-4">
+   156→            <div>
+   157→              <label className="mb-1.5 block text-sm font-medium text-foreground">Nome do Sorteio *</label>
+   158→              <input name="title" value={form.title} onChange={handleChange} placeholder="Ex: Porsche 911 GT3 2025"
+   159→                className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   160→            </div>
+   161→            <div>
+   162→              <label className="mb-1.5 block text-sm font-medium text-foreground">Descrição</label>
+   163→              <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Descreva o prémio e regras..."
+   164→                className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+   165→            </div>
+   166→            <div className="grid gap-4 sm:grid-cols-2">
+   167→              <div>
+   168→                <label className="mb-1.5 block text-sm font-medium text-foreground">Título do Prémio *</label>
+   169→                <input name="prize_title" value={form.prize_title} onChange={handleChange} placeholder="Ex: Porsche 911 GT3"
+   170→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   171→              </div>
+   172→              <div>
+   173→                <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+   174→                  Valor do Prémio (MZN)
+   175→                  <button type="button" onClick={() => setForm({ ...form, hide_prize_value: !form.hide_prize_value })}
+   176→                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+   177→                      form.hide_prize_value ? "bg-accent/20 text-accent" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+   178→                    }`}>
+   179→                    {form.hide_prize_value ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+   180→                    {form.hide_prize_value ? "Oculto" : "Visível"}
+   181→                  </button>
+   182→                </label>
+   183→                <input name="prize_value" type="number" value={form.prize_value} onChange={handleChange} placeholder="15.000.000"
+   184→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   185→                {form.hide_prize_value && (
+   186→                  <p className="text-[10px] text-accent mt-1">O valor será oculto para os participantes</p>
+   187→                )}
+   188→              </div>
+   189→            </div>
+   190→            <div>
+   191→              <label className="mb-1.5 block text-sm font-medium text-foreground">Imagem do Prémio</label>
+   192→              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+   193→              {imagePreview ? (
+   194→                <div className="relative rounded-xl overflow-hidden border border-border">
+   195→                  <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" />
+   196→                  <button onClick={removeImage}
+   197→                    className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors">
+   198→                    <X className="h-4 w-4" />
+   199→                  </button>
+   200→                  <div className="absolute bottom-2 left-2">
+   201→                    <span className="rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground flex items-center gap-1">
+   202→                      <Image className="h-3 w-3" /> {imageFile?.name}
+   203→                    </span>
+   204→                  </div>
+   205→                </div>
+   206→              ) : (
+   207→                <button onClick={() => fileInputRef.current?.click()}
+   208→                  className="flex h-32 w-full items-center justify-center rounded-xl border-2 border-dashed border-border bg-secondary/20 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-secondary/40">
+   209→                  <div className="text-center">
+   210→                    <Upload className="mx-auto h-6 w-6 mb-2" />
+   211→                    <p className="text-xs">Arraste ou clique para enviar</p>
+   212→                    <p className="text-[10px] text-muted-foreground mt-1">PNG, JPG até 5MB</p>
+   213→                  </div>
+   214→                </button>
+   215→              )}
+   216→            </div>
+   217→          </CardContent>
+   218→        </Card>
+   219→      </motion.div>
+   220→
+   221→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   222→        <Card className="glass border-glass-border">
+   223→          <CardHeader><CardTitle className="text-lg">Tipo de Sorteio</CardTitle></CardHeader>
+   224→          <CardContent>
+   225→             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   226→              {([
+   227→                { id: "paid" as const, label: "Pago (MZN)", desc: "Bilhetes vendidos por dinheiro", icon: "💰" },
+   228→                { id: "free" as const, label: "Gratuito", desc: "Sorteio grátis para atrair público", icon: "🎁" },
+   229→                { id: "points" as const, label: "Por Pontos", desc: "Participação com pontos acumulados", icon: "⭐" },
+   230→                { id: "social" as const, label: "Social", desc: "Participação por ações nas redes sociais", icon: "📱" },
+   231→              ]).map((t) => (
+   232→                <button key={t.id} onClick={() => setForm({ ...form, raffle_type: t.id })}
+   233→                  className={`rounded-xl p-4 text-left border transition-all ${
+   234→                    form.raffle_type === t.id ? "border-primary bg-primary/10" : "border-border bg-secondary/30 hover:border-primary/30"
+   235→                  }`}>
+   236→                  <span className="text-2xl">{t.icon}</span>
+   237→                  <p className="text-sm font-semibold text-foreground mt-2">{t.label}</p>
+   238→                  <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+   239→                </button>
+   240→              ))}
+   241→            </div>
+   242→
+   243→            {form.raffle_type === "social" && (
+   244→              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-6 space-y-4">
+   245→                <div className="rounded-xl bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10 border border-primary/20 p-4">
+   246→                  <div className="flex items-center gap-2 mb-2">
+   247→                    <Zap className="h-5 w-5 text-accent" />
+   248→                    <h4 className="text-sm font-bold text-foreground">Sorteio de Engajamento Social</h4>
+   249→                  </div>
+   250→                  <p className="text-xs text-muted-foreground leading-relaxed">
+   251→                    Os participantes completam missões nas redes sociais para ganhar entrada gratuita. 
+   252→                    Quanto mais missões completarem, maior o multiplicador de chance. Sistema com níveis: 
+   253→                    <strong className="text-foreground"> Iniciante → Engajado → Super Fã → Lenda</strong>.
+   254→                  </p>
+   255→                </div>
+   256→
+   257→                <div className="flex items-center justify-between">
+   258→                  <label className="text-sm font-medium text-foreground">Missões Sociais</label>
+   259→                  <Button variant="outline" size="sm" onClick={addSocialAction} className="gap-1">
+   260→                    <span className="text-lg">+</span> Adicionar Missão
+   261→                  </Button>
+   262→                </div>
+   263→                
+   264→                {form.social_actions.map((sa, idx) => (
+   265→                  <div key={idx} className="rounded-xl border border-border bg-secondary/20 p-3 space-y-2">
+   266→                    <div className="flex gap-2 items-center">
+   267→                      <span className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">{idx + 1}</span>
+   268→                      <select value={sa.platform} onChange={(e) => updateSocialAction(idx, "platform", e.target.value)}
+   269→                        className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+   270→                        <option value="instagram">📸 Instagram</option>
+   271→                        <option value="youtube">🎬 YouTube</option>
+   272→                        <option value="tiktok">🎵 TikTok</option>
+   273→                        <option value="facebook">👍 Facebook</option>
+   274→                        <option value="twitter">🐦 X (Twitter)</option>
+   275→                      </select>
+   276→                      <select value={sa.action} onChange={(e) => updateSocialAction(idx, "action", e.target.value)}
+   277→                        className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+   278→                        <option value="follow">Seguir</option>
+   279→                        <option value="like">Dar Like</option>
+   280→                        <option value="subscribe">Subscrever</option>
+   281→                        <option value="share">Partilhar</option>
+   282→                        <option value="comment">Comentar</option>
+   283→                      </select>
+   284→                      <button onClick={() => removeSocialAction(idx)} className="h-9 w-9 flex items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 transition-colors shrink-0">
+   285→                        <X className="h-4 w-4" />
+   286→                      </button>
+   287→                    </div>
+   288→                    <input value={sa.url} onChange={(e) => updateSocialAction(idx, "url", e.target.value)}
+   289→                      placeholder="https://instagram.com/seuperfil ou link da publicação"
+   290→                      className="h-9 w-full rounded-lg border border-border bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground" />
+   291→                    <div className="flex gap-4 pt-1">
+   292→                      <label className="flex items-center gap-2 cursor-pointer">
+   293→                        <input type="checkbox" checked={sa.requires_proof !== false}
+   294→                          onChange={(e) => updateSocialAction(idx, "requires_proof", e.target.checked ? "true" : "false")}
+   295→                          className="rounded border-border" />
+   296→                        <span className="text-[11px] text-muted-foreground">📷 Exigir comprovativo (screenshot)</span>
+   297→                      </label>
+   298→                    </div>
+   299→                  </div>
+   300→                ))}
+   301→                
+   302→                {form.social_actions.length === 0 && (
+   303→                  <div className="text-center py-8 rounded-xl border-2 border-dashed border-border bg-secondary/10">
+   304→                    <span className="text-3xl mb-2 block">📱</span>
+   305→                    <p className="text-sm font-medium text-foreground">Nenhuma missão adicionada</p>
+   306→                    <p className="text-xs text-muted-foreground mt-1">Adicione missões como "Seguir no Instagram" ou "Subscrever no YouTube"</p>
+   307→                  </div>
+   308→                )}
+   309→
+   310→                {form.social_actions.length > 0 && (
+   311→                  <div className="rounded-xl bg-accent/5 border border-accent/10 p-3 flex items-start gap-2">
+   312→                    <Info className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+   313→                    <p className="text-xs text-muted-foreground">
+   314→                      <strong className="text-foreground">{form.social_actions.length} missão(ões)</strong> configuradas. 
+   315→                      Participantes que completarem todas ganham nível <strong className="text-accent">Lenda (3x chance)</strong>.
+   316→                      Bilhetes gratuitos — o valor está no engajamento para a sua marca!
+   317→                    </p>
+   318→                  </div>
+   319→                )}
+   320→              </motion.div>
+   321→            )}
+   322→          </CardContent>
+   323→        </Card>
+   324→      </motion.div>
+   325→
+   326→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+   327→        <Card className="glass border-glass-border">
+   328→          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> Modo de Sorteio</CardTitle></CardHeader>
+   329→          <CardContent className="space-y-4">
+   330→            <div className="grid gap-3 sm:grid-cols-2">
+   331→              <button onClick={() => setForm({ ...form, draw_mode: "manual" })}
+   332→                className={`rounded-xl p-4 text-left border transition-all ${
+   333→                  form.draw_mode === "manual" ? "border-primary bg-primary/10" : "border-border bg-secondary/30 hover:border-primary/30"
+   334→                }`}>
+   335→                <Ticket className="h-6 w-6 text-primary mb-2" />
+   336→                <p className="text-sm font-semibold text-foreground">Manual</p>
+   337→                <p className="text-xs text-muted-foreground mt-0.5">Você inicia o sorteio quando quiser, com data de encerramento definida</p>
+   338→              </button>
+   339→              <button onClick={() => setForm({ ...form, draw_mode: "auto_sold_out" })}
+   340→                className={`rounded-xl p-4 text-left border transition-all ${
+   341→                  form.draw_mode === "auto_sold_out" ? "border-accent bg-accent/10" : "border-border bg-secondary/30 hover:border-primary/30"
+   342→                }`}>
+   343→                <Zap className="h-6 w-6 text-accent mb-2" />
+   344→                <p className="text-sm font-semibold text-foreground">Automático</p>
+   345→                <p className="text-xs text-muted-foreground mt-0.5">O sorteio é realizado automaticamente após vender todos os bilhetes (ou atingir um limite)</p>
+   346→              </button>
+   347→            </div>
+   348→
+   349→            {form.draw_mode === "auto_sold_out" && (
+   350→              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4 pt-2">
+   351→                <div className="grid gap-4 sm:grid-cols-2">
+   352→                  <div>
+   353→                    <label className="mb-1.5 block text-sm font-medium text-foreground">Dias após meta para sortear *</label>
+   354→                    <input name="auto_draw_days" type="number" min="0" value={form.auto_draw_days} onChange={handleChange} placeholder="Ex: 3"
+   355→                      className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   356→                    <p className="text-[10px] text-muted-foreground mt-1">0 = sorteio imediato quando a meta é atingida</p>
+   357→                  </div>
+   358→                  <div>
+   359→                    <label className="mb-1.5 block text-sm font-medium text-foreground">Meta de bilhetes (opcional)</label>
+   360→                    <input name="tickets_threshold" type="number" value={form.tickets_threshold} onChange={handleChange}
+   361→                      placeholder={form.total_tickets || "Todos os bilhetes"}
+   362→                      className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   363→                    <p className="text-[10px] text-muted-foreground mt-1">Deixe vazio para exigir todos os bilhetes vendidos</p>
+   364→                  </div>
+   365→                </div>
+   366→                <div className="flex items-start gap-2 rounded-xl bg-accent/5 border border-accent/10 p-3">
+   367→                  <Zap className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+   368→                  <p className="text-xs text-muted-foreground leading-relaxed">
+   369→                    Quando {form.tickets_threshold ? `${form.tickets_threshold} bilhetes forem vendidos` : "todos os bilhetes forem vendidos"}, 
+   370→                    uma contagem regressiva de <strong className="text-foreground">{form.auto_draw_days || "X"} dia(s)</strong> será iniciada automaticamente. 
+   371→                    O vencedor será selecionado aleatoriamente pelo sistema quando a contagem terminar.
+   372→                  </p>
+   373→                </div>
+   374→              </motion.div>
+   375→            )}
+   376→          </CardContent>
+   377→        </Card>
+   378→      </motion.div>
+   379→
+   380→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   381→        <Card className="glass border-glass-border">
+   382→          <CardHeader><CardTitle className="text-lg">Configuração de Bilhetes</CardTitle></CardHeader>
+   383→          <CardContent className="space-y-4">
+   384→            <div className="grid gap-4 sm:grid-cols-2">
+   385→              {form.raffle_type !== "free" && form.raffle_type !== "social" && (
+   386→                <div>
+   387→                  <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   388→                    <Ticket className="h-3.5 w-3.5" /> {form.raffle_type === "points" ? "Custo em Pontos *" : "Preço por Bilhete (MZN) *"}
+   389→                  </label>
+   390→                  <input name={form.raffle_type === "points" ? "points_cost" : "ticket_price"} type="number"
+   391→                    value={form.raffle_type === "points" ? form.points_cost : form.ticket_price}
+   392→                    onChange={handleChange} placeholder={form.raffle_type === "points" ? "50" : "500"}
+   393→                    className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   394→                </div>
+   395→              )}
+   396→              <div>
+   397→                <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   398→                  <Ticket className="h-3.5 w-3.5" /> Total de Bilhetes *
+   399→                </label>
+   400→                <input name="total_tickets" type="number" value={form.total_tickets} onChange={handleChange} placeholder="1000"
+   401→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   402→              </div>
+   403→            </div>
+   404→
+   405→            <div className="grid gap-4 sm:grid-cols-2">
+   406→              <div>
+   407→                <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   408→                  <Trophy className="h-3.5 w-3.5" /> Número de Vencedores
+   409→                </label>
+   410→                <input name="max_winners" type="number" min="1" value={form.max_winners} onChange={handleChange} placeholder="1"
+   411→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   412→                <p className="text-[10px] text-muted-foreground mt-1">Quantos vencedores serão sorteados</p>
+   413→              </div>
+   414→              <div>
+   415→                <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   416→                  <Users className="h-3.5 w-3.5" /> Máx. bilhetes por utilizador
+   417→                </label>
+   418→                <input name="max_tickets_per_user" type="number" min="1" value={form.max_tickets_per_user} onChange={handleChange} placeholder="Sem limite"
+   419→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   420→                <p className="text-[10px] text-muted-foreground mt-1">Deixe vazio para sem limite</p>
+   421→              </div>
+   422→            </div>
+   423→
+   424→            {form.draw_mode === "manual" && (
+   425→              <div className="grid gap-4 sm:grid-cols-2">
+   426→                <div>
+   427→                  <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   428→                    <Calendar className="h-3.5 w-3.5" /> Data de Início
+   429→                  </label>
+   430→                  <input type="datetime-local" name="start_date" value={form.start_date} onChange={handleChange}
+   431→                    className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   432→                </div>
+   433→                <div>
+   434→                  <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   435→                    <Calendar className="h-3.5 w-3.5" /> Data de Encerramento
+   436→                  </label>
+   437→                  <input type="datetime-local" name="end_date" value={form.end_date} onChange={handleChange}
+   438→                    className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   439→                </div>
+   440→              </div>
+   441→            )}
+   442→
+   443→            {form.draw_mode === "auto_sold_out" && (
+   444→              <div>
+   445→                <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+   446→                  <Calendar className="h-3.5 w-3.5" /> Data de Início
+   447→                </label>
+   448→                <input type="datetime-local" name="start_date" value={form.start_date} onChange={handleChange}
+   449→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   450→                <p className="text-[10px] text-muted-foreground mt-1">O sorteio não tem data de fim fixa — termina quando a meta de bilhetes é atingida</p>
+   451→              </div>
+   452→            )}
+   453→
+   454→            <div className="flex items-start gap-2 rounded-xl bg-primary/5 border border-primary/10 p-3">
+   455→              <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+   456→              <div className="text-xs text-muted-foreground leading-relaxed">
+   457→                <p>Receita estimada: <span className="font-semibold text-foreground">{formatMZN(estimatedRevenue)}</span></p>
+   458→                <p className="mt-1">A plataforma cobra uma comissão de 5% sobre o valor total arrecadado.</p>
+   459→              </div>
+   460→            </div>
+   461→          </CardContent>
+   462→        </Card>
+   463→      </motion.div>
+   464→
+   465→      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   466→        <Card className="glass border-glass-border">
+   467→          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Localização (Opcional)</CardTitle></CardHeader>
+   468→          <CardContent className="space-y-4">
+   469→            <p className="text-xs text-muted-foreground">Restrinja o sorteio a um país, região ou cidade específica</p>
+   470→            <div className="grid gap-4 sm:grid-cols-3">
+   471→              <div>
+   472→                <label className="mb-1.5 block text-sm font-medium text-foreground">País</label>
+   473→                <select
+   474→                  value={form.country}
+   475→                  onChange={(e) => setForm({ ...form, country: e.target.value, province: "", city: "" })}
+   476→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+   477→                  {COUNTRIES.map((c) => (
+   478→                    <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
+   479→                  ))}
+   480→                </select>
+   481→              </div>
+   482→              <div>
+   483→                <label className="mb-1.5 block text-sm font-medium text-foreground">Região / Província</label>
+   484→                <select name="province" value={form.province}
+   485→                  onChange={(e) => setForm({ ...form, province: e.target.value, city: "" })}
+   486→                  className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+   487→                  <option value="">Toda a região</option>
+   488→                  {getRegions(form.country).map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+   489→                </select>
+   490→              </div>
+   491→              <div>
+   492→                <label className="mb-1.5 block text-sm font-medium text-foreground">Cidade</label>
+   493→                {form.country === "MZ" ? (
+   494→                  <select name="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
+   495→                    disabled={!form.province}
+   496→                    className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
+   497→                    <option value="">Todas as cidades</option>
+   498→                    {form.province && CITIES_BY_PROVINCE[form.province]?.map((c) => <option key={c} value={c}>{c}</option>)}
+   499→                  </select>
+   500→                ) : (
+   501→                  <input name="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}
+   502→                    placeholder="Opcional"
+   503→                    className="h-10 w-full rounded-lg border border-border bg-secondary/50 px-4 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+   504→                )}
+   505→              </div>
+   506→            </div>
+   507→          </CardContent>
+   508→        </Card>
+   509→      </motion.div>
+   510→
+   511→      <div className="flex justify-end gap-3 pb-6">
+   512→        <button onClick={() => navigate("/dashboard/raffles")}
+   513→          className="rounded-lg px-5 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary">
+   514→          Cancelar
+   515→        </button>
+   516→        <Button onClick={handleSubmit} disabled={saving || uploading} className="gap-2 glow-primary">
+   517→          {saving || uploading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <Ticket className="h-4 w-4" />}
+   518→          {uploading ? "A enviar imagem..." : saving ? "A criar..." : "Criar Sorteio"}
+   519→        </Button>
+   520→      </div>
+   521→    </div>
+   522→  );
+   523→}
+   524→

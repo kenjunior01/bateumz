@@ -1,0 +1,620 @@
+     1→import { useEffect, useState, useCallback, useMemo } from "react";
+     2→import { useParams, Navigate } from "react-router-dom";
+     3→import { motion, AnimatePresence } from "framer-motion";
+     4→import { supabase } from "@/integrations/supabase/client";
+     5→import { useAuth } from "@/contexts/AuthContext";
+     6→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+     7→import { Card, CardContent } from "@/components/ui/card";
+     8→import { Button } from "@/components/ui/button";
+     9→import { Badge } from "@/components/ui/badge";
+    10→import { Loader2, Volume2, VolumeX, Lightbulb, Users, Phone, CheckCircle2, XCircle, Trophy, Timer, RefreshCw } from "lucide-react";
+    11→import { toast } from "sonner";
+    12→import confetti from "canvas-confetti";
+    13→import { fetchTriviaQuestions, decodeHTMLEntities, shuffleAnswers, TriviaQuestion } from "@/lib/openTriviaDB";
+    14→
+    15→interface PrizeLevel {
+    16→  level: number;
+    17→  amount: number;
+    18→  currency: string;
+    19→  is_safe_haven?: boolean;
+    20→}
+    21→
+    22→interface Game {
+    23→  id: string;
+    24→  name: string;
+    25→  background_image_url?: string;
+    26→  background_color?: string;
+    27→  primary_color?: string;
+    28→  company_logo_url?: string;
+    29→  company_slogan?: string;
+    30→  total_questions: number;
+    31→  time_per_question: number;
+    32→  prize_structure?: PrizeLevel[];
+    33→  lifelines?: Record<string, boolean>;
+    34→  use_trivia_db?: boolean;
+    35→}
+    36→
+    37→interface Question {
+    38→  id: string;
+    39→  question_number: number;
+    40→  question_text: string;
+    41→  option_a: string;
+    42→  option_b: string;
+    43→  option_c: string;
+    44→  option_d: string;
+    45→  correct_answer: string;
+    46→  explanation?: string;
+    47→}
+    48→
+    49→interface Props {
+    50→  gameId?: string;
+    51→  onComplete?: (score: number, level: number, status: string) => void;
+    52→}
+    53→
+    54→// Default prize structure for fallback
+    55→const DEFAULT_PRIZE_STRUCTURE: PrizeLevel[] = [
+    56→  { level: 1, amount: 100, currency: "MZN" },
+    57→  { level: 2, amount: 200, currency: "MZN" },
+    58→  { level: 3, amount: 300, currency: "MZN" },
+    59→  { level: 4, amount: 500, currency: "MZN" },
+    60→  { level: 5, amount: 1000, currency: "MZN", is_safe_haven: true },
+    61→  { level: 6, amount: 2000, currency: "MZN" },
+    62→  { level: 7, amount: 4000, currency: "MZN" },
+    63→  { level: 8, amount: 8000, currency: "MZN" },
+    64→  { level: 9, amount: 16000, currency: "MZN" },
+    65→  { level: 10, amount: 32000, currency: "MZN", is_safe_haven: true },
+    66→  { level: 11, amount: 64000, currency: "MZN" },
+    67→  { level: 12, amount: 125000, currency: "MZN" },
+    68→  { level: 13, amount: 250000, currency: "MZN" },
+    69→  { level: 14, amount: 500000, currency: "MZN" },
+    70→  { level: 15, amount: 1000000, currency: "MZN" },
+    71→];
+    72→
+    73→export default function EnhancedMillionaireGame({ gameId: propGameId, onComplete }: Props) {
+    74→  const { gameId: urlGameId } = useParams();
+    75→  const gameId = propGameId || urlGameId;
+    76→  const { user } = useAuth();
+    77→  const { region } = useRegionalTheme();
+    78→  const [loading, setLoading] = useState(true);
+    79→  const [game, setGame] = useState<Game | null>(null);
+    80→  const [questions, setQuestions] = useState<Question[]>([]);
+    81→  const [currentLevel, setCurrentLevel] = useState(1);
+    82→  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    83→  const [answered, setAnswered] = useState(false);
+    84→  const [timeLeft, setTimeLeft] = useState(30);
+    85→  const [lifelinesUsed, setLifelinesUsed] = useState<Record<string, boolean>>({});
+    86→  const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+    87→  const [soundEnabled, setSoundEnabled] = useState(true);
+    88→  const [disabledOptions, setDisabledOptions] = useState<string[]>([]);
+    89→  const [triviaLoading, setTriviaLoading] = useState(false);
+    90→  const [flashClass, setFlashClass] = useState("");
+    91→  const [shakeKey, setShakeKey] = useState(0);
+    92→  const [questionKey, setQuestionKey] = useState(0);
+    93→
+    94→  // Default questions for fallback
+    95→  const defaultQuestions: Question[] = [
+    96→    { id: "1", question_number: 1, question_text: "Qual é a capital de Moçambique?", option_a: "Beira", option_b: "Maputo", option_c: "Nampula", option_d: "Tete", correct_answer: "B" },
+    97→    { id: "2", question_number: 2, question_text: "Quantas províncias tem Moçambique?", option_a: "9", option_b: "10", option_c: "11", option_d: "12", correct_answer: "C" },
+    98→    { id: "3", question_number: 3, question_text: "Qual é a moeda oficial?", option_a: "Kwanza", option_b: "Real", option_c: "Metical", option_d: "Escudo", correct_answer: "C" },
+    99→  ];
+   100→
+   101→  const loadGame = useCallback(async () => {
+   102→    if (!gameId) {
+   103→      setLoading(false);
+   104→      return;
+   105→    }
+   106→
+   107→    setLoading(true);
+   108→    try {
+   109→      const { data: gameData, error: gameError } = await supabase
+   110→        .from("millionaire_games")
+   111→        .select("*")
+   112→        .eq("id", gameId)
+   113→        .single();
+   114→
+   115→      if (gameError) {
+   116→        console.warn("Falling back to default game config:", gameError);
+   117→        // Create a default game object
+   118→        setGame({
+   119→          id: gameId,
+   120→          name: "Quem Quer Ser Milionário?",
+   121→          total_questions: 15,
+   122→          time_per_question: 30,
+   123→          background_color: "#0a0e17",
+   124→          primary_color: "#fbbf24",
+   125→          use_trivia_db: true,
+   126→        });
+   127→      } else {
+   128→        setGame(gameData as unknown as Game);
+   129→        setTimeLeft(gameData.time_per_question || 30);
+   130→      }
+   131→
+   132→
+   133→      // Check if we should use Open Trivia DB
+   134→      if (game?.use_trivia_db || true) { // Default to true for demo purposes
+   135→        await loadTriviaQuestions(game?.total_questions || 15);
+   136→      } else {
+   137→        const { data: qData, error: qError } = await supabase
+   138→          .from("millionaire_questions")
+   139→          .select("*")
+   140→          .eq("game_id", gameId)
+   141→          .order("question_number", { ascending: true });
+   142→
+   143→        if (qError || !qData || qData.length === 0) {
+   144→          console.warn("Falling back to default questions:", qError);
+   145→          setQuestions(defaultQuestions);
+   146→          if (!game) {
+   147→            setGame({
+   148→              id: gameId,
+   149→              name: "Quem Quer Ser Milionário?",
+   150→              total_questions: 3,
+   151→              time_per_question: 30,
+   152→              background_color: "#0a0e17",
+   153→              primary_color: "#fbbf24",
+   154→            });
+   155→          }
+   156→        } else {
+   157→          setQuestions(qData);
+   158→        }
+   159→      }
+   160→    } catch (err) {
+   161→      console.error("Error loading millionaire game:", err);
+   162→      // Fallback to defaults
+   163→      setGame({
+   164→        id: gameId,
+   165→        name: "Quem Quer Ser Milionário?",
+   166→        total_questions: 3,
+   167→        time_per_question: 30,
+   168→        background_color: "#0a0e17",
+   169→        primary_color: "#fbbf24",
+   170→      });
+   171→      setQuestions(defaultQuestions);
+   172→    } finally {
+   173→      setLoading(false);
+   174→    }
+   175→  }, [gameId, game?.use_trivia_db, game?.total_questions]);
+   176→
+   177→  const loadTriviaQuestions = async (count: number) => {
+   178→    setTriviaLoading(true);
+   179→    try {
+   180→      const triviaQuestions = await fetchTriviaQuestions(count, undefined, 'easy', 'multiple');
+   181→      
+   182→      if (triviaQuestions.length === 0) {
+   183→        setQuestions(defaultQuestions);
+   184→        toast.warning('Não foi possível carregar perguntas da base de dados, usando padrão');
+   185→      } else {
+   186→        const formattedQuestions: Question[] = triviaQuestions.map((tq, index) => {
+   187→          const shuffled = shuffleAnswers(
+   188→            decodeHTMLEntities(tq.correct_answer), 
+   189→            tq.incorrect_answers.map(a => decodeHTMLEntities(a))
+   190→          );
+   191→          
+   192→          return {
+   193→            id: `trivia-${index}`,
+   194→            question_number: index + 1,
+   195→            question_text: decodeHTMLEntities(tq.question),
+   196→            ...shuffled,
+   197→          };
+   198→        });
+   199→        setQuestions(formattedQuestions);
+   200→        toast.success(`Carregadas ${formattedQuestions.length} perguntas da Open Trivia DB!`);
+   201→      }
+   202→    } catch (error) {
+   203→      console.error('Failed to load trivia:', error);
+   204→      setQuestions(defaultQuestions);
+   205→    } finally {
+   206→      setTriviaLoading(false);
+   207→    }
+   208→  };
+   209→
+   210→  useEffect(() => { loadGame(); }, [loadGame]);
+   211→
+   212→  // Timer logic
+   213→  useEffect(() => {
+   214→    if (status !== 'playing' || answered || timeLeft <= 0) return;
+   215→    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+   216→    return () => clearInterval(timer);
+   217→  }, [status, answered, timeLeft]);
+   218→
+   219→  // Auto-fail on timeout
+   220→  useEffect(() => {
+   221→    if (timeLeft === 0 && !answered && status === 'playing') {
+   222→      setStatus('lost');
+   223→      toast.error("Tempo esgotado!");
+   224→    }
+   225→  }, [timeLeft, answered, status]);
+   226→
+   227→  const currentQuestion = useMemo(() => questions[currentLevel - 1], [questions, currentLevel]);
+   228→  
+   229→  const prizeStructure = useMemo(() => {
+   230→    if (game?.prize_structure && game.prize_structure.length > 0) {
+   231→      return game.prize_structure;
+   232→    }
+   233→    // Use default prize structure adjusted to match total questions
+   234→    return DEFAULT_PRIZE_STRUCTURE.slice(0, game?.total_questions || 15);
+   235→  }, [game]);
+   236→
+   237→  const currentPrize = useMemo(() => prizeStructure[currentLevel - 1], [prizeStructure, currentLevel]);
+   238→
+   239→  const handleAnswer = async (choice: string) => {
+   240→    if (answered || status !== 'playing') return;
+   241→    setSelectedAnswer(choice);
+   242→    setAnswered(true);
+   243→
+   244→    const isCorrect = choice === currentQuestion.correct_answer;
+   245→
+   246→    setFlashClass("");
+   247→    setTimeout(() => {
+   248→      setFlashClass(isCorrect ? "game-flash-green" : "game-flash-red");
+   249→      setShakeKey(k => k + 1);
+   250→      setTimeout(() => setFlashClass(""), 600);
+   251→    }, 100);
+   252→
+   253→    setTimeout(async () => {
+   254→      if (isCorrect) {
+   255→        if (currentLevel === (game?.total_questions || prizeStructure.length)) {
+   256→          setStatus('won');
+   257→          setShakeKey(k => k + 1);
+   258→          setFlashClass("game-flash-gold");
+   259→          setTimeout(() => setFlashClass(""), 800);
+   260→          confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+   261→          setTimeout(() => confetti({ particleCount: 100, spread: 120, origin: { x: 0.3, y: 0.5 }, colors: ["#fbbf24", "#f59e0b", "#ffffff"] }), 200);
+   262→          setTimeout(() => confetti({ particleCount: 100, spread: 120, origin: { x: 0.7, y: 0.5 }, colors: ["#fbbf24", "#f59e0b", "#ffffff"] }), 400);
+   263→          setTimeout(() => {
+   264→            const end = Date.now() + 3000;
+   265→            const iv = setInterval(() => {
+   266→              if (Date.now() > end) return clearInterval(iv);
+   267→              confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors: ["#fbbf24", "#ffffff"] });
+   268→              confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors: ["#fbbf24", "#ffffff"] });
+   269→            }, 80);
+   270→          }, 600);
+   271→          saveSession('completed', currentPrize?.amount || 0);
+   272→          onComplete?.(currentPrize?.amount || 0, currentLevel, 'won');
+   273→        } else {
+   274→          toast.success("Resposta Correta!");
+   275→          // Advance after delay
+   276→          setTimeout(() => {
+   277→            setCurrentLevel(prev => prev + 1);
+   278→            setAnswered(false);
+   279→            setSelectedAnswer(null);
+   280→            setDisabledOptions([]);
+   281→            setTimeLeft(game?.time_per_question || 30);
+   282→            setQuestionKey(k => k + 1);
+   283→          }, 1500);
+   284→        }
+   285→      } else {
+   286→        setStatus('lost');
+   287→        const safePrize = calculateSafePrize();
+   288→        saveSession('abandoned', safePrize);
+   289→        onComplete?.(safePrize, currentLevel, 'lost');
+   290→      }
+   291→    }, 2000); // Dramatic pause
+   292→  };
+   293→
+   294→  const calculateSafePrize = () => {
+   295→    const prizes = prizeStructure;
+   296→    let safeAmount = 0;
+   297→    // Níveis de segurança padrão: 5 e 10
+   298→    const defaultSafeLevels = [5, 10];
+   299→    for (let i = 0; i < currentLevel - 1; i++) {
+   300→      if (prizes[i]?.is_safe_haven || defaultSafeLevels.includes(prizes[i]?.level)) {
+   301→        safeAmount = prizes[i]?.amount || 0;
+   302→      }
+   303→    }
+   304→    return safeAmount;
+   305→  };
+   306→
+   307→  const handleLifeline = (type: string) => {
+   308→    if (lifelinesUsed[type] || answered) return;
+   309→    setLifelinesUsed(prev => ({ ...prev, [type]: true }));
+   310→    
+   311→    if (type === '50_50') {
+   312→      const wrongAnswers = ['A', 'B', 'C', 'D'].filter(l => l !== currentQuestion.correct_answer);
+   313→      const toDisable = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 2);
+   314→      setDisabledOptions(toDisable);
+   315→      toast.info("50/50 Ativado: Duas respostas erradas removidas.");
+   316→    }
+   317→  };
+   318→
+   319→  const saveSession = async (finalStatus: string, prize: number) => {
+   320→    if (!user || !region || !gameId) return;
+   321→    try {
+   322→      await supabase.from("millionaire_sessions").insert({
+   323→        game_id: gameId,
+   324→        user_id: user.id,
+   325→        region_id: region.id,
+   326→        current_level: currentLevel,
+   327→        prize_won: prize,
+   328→        status: finalStatus
+   329→      });
+   330→    } catch (err) { console.error(err); }
+   331→  };
+   332→
+   333→  const restartGame = () => {
+   334→    setCurrentLevel(1);
+   335→    setStatus('playing');
+   336→    setAnswered(false);
+   337→    setSelectedAnswer(null);
+   338→    setDisabledOptions([]);
+   339→    setTimeLeft(game?.time_per_question || 30);
+   340→    setLifelinesUsed({});
+   341→  };
+   342→
+   343→  if (loading || triviaLoading) return (
+   344→    <div className="h-screen flex flex-col items-center justify-center bg-[#0a0e17] gap-4 relative overflow-hidden">
+   345→      <div className="game-particle game-particle-1" style={{ top: '20%', left: '30%' }} />
+   346→      <div className="game-particle game-particle-3" style={{ bottom: '30%', right: '20%' }} />
+   347→      <div className="game-particle game-particle-5" style={{ top: '60%', left: '10%' }} />
+   348→      <div className="relative">
+   349→        <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
+   350→        <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
+   351→      </div>
+   352→      <motion.p
+   353→        initial={{ opacity: 0 }}
+   354→        animate={{ opacity: 1 }}
+   355→        transition={{ delay: 0.3 }}
+   356→        className="text-white text-lg"
+   357→      >Carregando perguntas...</motion.p>
+   358→    </div>
+   359→  );
+   360→  
+   361→  if (!game || !currentQuestion) return <Navigate to="/" replace />;
+   362→
+   363→  return (
+   364→    <div key={shakeKey} className={`min-h-screen relative flex flex-col bg-[#0a0e17] text-white overflow-hidden ${shakeKey > 0 && status !== 'playing' ? 'game-screen-shake' : ''}`}
+   365→      style={{ 
+   366→        backgroundColor: game.background_color || '#0a0e17',
+   367→        backgroundImage: game.background_image_url ? `url(${game.background_image_url})` : 'none',
+   368→        backgroundSize: 'cover',
+   369→        backgroundPosition: 'center'
+   370→      }}
+   371→    >
+   372→      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0e17]/80 via-[#0a0e17]/60 to-[#0a0e17]/95"></div>
+   373→      {flashClass && <div className={`fixed inset-0 z-[100] pointer-events-none ${flashClass}`} />}
+   374→      <div className="game-particle game-particle-1" style={{ top: '15%', left: '10%' }} />
+   375→      <div className="game-particle game-particle-2" style={{ top: '25%', right: '15%' }} />
+   376→      <div className="game-particle game-particle-3" style={{ bottom: '20%', left: '20%' }} />
+   377→      <div className="game-particle game-particle-4" style={{ top: '50%', right: '8%' }} />
+   378→      <div className="game-particle game-particle-5" style={{ bottom: '10%', right: '25%' }} />
+   379→      <div className="game-particle game-particle-6" style={{ top: '70%', left: '5%' }} />
+   380→
+   381→      {/* Top Header */}
+   382→      <div className="relative z-10 p-6 flex justify-between items-center border-b border-white/10 backdrop-blur-md">
+   383→        <div className="flex items-center gap-4">
+   384→          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.5)]">
+   385→            <Trophy className="text-black w-6 h-6" />
+   386→          </div>
+   387→          <div>
+   388→            <h1 className="text-xl font-black uppercase tracking-widest">{game.name}</h1>
+   389→            <p className="text-xs text-white/50 uppercase">Nível {currentLevel} • {currentPrize?.amount} {currentPrize?.currency}</p>
+   390→          </div>
+   391→        </div>
+   392→
+   393→        <div className="flex items-center gap-6">
+   394→          <Button 
+   395→            variant="ghost" 
+   396→            size="icon" 
+   397→            onClick={() => loadTriviaQuestions(game?.total_questions || 15)} 
+   398→            title="Recarregar perguntas"
+   399→          >
+   400→            <RefreshCw className="w-5 h-5" />
+   401→          </Button>
+   402→          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500 ${
+   403→            timeLeft <= 5 ? 'bg-red-500/20 border-red-500/50 timer-urgent' :
+   404→            timeLeft <= 10 ? 'bg-amber-500/20 border-amber-500/40' :
+   405→            'bg-black/40 border-white/10'
+   406→          }`}>
+   407→            <Timer className={`w-5 h-5 transition-colors duration-500 ${
+   408→              timeLeft <= 5 ? 'text-red-400' :
+   409→              timeLeft <= 10 ? 'text-amber-400' :
+   410→              'text-primary'
+   411→            }`} />
+   412→            <span className={`text-xl font-mono font-bold transition-colors duration-500 ${
+   413→              timeLeft <= 5 ? 'text-red-400' :
+   414→              timeLeft <= 10 ? 'text-amber-400' :
+   415→              'text-white'
+   416→            }`}>{timeLeft}s</span>
+   417→          </div>
+   418→          <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)}>
+   419→            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+   420→          </Button>
+   421→        </div>
+   422→      </div>
+   423→
+   424→      <div className="absolute top-[72px] left-0 right-0 h-1 bg-white/5 z-20">
+   425→        <div
+   426→          className="h-full transition-colors duration-1000"
+   427→          style={{
+   428→            width: status === 'playing' && !answered ? `${(timeLeft / (game?.time_per_question || 30)) * 100}%` : '0%',
+   429→            background: timeLeft <= 5 ? 'linear-gradient(90deg, #ef4444, #f87171)' : timeLeft <= 10 ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, hsl(var(--primary)), #fbbf24)',
+   430→            transition: 'width 1s linear, background 1s ease',
+   431→            boxShadow: timeLeft <= 5 ? '0 0 15px rgba(239, 68, 68, 0.5)' : timeLeft <= 10 ? '0 0 10px rgba(251, 191, 36, 0.3)' : '0 0 5px rgba(251, 191, 36, 0.2)'
+   432→          }}
+   433→        />
+   434→      </div>
+   435→
+   436→      <div className="relative z-10 flex-1 container mx-auto px-4 py-8 grid lg:grid-cols-[1fr_320px] gap-8">
+   437→        
+   438→        {/* Main Game Area */}
+   439→        <div className="flex flex-col justify-center space-y-12">
+   440→          
+   441→          {/* Question Box with Branding */}
+   442→          <div className="relative space-y-6">
+   443→            {(game.company_logo_url || game.company_slogan) && (
+   444→              <motion.div 
+   445→                initial={{ opacity: 0, y: -20 }}
+   446→                animate={{ opacity: 1, y: 0 }}
+   447→                className="flex flex-col items-center"
+   448→              >
+   449→                {game.company_logo_url && (
+   450→                  <img src={game.company_logo_url} alt="Logo" className="h-16 object-contain mb-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
+   451→                )}
+   452→                {game.company_slogan && (
+   453→                  <p className="text-xs font-black uppercase tracking-[0.3em] text-primary/80">{game.company_slogan}</p>
+   454→                )}
+   455→              </motion.div>
+   456→            )}
+   457→            
+   458→            <div className="relative">
+   459→              <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-[2px] bg-primary"></div>
+   460→              <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-[2px] bg-primary"></div>
+   461→              <motion.div 
+   462→                initial={{ opacity: 0, scale: 0.85, y: 20 }}
+   463→                animate={{ opacity: 1, scale: 1, y: 0 }}
+   464→                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+   465→                key={questionKey}
+   466→                className="relative bg-black/60 backdrop-blur-xl border-2 border-primary/30 p-8 md:p-12 rounded-[2rem] text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden"
+   467→              >
+   468→                <div className="lightning-effect" />
+   469→                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+   470→                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+   471→                <p className="text-xs uppercase tracking-[0.3em] text-primary/60 mb-4 font-bold">Pergunta {currentLevel} de {game?.total_questions || prizeStructure.length}</p>
+   472→                <h2 className="text-2xl md:text-4xl font-bold leading-tight">
+   473→                  {currentQuestion.question_text}
+   474→                </h2>
+   475→              </motion.div>
+   476→            </div>
+   477→          </div>
+   478→
+   479→          {/* Options Grid */}
+   480→          <div className="grid md:grid-cols-2 gap-4">
+   481→            {['A', 'B', 'C', 'D'].map((letter) => {
+   482→              const optionKey = `option_${letter.toLowerCase()}` as keyof Question;
+   483→              const text = currentQuestion[optionKey] as string;
+   484→              const isSelected = selectedAnswer === letter;
+   485→              const isCorrect = letter === currentQuestion.correct_answer;
+   486→              const isDisabled = disabledOptions.includes(letter);
+   487→
+   488→              let stateClass = "border-white/20 bg-white/5 hover:bg-white/10 hover:border-primary/40 hover:shadow-[0_0_20px_rgba(251,191,36,0.15)]";
+   489→              if (isSelected) stateClass = "border-primary bg-primary/20 text-primary shadow-[0_0_25px_rgba(var(--primary),0.4)]";
+   490→              if (answered && isCorrect) stateClass = "border-green-500 bg-green-500/20 text-green-500 option-reveal-correct";
+   491→              if (answered && isSelected && !isCorrect) stateClass = "border-red-500 bg-red-500/20 text-red-500 option-reveal-wrong";
+   492→              if (isDisabled) stateClass = "opacity-20 pointer-events-none grayscale";
+   493→
+   494→              return (
+   495→                <motion.button
+   496→                  key={`${questionKey}-${letter}`}
+   497→                  initial={{ opacity: 0, x: letter < 'C' ? -30 : 30, scale: 0.95 }}
+   498→                  animate={{ opacity: 1, x: 0, scale: 1 }}
+   499→                  transition={{ delay: 0.1 + (letter.charCodeAt(0) - 'A'.charCodeAt(0)) * 0.08, type: "spring", stiffness: 180, damping: 20 }}
+   500→                  onClick={() => handleAnswer(letter)}
+   501→                  disabled={answered || isDisabled || status !== 'playing'}
+   502→                  className={`relative group flex items-center p-1 rounded-full border-2 transition-all duration-300 ${stateClass}`}
+   503→                >
+   504→                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 flex items-center justify-center font-black text-primary group-hover:bg-primary group-hover:text-black group-hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all duration-200 text-sm md:text-base">
+   505→                    {letter}
+   506→                  </div>
+   507→                  <span className="flex-1 px-4 md:px-6 font-semibold text-base md:text-lg text-left">{text}</span>
+   508→                  <div className="w-12 h-[2px] bg-white/10 absolute -right-4 top-1/2 -translate-y-1/2 group-hover:bg-primary transition-colors hidden md:block"></div>
+   509→                </motion.button>
+   510→              );
+   511→            })}
+   512→          </div>
+   513→        </div>
+   514→
+   515→        {/* Sidebar: Pyramid & Lifelines */}
+   516→        <div className="space-y-6">
+   517→          {/* Lifelines */}
+   518→          <Card className="bg-black/40 border-white/10 backdrop-blur-xl">
+   519→            <CardContent className="p-6">
+   520→              <h3 className="text-xs font-black uppercase tracking-widest opacity-50 mb-4">Ajudas Disponíveis</h3>
+   521→              <div className="grid grid-cols-3 gap-3">
+   522→                <button 
+   523→                  onClick={() => handleLifeline('50_50')}
+   524→                  disabled={lifelinesUsed['50_50'] || answered}
+   525→                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${lifelinesUsed['50_50'] ? 'opacity-30 grayscale border-white/10' : 'border-primary/30 bg-primary/5 hover:bg-primary/20'}`}
+   526→                >
+   527→                  <Lightbulb className="w-6 h-6 text-primary" />
+   528→                  <span className="text-[10px] font-bold">50:50</span>
+   529→                </button>
+   530→                <button disabled className="flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 opacity-30 grayscale">
+   531→                  <Users className="w-6 h-6" />
+   532→                  <span className="text-[10px] font-bold">PÚBLICO</span>
+   533→                </button>
+   534→                <button disabled className="flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 opacity-30 grayscale">
+   535→                  <Phone className="w-6 h-6" />
+   536→                  <span className="text-[10px] font-bold">LIGAR</span>
+   537→                </button>
+   538→              </div>
+   539→            </CardContent>
+   540→          </Card>
+   541→
+   542→          {/* Prize Pyramid */}
+   543→          <Card className="bg-black/40 border-white/10 backdrop-blur-xl overflow-hidden">
+   544→            <CardContent className="p-0">
+   545→              <div className="bg-white/5 p-4 border-b border-white/10 flex justify-between items-center">
+   546→                <h3 className="text-xs font-black uppercase tracking-widest opacity-50">Pirâmide de Prémios</h3>
+   547→                <Badge variant="outline" className="border-primary text-primary">{game.total_questions} Níveis</Badge>
+   548→              </div>
+   549→              <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar flex flex-col-reverse">
+   550→                {prizeStructure.map((p, i) => {
+   551→                  const isCurrent = currentLevel === p.level;
+   552→                  const isPast = currentLevel > p.level;
+   553→                  return (
+   554→                    <motion.div 
+   555→                      key={i} 
+   556→                      initial={{ opacity: 0, x: 20 }}
+   557→                      animate={{ opacity: 1, x: 0, scale: isCurrent ? 1.05 : 1 }}
+   558→                      transition={{ delay: (prizeStructure.length - i) * 0.05, type: "spring", stiffness: 200, damping: 20 }}
+   559→                      className={`flex items-center gap-4 px-4 py-2 rounded-lg transition-all ${isCurrent ? 'bg-primary text-black font-black shadow-lg prize-glow' : isPast ? 'opacity-40 line-through' : 'hover:bg-white/5'}`}
+   560→                    >
+   561→                      <span className={`text-xs w-6 font-bold ${isCurrent ? 'text-black/60' : 'text-primary'}`}>{p.level}</span>
+   562→                      <span className="flex-1 text-sm">{p.amount.toLocaleString()} {p.currency}</span>
+   563→                      {p.is_safe_haven && <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${isCurrent ? 'text-black/60' : 'text-primary'}`} />}
+   564→                    </motion.div>
+   565→                  );
+   566→                })}
+   567→              </div>
+   568→            </CardContent>
+   569→          </Card>
+   570→        </div>
+   571→      </div>
+   572→
+   573→      {/* Status Overlays */}
+   574→      <AnimatePresence>
+   575→        {status !== 'playing' && (
+   576→          <motion.div 
+   577→            initial={{ opacity: 0 }}
+   578→            animate={{ opacity: 1 }}
+   579→            exit={{ opacity: 0 }}
+   580→            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md"
+   581→          >
+   582→            <motion.div 
+   583→              initial={{ scale: 0.8, y: 20 }}
+   584→              animate={{ scale: 1, y: 0 }}
+   585→              className="text-center space-y-8 p-12 rounded-[3rem] border-2 border-white/10 bg-white/5"
+   586→            >
+   587→              {status === 'won' ? (
+   588→                <>
+   589→                  <motion.div 
+   590→                    initial={{ scale: 0 }}
+   591→                    animate={{ scale: 1 }}
+   592→                    transition={{ type: "spring", bounce: 0.5 }}
+   593→                    className="w-24 h-24 bg-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-[0_0_50px_rgba(250,204,21,0.5)]"
+   594→                  >
+   595→                    <Trophy className="w-12 h-12 text-black" />
+   596→                  </motion.div>
+   597→                  <h2 className="text-6xl font-black italic uppercase tracking-tighter">MILIONÁRIO!</h2>
+   598→                  <p className="text-2xl text-white/70">Ganhou o prémio máximo de <br/><span className="text-primary text-4xl font-black">{currentPrize?.amount} {currentPrize?.currency}</span></p>
+   599→                </>
+   600→              ) : (
+   601→                <>
+   602→                  <div className="w-24 h-24 bg-red-500 rounded-full mx-auto flex items-center justify-center shadow-[0_0_50px_rgba(239,68,68,0.5)]">
+   603→                    <XCircle className="w-12 h-12 text-white" />
+   604→                  </div>
+   605→                  <h2 className="text-5xl font-black italic uppercase tracking-tighter">FIM DE JOGO</h2>
+   606→                  <p className="text-xl text-white/70">Leva para casa: <br/><span className="text-primary text-3xl font-black">{calculateSafePrize()} {prizeStructure[0]?.currency || 'MZN'}</span></p>
+   607→                </>
+   608→              )}
+   609→              <div className="flex gap-4 justify-center pt-4">
+   610→                <Button size="lg" className="px-12 py-8 text-xl font-black rounded-full" onClick={restartGame}>TENTAR NOVAMENTE</Button>
+   611→                <Button size="lg" variant="outline" className="px-12 py-8 text-xl font-black rounded-full border-white/20" onClick={() => window.location.href = '/'}>SAIR</Button>
+   612→              </div>
+   613→            </motion.div>
+   614→          </motion.div>
+   615→        )}
+   616→      </AnimatePresence>
+   617→    </div>
+   618→  );
+   619→}
+   620→

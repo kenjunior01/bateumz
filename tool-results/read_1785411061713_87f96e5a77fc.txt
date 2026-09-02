@@ -1,0 +1,550 @@
+     1→     1→import { useState, useRef, useEffect } from "react";
+     2→     2→import { useNavigate, Link } from "react-router-dom";
+     3→     3→import { useIsMobile } from "@/hooks/use-mobile";
+     4→     4→import { useLanguage } from "@/contexts/LanguageContext";
+     5→     5→import { supabase } from "@/integrations/supabase/client";
+     6→     6→import Navbar from "@/components/Navbar";
+     7→     7→import StatsBar from "@/components/StatsBar";
+     8→     8→import CategoryNav from "@/components/CategoryNav";
+     9→     9→import SearchBar from "@/components/SearchBar";
+    10→    10→import MobileActionButtons from "@/components/MobileActionButtons";
+    11→    11→import ActiveRaffles from "@/components/ActiveRaffles";
+    12→    12→import FeaturesGrid from "@/components/FeaturesGrid";
+    13→    13→import WinnersSection from "@/components/WinnersSection";
+    14→    14→import CTASection from "@/components/CTASection";
+    15→    15→import Footer from "@/components/Footer";
+    16→    16→import DesktopWidgets from "@/components/DesktopWidgets";
+    17→    17→import LiveFeed from "@/components/LiveFeed";
+    18→    18→import { Button } from "@/components/ui/button";
+    19→    19→import {
+    20→    20→  Gamepad2, ArrowRight, Users, Brain, Sparkles,
+    21→    21→  Radio, Flame, Trophy, ShieldCheck, Zap, Star, TrendingUp,
+    22→    22→  ChevronRight,
+    23→    23→} from "lucide-react";
+    24→    24→import { motion, useInView } from "framer-motion";
+    25→    25→import bateuLogo from "@/assets/bateu-logo.png";
+    26→    26→
+    27→    27→import PopularLeaderboard from "@/components/PopularLeaderboard";
+    28→    28→import ContestTypesShowcase from "@/components/ContestTypesShowcase";
+    29→    29→import CountryRegionFilter from "@/components/CountryRegionFilter";
+    30→    30→import StoriesCarousel from "@/components/StoriesCarousel";
+    31→    31→import AIRecommendations from "@/components/AIRecommendations";
+    32→    32→import TrustSignals from "@/components/TrustSignals";
+    33→    33→import LiveTicker from "@/components/LiveTicker";
+    34→    34→import StayInLoop from "@/components/StayInLoop";
+    35→    35→
+    36→    36→const POPULAR_GAMES = [
+    37→    37→  { id: "tictactoepro", label: "Galo PRO", emoji: "\u2716", grad: "from-violet-600 to-indigo-700", hasBot: true },
+    38→    38→  { id: "connect4", label: "Ligar 4", emoji: "\ud83d\udd34", grad: "from-blue-500 to-yellow-500", hasBot: true },
+    39→    39→  { id: "snakebattle", label: "Batalha de Cobras", emoji: "\ud83d\udc0d", grad: "from-emerald-500 to-teal-600", hasBot: true },
+    40→    40→  { id: "quickmath", label: "Duelo de Matem\u00e1tica", emoji: "\ud83e\uddee", grad: "from-cyan-500 to-blue-700", hasBot: true },
+    41→    41→  { id: "rps", label: "Pedra Papel Tesoura", emoji: "\u270a", grad: "from-amber-500 to-orange-600", hasBot: true },
+    42→    42→  { id: "memorycards", label: "Mem\u00f3ria VS Cartas", emoji: "\ud83c\udccf", grad: "from-indigo-500 to-violet-600", hasBot: true },
+    43→    43→  { id: "pongvs", label: "Pong VS", emoji: "\ud83c\udfd3", grad: "from-blue-600 to-indigo-700", hasBot: false },
+    44→    44→  { id: "whackamole", label: "Bate o Alvo", emoji: "\ud83c\udfaf", grad: "from-emerald-500 to-green-600", hasBot: false },
+    45→    45→];
+    46→    46→
+    47→    47→const BLOG_POSTS = [
+    48→    48→  { title: "Como Ganhar no Galo", slug: "como-ganhar-jogo-do-galo-estrategias", emoji: "\u265f\ufe0f", cat: "Estrat\u00e9gia" },
+    49→    49→  { title: "10 Dicas para Sorteios", slug: "10-dicas-sorteios-online", emoji: "\ud83c\udfb0", cat: "Sorteios" },
+    50→    50→  { title: "Jogos que Treinam o C\u00e9rebro", slug: "jogos-online-treinar-cerebro", emoji: "\ud83e\udde0", cat: "Ci\u00eancia" },
+    51→    51→];
+    52→    52→
+    53→    53→const TRENDING_CONTESTS = [
+    54→    54→  { title: "Grande Sorteio de Natal", prize: "MT 500.000", emoji: "\ud83c\udf84", slug: "/concursos", hot: true },
+    55→    55→  { title: "Torneio de Galo Semanal", prize: "Gratuito", emoji: "\ud83c\udfc6", slug: "/tournaments", hot: true },
+    56→    56→  { title: "Desafio de Conhecimentos", prize: "Pr\u00e9mios Exclusivos", emoji: "\ud83e\udde0", slug: "/concursos", hot: false },
+    57→    57→];
+    58→    58→
+    59→    59→const fadeUp = {
+    60→    60→  hidden: { opacity: 0, y: 24 },
+    61→    61→  visible: (i: number) => ({
+    62→    62→    opacity: 1, y: 0,
+    63→    63→    transition: { delay: i * 0.07, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+    64→    64→  }),
+    65→    65→};
+    66→    66→
+    67→    67→const sectionFade = {
+    68→    68→  hidden: { opacity: 0, y: 30 },
+    69→    69→  visible: {
+    70→    70→    opacity: 1, y: 0,
+    71→    71→    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    72→    72→  },
+    73→    73→};
+    74→    74→
+    75→    75→const scaleIn = {
+    76→    76→  hidden: { opacity: 0, scale: 0.92 },
+    77→    77→  visible: (i: number) => ({
+    78→    78→    opacity: 1, scale: 1,
+    79→    79→    transition: { delay: i * 0.06, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] },
+    80→    80→  }),
+    81→    81→};
+    82→    82→
+    83→    83→function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+    84→    84→  const ref = useRef<HTMLDivElement>(null);
+    85→    85→  const inView = useInView(ref, { once: true, margin: "-60px" });
+    86→    86→  return (
+    87→    87→    <motion.section
+    88→    88→      ref={ref}
+    89→    89→      initial="hidden"
+    90→    90→      animate={inView ? "visible" : "hidden"}
+    91→    91→      variants={sectionFade}
+    92→    92→      transition={{ delay }}
+    93→    93→      className={className}
+    94→    94→    >
+    95→    95→      {children}
+    96→    96→    </motion.section>
+    97→    97→  );
+    98→    98→}
+    99→    99→
+   100→   100→function SectionHeader({ icon: Icon, title, badge, badgeIcon: BadgeIcon, href }: {
+   101→   101→  icon: React.ElementType;
+   102→   102→  title: string;
+   103→   103→  badge?: string;
+   104→   104→  badgeIcon?: React.ElementType;
+   105→   105→  href?: string;
+   106→   106→}) {
+   107→   107→  return (
+   108→   108→    <div className="flex items-center justify-between mb-5">
+   109→   109→      <div className="flex items-center gap-3">
+   110→   110→        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[var(--region-primary,hsl(var(--primary)))] to-[var(--region-secondary,hsl(var(--accent)))] flex items-center justify-center shadow-elegant">
+   111→   111→          <Icon className="h-[18px] w-[18px] text-white" />
+   112→   112→        </div>
+   113→   113→        <h2 className="text-xl font-bold font-[family-name:var(--font-display)] tracking-tight">{title}</h2>
+   114→   114→        {badge && (
+   115→   115→          <span className="badge-premium inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
+   116→   116→            {BadgeIcon && <BadgeIcon className="h-3 w-3" />}
+   117→   117→            {badge}
+   118→   118→          </span>
+   119→   119→        )}
+   120→   120→      </div>
+   121→   121→      {href && (
+   122→   122→        <Link to={href} className="group inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-accent transition-colors">
+   123→   123→          Ver todos
+   124→   124→          <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+   125→   125→        </Link>
+   126→   126→      )}
+   127→   127→    </div>
+   128→   128→  );
+   129→   129→}
+   130→   130→
+   131→   131→function SectionDivider() {
+   132→   132→  return (
+   133→   133→    <div className="relative py-2">
+   134→   134→      <div className="border-flow h-[1px] mx-auto max-w-xs rounded-full" />
+   135→   135→      <motion.div
+   136→   136→        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rounded-full"
+   137→   137→        style={{ background: "var(--region-primary, hsl(var(--primary)))", opacity: 0.4 }}
+   138→   138→        animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0.15, 0.4] }}
+   139→   139→        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+   140→   140→      />
+   141→   141→    </div>
+   142→   142→  );
+   143→   143→}
+   144→   144→
+   145→   145→const Index = () => {
+   146→   146→  const isMobile = useIsMobile();
+   147→   147→  const { t } = useLanguage();
+   148→   148→  const navigate = useNavigate();
+   149→   149→  const [categoryFilter, setCategoryFilter] = useState("todos");
+   150→   150→  const [country, setCountry] = useState("");
+   151→   151→  const [region, setRegion] = useState("");
+   152→   152→  const [liveNowCount, setLiveNowCount] = useState(0);
+   153→   153→
+   154→   154→  useEffect(() => {
+   155→   155→    const fetchLiveCount = async () => {
+   156→   156→      try {
+   157→   157→        const { count } = await (supabase as any)
+   158→   158→          .from("live_sessions")
+   159→   159→          .select("*", { count: "exact", head: true })
+   160→   160→          .eq("status", "active");
+   161→   161→        if (typeof count === "number") setLiveNowCount(count);
+   162→   162→      } catch { /* ignore */ }
+   163→   163→    };
+   164→   164→    fetchLiveCount();
+   165→   165→    const interval = setInterval(fetchLiveCount, 30_000);
+   166→   166→    return () => clearInterval(interval);
+   167→   167→  }, []);
+   168→   168→
+   169→   169→  const handleCategorySelect = (category: string) => {
+   170→   170→    if (category === "gaming") {
+   171→   171→      navigate("/jogos");
+   172→   172→    } else {
+   173→   173→      setCategoryFilter(category);
+   174→   174→    }
+   175→   175→  };
+   176→   176→
+   177→   177→  return (
+   178→   178→    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+   179→   179→      <Navbar />
+   180→   180→      <LiveTicker />
+   181→   181→
+   182→   182→      <section className="relative overflow-hidden">
+   183→   183→        <div className="mesh-gradient-animated absolute inset-0 opacity-60" />
+   184→   184→        <motion.div
+   185→   185→          className="absolute -left-20 top-1/4 h-72 w-72 rounded-full blur-[120px] pointer-events-none"
+   186→   186→          style={{ background: "color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 14%, transparent)" }}
+   187→   187→          animate={{ y: [0, -20, 0], x: [0, 10, 0] }}
+   188→   188→          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+   189→   189→        />
+   190→   190→        <motion.div
+   191→   191→          className="absolute -right-16 top-1/3 h-56 w-56 rounded-full blur-[100px] pointer-events-none"
+   192→   192→          style={{ background: "color-mix(in srgb, var(--region-secondary, hsl(var(--accent))) 12%, transparent)" }}
+   193→   193→          animate={{ y: [0, 15, 0], x: [0, -12, 0] }}
+   194→   194→          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+   195→   195→        />
+   196→   196→        <motion.img
+   197→   197→          src={bateuLogo}
+   198→   198→          alt=""
+   199→   199→          aria-hidden="true"
+   200→   200→          className="absolute right-[-5%] top-1/2 -translate-y-1/2 w-48 md:w-64 lg:w-80 opacity-[0.04] dark:opacity-[0.06] pointer-events-none select-none"
+   201→   201→          animate={{ y: [0, -12, 0], rotate: [0, 2, 0] }}
+   202→   202→          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+   203→   203→        />
+   204→   204→        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background pointer-events-none" />
+   205→   205→
+   206→   206→        <div className="relative container mx-auto px-4 pt-6 pb-10 lg:pt-10 lg:pb-16">
+   207→   207→          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+   208→   208→            <motion.div
+   209→   209→              initial={{ opacity: 0, x: -32 }}
+   210→   210→              animate={{ opacity: 1, x: 0 }}
+   211→   211→              transition={{ duration: 0.7, ease: "easeOut" }}
+   212→   212→            >
+   213→   213→              <div className="flex items-center gap-3 mb-5">
+   214→   214→                <img src={bateuLogo} alt="Bateu" className="h-10 w-auto" />
+   215→   215→                {liveNowCount > 0 && (
+   216→   216→                  <span className="pulse-live inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white bg-accent shadow-glow">
+   217→   217→                    <Radio className="h-3 w-3" />
+   218→   218→                    {liveNowCount} {liveNowCount === 1 ? "live" : "lives"} agora
+   219→   219→                  </span>
+   220→   220→                )}
+   221→   221→              </div>
+   222→   222→
+   223→   223→              <h1 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl lg:text-[3.25rem] xl:text-6xl font-bold leading-[1.08] tracking-tight">
+   224→   224→                <span className="text-gradient-primary">Sorteios ao vivo,</span>
+   225→   225→                <br />
+   226→   226→                <span className="text-foreground">jogos interactivos</span>
+   227→   227→                <br />
+   228→   228→                <span className="text-foreground">e pr\u00e9mios reais</span>
+   229→   229→              </h1>
+   230→   230→
+   231→   231→              <p className="mt-5 text-muted-foreground max-w-md text-sm sm:text-base leading-relaxed">
+   232→   232→                A plataforma mo\u00e7ambicana onde streamers interagem com a audi\u00eancia em tempo real.
+   233→   233→                Mais de 50 jogos, sorteios transparentes e uma comunidade que cresce.
+   234→   234→              </p>
+   235→   235→
+   236→   236→              <div className="flex flex-wrap items-center gap-3 mt-7">
+   237→   237→                <Link to="/jogos">
+   238→   238→                  <Button size="lg" className="btn-premium gap-2 text-sm font-bold glow-primary">
+   239→   239→                    <Gamepad2 className="h-4 w-4" />
+   240→   240→                    Explorar Jogos
+   241→   241→                  </Button>
+   242→   242→                </Link>
+   243→   243→                <Link to="/lives">
+   244→   244→                  <Button variant="outline" size="lg" className="gap-2 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
+   245→   245→                    <Radio className="h-4 w-4 text-accent" />
+   246→   246→                    Ver Lives
+   247→   247→                  </Button>
+   248→   248→                </Link>
+   249→   249→              </div>
+   250→   250→
+   251→   251→              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-7">
+   252→   252→                {[
+   253→   253→                  { icon: ShieldCheck, color: "text-emerald-500", label: "Resultados verificados" },
+   254→   254→                  { icon: Users, color: "text-blue-500", label: "Comunidade activa" },
+   255→   255→                  { icon: Zap, color: "text-amber-500", label: "Pagamentos seguros" },
+   256→   256→                ].map((b) => (
+   257→   257→                  <span key={b.label} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+   258→   258→                    <b.icon className={"h-3.5 w-3.5 " + b.color} />
+   259→   259→                    {b.label}
+   260→   260→                  </span>
+   261→   261→                ))}
+   262→   262→              </div>
+   263→   263→            </motion.div>
+   264→   264→
+   265→   265→            {!isMobile && (
+   266→   266→              <motion.div
+   267→   267→                className="relative hidden lg:flex justify-center"
+   268→   268→                initial={{ opacity: 0, x: 32 }}
+   269→   269→                animate={{ opacity: 1, x: 0 }}
+   270→   270→                transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+   271→   271→              >
+   272→   272→                <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+   273→   273→                  {[
+   274→   274→                    { icon: Trophy, color: "text-amber-500", value: "50+", desc: "Jogos dispon\u00edveis", floatY: [0, -6, 0], dur: 4 },
+   275→   275→                    { icon: Flame, color: "text-accent", value: "AO VIVO", desc: "Entretenimento interactivo", floatY: [0, 6, 0], dur: 5 },
+   276→   276→                    { icon: TrendingUp, color: "text-emerald-500", value: "IA", desc: "3 n\u00edveis de dificuldade", floatY: [0, 5, 0], dur: 4.5 },
+   277→   277→                    { icon: Star, color: "text-primary", value: "#1", desc: "Plataforma em Mo\u00e7ambique", floatY: [0, -5, 0], dur: 5.5 },
+   278→   278→                  ].map((card, i) => (
+   279→   279→                    <motion.div
+   280→   280→                      key={card.desc}
+   281→   281→                      className="glass-strong rounded-2xl p-5 card-lift gradient-border"
+   282→   282→                      animate={{ y: card.floatY }}
+   283→   283→                      transition={{ duration: card.dur, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
+   284→   284→                    >
+   285→   285→                      <card.icon className={"h-6 w-6 " + card.color + " mb-2"} />
+   286→   286→                      <p className="text-2xl font-bold font-[family-name:var(--font-display)]">{card.value}</p>
+   287→   287→                      <p className="text-xs text-muted-foreground">{card.desc}</p>
+   288→   288→                    </motion.div>
+   289→   289→                  ))}
+   290→   290→                </div>
+   291→   291→              </motion.div>
+   292→   292→            )}
+   293→   293→          </div>
+   294→   294→        </div>
+   295→   295→      </section>
+   296→   296→
+   297→   297→      <StoriesCarousel />
+   298→   298→      <div className="hidden lg:block">
+   299→   299→        <ContestTypesShowcase />
+   300→   300→      </div>
+   301→   301→
+   302→   302→      <section className="container mx-auto px-4 -mt-1">
+   303→   303→        <motion.div
+   304→   304→          initial={{ opacity: 0, y: 12 }}
+   305→   305→          whileInView={{ opacity: 1, y: 0 }}
+   306→   306→          viewport={{ once: true, margin: "-40px" }}
+   307→   307→          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+   308→   308→          className="glass-strong rounded-2xl p-4 sm:p-5 mb-6 gradient-border"
+   309→   309→        >
+   310→   310→          <SearchBar />
+   311→   311→          <div className="mt-3">
+   312→   312→            <CategoryNav selected={categoryFilter} onSelect={handleCategorySelect} />
+   313→   313→          </div>
+   314→   314→          <div className="flex flex-wrap items-center gap-2 mt-3 justify-center sm:justify-start">
+   315→   315→            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   316→   316→              {t("cat.filterByRegion")}
+   317→   317→            </span>
+   318→   318→            <CountryRegionFilter country={country} region={region} onCountry={setCountry} onRegion={setRegion} compact />
+   319→   319→          </div>
+   320→   320→        </motion.div>
+   321→   321→      </section>
+   322→   322→      <MobileActionButtons />
+   323→   323→
+   324→   324→      <div className="container mx-auto px-4">
+   325→   325→        <div className="relative flex gap-6">
+   326→   326→          <div className="flex-1 min-w-0">
+   327→   327→            <AnimatedSection className="mb-2">
+   328→   328→              <AIRecommendations />
+   329→   329→            </AnimatedSection>
+   330→   330→
+   331→   331→            <AnimatedSection>
+   332→   332→              <ActiveRaffles categoryFilter={categoryFilter} country={country} region={region} />
+   333→   333→            </AnimatedSection>
+   334→   334→
+   335→   335→            <AnimatedSection className="py-8">
+   336→   336→              <div className="premium-card rounded-2xl p-5 sm:p-6 relative overflow-hidden">
+   337→   337→                <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-accent/10 to-transparent rounded-bl-full pointer-events-none" />
+   338→   338→                <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   339→   339→                  <div className="flex items-center gap-3">
+   340→   340→                    <div className="relative">
+   341→   341→                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-accent to-accent/70 flex items-center justify-center">
+   342→   342→                        <Radio className="h-6 w-6 text-white" />
+   343→   343→                      </div>
+   344→   344→                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-background pulse-live" />
+   345→   345→                    </div>
+   346→   346→                    <div>
+   347→   347→                      <h3 className="text-lg font-bold flex items-center gap-2">
+   348→   348→                        Ao Vivo Agora
+   349→   349→                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold pulse-live">
+   350→   350→                          <Flame className="h-3 w-3" /> LIVE
+   351→   351→                        </span>
+   352→   352→                      </h3>
+   353→   353→                      <p className="text-sm text-muted-foreground mt-0.5">Junte-se a milhares de jogadores em tempo real</p>
+   354→   354→                    </div>
+   355→   355→                  </div>
+   356→   356→                  <div className="flex items-center gap-3">
+   357→   357→                    <div className="hidden sm:flex items-center gap-4 text-center mr-2">
+   358→   358→                      <div>
+   359→   359→                        <p className="text-lg font-bold text-gradient-primary">50+</p>
+   360→   360→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Jogos</p>
+   361→   361→                      </div>
+   362→   362→                      <div className="w-px h-8 bg-border" />
+   363→   363→                      <div>
+   364→   364→                        <p className="text-lg font-bold text-gradient-primary">AO VIVO</p>
+   365→   365→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">24/7</p>
+   366→   366→                      </div>
+   367→   367→                    </div>
+   368→   368→                    <Link to="/lives-agora" className="btn-premium inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white">
+   369→   369→                      <Radio className="h-4 w-4" />
+   370→   370→                      Entrar
+   371→   371→                      <ArrowRight className="h-3.5 w-3.5" />
+   372→   372→                    </Link>
+   373→   373→                  </div>
+   374→   374→                </div>
+   375→   375→              </div>
+   376→   376→            </AnimatedSection>
+   377→   377→
+   378→   378→            <SectionDivider />
+   379→   379→
+   380→   380→            <AnimatedSection>
+   381→   381→              <PopularLeaderboard />
+   382→   382→            </AnimatedSection>
+   383→   383→
+   384→   384→            {isMobile && (
+   385→   385→              <AnimatedSection className="py-6">
+   386→   386→                <LiveFeed />
+   387→   387→              </AnimatedSection>
+   388→   388→            )}
+   389→   389→
+   390→   390→            <SectionDivider />
+   391→   391→
+   392→   392→            <AnimatedSection className="py-8">
+   393→   393→              <SectionHeader icon={Gamepad2} title="Jogos Populares" badge="50+ jogos" badgeIcon={Users} href="/jogos" />
+   394→   394→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   395→   395→                {POPULAR_GAMES.map((g, i) => (
+   396→   396→                  <motion.div key={g.id} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-30px" }}>
+   397→   397→                    <Link to={"/lives?game=" + g.id} className="group block premium-card rounded-2xl overflow-hidden card-lift">
+   398→   398→                      <div className={"h-1.5 bg-gradient-to-r " + g.grad} />
+   399→   399→                      <div className="p-3.5">
+   400→   400→                        <div className="flex items-center gap-2.5 mb-2">
+   401→   401→                          <motion.span
+   402→   402→                            className="text-2xl animate-float-soft"
+   403→   403→                            style={{ animationDelay: (i * 0.3) + "s" }}
+   404→   404→                            whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
+   405→   405→                            transition={{ duration: 0.4 }}
+   406→   406→                          >
+   407→   407→                            {g.emoji}
+   408→   408→                          </motion.span>
+   409→   409→                          <span className="text-sm font-bold group-hover:text-primary transition-colors leading-tight">{g.label}</span>
+   410→   410→                        </div>
+   411→   411→                        <div className="flex items-center gap-1.5">
+   412→   412→                          <span className="badge-premium inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-semibold">
+   413→   413→                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+   414→   414→                            Online
+   415→   415→                          </span>
+   416→   416→                          {g.hasBot && (
+   417→   417→                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 font-bold">
+   418→   418→                              <Sparkles className="h-2.5 w-2.5" /> Bot IA
+   419→   419→                            </span>
+   420→   420→                          )}
+   421→   421→                        </div>
+   422→   422→                      </div>
+   423→   423→                    </Link>
+   424→   424→                  </motion.div>
+   425→   425→                ))}
+   426→   426→              </div>
+   427→   427→
+   428→   428→              <motion.div initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.3, duration: 0.5 }} className="mt-5 rounded-2xl gradient-border overflow-hidden">
+   429→   429→                <div className="premium-card rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   430→   430→                  <div className="flex items-center gap-3">
+   431→   431→                    <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-accent/80 flex items-center justify-center animate-float-soft">
+   432→   432→                      <Sparkles className="h-5 w-5 text-white" />
+   433→   433→                    </div>
+   434→   434→                    <div>
+   435→   435→                      <p className="text-sm font-bold">Jogue contra o computador</p>
+   436→   436→                      <p className="text-xs text-muted-foreground">6 jogos com IA em 3 n\u00edveis de dificuldade</p>
+   437→   437→                    </div>
+   438→   438→                  </div>
+   439→   439→                  <Link to="/jogos" className="btn-premium inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white whitespace-nowrap">
+   440→   440→                    Jogar agora <ArrowRight className="h-3.5 w-3.5" />
+   441→   441→                  </Link>
+   442→   442→                </div>
+   443→   443→              </motion.div>
+   444→   444→            </AnimatedSection>
+   445→   445→
+   446→   446→            <SectionDivider />
+   447→   447→
+   448→   448→            <AnimatedSection className="py-8">
+   449→   449→              <SectionHeader icon={Trophy} title="Concursos em Destaque" badge="Novo" badgeIcon={Flame} href="/concursos" />
+   450→   450→              <div className="grid sm:grid-cols-3 gap-3">
+   451→   451→                {TRENDING_CONTESTS.map((item, i) => (
+   452→   452→                  <motion.div key={item.title} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-20px" }}>
+   453→   453→                    <Link to={item.slug} className="group block premium-card rounded-2xl overflow-hidden card-3d">
+   454→   454→                      <div className="p-5">
+   455→   455→                        <div className="flex items-start justify-between mb-3">
+   456→   456→                          <span className="text-3xl animate-float-soft" style={{ animationDelay: (i * 0.5) + "s" }}>{item.emoji}</span>
+   457→   457→                          {item.hot && (
+   458→   458→                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-bold">
+   459→   459→                              <Flame className="h-3 w-3" /> Quente
+   460→   460→                            </span>
+   461→   461→                          )}
+   462→   462→                        </div>
+   463→   463→                        <h3 className="text-sm font-bold group-hover:text-primary transition-colors line-clamp-2 mb-1.5">{item.title}</h3>
+   464→   464→                        <div className="flex items-center justify-between">
+   465→   465→                          <span className="badge-premium text-xs font-bold px-2 py-0.5 rounded-md">{item.prize}</span>
+   466→   466→                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+   467→   467→                        </div>
+   468→   468→                      </div>
+   469→   469→                    </Link>
+   470→   470→                  </motion.div>
+   471→   471→                ))}
+   472→   472→              </div>
+   473→   473→            </AnimatedSection>
+   474→   474→
+   475→   475→            <SectionDivider />
+   476→   476→
+   477→   477→            <AnimatedSection className="py-8">
+   478→   478→              <SectionHeader icon={Brain} title="Blog & Dicas" href="/blog" />
+   479→   479→              <div className="grid sm:grid-cols-3 gap-3">
+   480→   480→                {BLOG_POSTS.map((post, i) => (
+   481→   481→                  <motion.div key={post.slug} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-20px" }}>
+   482→   482→                    <Link to={"/blog/" + post.slug} className="group block premium-card rounded-2xl overflow-hidden card-lift">
+   483→   483→                      <div className="p-5">
+   484→   484→                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{post.cat}</span>
+   485→   485→                        <h3 className="text-sm font-bold mt-1.5 group-hover:text-primary transition-colors line-clamp-2">
+   486→   486→                          {post.emoji} {post.title}
+   487→   487→                        </h3>
+   488→   488→                        <span className="inline-flex items-center gap-1 text-xs text-primary mt-3 font-semibold group-hover:gap-2 transition-all">
+   489→   489→                          Ler mais <ArrowRight className="h-3 w-3" />
+   490→   490→                        </span>
+   491→   491→                      </div>
+   492→   492→                    </Link>
+   493→   493→                  </motion.div>
+   494→   494→                ))}
+   495→   495→              </div>
+   496→   496→            </AnimatedSection>
+   497→   497→
+   498→   498→            <SectionDivider />
+   499→   499→
+   500→   500→            <AnimatedSection>
+   501→   501→              <WinnersSection />
+   502→   502→            </AnimatedSection>
+   503→   503→          </div>
+   504→   504→
+   505→   505→          {!isMobile && (
+   506→   506→            <aside className="hidden lg:block w-80 shrink-0 py-4">
+   507→   507→              <div className="sticky top-28 space-y-6">
+   508→   508→                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4, duration: 0.5 }} className="glass-strong rounded-2xl p-5 space-y-4 gradient-border">
+   509→   509→                  <div className="flex items-center gap-2 mb-1">
+   510→   510→                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 pulse-live" />
+   511→   511→                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Plataforma ao Vivo</span>
+   512→   512→                  </div>
+   513→   513→                  <div className="grid grid-cols-2 gap-3">
+   514→   514→                    {[["50+","Jogos"],["24/7","Ao Vivo"],["100%","Verific\u00e1vel"],["IA","Inteligente"]].map(([v,l]) => (
+   515→   515→                      <div key={l} className="text-center">
+   516→   516→                        <p className="text-2xl font-bold text-gradient-primary">{v}</p>
+   517→   517→                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{l}</p>
+   518→   518→                      </div>
+   519→   519→                    ))}
+   520→   520→                  </div>
+   521→   521→                </motion.div>
+   522→   522→
+   523→   523→                <div className="glass-strong rounded-2xl p-4 gradient-border">
+   524→   524→                  <h3 className="text-sm font-bold font-[family-name:var(--font-display)] mb-3 flex items-center gap-2">
+   525→   525→                    <Radio className="h-4 w-4 text-accent" />
+   526→   526→                    Actividade em Direto
+   527→   527→                  </h3>
+   528→   528→                  <LiveFeed />
+   529→   529→                </div>
+   530→   530→
+   531→   531→                <DesktopWidgets />
+   532→   532→              </div>
+   533→   533→            </aside>
+   534→   534→          )}
+   535→   535→        </div>
+   536→   536→      </div>
+   537→   537→
+   538→   538→      <StatsBar />
+   539→   539→      <FeaturesGrid />
+   540→   540→      <TrustSignals />
+   541→   541→
+   542→   542→      <StayInLoop />
+   543→   543→      <CTASection />
+   544→   544→      <Footer />
+   545→   545→    </div>
+   546→   546→  );
+   547→   547→};
+   548→   548→
+   549→   549→export default Index;
+   550→   550→

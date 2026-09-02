@@ -1,0 +1,2002 @@
+  1340→.floating-stars span:nth-child(8) { top: 25%; left: 92%; animation-delay: 0.3s; animation-duration: 4.8s; }
+  1341→
+  1342→/* === HOLOGRAPHIC SHIMMER: For premium sections === */
+  1343→.holographic-bg {
+  1344→  position: relative;
+  1345→  overflow: hidden;
+  1346→}
+  1347→.holographic-bg::before {
+  1348→  content: '';
+  1349→  position: absolute;
+  1350→  inset: 0;
+  1351→  background: linear-gradient(
+  1352→    135deg,
+  1353→    rgba(0, 145, 64, 0.03) 0%,
+  1354→    rgba(255, 215, 0, 0.02) 25%,
+  1355→    rgba(99, 102, 241, 0.03) 50%,
+  1356→    rgba(215, 38, 61, 0.02) 75%,
+  1357→    rgba(0, 145, 64, 0.03) 100%
+  1358→  );
+  1359→  background-size: 300% 300%;
+  1360→  animation: gradient-pan 15s ease infinite;
+  1361→  pointer-events: none;
+  1362→  z-index: 0;
+  1363→}
+  1364→
+  1365→/* === VIGNETTE: Cinematic vignette for immersive pages === */
+  1366→.vignette-overlay::after {
+  1367→  content: '';
+  1368→  position: fixed;
+  1369→  inset: 0;
+  1370→  pointer-events: none;
+  1371→  z-index: -2;
+  1372→  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.08) 100%);
+  1373→}
+  1374→
+  1375→/* === GLASSMORPHISM SECTIONS === */
+  1376→.glass-section {
+  1377→  background: rgba(255, 255, 255, 0.02);
+  1378→  backdrop-filter: blur(12px) saturate(150%);
+  1379→  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  1380→  border: 1px solid rgba(255, 255, 255, 0.04);
+  1381→}
+  1382→
+  1383→/* === AMBIENT GLOW RING: Subtle glow at page edges === */
+  1384→.ambient-glow {
+  1385→  position: fixed;
+  1386→  inset: 0;
+  1387→  pointer-events: none;
+  1388→  z-index: -4;
+  1389→  box-shadow:
+  1390→    inset 0 0 150px rgba(0, 145, 64, 0.02),
+  1391→    inset 0 0 300px rgba(0, 145, 64, 0.01);
+  1392→}
+  1393→
+  1394→/* Responsive bg reduction for mobile */
+  1395→@media (max-width: 768px) {
+  1396→  .bg-cosmic::before { animation-duration: 50s; }
+  1397→  .bg-cosmic::after { display: none; }
+  1398→  .bg-mesh-soft::before { animation-duration: 60s; }
+  1399→  .bg-mesh-soft::after { display: none; }
+  1400→  .nebula-blob { filter: blur(100px); opacity: 0.5; }
+  1401→  .energy-wave::before { animation-duration: 14s; }
+  1402→  .floating-stars { display: none; }
+  1403→  .vignette-overlay::after { display: none; }
+  1404→}
+  1405→
+  1406→/* Dark mode enhancements for backgrounds */
+  1407→.dark .bg-cosmic::before {
+  1408→  background:
+  1409→    radial-gradient(ellipse 120% 80% at 20% 30%, rgba(0, 145, 64, 0.08), transparent 50%),
+  1410→    radial-gradient(ellipse 100% 60% at 80% 20%, rgba(255, 215, 0, 0.05), transparent 50%),
+  1411→    radial-gradient(ellipse 80% 100% at 60% 80%, rgba(215, 38, 61, 0.05), transparent 50%),
+  1412→    radial-gradient(ellipse 60% 60% at 10% 70%, rgba(99, 102, 241, 0.04), transparent 50%);
+  1413→}
+  1414→.dark .bg-mesh-soft::before {
+  1415→  background:
+  1416→    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0, 145, 64, 0.06), transparent 50%),
+  1417→    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 215, 0, 0.04), transparent 50%),
+  1418→    radial-gradient(ellipse 90% 70% at 50% 90%, rgba(99, 102, 241, 0.04), transparent 50%);
+  1419→}
+  1420→.dark .bg-noise::before { opacity: 0.025; }
+  1421→.dark .nebula-blob-1 { background: rgba(0, 145, 64, 0.1); }
+  1422→.dark .nebula-blob-2 { background: rgba(255, 215, 0, 0.07); }
+  1423→.dark .nebula-blob-3 { background: rgba(215, 38, 61, 0.06); }
+  1424→.dark .nebula-blob-4 { background: rgba(99, 102, 241, 0.05); }
+  1425→.dark .ambient-glow {
+  1426→  box-shadow:
+  1427→    inset 0 0 200px rgba(0, 145, 64, 0.04),
+  1428→    inset 0 0 400px rgba(0, 145, 64, 0.02);
+  1429→}
+  1430→.dark .navbar-glass-premium {
+  1431→  background: rgba(0, 0, 0, 0.2);
+  1432→  border-bottom-color: rgba(255, 255, 255, 0.04);
+  1433→}
+  1434→.dark .vignette-overlay::after {
+  1435→  background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.15) 100%);
+  1436→}
+  1437→
+  1438→/* ===== PREMIUM GAME EFFECTS ===== */
+  1439→
+  1440→/* Screen shake */
+  1441→@keyframes screen-shake {
+  1442→  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  1443→  10% { transform: translate(-6px, -4px) rotate(-1deg); }
+  1444→  20% { transform: translate(5px, 3px) rotate(1deg); }
+  1445→  30% { transform: translate(-4px, 6px) rotate(0.5deg); }
+  1446→  40% { transform: translate(6px, -2px) rotate(-0.5deg); }
+  1447→  50% { transform: translate(-3px, 4px) rotate(1deg); }
+  1448→  60% { transform: translate(4px, -5px) rotate(-1deg); }
+  1449→  70% { transform: translate(-5px, 2px) rotate(0.5deg); }
+  1450→  80% { transform: translate(3px, -3px) rotate(-0.5deg); }
+  1451→  90% { transform: translate(-2px, 5px) rotate(1deg); }
+  1452→}
+  1453→.game-screen-shake {
+  1454→  animation: screen-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  1455→}
+  1456→
+  1457→/* Intense shake for big wins */
+  1458→@keyframes screen-shake-intense {
+  1459→  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  1460→  10% { transform: translate(-10px, -8px) rotate(-2deg) scale(1.01); }
+  1461→  20% { transform: translate(8px, 6px) rotate(2deg) scale(0.99); }
+  1462→  30% { transform: translate(-6px, 10px) rotate(1deg); }
+  1463→  40% { transform: translate(10px, -4px) rotate(-1deg); }
+  1464→  50% { transform: translate(-5px, 8px) rotate(2deg) scale(1.01); }
+  1465→  60% { transform: translate(7px, -8px) rotate(-2deg); }
+  1466→  70% { transform: translate(-8px, 4px) rotate(1deg); }
+  1467→  80% { transform: translate(5px, -6px) rotate(-1deg) scale(0.99); }
+  1468→  90% { transform: translate(-3px, 8px) rotate(1deg); }
+  1469→}
+  1470→.game-screen-shake-intense {
+  1471→  animation: screen-shake-intense 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  1472→}
+  1473→
+  1474→/* Flash effect overlay */
+  1475→@keyframes flash-white {
+  1476→  0% { opacity: 0.9; }
+  1477→  100% { opacity: 0; }
+  1478→}
+  1479→@keyframes flash-green {
+  1480→  0% { opacity: 0.7; background: #22c55e; }
+  1481→  100% { opacity: 0; background: #22c55e; }
+  1482→}
+  1483→@keyframes flash-red {
+  1484→  0% { opacity: 0.7; background: #ef4444; }
+  1485→  100% { opacity: 0; background: #ef4444; }
+  1486→}
+  1487→@keyframes flash-gold {
+  1488→  0% { opacity: 0.8; background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706); }
+  1489→  100% { opacity: 0; background: #fbbf24; }
+  1490→}
+  1491→.game-flash-white { animation: flash-white 0.4s ease-out forwards; }
+  1492→.game-flash-green { animation: flash-green 0.5s ease-out forwards; }
+  1493→.game-flash-red { animation: flash-red 0.5s ease-out forwards; }
+  1494→.game-flash-gold { animation: flash-gold 0.6s ease-out forwards; }
+  1495→
+  1496→/* Pulsing glow ring for wheel */
+  1497→@keyframes glow-ring-pulse {
+  1498→  0%, 100% { box-shadow: 0 0 20px 5px rgba(251, 191, 36, 0.3), 0 0 60px 10px rgba(251, 191, 36, 0.1); }
+  1499→  50% { box-shadow: 0 0 40px 15px rgba(251, 191, 36, 0.5), 0 0 100px 20px rgba(251, 191, 36, 0.2); }
+  1500→}
+  1501→@keyframes glow-ring-spin {
+  1502→  0% { box-shadow: 0 0 30px 8px rgba(251, 191, 36, 0.4), 0 0 80px 15px rgba(251, 191, 36, 0.15); }
+  1503→  50% { box-shadow: 0 0 50px 20px rgba(251, 191, 36, 0.6), 0 0 120px 30px rgba(251, 191, 36, 0.25); }
+  1504→  100% { box-shadow: 0 0 30px 8px rgba(251, 191, 36, 0.4), 0 0 80px 15px rgba(251, 191, 36, 0.15); }
+  1505→}
+  1506→.wheel-glow-idle { animation: glow-ring-pulse 3s ease-in-out infinite; }
+  1507→.wheel-glow-spinning { animation: glow-ring-spin 0.5s ease-in-out infinite; border-radius: 50%; }
+  1508→
+  1509→/* Spinning pointer bounce */
+  1510→@keyframes pointer-bounce {
+  1511→  0%, 100% { transform: translateX(-50%) translateY(0); }
+  1512→  50% { transform: translateX(-50%) translateY(4px); }
+  1513→}
+  1514→.wheel-pointer-bounce {
+  1515→  animation: pointer-bounce 0.15s ease-in-out infinite;
+  1516→}
+  1517→
+  1518→/* Neon border animation */
+  1519→@keyframes neon-border-rotate {
+  1520→  0% { border-color: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 15px rgba(251, 191, 36, 0.05); }
+  1521→  33% { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 0 20px rgba(245, 158, 11, 0.08); }
+  1522→  66% { border-color: #d97706; box-shadow: 0 0 15px rgba(217, 119, 6, 0.3), inset 0 0 15px rgba(217, 119, 6, 0.05); }
+  1523→  100% { border-color: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 15px rgba(251, 191, 36, 0.05); }
+  1524→}
+  1525→.neon-border-gold { animation: neon-border-rotate 3s ease-in-out infinite; }
+  1526→
+  1527→/* Floating particles for game backgrounds */
+  1528→@keyframes particle-float-1 { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; } 25% { transform: translate(30px, -50px) scale(1.2); opacity: 0.8; } 50% { transform: translate(-20px, -100px) scale(0.8); opacity: 0.5; } 75% { transform: translate(40px, -60px) scale(1.1); opacity: 0.7; } }
+  1529→@keyframes particle-float-2 { 0%, 100% { transform: translate(0, 0) scale(0.8); opacity: 0.2; } 33% { transform: translate(-40px, -70px) scale(1.3); opacity: 0.6; } 66% { transform: translate(20px, -120px) scale(0.9); opacity: 0.4; } }
+  1530→@keyframes particle-float-3 { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; } 50% { transform: translate(50px, -80px) scale(0.7); opacity: 0.9; } }
+  1531→
+  1532→.game-particle {
+  1533→  position: absolute;
+  1534→  border-radius: 50%;
+  1535→  pointer-events: none;
+  1536→}
+  1537→.game-particle-1 { width: 4px; height: 4px; background: #fbbf24; animation: particle-float-1 8s ease-in-out infinite; }
+  1538→.game-particle-2 { width: 3px; height: 3px; background: #f59e0b; animation: particle-float-2 12s ease-in-out infinite; }
+  1539→.game-particle-3 { width: 5px; height: 5px; background: #fcd34d; animation: particle-float-3 10s ease-in-out infinite; }
+  1540→.game-particle-4 { width: 2px; height: 2px; background: #fde68a; animation: particle-float-2 15s ease-in-out infinite reverse; }
+  1541→.game-particle-5 { width: 6px; height: 6px; background: #fbbf24; animation: particle-float-1 18s ease-in-out infinite reverse; opacity: 0.15; }
+  1542→.game-particle-6 { width: 3px; height: 3px; background: #ffffff; animation: particle-float-3 9s ease-in-out infinite; opacity: 0.2; }
+  1543→
+  1544→/* Tap burst particle */
+  1545→@keyframes tap-burst {
+  1546→  0% { transform: scale(0) translate(0, 0); opacity: 1; }
+  1547→  100% { transform: scale(1) translate(var(--burst-x, 0px), var(--burst-y, -60px)); opacity: 0; }
+  1548→}
+  1549→.tap-particle {
+  1550→  position: absolute;
+  1551→  border-radius: 50%;
+  1552→  pointer-events: none;
+  1553→  animation: tap-burst 0.6s ease-out forwards;
+  1554→}
+  1555→
+  1556→/* Millionaire lightning effect */
+  1557→@keyframes lightning-flash {
+  1558→  0%, 100% { opacity: 0; }
+  1559→  5% { opacity: 0.8; }
+  1560→  10% { opacity: 0; }
+  1561→  15% { opacity: 0.5; }
+  1562→  20% { opacity: 0; }
+  1563→}
+  1564→.lightning-effect {
+  1565→  position: absolute;
+  1566→  inset: 0;
+  1567→  pointer-events: none;
+  1568→  background: linear-gradient(135deg, transparent 40%, rgba(251, 191, 36, 0.1) 50%, transparent 60%);
+  1569→  animation: lightning-flash 4s ease-in-out infinite;
+  1570→}
+  1571→
+  1572→/* Dramatic timer pulse */
+  1573→@keyframes timer-urgent {
+  1574→  0%, 100% { transform: scale(1); }
+  1575→  50% { transform: scale(1.08); }
+  1576→}
+  1577→.timer-urgent { animation: timer-urgent 0.5s ease-in-out infinite; }
+  1578→
+  1579→/* Timer bar */
+  1580→@keyframes timer-bar-shrink {
+  1581→  from { transform: scaleX(1); }
+  1582→  to { transform: scaleX(0); }
+  1583→}
+  1584→.timer-bar {
+  1585→  transform-origin: left;
+  1586→  animation: timer-bar-shrink var(--timer-duration, 30s) linear forwards;
+  1587→}
+  1588→
+  1589→/* Prize level glow */
+  1590→@keyframes prize-glow {
+  1591→  0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.3); }
+  1592→  50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 0 40px rgba(251, 191, 36, 0.2); }
+  1593→}
+  1594→.prize-glow { animation: prize-glow 2s ease-in-out infinite; }
+  1595→
+  1596→/* Option correct/wrong reveal */
+  1597→@keyframes option-reveal-correct {
+  1598→  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  1599→  50% { box-shadow: 0 0 30px 10px rgba(34, 197, 94, 0.3); }
+  1600→  100% { box-shadow: 0 0 15px 3px rgba(34, 197, 94, 0.2); }
+  1601→}
+  1602→@keyframes option-reveal-wrong {
+  1603→ 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  1604→  30% { transform: translateX(-8px); }
+  1605→  60% { transform: translateX(8px); }
+  1606→  100% { box-shadow: 0 0 15px 3px rgba(239, 68, 68, 0.2); transform: translateX(0); }
+  1607→}
+  1608→.option-reveal-correct { animation: option-reveal-correct 1s ease-out forwards; }
+  1609→.option-reveal-wrong { animation: option-reveal-wrong 0.5s ease-out forwards; }
+  1610→
+  1611→/* Win overlay explosion */
+  1612→@keyframes win-scale-in {
+  1613→  0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+  1614→  60% { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  1615→  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  1616→}
+  1617→.win-overlay-enter { animation: win-scale-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  1618→
+  1619→/* 3D card tilt */
+  1620→.game-card-3d {
+  1621→  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  1622→  transform-style: preserve-3d;
+  1623→  perspective: 1000px;
+  1624→}
+  1625→.game-card-3d:hover {
+  1626→  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.3), 0 0 30px rgba(251, 191, 36, 0.1);
+  1627→}
+  1628→
+  1629→/* Shimmer effect for loading states */
+  1630→@keyframes shimmer-sweep {
+  1631→  0% { transform: translateX(-100%); }
+  1632→  100% { transform: translateX(100%); }
+  1633→}
+  1634→.game-shimmer {
+  1635→  position: relative;
+  1636→  overflow: hidden;
+  1637→}
+  1638→.game-shimmer::after {
+  1639→  content: '';
+  1640→  position: absolute;
+  1641→  inset: 0;
+  1642→  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  1643→  animation: shimmer-sweep 2s ease-in-out infinite;
+  1644→}
+  1645→
+  1646→/* Spin button glow pulse */
+  1647→@keyframes spin-btn-glow {
+  1648→  0%, 100% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(251, 191, 36, 0.2); }
+  1649→  50% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.5), 0 0 60px rgba(251, 191, 36, 0.4); }
+  1650→}
+  1651→.spin-btn-glow { animation: spin-btn-glow 2s ease-in-out infinite; }
+  1652→
+  1653→/* Bingo number highlight */
+  1654→@keyframes bingo-number-pop {
+  1655→  0% { transform: scale(0); opacity: 0; }
+  1656→  50% { transform: scale(1.3); }
+  1657→  100% { transform: scale(1); opacity: 1; }
+  1658→}
+  1659→.bingo-number-pop { animation: bingo-number-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  1660→
+  1661→/* Celebration rays */
+  1662→@keyframes celebration-rays {
+  1663→  0% { transform: rotate(0deg); }
+  1664→  100% { transform: rotate(360deg); }
+  1665→}
+  1666→.celebration-rays {
+  1667→  position: absolute;
+  1668→  inset: -50%;
+  1669→  background: conic-gradient(from 0deg, transparent, rgba(251, 191, 36, 0.1), transparent, rgba(251, 191, 36, 0.05), transparent);
+  1670→  animation: celebration-rays 10s linear infinite;
+  1671→  pointer-events: none;
+  1672→}
+  1673→
+  1674→/* Energy bar glow */
+  1675→@keyframes energy-pulse {
+  1676→  0%, 100% { box-shadow: 0 0 8px rgba(249, 115, 22, 0.3); }
+  1677→  50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
+  1678→}
+  1679→.energy-bar-glow { animation: energy-pulse 1s ease-in-out infinite; }
+  1680→
+  1681→/* ============================================ PREMIUM HOME ENHANCEMENTS v4 ============================================ */
+  1682→
+  1683→/* Hero parallax depth layers */
+  1684→.hero-depth-1 { transform: translateZ(10px); }
+  1685→.hero-depth-2 { transform: translateZ(20px); }
+  1686→.hero-depth-3 { transform: translateZ(30px); }
+  1687→
+  1688→/* Card hover shine sweep */
+  1689→.card-shine {
+  1690→  position: relative;
+  1691→  overflow: hidden;
+  1692→}
+  1693→.card-shine::after {
+  1694→  content: '';
+  1695→  position: absolute;
+  1696→  top: -50%;
+  1697→  left: -50%;
+  1698→  width: 200%;
+  1699→  height: 200%;
+  1700→  background: linear-gradient(
+  1701→    45deg,
+  1702→    transparent 30%,
+  1703→    rgba(255, 255, 255, 0.06) 50%,
+  1704→    transparent 70%
+  1705→  );
+  1706→  transform: translateX(-100%);
+  1707→  transition: transform 0.6s ease;
+  1708→  pointer-events: none;
+  1709→}
+  1710→.card-shine:hover::after {
+  1711→  transform: translateX(100%);
+  1712→}
+  1713→
+  1714→/* Magnetic hover effect base */
+  1715→.magnetic-hover {
+  1716→  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  1717→}
+  1718→
+  1719→/* Premium gradient text v2 */
+  1720→.text-gradient-glow {
+  1721→  @apply bg-clip-text text-transparent;
+  1722→  background-image: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--primary)), hsl(var(--accent)));
+  1723→  background-size: 200% auto;
+  1724→  animation: gradient-pan 6s ease infinite;
+  1725→}
+  1726→
+  1727→/* Smooth section scroll snap hint */
+  1728→.scroll-section {
+  1729→  scroll-snap-align: start;
+  1730→}
+  1731→
+  1732→/* Live pulse ring */
+  1733→@keyframes live-ring {
+  1734→  0% { transform: scale(1); opacity: 0.6; }
+  1735→  100% { transform: scale(2); opacity: 0; }
+  1736→}
+  1737→.live-ring::before {
+  1738→  content: '';
+  1739→  position: absolute;
+  1740→  inset: 0;
+  1741→  border-radius: 50%;
+  1742→  border: 2px solid hsl(var(--accent));
+  1743→  animation: live-ring 2s ease-out infinite;
+  1744→}
+  1745→
+  1746→/* Glow text */
+  1747→.text-glow {
+  1748→  text-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
+  1749→}
+  1750→
+  1751→/* Morphing blob for hero background */
+  1752→@keyframes morph {
+  1753→  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  1754→  25% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  1755→  50% { border-radius: 50% 60% 30% 60% / 30% 50% 70% 60%; }
+  1756→  75% { border-radius: 60% 30% 60% 40% / 70% 50% 40% 60%; }
+  1757→}
+  1758→.morph-blob {
+  1759→  animation: morph 15s ease-in-out infinite;
+  1760→}
+  1761→
+  1762→/* Animated border gradient */
+  1763→@keyframes border-rotate {
+  1764→  0% { --angle: 0deg; }
+  1765→  100% { --angle: 360deg; }
+  1766→}
+  1767→.animated-border {
+  1768→  position: relative;
+  1769→  border-radius: 1rem;
+  1770→  overflow: hidden;
+  1771→}
+  1772→.animated-border::before {
+  1773→  content: '';
+  1774→  position: absolute;
+  1775→  inset: 0;
+  1776→  border-radius: inherit;
+  1777→  padding: 1px;
+  1778→  background: conic-gradient(from var(--angle, 0deg), hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)));
+  1779→  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  1780→  -webkit-mask-composite: xor;
+  1781→  mask-composite: exclude;
+  1782→  animation: border-rotate 4s linear infinite;
+  1783→  pointer-events: none;
+  1784→}
+  1785→
+  1786→/* Stat counter glow */
+  1787→.stat-glow {
+  1788→  text-shadow: 0 0 30px hsl(var(--primary) / 0.3);
+  1789→}
+  1790→
+  1791→/* Game card tilt shadow */
+  1792→.game-card-premium {
+  1793→  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+  1794→  transform-style: preserve-3d;
+  1795→}
+  1796→.game-card-premium:hover {
+  1797→  transform: translateY(-8px) rotateX(2deg);
+  1798→  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 30px hsl(var(--primary) / 0.1);
+  1799→}
+  1800→
+  1801→/* Typewriter cursor */
+  1802→@keyframes blink-cursor {
+  1803→  0%, 50% { opacity: 1; }
+  1804→  51%, 100% { opacity: 0; }
+  1805→}
+  1806→.typewriter-cursor::after {
+  1807→  content: '|';
+  1808→  animation: blink-cursor 1s step-end infinite;
+  1809→  color: hsl(var(--accent));
+  1810→}
+  1811→
+  1812→/* Scroll progress bar at top of page */
+  1813→.scroll-progress {
+  1814→  position: fixed;
+  1815→  top: 0;
+  1816→  left: 0;
+  1817→  height: 2px;
+  1818→  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  1819→  z-index: 9999;
+  1820→  transform-origin: left;
+  1821→  transition: none;
+  1822→}
+  1823→
+  1824→/* Smooth reveal for all sections */
+  1825→.reveal-up {
+  1826→  opacity: 0;
+  1827→  transform: translateY(30px);
+  1828→  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  1829→}
+  1830→.reveal-up.revealed {
+  1831→  opacity: 1;
+  1832→  transform: translateY(0);
+  1833→}
+  1834→
+  1835→/* Premium input focus glow */
+  1836→.premium-input:focus {
+  1837→ box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15), 0 0 20px hsl(var(--primary) / 0.1);
+  1838→}
+  1839→
+  1840→/* Animated gradient text on hover */
+  1841→.hover-gradient:hover {
+  1842→  background-size: 200% auto;
+  1843→  animation: gradient-pan 3s ease infinite;
+  1844→}
+  1845→
+  1846→/* Neon accent underline */
+  1847→.neon-underline {
+  1848→  position: relative;
+  1849→}
+  1850→.neon-underline::after {
+  1851→  content: '';
+  1852→  position: absolute;
+  1853→  bottom: -4px;
+  1854→  left: 0;
+  1855→  width: 100%;
+  1856→  height: 2px;
+  1857→  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  1858→  border-radius: 1px;
+  1859→  box-shadow: 0 0 8px hsl(var(--accent) / 0.5);
+  1860→}
+  1861→
+  1862→/* Floating badge animation */
+  1863→@keyframes badge-float {
+  1864→  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  1865→  50% { transform: translateY(-4px) rotate(2deg); }
+  1866→}
+  1867→.badge-float {
+  1868→  animation: badge-float 3s ease-in-out infinite;
+  1869→}
+  1870→
+  1871→/* Stagger animation helper */
+  1872→.stagger-1 { animation-delay: 0.05s; }
+  1873→.stagger-2 { animation-delay: 0.1s; }
+  1874→.stagger-3 { animation-delay: 0.15s; }
+  1875→.stagger-4 { animation-delay: 0.2s; }
+  1876→.stagger-5 { animation-delay: 0.25s; }
+  1877→.stagger-6 { animation-delay: 0.3s; }
+  1878→.stagger-7 { animation-delay: 0.35s; }
+  1879→.stagger-8 { animation-delay: 0.4s; }
+  1880→
+  1881→/* ============================================ */
+  1882→/* DIRECTORY V2 - Premium Redesign             */
+  1883→/* ============================================ */
+  1884→
+  1885→.dir-hero-bg { background: linear-gradient(135deg, hsl(220 70% 18% / 0.04), hsl(352 73% 50% / 0.03), hsl(220 70% 18% / 0.04)); background-size: 200% 200%; animation: dir-hero-shimmer 8s ease-in-out infinite; }
+  1886→@keyframes dir-card-border-glow { 0%, 100% { border-color: var(--dir-card-border, rgba(255,255,255,0.05)); } 50% { border-color: var(--dir-card-border-hover, rgba(251,191,36,0.2)); } }
+  1887→.dir-card { position: relative; overflow: hidden; border-radius: 1.25rem; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+  1888→.dir-card::after { content: ""; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); pointer-events: none; z-index: 2; }
+  1889→.dir-card:hover::after { animation: card-shine-sweep 0.7s ease-out; }
+  1890→.dir-card:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25), 0 0 30px -10px var(--dir-card-glow, rgba(251,191,36,0.1)); border-color: var(--dir-card-border-hover, rgba(251,191,36,0.15)); }
+  1891→.dir-stat-card { position: relative; overflow: hidden; border-radius: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px); transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  1892→.dir-stat-card::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, var(--dsc-c1, rgba(255,255,255,0.08)), transparent 50%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  1893→.dir-stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px -10px rgba(0,0,0,0.15); }
+  1894→.dir-empty-orb { animation: dir-empty-pulse 4s ease-in-out infinite; }
+  1895→@keyframes dir-empty-pulse { 0%, 100% { transform: scale(1); opacity: 0.2; } 50% { transform: scale(1.2); opacity: 0.5; } }
+  1896→
+  1897→/* Directory V2 classes */
+  1898→.dirv2-search-box { position: relative; border-radius: 1.25rem; padding: 2px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.07); backdrop-filter: blur(20px); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  1899→.dirv2-search-box::before { content: ""; position: absolute; inset: -1.5px; border-radius: 1.35rem; padding: 2px; background: conic-gradient(from var(--search-angle, 0deg), hsl(220 70% 18% / 0.6), hsl(352 73% 50% / 0.4), hsl(270 60% 55% / 0.3), hsl(220 70% 18% / 0.1), hsl(220 70% 18% / 0.6)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; opacity: calc(0.3 + var(--search-glow, 0) * 0.7); transition: opacity 0.4s ease; animation: search-border-spin 4s linear infinite; }
+  1900→@keyframes search-border-spin { to { --search-angle: 360deg; } }
+  1901→@property --search-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  1902→.dirv2-search-box:focus-within { border-color: hsl(220 70% 18% / 0.2); box-shadow: 0 0 40px hsl(220 70% 18% / 0.08), 0 0 80px hsl(352 73% 50% / 0.04); }
+  1903→.dirv2-hero-stat { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.25rem; border-radius: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(12px); transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  1904→.dirv2-hero-stat:hover { transform: translateY(-3px); background: rgba(255,255,255,0.05); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+  1905→.dirv2-hero-stat-icon { width: 40px; height: 40px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  1906→.dirv2-hero-stat:hover .dirv2-hero-stat-icon { transform: scale(1.15) rotate(-5deg); }
+  1907→.dirv2-hero-stat-value { font-size: 1.25rem; font-weight: 900; font-family: var(--font-display); line-height: 1.2; }
+  1908→.dirv2-hero-stat-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); }
+  1909→.dirv2-cta-btn { display: inline-flex; align-items: center; gap: 0.625rem; padding: 0.875rem 2rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 800; color: white; border: none; cursor: pointer; box-shadow: 0 6px 30px hsl(220 70% 18% / 0.3), 0 0 60px hsl(352 73% 50% / 0.15); }
+  1910→.dirv2-marquee-wrap { overflow: hidden; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.01); position: relative; z-index: 20; }
+  1911→.dirv2-marquee-wrap::before, .dirv2-marquee-wrap::after { content: ""; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 2; pointer-events: none; }
+  1912→.dirv2-marquee-wrap::before { left: 0; background: linear-gradient(to right, hsl(var(--background)), transparent); }
+  1913→.dirv2-marquee-wrap::after { right: 0; background: linear-gradient(to left, hsl(var(--background)), transparent); }
+  1914→.dirv2-marquee-track { display: flex; gap: 0.5rem; width: max-content; animation: marquee-scroll 40s linear infinite; }
+  1915→.dirv2-marquee-track:hover { animation-play-state: paused; }
+  1916→@keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  1917→@keyframes empty-orb-pulse { 0%, 100% { opacity: 0.2; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.15); } }
+  1918→@keyframes card-shine-sweep { from { left: -100%; } to { left: 200%; } }
+  1919→.dirv2-marquee-item { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 1rem 0.5rem 0.5rem; border-radius: 9999px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; transition: all 0.3s ease; text-decoration: none; }
+  1920→.dirv2-marquee-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
+  1921→.dirv2-marquee-avatar { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.15), hsl(352 73% 50% / 0.08)); flex-shrink: 0; position: relative; }
+  1922→.dirv2-marquee-badge { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: hsl(var(--background)); display: flex; align-items: center; justify-content: center; }
+  1923→.dirv2-marquee-name { font-size: 0.8rem; font-weight: 600; color: hsl(var(--foreground)); max-width: 120px; }
+  1924→.dirv2-filter-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 700; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  1925→.dirv2-filter-chip[data-active="1"] { background: var(--chip-active-bg, rgba(255,255,255,0.05)); border-color: var(--chip-active-border, rgba(255,255,255,0.08)); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  1926→.dirv2-filter-chip:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+  1927→.dirv2-filter-count { font-size: 0.65rem; opacity: 0.5; font-weight: 600; margin-left: 0.125rem; }
+  1928→.dirv2-card { position: relative; overflow: hidden; border-radius: 1.5rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+  1929→.dirv2-card:hover { border-color: hsl(220 70% 18% / 0.2); box-shadow: 0 25px 60px -15px rgba(0,0,0,0.3), 0 0 40px -15px hsl(220 70% 18% / 0.15), 0 0 80px -30px hsl(352 73% 50% / 0.1); background: rgba(255,255,255,0.04); }
+  1930→.dirv2-card-shine { position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; z-index: 5; }
+  1931→.dirv2-card:hover .dirv2-card-shine { animation: card-shine-sweep 0.8s ease-out; }
+  1932→.dirv2-card-avatar { width: 64px; height: 64px; border-radius: 1.25rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.12), hsl(352 73% 50% / 0.06)); flex-shrink: 0; position: relative; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 4px 20px -5px hsl(220 70% 18% / 0.15); }
+  1933→.dirv2-card:hover .dirv2-card-avatar { transform: scale(1.08) rotate(-3deg); box-shadow: 0 8px 30px -5px hsl(220 70% 18% / 0.25); }
+  1934→.dirv2-verified-pulse { position: absolute; bottom: -3px; right: -3px; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%)); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px hsl(45 93% 47% / 0.4); }
+  1935→.dirv2-verified-pulse::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid hsl(45 93% 47% / 0.3); animation: verified-ring-pulse 2s ease-out infinite; }
+  1936→@keyframes verified-ring-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+  1937→.dirv2-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 700; background: var(--badge-bg, rgba(255,255,255,0.04)); color: var(--badge-color, hsl(var(--muted-foreground))); border: 1px solid var(--badge-border, rgba(255,255,255,0.06)); white-space: nowrap; }
+  1938→.dirv2-card-stat { padding: 0.75rem; border-radius: 1rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: all 0.3s ease; }
+  1939→.dirv2-card:hover .dirv2-card-stat { background: rgba(255,255,255,0.035); }
+  1940→.dirv2-card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.04); }
+  1941→.dirv2-list-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  1942→.dirv2-list-card:hover { background: rgba(255,255,255,0.045); border-color: hsl(220 70% 18% / 0.15); box-shadow: 0 12px 35px -10px rgba(0,0,0,0.2), 0 0 30px -15px hsl(220 70% 18% / 0.1); }
+  1943→.dirv2-list-shine { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent); pointer-events: none; z-index: 5; }
+  1944→.dirv2-list-card:hover .dirv2-list-shine { animation: card-shine-sweep 0.7s ease-out; }
+  1945→.dirv2-list-avatar { width: 56px; height: 56px; border-radius: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.12), hsl(352 73% 50% / 0.06)); flex-shrink: 0; position: relative; transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  1946→.dirv2-list-card:hover .dirv2-list-avatar { transform: scale(1.06); }
+  1947→.dirv2-verified-dot { position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%)); display: flex; align-items: center; justify-content: center; }
+  1948→.dirv2-mobile-card { padding: 1rem; border-radius: 1.25rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; position: relative; overflow: hidden; }
+  1949→.dirv2-mobile-card::after { content: ""; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; }
+  1950→.dirv2-mobile-card:active::after { animation: card-shine-sweep 0.6s ease-out; }
+  1951→.dirv2-mobile-avatar { width: 44px; height: 44px; border-radius: 0.875rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(220 70% 18% / 0.15), hsl(352 73% 50% / 0.08)); flex-shrink: 0; }
+  1952→.dirv2-bottom-cta { position: relative; overflow: hidden; border-radius: 1.5rem; background: linear-gradient(135deg, hsl(220 70% 18% / 0.05), hsl(352 73% 50% / 0.03), hsl(270 60% 40% / 0.03)); }
+  1953→.dirv2-bottom-cta::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: conic-gradient(from 0deg, hsl(220 70% 18% / 0.5), hsl(352 73% 50% / 0.3), hsl(270 60% 55% / 0.2), hsl(190 80% 50% / 0.15), hsl(220 70% 18% / 0.5)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; animation: conic-rotate 6s linear infinite; }
+  1954→@keyframes conic-rotate { to { transform: rotate(360deg); } }
+  1955→
+  1956→/* ============================================ */
+  1957→/* MARKETPLACE V2 - Premium Redesign            */
+  1958→/* ============================================ */
+  1959→.mkt-search-box { position: relative; border-radius: 1rem; padding: 2px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.07); backdrop-filter: blur(20px); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  1960→.mkt-search-box::before { content: ""; position: absolute; inset: -1.5px; border-radius: 1.1rem; padding: 2px; background: conic-gradient(from var(--search-angle, 0deg), hsl(220 70% 18% / 0.5), hsl(352 73% 50% / 0.3), hsl(270 60% 55% / 0.2), hsl(220 70% 18% / 0.1), hsl(220 70% 18% / 0.5)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; opacity: calc(0.3 + var(--search-glow, 0) * 0.7); transition: opacity 0.4s ease; animation: search-border-spin 4s linear infinite; }
+  1961→.mkt-search-box:focus-within { border-color: hsl(220 70% 18% / 0.2); box-shadow: 0 0 40px hsl(220 70% 18% / 0.08); }
+  1962→.mkt-tab { display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 700; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  1963→.mkt-tab[data-active="1"] { background: var(--tab-bg, rgba(255,255,255,0.05)); border-color: var(--tab-border, rgba(255,255,255,0.08)); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  1964→.mkt-tab:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+  1965→.mkt-tab-count { font-size: 0.65rem; opacity: 0.5; font-weight: 600; margin-left: 0.125rem; }
+  1966→.mkt-filter-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; border-radius: 0.875rem; font-size: 0.75rem; font-weight: 700; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  1967→.mkt-filter-chip[data-active="1"] { background: var(--chip-active-bg, rgba(255,255,255,0.05)); border-color: var(--chip-active-border, rgba(255,255,255,0.08)); }
+  1968→.mkt-filter-chip:hover:not([data-active="1"]) { background: rgba(255,255,255,0.03); }
+  1969→.mkt-filter-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 600; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.3s ease; }
+  1970→.mkt-filter-btn:hover { background: rgba(255,255,255,0.06); }
+  1971→.mkt-filter-badge { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: hsl(352 73% 50%); color: white; font-size: 9px; font-weight: 800; }
+  1972→.mkt-section-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+  1973→.mkt-section-icon { width: 40px; height: 40px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; }
+  1974→.mkt-section-count { font-size: 0.8rem; font-weight: 800; font-family: var(--font-display); }
+  1975→.mkt-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); height: 100%; }
+  1976→.mkt-card:hover { border-color: hsl(220 70% 18% / 0.18); box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25), 0 0 35px -15px hsl(220 70% 18% / 0.12); background: rgba(255,255,255,0.04); }
+  1977→.mkt-card-shine { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); pointer-events: none; z-index: 5; }
+  1978→.mkt-card:hover .mkt-card-shine { animation: card-shine-sweep 0.7s ease-out; }
+  1979→.mkt-game-card { position: relative; overflow: hidden; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+  1980→.mkt-game-card:hover { border-color: hsl(45 93% 47% / 0.2); box-shadow: 0 15px 40px -10px rgba(0,0,0,0.2), 0 0 25px -10px hsl(45 93% 47% / 0.1); }
+  1981→.mkt-price-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 0.625rem; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #fff; }
+  1982→.mkt-hot-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 800; background: linear-gradient(135deg, hsl(352 73% 50%), hsl(20 90% 50%)); color: white; box-shadow: 0 2px 10px hsl(352 73% 50% / 0.3); animation: hot-pulse 2s ease-in-out infinite; }
+  1983→@keyframes hot-pulse { 0%, 100% { box-shadow: 0 2px 10px hsl(352 73% 50% / 0.3); } 50% { box-shadow: 0 2px 20px hsl(352 73% 50% / 0.5); } }
+  1984→.mkt-status-badge { display: inline-flex; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.65rem; font-weight: 700; backdrop-filter: blur(8px); }
+  1985→.mkt-time-badge { position: absolute; top: 2.5rem; right: 0.625rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.65rem; font-weight: 600; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); color: rgba(255,255,255,0.9); }
+  1986→.mkt-location-badge { position: absolute; bottom: 0.625rem; left: 0.625rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.6rem; font-weight: 600; background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); color: rgba(255,255,255,0.8); }
+  1987→.mkt-type-badge { display: inline-flex; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.6rem; font-weight: 700; color: white; }
+  1988→.mkt-progress-ring { overflow: visible; flex-shrink: 0; }
+  1989→
+  1990→/* ============================================ */
+  1991→/* RAFFLE DETAIL V2 - Premium Redesign          */
+  1992→/* ============================================ */
+  1993→.rd-back-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 600; color: hsl(var(--muted-foreground)); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.3s ease; }
+  1994→.rd-back-btn:hover { background: rgba(255,255,255,0.06); color: hsl(var(--foreground)); }
+  1995→.rd-image-wrap { position: relative; overflow: hidden; border-radius: 1.5rem; aspect-ratio: 16/9; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+  1996→.rd-image-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%); pointer-events: none; }
+  1997→.rd-icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: all 0.3s ease; }
+  1998→.rd-icon-btn:hover { background: rgba(0,0,0,0.6); }
+  1999→.rd-price-badge { display: inline-flex; padding: 0.4rem 1rem; border-radius: 0.75rem; font-size: 1rem; font-weight: 900; color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: 0.02em; }
+  2000→.rd-business-badge { display: inline-flex; padding: 0.3rem 0.75rem; border-radius: 0.625rem; font-size: 0.7rem; font-weight: 700; background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.08); }
+  2001→.rd-excl-badge { display: inline-flex; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(8px); }
+  2002→.rd-stat-card { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px); transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  2003→.rd-stat-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.05); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+  2004→.rd-stat-icon { width: 44px; height: 44px; border-radius: 0.875rem; display: flex; align-items: center; justify-content: center; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  2005→.rd-stat-card:hover .rd-stat-icon { transform: scale(1.1) rotate(-5deg); }
+  2006→.rd-bolao-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; border-radius: 0.875rem; font-size: 0.8rem; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid hsl(352 73% 50% / 0.2); color: hsl(352 73% 50%); cursor: pointer; transition: all 0.3s ease; }
+  2007→.rd-bolao-btn:hover { background: hsl(352 73% 50% / 0.1); }
+  2008→.rd-progress-section { padding: 1.5rem; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); }
+  2009→.rd-info-card { padding: 1.5rem; border-radius: 1.25rem; background: rgba(255,255,255,0.025); border: 1px solid var(--card-accent, hsl(220 70% 18% / 0.15)); transition: all 0.3s ease; }
+  2010→.rd-info-card:hover { border-color: var(--card-accent, hsl(220 70% 18% / 0.25)); }
+  2011→.rd-ticket-panel { position: relative; overflow: hidden; border-radius: 1.5rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px); }
+  2012→.rd-ticket-panel::before { content: ""; position: absolute; inset: -1px; border-radius: 1.6rem; padding: 1.5px; background: conic-gradient(from 0deg, hsl(220 70% 18% / 0.3), hsl(352 73% 50% / 0.2), hsl(220 70% 18% / 0.1), hsl(220 70% 18% / 0.3)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; animation: conic-rotate 8s linear infinite; }
+  2013→.rd-lucky-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 700; background: hsl(45 93% 47% / 0.08); border: 1.5px dashed hsl(45 93% 47% / 0.3); color: hsl(45 93% 47%); cursor: pointer; transition: all 0.3s ease; margin-bottom: 1rem; }
+  2014→.rd-lucky-btn:hover { background: hsl(45 93% 47% / 0.12); border-color: hsl(45 93% 47% / 0.5); }
+  2015→.rd-number-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.375rem; max-height: 320px; overflow-y: auto; padding-right: 0.25rem; margin-bottom: 1.5rem; }
+  2016→.rd-number-grid::-webkit-scrollbar { width: 3px; }
+  2017→.rd-number-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  2018→.rd-num { aspect-ratio: 1; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; background: rgba(255,255,255,0.04); color: hsl(var(--foreground)); }
+  2019→.rd-num.available:hover { background: rgba(255,255,255,0.08); border-color: hsl(220 70% 18% / 0.3); transform: scale(1.05); }
+  2020→.rd-num.selected { border-color: transparent; transform: scale(1.05); }
+  2021→.rd-num.sold { background: rgba(255,255,255,0.02); opacity: 0.2; cursor: not-allowed; }
+  2022→.rd-selected-bar { padding-top: 1rem; margin-bottom: 1rem; border-top: 1px solid rgba(255,255,255,0.06); }
+  2023→.rd-selected-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; background: hsl(220 70% 18% / 0.15); color: hsl(220 70% 18%); cursor: pointer; transition: all 0.2s ease; }
+  2024→.rd-selected-chip:hover { background: hsl(220 70% 18% / 0.25); }
+  2025→.rd-buy-btn { display: flex; align-items: center; justify-content: center; gap: 0.625rem; padding: 0.875rem; border-radius: 1rem; font-size: 1rem; font-weight: 800; color: white; border: none; cursor: pointer; box-shadow: 0 6px 25px hsl(220 70% 18% / 0.3); transition: all 0.3s ease; }
+  2026→.rd-checkout-sheet { width: 100%; max-width: 28rem; overflow: hidden; display: flex; flex-direction: column; border-radius: 1.5rem; background: hsl(var(--card)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+  2027→.rd-checkout-header { padding: 1.25rem 1.25rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+  2028→.rd-close-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: none; color: hsl(var(--muted-foreground)); cursor: pointer; }
+  2029→.rd-order-summary { border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 0.75rem; }
+  2030→.rd-order-total { padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; }
+  2031→.rd-trust-badge { border-radius: 0.75rem; padding: 0.5rem; background: rgba(255,255,255,0.03); }
+  2032→.rd-cancel-btn { display: flex; align-items: center; justify-content: center; padding: 0.75rem; border-radius: 0.875rem; font-size: 0.875rem; font-weight: 600; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.3s ease; }
+  2033→.rd-cancel-btn:hover { background: rgba(255,255,255,0.06); }
+  2034→.rd-cta-btn { display: inline-flex; align-items: center; gap: 0.625rem; padding: 0.875rem 2rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 800; color: white; border: none; cursor: pointer; box-shadow: 0 6px 30px hsl(220 70% 18% / 0.3); }
+  2035→
+  2036→@media (max-width: 768px) {
+  2037→  .dirv2-card:hover, .dirv2-list-card:hover, .mkt-card:hover, .mkt-game-card:hover { transform: none; box-shadow: none; }
+  2038→  .rd-stat-card:hover { transform: none; }
+  2039→}
+  2040→
+  2041→/* ============================================ */
+  2042→/* CREATIVE EFFECTS V3 - Stickers, Glow & Magic */
+  2043→/* ============================================ */
+  2044→
+  2045→@keyframes ping-slow { 0% { transform: scale(1); opacity: 0.4; } 75%, 100% { transform: scale(2.2); opacity: 0; } }
+  2046→@keyframes float-sticker { 0%, 100% { transform: translateY(0) rotate(var(--sticker-rot-start, -3deg)); } 50% { transform: translateY(calc(var(--sticker-float, -12px))) rotate(var(--sticker-rot-end, 3deg)); } }
+  2047→@keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 20%, transparent); } 50% { box-shadow: 0 0 40px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent), 0 0 80px color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 15%, transparent); } }
+  2048→@keyframes shimmer-text { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+  2049→@keyframes confetti-fall { 0% { transform: translateY(-10px) rotate(0deg); opacity: 1; } 100% { transform: translateY(30px) rotate(360deg); opacity: 0; } }
+  2050→@keyframes orbit-ring { from { transform: rotate(0deg) translateX(var(--orbit-r, 60px)) rotate(0deg); } to { transform: rotate(360deg) translateX(var(--orbit-r, 60px)) rotate(-360deg); } }
+  2051→@keyframes magnetic-glow { 0%, 100% { filter: brightness(1) drop-shadow(0 0 0px transparent); } 50% { filter: brightness(1.15) drop-shadow(0 0 12px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 30%, transparent)); } }
+  2052→@keyframes gradient-x { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  2053→@keyframes border-dance { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+  2054→@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+  2055→@keyframes slide-in-bounce { 0% { transform: translateX(-30px) scale(0.9); opacity: 0; } 60% { transform: translateX(5px) scale(1.02); } 100% { transform: translateX(0) scale(1); opacity: 1; } }
+  2056→@keyframes sparkle-burst { 0% { transform: scale(0) rotate(0deg); opacity: 1; } 50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; } 100% { transform: scale(0) rotate(360deg); opacity: 0; } }
+  2057→@keyframes wave-text { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  2058→
+  2059→.animate-ping-slow { animation: ping-slow 2.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+  2060→.animate-float-sticker { animation: float-sticker 4s ease-in-out infinite; }
+  2061→.animate-glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+  2062→.animate-magnetic-glow { animation: magnetic-glow 4s ease-in-out infinite; }
+  2063→.animate-breathe { animation: breathe 4s ease-in-out infinite; }
+  2064→.animate-slide-in-bounce { animation: slide-in-bounce 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  2065→
+  2066→.text-shimmer-animated {
+  2067→  background: linear-gradient(90deg, var(--region-primary, hsl(var(--primary))) 0%, var(--region-accent, hsl(var(--accent))) 25%, var(--region-secondary, hsl(var(--secondary))) 50%, var(--region-accent, hsl(var(--accent))) 75%, var(--region-primary, hsl(var(--primary))) 100%);
+  2068→  background-size: 200% auto;
+  2069→  -webkit-background-clip: text;
+  2070→  background-clip: text;
+  2071→  -webkit-text-fill-color: transparent;
+  2072→  animation: shimmer-text 4s linear infinite;
+  2073→}
+  2074→
+  2075→.text-shimmer-slow {
+  2076→  background: linear-gradient(90deg, hsl(var(--foreground)) 0%, color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 60%, hsl(var(--foreground))) 50%, hsl(var(--foreground)) 100%);
+  2077→  background-size: 200% auto;
+  2078→  -webkit-background-clip: text;
+  2079→  background-clip: text;
+  2080→  -webkit-text-fill-color: transparent;
+  2081→  animation: shimmer-text 6s linear infinite;
+  2082→}
+  2083→
+  2084→.glass-premium {
+  2085→  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+  2086→  backdrop-filter: blur(24px) saturate(1.4);
+  2087→  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  2088→  border: 1px solid rgba(255,255,255,0.06);
+  2089→  box-shadow: 0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+  2090→}
+  2091→
+  2092→.glass-premium:hover {
+  2093→  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+  2094→  border-color: rgba(255,255,255,0.1);
+  2095→  box-shadow: 0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+  2096→}
+  2097→
+  2098→.gradient-border-animated {
+  2099→  position: relative;
+  2100→}
+  2101→.gradient-border-animated::before {
+  2102→  content: "";
+  2103→  position: absolute;
+  2104→  inset: -1px;
+  2105→  border-radius: inherit;
+  2106→  padding: 1.5px;
+  2107→  background: linear-gradient(90deg, color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent), color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 40%, transparent), color-mix(in srgb, var(--region-secondary, hsl(var(--secondary))) 30%, transparent), color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent));
+  2108→  background-size: 200% 100%;
+  2109→  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  2110→  -webkit-mask-composite: xor;
+  2111→  mask-composite: exclude;
+  2112→  pointer-events: none;
+  2113→  animation: border-dance 6s linear infinite;
+  2114→  opacity: 0.6;
+  2115→  transition: opacity 0.4s ease;
+  2116→}
+  2117→.gradient-border-animated:hover::before { opacity: 1; }
+  2118→
+  2119→.sticker {
+  2120→  display: inline-flex;
+  2121→  align-items: center;
+  2122→  justify-content: center;
+  2123→  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  2124→  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+  2125→}
+  2126→.sticker:hover {
+  2127→  transform: scale(1.2) rotate(-5deg) !important;
+  2128→  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.4));
+  2129→}
+  2130→
+  2131→.sticker-glow {
+  2132→  position: relative;
+  2133→}
+  2134→.sticker-glow::after {
+  2135→  content: "";
+  2136→  position: absolute;
+  2137→  inset: -4px;
+  2138→  border-radius: inherit;
+  2139→  background: inherit;
+  2140→  filter: blur(12px);
+  2141→  opacity: 0.3;
+  2142→  z-index: -1;
+  2143→  transition: opacity 0.4s ease;
+  2144→}
+  2145→.sticker-glow:hover::after { opacity: 0.5; }
+  2146→
+  2147→.hover-lift { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease; }
+  2148→.hover-lift:hover { transform: translateY(-6px); box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25); }
+  2149→
+  2150→.hover-glow { transition: box-shadow 0.4s ease; }
+  2151→.hover-glow:hover { box-shadow: 0 0 30px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 20%, transparent), 0 0 60px color-mix(in srgb, var(--region-accent, hsl(var(--accent))) 10%, transparent); }
+  2152→
+  2153→.text-wave span {
+  2154→  display: inline-block;
+  2155→  animation: wave-text 2s ease-in-out infinite;
+  2156→}
+  2157→.text-wave span:nth-child(2) { animation-delay: 0.1s; }
+  2158→.text-wave span:nth-child(3) { animation-delay: 0.2s; }
+  2159→.text-wave span:nth-child(4) { animation-delay: 0.3s; }
+  2160→.text-wave span:nth-child(5) { animation-delay: 0.4s; }
+  2161→.text-wave span:nth-child(6) { animation-delay: 0.5s; }
+  2162→.text-wave span:nth-child(7) { animation-delay: 0.6s; }
+  2163→
+  2164→.sparkle-container { position: relative; }
+  2165→.sparkle-container::before, .sparkle-container::after {
+  2166→  content: "\2728";
+  2167→  position: absolute;
+  2168→  font-size: 14px;
+  2169→  animation: sparkle-burst 3s ease-in-out infinite;
+  2170→  pointer-events: none;
+  2171→}
+  2172→.sparkle-container::before { top: -8px; right: -12px; animation-delay: 0s; }
+  2173→.sparkle-container::after { bottom: -6px; left: -10px; animation-delay: 1.5s; }
+  2174→
+  2175→.orbit-dot {
+  2176→  position: absolute;
+  2177→  width: 8px;
+  2178→  height: 8px;
+  2179→  border-radius: 50%;
+  2180→  background: var(--region-primary, hsl(var(--primary)));
+  2181→  animation: orbit-ring var(--orbit-dur, 8s) linear infinite;
+  2182→  box-shadow: 0 0 10px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 50%, transparent);
+  2183→}
+  2184→
+  2185→.card-3d-perspective {
+  2186→  perspective: 800px;
+  2187→}
+  2188→.card-3d {
+  2189→  transform-style: preserve-3d;
+  2190→  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  2191→}
+  2192→.card-3d:hover {
+  2193→  transform: rotateY(-5deg) rotateX(3deg) translateZ(10px);
+  2194→}
+  2195→
+  2196→.emoji-rain {
+  2197→  position: fixed;
+  2198→  pointer-events: none;
+  2199→  z-index: 9999;
+  2200→  font-size: 24px;
+  2201→  animation: confetti-fall 3s ease-in forwards;
+  2202→}
+  2203→
+  2204→.btn-magic {
+  2205→  position: relative;
+  2206→  overflow: hidden;
+  2207→}
+  2208→.btn-magic::before {
+  2209→  content: "";
+  2210→  position: absolute;
+  2211→  top: 50%;
+  2212→  left: 50%;
+  2213→  width: 0;
+  2214→  height: 0;
+  2215→  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+  2216→  border-radius: 50%;
+  2217→  transform: translate(-50%, -50%);
+  2218→  transition: width 0.6s ease, height 0.6s ease;
+  2219→}
+  2220→.btn-magic:hover::before { width: 300px; height: 300px; }
+  2221→
+  2222→.border-gradient-animated {
+  2223→  border-image: linear-gradient(var(--angle, 0deg), var(--region-primary, hsl(var(--primary))), var(--region-accent, hsl(var(--accent))), var(--region-secondary, hsl(var(--secondary))), var(--region-primary, hsl(var(--primary)))) 1;
+  2224→  animation: gradient-x 4s ease infinite;
+  2225→  background: border-gradient-animated;
+  2226→}
+  2227→
+  2228→.progress-glow {
+  2229→  box-shadow: 0 0 8px color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 40%, transparent);
+  2230→}
+  2231→
+  2232→.tag-glow {
+  2233→  animation: glow-pulse 3s ease-in-out infinite;
+  2234→}
+  2235→
+  2236→.floating-badge {
+  2237→  animation: float-sticker 3s ease-in-out infinite;
+  2238→}
+  2239→
+  2240→/* ===== Gaming-themed CSS Effects ===== */
+  2241→
+  2242→/* 1. Gaming sticker/badge float animation */
+  2243→@keyframes sticker-float {
+  2244→  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1); }
+  2245→  25% { transform: translateY(-8px) rotate(2deg) scale(1.05); }
+  2246→  50% { transform: translateY(-4px) rotate(-1deg) scale(1.02); }
+  2247→  75% { transform: translateY(-12px) rotate(3deg) scale(0.98); }
+  2248→}
+  2249→.gaming-sticker {
+  2250→  animation: sticker-float 6s ease-in-out infinite;
+  2251→  display: inline-flex;
+  2252→  align-items: center;
+  2253→  justify-content: center;
+  2254→}
+  2255→
+  2256→/* 2. Prize glow shimmer */
+  2257→@keyframes prize-shimmer {
+  2258→  0% { background-position: -200% center; }
+  2259→  100% { background-position: 200% center; }
+  2260→}
+  2261→.prize-shimmer {
+  2262→  background: linear-gradient(90deg, transparent 0%, rgba(251, 191, 36, 0.08) 25%, rgba(251, 191, 36, 0.15) 50%, rgba(251, 191, 36, 0.08) 75%, transparent 100%);
+  2263→  background-size: 200% 100%;
+  2264→  animation: prize-shimmer 3s linear infinite;
+  2265→}
+  2266→
+  2267→/* 3. Neon card border effect */
+  2268→@keyframes neon-flicker {
+  2269→  0%, 100% { opacity: 1; }
+  2270→  92% { opacity: 1; }
+  2271→  93% { opacity: 0.7; }
+  2272→  94% { opacity: 1; }
+  2273→  96% { opacity: 0.8; }
+  2274→  97% { opacity: 1; }
+  2275→}
+  2276→.neon-card-border {
+  2277→  position: relative;
+  2278→}
+  2279→.neon-card-border::before {
+  2280→  content: '';
+  2281→  position: absolute;
+  2282→  inset: -1px;
+  2283→  border-radius: inherit;
+  2284→  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)));
+  2285→  background-size: 200% 200%;
+  2286→  animation: gradient-pan 4s ease infinite, neon-flicker 8s ease-in-out infinite;
+  2287→  z-index: -1;
+  2288→  opacity: 0.6;
+  2289→  transition: opacity 0.3s;
+  2290→}
+  2291→.neon-card-border:hover::before {
+  2292→  opacity: 1;
+  2293→}
+  2294→
+  2295→/* 4. Ripple button effect */
+  2296→.gaming-btn-ripple {
+  2297→  position: relative;
+  2298→  overflow: hidden;
+  2299→}
+  2300→.gaming-btn-ripple::after {
+  2301→  content: '';
+  2302→  position: absolute;
+  2303→  inset: 0;
+  2304→  background: radial-gradient(circle at var(--rx, 50%) var(--ry, 50%), rgba(255,255,255,0.2) 0%, transparent 60%);
+  2305→  opacity: 0;
+  2306→  transition: opacity 0.3s;
+  2307→}
+  2308→.gaming-btn-ripple:hover::after {
+  2309→  opacity: 1;
+  2310→}
+  2311→
+  2312→/* 5. Typing/reveal text animation */
+  2313→@keyframes text-reveal {
+  2314→  0% { clip-path: inset(0 100% 0 0); }
+  2315→  100% { clip-path: inset(0 0 0 0); }
+  2316→}
+  2317→.text-reveal {
+  2318→  animation: text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  2319→}
+  2320→.text-reveal-delay-1 {
+  2321→  animation-delay: 0.1s;
+  2322→  clip-path: inset(0 100% 0 0);
+  2323→}
+  2324→.text-reveal-delay-2 {
+  2325→  animation-delay: 0.2s;
+  2326→  clip-path: inset(0 100% 0 0);
+  2327→}
+  2328→.text-reveal-delay-3 {
+  2329→  animation-delay: 0.3s;
+  2330→  clip-path: inset(0 100% 0 0);
+  2331→}
+  2332→
+  2333→/* 6. Energy line sweep for section dividers */
+  2334→@keyframes energy-line {
+  2335→  0% { transform: translateX(-100%); opacity: 0; }
+  2336→  20% { opacity: 1; }
+  2337→  80% { opacity: 1; }
+  2338→  100% { transform: translateX(100%); opacity: 0; }
+  2339→}
+  2340→.energy-line-divider {
+  2341→  position: relative;
+  2342→  height: 1px;
+  2343→  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  2344→  overflow: hidden;
+  2345→}
+  2346→.energy-line-divider::after {
+  2347→  content: '';
+  2348→  position: absolute;
+  2349→  top: -1px;
+  2350→  left: 0;
+  2351→  width: 30%;
+  2352→  height: 3px;
+  2353→  background: linear-gradient(90deg, transparent, hsl(var(--primary)), hsl(var(--accent)), transparent);
+  2354→  border-radius: 2px;
+  2355→  animation: energy-line 6s ease-in-out infinite;
+  2356→}
+  2357→
+  2358→/* 7. Glow dot background pattern */
+  2359→.glow-dots-bg {
+  2360→  position: relative;
+  2361→}
+  2362→.glow-dots-bg::before {
+  2363→  content: '';
+  2364→  position: absolute;
+  2365→  inset: 0;
+  2366→  background-image: radial-gradient(circle 1px at 10% 20%, hsl(var(--primary) / 0.15), transparent 1px), radial-gradient(circle 1px at 30% 60%, hsl(var(--accent) / 0.1), transparent 1px), radial-gradient(circle 1px at 50% 30%, hsl(var(--primary) / 0.12), transparent 1px), radial-gradient(circle 1px at 70% 70%, hsl(var(--accent) / 0.08), transparent 1px), radial-gradient(circle 1px at 90% 40%, hsl(var(--primary) / 0.1), transparent 1px), radial-gradient(circle 1px at 20% 80%, hsl(var(--accent) / 0.12), transparent 1px), radial-gradient(circle 1px at 60% 10%, hsl(var(--primary) / 0.08), transparent 1px), radial-gradient(circle 1px at 80% 90%, hsl(var(--accent) / 0.1), transparent 1px);
+  2367→  pointer-events: none;
+  2368→  z-index: 0;
+  2369→  animation: cosmic-pulse 10s ease-in-out infinite;
+  2370→}
+  2371→
+  2372→/* 8. 3D perspective tilt for cards on hover */
+  2373→.perspective-tilt {
+  2374→  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+  2375→  transform-style: preserve-3d;
+  2376→}
+  2377→.perspective-tilt:hover {
+  2378→  transform: translateY(-6px) rotateX(2deg) rotateY(-2deg);
+  2379→  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.2), 0 0 20px hsl(var(--primary) / 0.08);
+  2380→}
+  2381→
+  2382→/* 9. Confetti burst keyframe (for winners) */
+  2383→@keyframes confetti-fall {
+  2384→  0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+  2385→  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  2386→}
+  2387→.confetti-piece {
+  2388→  position: fixed;
+  2389→  width: 8px;
+  2390→  height: 8px;
+  2391→  pointer-events: none;
+  2392→  z-index: 9999;
+  2393→  animation: confetti-fall 3s ease-in forwards;
+  2394→}
+  2395→
+  2396→/* 10. Pulse ring for live indicators */
+  2397→@keyframes live-pulse-ring {
+  2398→  0% { transform: scale(0.8); opacity: 0.8; border-color: hsl(var(--accent)); }
+  2399→  100% { transform: scale(2.2); opacity: 0; border-color: hsl(var(--accent)); }
+  2400→}
+  2401→.live-pulse-ring {
+  2402→  position: relative;
+  2403→}
+  2404→.live-pulse-ring::before {
+  2405→  content: '';
+  2406→  position: absolute;
+  2407→  inset: -4px;
+  2408→  border-radius: 50%;
+  2409→  border: 2px solid hsl(var(--accent));
+  2410→  animation: live-pulse-ring 2s ease-out infinite;
+  2411→  pointer-events: none;
+  2412→}
+  2413→
+  2414→
+  2415→/* ===== ENHANCED BACKGROUND EFFECTS ===== */
+  2416→
+  2417→/* Slow morph blob variant */
+  2418→.morph-blob-slow {
+  2419→  animation: morph 25s ease-in-out infinite;
+  2420→}
+  2421→
+  2422→/* Subtle grid pattern for gaming/tech feel */
+  2423→.bg-grid-pattern {
+  2424→  position: absolute;
+  2425→  inset: 0;
+  2426→  background-image:
+  2427→    linear-gradient(hsl(var(--primary) / 0.03) 1px, transparent 1px),
+  2428→    linear-gradient(90deg, hsl(var(--primary) / 0.03) 1px, transparent 1px);
+  2429→  background-size: 60px 60px;
+  2430→  pointer-events: none;
+  2431→  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 100%);
+  2432→  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 100%);
+  2433→}
+  2434→
+  2435→/* Subtle noise texture overlay */
+  2436→.bg-noise-overlay {
+  2437→  position: absolute;
+  2438→  inset: 0;
+  2439→  opacity: 0.018;
+  2440→  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  2441→  background-repeat: repeat;
+  2442→  background-size: 200px 200px;
+  2443→  pointer-events: none;
+  2444→}
+  2445→
+  2446→/* Subtle scanline effect for gaming vibe */
+  2447→.scanline-overlay {
+  2448→  position: absolute;
+  2449→  inset: 0;
+  2450→  background: repeating-linear-gradient(
+  2451→    0deg,
+  2452→    transparent,
+  2453→    transparent 2px,
+  2454→    hsl(var(--primary) / 0.01) 2px,
+  2455→    hsl(var(--primary) / 0.01) 4px
+  2456→  );
+  2457→  pointer-events: none;
+  2458→  opacity: 0.4;
+  2459→}
+  2460→
+  2461→/* Aurora beam effects */
+  2462→.aurora-beam {
+  2463→  position: absolute;
+  2464→  border-radius: 50%;
+  2465→  filter: blur(80px);
+  2466→  pointer-events: none;
+  2467→  mix-blend-mode: screen;
+  2468→}
+  2469→
+  2470→.aurora-beam-1 {
+  2471→  top: -20%;
+  2472→  left: -10%;
+  2473→  width: 60%;
+  2474→  height: 50%;
+  2475→  background: linear-gradient(
+  2476→    135deg,
+  2477→    hsl(var(--primary) / 0.06),
+  2478→    hsl(270 60% 55% / 0.04),
+  2479→    transparent
+  2480→  );
+  2481→  animation: aurora-drift-1 18s ease-in-out infinite;
+  2482→}
+  2483→
+  2484→.aurora-beam-2 {
+  2485→  bottom: -15%;
+  2486→  right: -10%;
+  2487→  width: 55%;
+  2488→  height: 45%;
+  2489→  background: linear-gradient(
+  2490→    225deg,
+  2491→    hsl(var(--accent) / 0.05),
+  2492→    hsl(42 95% 52% / 0.03),
+  2493→    transparent
+  2494→  );
+  2495→  animation: aurora-drift-2 22s ease-in-out infinite;
+  2496→}
+  2497→
+  2498→.aurora-beam-3 {
+  2499→  top: 30%;
+  2500→  left: 30%;
+  2501→  width: 40%;
+  2502→  height: 35%;
+  2503→  background: linear-gradient(
+  2504→    45deg,
+  2505→    hsl(190 80% 50% / 0.03),
+  2506→    hsl(var(--primary) / 0.04),
+  2507→    transparent
+  2508→  );
+  2509→  animation: aurora-drift-3 20s ease-in-out infinite;
+  2510→}
+  2511→
+  2512→@keyframes aurora-drift-1 {
+  2513→  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  2514→  33% { transform: translate(5%, 3%) scale(1.1) rotate(2deg); }
+  2515→  66% { transform: translate(-3%, 5%) scale(0.95) rotate(-1deg); }
+  2516→}
+  2517→
+  2518→@keyframes aurora-drift-2 {
+  2519→  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  2520→  33% { transform: translate(-4%, -3%) scale(1.05) rotate(-2deg); }
+  2521→  66% { transform: translate(3%, -5%) scale(1.1) rotate(1deg); }
+  2522→}
+  2523→
+  2524→@keyframes aurora-drift-3 {
+  2525→  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  2526→  50% { transform: translate(8%, -4%) scale(1.15) rotate(3deg); }
+  2527→}
+  2528→
+  2529→/* Vignette overlay for depth */
+  2530→.vignette-overlay {
+  2531→  position: absolute;
+  2532→  inset: 0;
+  2533→  background: radial-gradient(
+  2534→    ellipse at center,
+  2535→    transparent 50%,
+  2536→    hsl(var(--background) / 0.3) 100%
+  2537→  );
+  2538→  pointer-events: none;
+  2539→}
+  2540→
+  2541→/* Shimmer floor effect at bottom */
+  2542→.shimmer-floor {
+  2543→  position: absolute;
+  2544→  bottom: 0;
+  2545→  left: -10%;
+  2546→  width: 120%;
+  2547→  height: 180px;
+  2548→  background: linear-gradient(
+  2549→    0deg,
+  2550→    hsl(var(--primary) / 0.03) 0%,
+  2551→    hsl(var(--accent) / 0.02) 40%,
+  2552→    transparent 100%
+  2553→  );
+  2554→  animation: shimmer-floor-drift 12s ease-in-out infinite;
+  2555→  pointer-events: none;
+  2556→}
+  2557→
+  2558→@keyframes shimmer-floor-drift {
+  2559→  0%, 100% { transform: translateX(0) scaleX(1); opacity: 1; }
+  2560→  50% { transform: translateX(-5%) scaleX(1.05); opacity: 0.7; }
+  2561→}
+  2562→
+  2563→/* Sparkle burst on interactive elements */
+  2564→@keyframes sparkle-burst {
+  2565→  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  2566→  50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; }
+  2567→  100% { transform: scale(0) rotate(360deg); opacity: 0; }
+  2568→}
+  2569→
+  2570→.sparkle-effect::after {
+  2571→  content: '';
+  2572→  position: absolute;
+  2573→  inset: -4px;
+  2574→  background: conic-gradient(
+  2575→    from 0deg,
+  2576→    transparent 0deg,
+  2577→    hsl(var(--accent) / 0.1) 60deg,
+  2578→    transparent 120deg
+  2579→  );
+  2580→  border-radius: inherit;
+  2581→  animation: sparkle-burst 4s linear infinite;
+  2582→  pointer-events: none;
+  2583→}
+  2584→
+  2585→/* Pulse glow for live/active elements */
+  2586→@keyframes pulse-glow-primary {
+  2587→  0%, 100% { box-shadow: 0 0 8px hsl(var(--primary) / 0.3), 0 0 20px hsl(var(--primary) / 0.1); }
+  2588→  50% { box-shadow: 0 0 16px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.2); }
+  2589→}
+  2590→
+  2591→@keyframes pulse-glow-accent {
+  2592→  0%, 100% { box-shadow: 0 0 8px hsl(var(--accent) / 0.3), 0 0 20px hsl(var(--accent) / 0.1); }
+  2593→  50% { box-shadow: 0 0 16px hsl(var(--accent) / 0.5), 0 0 40px hsl(var(--accent) / 0.2); }
+  2594→}
+  2595→
+  2596→.pulse-glow {
+  2597→  animation: pulse-glow-primary 3s ease-in-out infinite;
+  2598→}
+  2599→
+  2600→.pulse-glow-accent {
+  2601→  animation: pulse-glow-accent 3s ease-in-out infinite;
+  2602→}
+  2603→
+  2604→/* Floating sticker animation */
+  2605→@keyframes sticker-bounce {
+  2606→  0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+  2607→  25% { transform: translateY(-6px) scale(1.05) rotate(3deg); }
+  2608→  50% { transform: translateY(-2px) scale(0.98) rotate(-2deg); }
+  2609→  75% { transform: translateY(-8px) scale(1.03) rotate(1deg); }
+  2610→}
+  2611→
+  2612→.sticker-float {
+  2613→  animation: sticker-bounce 4s ease-in-out infinite;
+  2614→}
+  2615→
+  2616→/* Shine sweep for cards */
+  2617→@keyframes shine-sweep {
+  2618→  0% { left: -100%; }
+  2619→  100% { left: 200%; }
+  2620→}
+  2621→
+  2622→.shine-card {
+  2623→  position: relative;
+  2624→  overflow: hidden;
+  2625→}
+  2626→.shine-card::before {
+  2627→  content: '';
+  2628→  position: absolute;
+  2629→  top: 0;
+  2630→  left: -100%;
+  2631→  width: 50%;
+  2632→  height: 100%;
+  2633→  background: linear-gradient(
+  2634→    90deg,
+  2635→    transparent,
+  2636→    hsl(var(--primary) / 0.04),
+  2637→    transparent
+  2638→  );
+  2639→  animation: shine-sweep 6s ease-in-out infinite;
+  2640→  pointer-events: none;
+  2641→  z-index: 1;
+  2642→}
+  2643→
+  2644→/* Energy wave ripple */
+  2645→@keyframes energy-ripple {
+  2646→  0% { transform: scale(0.8); opacity: 0.6; }
+  2647→  100% { transform: scale(2.5); opacity: 0; }
+  2648→}
+  2649→
+  2650→.energy-ripple::before {
+  2651→  content: '';
+  2652→  position: absolute;
+  2653→  inset: -2px;
+  2654→  border: 2px solid hsl(var(--accent) / 0.4);
+  2655→  border-radius: inherit;
+  2656→  animation: energy-ripple 2s ease-out infinite;
+  2657→  pointer-events: none;
+  2658→}
+  2659→
+  2660→/* Glow text effect for headings */
+  2661→.glow-text-primary {
+  2662→  text-shadow: 0 0 20px hsl(var(--primary) / 0.3), 0 0 40px hsl(var(--primary) / 0.15);
+  2663→}
+  2664→
+  2665→.glow-text-accent {
+  2666→  text-shadow: 0 0 20px hsl(var(--accent) / 0.3), 0 0 40px hsl(var(--accent) / 0.15);
+  2667→}
+  2668→
+  2669→.glow-text-gold {
+  2670→  text-shadow: 0 0 20px hsl(42 95% 52% / 0.4), 0 0 40px hsl(42 95% 52% / 0.2);
+  2671→}
+  2672→
+  2673→/* Gaming grid pattern overlay */
+  2674→.gaming-grid-overlay {
+  2675→  position: absolute;
+  2676→  inset: 0;
+  2677→  background-image:
+  2678→    linear-gradient(hsl(var(--primary) / 0.03) 1px, transparent 1px),
+  2679→    linear-gradient(90deg, hsl(var(--primary) / 0.03) 1px, transparent 1px);
+  2680→  background-size: 40px 40px;
+  2681→  pointer-events: none;
+  2682→  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  2683→  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  2684→}
+  2685→
+  2686→/* Card hover lift with glow */
+  2687→.card-glow-hover {
+  2688→  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  2689→}
+  2690→.card-glow-hover:hover {
+  2691→  transform: translateY(-6px);
+  2692→  box-shadow:
+  2693→    0 12px 40px -8px hsl(var(--primary) / 0.2),
+  2694→    0 0 0 1px hsl(var(--primary) / 0.08),
+  2695→    0 0 30px hsl(var(--accent) / 0.08);
+  2696→}
+  2697→
+  2698→/* Gradient border animation for featured cards */
+  2699→@keyframes gradient-border-spin {
+  2700→  0% { --border-angle: 0deg; }
+  2701→  100% { --border-angle: 360deg; }
+  2702→}
+  2703→
+  2704→.gradient-border-animated {
+  2705→  --border-angle: 0deg;
+  2706→  position: relative;
+  2707→  border-radius: 1rem;
+  2708→}
+  2709→.gradient-border-animated::before {
+  2710→  content: '';
+  2711→  position: absolute;
+  2712→  inset: 0;
+  2713→  border-radius: inherit;
+  2714→  padding: 2px;
+  2715→  background: conic-gradient(
+  2716→    from var(--border-angle),
+  2717→    hsl(var(--primary)),
+  2718→    hsl(var(--accent)),
+  2719→    hsl(270 60% 55%),
+  2720→    hsl(42 95% 52%),
+  2721→    hsl(var(--primary))
+  2722→  );
+  2723→  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  2724→  -webkit-mask-composite: xor;
+  2725→  mask-composite: exclude;
+  2726→  animation: gradient-border-spin 5s linear infinite;
+  2727→  pointer-events: none;
+  2728→}
+  2729→
+  2730→/* Confetti-like particle dot animation */
+  2731→@keyframes confetti-fall {
+  2732→  0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+  2733→  10% { opacity: 1; }
+  2734→  90% { opacity: 1; }
+  2735→  100% { transform: translateY(20px) rotate(360deg); opacity: 0; }
+  2736→}
+  2737→
+  2738→/* Neon border card effect */
+  2739→.neon-border {
+  2740→  border: 1px solid hsl(var(--primary) / 0.15);
+  2741→  box-shadow:
+  2742→    inset 0 0 20px hsl(var(--primary) / 0.03),
+  2743→    0 0 15px hsl(var(--primary) / 0.05);
+  2744→  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  2745→}
+  2746→.neon-border:hover {
+  2747→  border-color: hsl(var(--primary) / 0.3);
+  2748→  box-shadow:
+  2749→    inset 0 0 30px hsl(var(--primary) / 0.05),
+  2750→    0 0 25px hsl(var(--primary) / 0.1),
+  2751→    0 0 50px hsl(var(--accent) / 0.05);
+  2752→}
+  2753→
+  2754→/* Glassmorphism elevated card */
+  2755→.glass-elevated {
+  2756→  background: hsl(var(--card) / 0.7);
+  2757→  backdrop-filter: blur(20px) saturate(1.2);
+  2758→  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  2759→  border: 1px solid hsl(var(--border) / 0.4);
+  2760→  box-shadow:
+  2761→    0 8px 32px -4px hsl(var(--primary) / 0.08),
+  2762→    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  2763→}
+  2764→
+  2765→/* Animated chevron bounce */
+  2766→@keyframes chevron-bounce {
+  2767→  0%, 100% { transform: translateX(0); }
+  2768→  50% { transform: translateX(4px); }
+  2769→}
+  2770→.chevron-animate {
+  2771→  animation: chevron-bounce 1.5s ease-in-out infinite;
+  2772→}
+  2773→
+  2774→/* Stagger children entrance */
+  2775→.stagger-children > * {
+  2776→  opacity: 0;
+  2777→  transform: translateY(16px);
+  2778→  animation: stagger-in 0.5s ease forwards;
+  2779→}
+  2780→@keyframes stagger-in {
+  2781→  to { opacity: 1; transform: translateY(0); }
+  2782→}
+  2783→.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  2784→.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+  2785→.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  2786→.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+  2787→.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  2788→.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+  2789→.stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+  2790→.stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+  2791→.stagger-children > *:nth-child(9) { animation-delay: 0.45s; }
+  2792→.stagger-children > *:nth-child(10) { animation-delay: 0.5s; }
+  2793→.stagger-children > *:nth-child(n+11) { animation-delay: 0.55s; }
+  2794→
+  2795→/* ═══════════════════════════════════════════════════════
+  2796→   REFINED DIRECTORY HERO
+  2797→   ═══════════════════════════════════════════════════════ */
+  2798→.dir-hero-aurora {
+  2799→  position: absolute;
+  2800→  inset: 0;
+  2801→  overflow: hidden;
+  2802→  z-index: 0;
+  2803→}
+  2804→.dir-hero-aurora-blob {
+  2805→  position: absolute;
+  2806→  border-radius: 50%;
+  2807→  filter: blur(100px);
+  2808→  opacity: 0.6;
+  2809→}
+  2810→.dir-hero-aurora-blob-1 {
+  2811→  width: 500px;
+  2812→  height: 500px;
+  2813→  top: -10%;
+  2814→  left: 20%;
+  2815→  background: hsl(220 70% 18% / 0.2);
+  2816→  animation: dir-aurora-drift 20s ease-in-out infinite;
+  2817→}
+  2818→.dir-hero-aurora-blob-2 {
+  2819→  width: 400px;
+  2820→  height: 400px;
+  2821→  bottom: -5%;
+  2822→  right: 15%;
+  2823→  background: hsl(352 73% 50% / 0.12);
+  2824→  animation: dir-aurora-drift 25s ease-in-out infinite reverse;
+  2825→}
+  2826→@keyframes dir-aurora-drift {
+  2827→  0%, 100% { transform: translate(0, 0) scale(1); }
+  2828→  33% { transform: translate(30px, -20px) scale(1.08); }
+  2829→  66% { transform: translate(-20px, 15px) scale(0.95); }
+  2830→}
+  2831→.dir-hero-cursor {
+  2832→  position: absolute;
+  2833→  inset: 0;
+  2834→  pointer-events: none;
+  2835→  transition: background 0.3s ease;
+  2836→  z-index: 1;
+  2837→}
+  2838→
+  2839→/* ═══════════════════════════════════════════════════════
+  2840→   OVERLAY COMPONENTS (LiveOverlay, OverlayLive)
+  2841→   ═══════════════════════════════════════════════════════ */
+  2842→.ov-badge {
+  2843→  display: inline-flex;
+  2844→  align-items: center;
+  2845→  gap: 6px;
+  2846→  padding: 6px 14px;
+  2847→  border-radius: 100px;
+  2848→  font-size: 12px;
+  2849→  font-weight: 700;
+  2850→  backdrop-filter: blur(16px);
+  2851→  letter-spacing: 0.03em;
+  2852→}
+  2853→.ov-badge-live {
+  2854→  background: rgba(239, 68, 68, 0.85);
+  2855→  color: #fff;
+  2856→  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+  2857→}
+  2858→.ov-badge-ended {
+  2859→  background: rgba(30, 30, 40, 0.85);
+  2860→  color: #a1a1aa;
+  2861→  border: 1px solid rgba(255,255,255,0.08);
+  2862→}
+  2863→.ov-code {
+  2864→  font-size: 10px;
+  2865→  opacity: 0.7;
+  2866→  margin-left: 4px;
+  2867→  font-weight: 600;
+  2868→}
+  2869→.ov-pulse-dot {
+  2870→  animation: ov-pulse 1.5s ease-in-out infinite;
+  2871→}
+  2872→@keyframes ov-pulse {
+  2873→  0%, 100% { opacity: 1; }
+  2874→  50% { opacity: 0.4; }
+  2875→}
+  2876→.ov-game-pill {
+  2877→  display: inline-flex;
+  2878→  align-items: center;
+  2879→  gap: 6px;
+  2880→  padding: 6px 12px;
+  2881→  border-radius: 100px;
+  2882→  font-size: 11px;
+  2883→  font-weight: 500;
+  2884→  background: rgba(0,0,0,0.6);
+  2885→  backdrop-filter: blur(16px);
+  2886→  border: 1px solid rgba(255,255,255,0.06);
+  2887→  color: rgba(255,255,255,0.8);
+  2888→}
+  2889→.ov-game-name {
+  2890→  text-transform: uppercase;
+  2891→  letter-spacing: 0.08em;
+  2892→  font-weight: 600;
+  2893→}
+  2894→.ov-separator {
+  2895→  width: 1px;
+  2896→  height: 12px;
+  2897→  background: rgba(255,255,255,0.1);
+  2898→}
+  2899→.ov-phase {
+  2900→  text-transform: uppercase;
+  2901→  font-size: 10px;
+  2902→  font-weight: 700;
+  2903→  letter-spacing: 0.05em;
+  2904→}
+  2905→.ov-phase-run { color: #34d399; }
+  2906→.ov-phase-wait { color: #fbbf24; }
+  2907→.ov-timer {
+  2908→  font-family: ui-monospace, SFMono-Regular, monospace;
+  2909→  font-size: 11px;
+  2910→  font-weight: 600;
+  2911→  color: #e5e5e5;
+  2912→}
+  2913→
+  2914→.ov-leaderboard {
+  2915→  background: rgba(0,0,0,0.65);
+  2916→  backdrop-filter: blur(20px) saturate(1.2);
+  2917→  border: 1px solid rgba(255,255,255,0.08);
+  2918→  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  2919→}
+  2920→.ov-lb-header {
+  2921→  display: flex;
+  2922→  align-items: center;
+  2923→  gap: 8px;
+  2924→  padding: 12px 16px;
+  2925→  border-bottom: 1px solid rgba(255,255,255,0.06);
+  2926→  background: linear-gradient(135deg, rgba(251,191,36,0.08), transparent);
+  2927→}
+  2928→.ov-lb-title {
+  2929→  font-size: 13px;
+  2930→  font-weight: 700;
+  2931→  flex: 1;
+  2932→}
+  2933→.ov-lb-count {
+  2934→  font-size: 10px;
+  2935→  font-weight: 700;
+  2936→  padding: 2px 8px;
+  2937→  border-radius: 100px;
+  2938→  background: rgba(255,255,255,0.08);
+  2939→  color: rgba(255,255,255,0.5);
+  2940→}
+  2941→.ov-lb-empty {
+  2942→  display: flex;
+  2943→  flex-direction: column;
+  2944→  align-items: center;
+  2945→  justify-content: center;
+  2946→  padding: 24px 16px;
+  2947→  gap: 8px;
+  2948→}
+  2949→.ov-lb-empty-text {
+  2950→  font-size: 12px;
+  2951→  color: rgba(255,255,255,0.3);
+  2952→}
+  2953→.ov-lb-list {
+  2954→  list-style: none;
+  2955→  margin: 0;
+  2956→  padding: 0;
+  2957→}
+  2958→.ov-lb-item {
+  2959→  display: flex;
+  2960→  align-items: center;
+  2961→  gap: 10px;
+  2962→  padding: 10px 14px;
+  2963→  border-left: 3px solid transparent;
+  2964→  transition: background-color 0.3s ease;
+  2965→}
+  2966→.ov-lb-rank {
+  2967→  width: 24px;
+  2968→  height: 24px;
+  2969→  border-radius: 8px;
+  2970→  display: flex;
+  2971→  align-items: center;
+  2972→  justify-content: center;
+  2973→  font-size: 10px;
+  2974→  font-weight: 800;
+  2975→  flex-shrink: 0;
+  2976→}
+  2977→.ov-lb-info {
+  2978→  flex: 1;
+  2979→  min-width: 0;
+  2980→}
+  2981→.ov-lb-name {
+  2982→  font-size: 12px;
+  2983→  font-weight: 700;
+  2984→  white-space: nowrap;
+  2985→  overflow: hidden;
+  2986→  text-overflow: ellipsis;
+  2987→  color: #fff;
+  2988→}
+  2989→.ov-lb-game {
+  2990→  font-size: 9px;
+  2991→  color: rgba(255,255,255,0.4);
+  2992→  margin-top: 1px;
+  2993→}
+  2994→.ov-lb-score {
+  2995→  font-size: 14px;
+  2996→  font-weight: 800;
+  2997→  font-variant-numeric: tabular-nums;
+  2998→}
+  2999→
+  3000→.ov-winner-card {
+  3001→  position: relative;
+  3002→  padding: 20px 36px;
+  3003→  border-radius: 24px;
+  3004→  background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+  3005→  box-shadow: 0 12px 50px rgba(251,191,36,0.3), 0 0 100px rgba(251,191,36,0.15);
+  3006→}
+  3007→.ov-winner-glow {
+  3008→  position: absolute;
+  3009→  inset: -2px;
+  3010→  border-radius: 26px;
+  3011→  background: linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b);
+  3012→  filter: blur(12px);
+  3013→  opacity: 0.5;
+  3014→  animation: ov-glow-pulse 2s ease-in-out infinite;
+  3015→}
+  3016→@keyframes ov-glow-pulse {
+  3017→  0%, 100% { opacity: 0.3; transform: scale(1); }
+  3018→  50% { opacity: 0.6; transform: scale(1.02); }
+  3019→}
+  3020→.ov-winner-content {
+  3021→  position: relative;
+  3022→  z-index: 1;
+  3023→  display: flex;
+  3024→  align-items: center;
+  3025→  gap: 16px;
+  3026→}
+  3027→.ov-winner-label {
+  3028→  font-size: 10px;
+  3029→  text-transform: uppercase;
+  3030→  letter-spacing: 0.15em;
+  3031→  font-weight: 800;
+  3032→  opacity: 0.6;
+  3033→}
+  3034→.ov-winner-name {
+  3035→  font-size: 26px;
+  3036→  font-weight: 900;
+  3037→  line-height: 1.2;
+  3038→  color: #000;
+  3039→  text-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  3040→}
+  3041→.ov-winner-meta {
+  3042→  font-size: 12px;
+  3043→  font-weight: 600;
+  3044→  opacity: 0.7;
+  3045→  color: #000;
+  3046→  margin-top: 2px;
+  3047→}
+  3048→
+  3049→.ov-panel {
+  3050→  width: 100%;
+  3051→  max-width: 420px;
+  3052→  border-radius: 20px;
+  3053→  background: rgba(0,0,0,0.7);
+  3054→  backdrop-filter: blur(20px) saturate(1.3);
+  3055→  border: 1px solid rgba(255,255,255,0.08);
+  3056→  padding: 20px;
+  3057→  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  3058→}
+  3059→.ov-panel-header {
+  3060→  display: flex;
+  3061→  align-items: center;
+  3062→  justify-content: space-between;
+  3063→  margin-bottom: 16px;
+  3064→}
+  3065→.ov-panel-title {
+  3066→  font-size: 16px;
+  3067→  font-weight: 800;
+  3068→}
+  3069→.ov-status-live {
+  3070→  font-size: 10px;
+  3071→  text-transform: uppercase;
+  3072→  font-weight: 700;
+  3073→  letter-spacing: 0.08em;
+  3074→  padding: 4px 12px;
+  3075→  border-radius: 100px;
+  3076→  background: rgba(239,68,68,0.15);
+  3077→  color: #f87171;
+  3078→  border: 1px solid rgba(239,68,68,0.25);
+  3079→  animation: ov-pulse 1.5s ease-in-out infinite;
+  3080→}
+  3081→.ov-status-ended {
+  3082→  font-size: 10px;
+  3083→  text-transform: uppercase;
+  3084→  font-weight: 700;
+  3085→  letter-spacing: 0.08em;
+  3086→  padding: 4px 12px;
+  3087→  border-radius: 100px;
+  3088→  background: rgba(255,255,255,0.05);
+  3089→  color: #71717a;
+  3090→}
+  3091→.ov-status-upcoming {
+  3092→  font-size: 10px;
+  3093→  text-transform: uppercase;
+  3094→  font-weight: 700;
+  3095→  letter-spacing: 0.08em;
+  3096→  padding: 4px 12px;
+  3097→  border-radius: 100px;
+  3098→  background: rgba(52,211,153,0.12);
+  3099→  color: #34d399;
+  3100→  border: 1px solid rgba(52,211,153,0.2);
+  3101→}
+  3102→.ov-status-cancelled {
+  3103→  font-size: 10px;
+  3104→  text-transform: uppercase;
+  3105→  font-weight: 700;
+  3106→  letter-spacing: 0.08em;
+  3107→  padding: 4px 12px;
+  3108→  border-radius: 100px;
+  3109→  background: rgba(251,113,133,0.12);
+  3110→  color: #fb7185;
+  3111→  border: 1px solid rgba(251,113,133,0.2);
+  3112→}
+  3113→.ov-panel-list {
+  3114→  list-style: none;
+  3115→  margin: 0;
+  3116→  padding: 0;
+  3117→  display: flex;
+  3118→  flex-direction: column;
+  3119→  gap: 6px;
+  3120→}
+  3121→.ov-panel-item {
+  3122→  display: flex;
+  3123→  align-items: center;
+  3124→  gap: 12px;
+  3125→  padding: 10px 12px;
+  3126→  border-radius: 12px;
+  3127→  border-left: 3px solid transparent;
+  3128→  transition: background-color 0.3s ease;
+  3129→}
+  3130→.ov-panel-rank {
+  3131→  width: 28px;
+  3132→  height: 28px;
+  3133→  border-radius: 10px;
+  3134→  display: flex;
+  3135→  align-items: center;
+  3136→  justify-content: center;
+  3137→  font-size: 11px;
+  3138→  font-weight: 800;
+  3139→  flex-shrink: 0;
+  3140→}
+  3141→.ov-panel-name {
+  3142→  flex: 1;
+  3143→  font-weight: 700;
+  3144→  font-size: 13px;
+  3145→  white-space: nowrap;
+  3146→  overflow: hidden;
+  3147→  text-overflow: ellipsis;
+  3148→}
+  3149→.ov-panel-value-wrap {
+  3150→  display: flex;
+  3151→  align-items: center;
+  3152→  gap: 4px;
+  3153→}
+  3154→.ov-panel-value {
+  3155→  font-size: 16px;
+  3156→  font-weight: 800;
+  3157→  font-variant-numeric: tabular-nums;
+  3158→}
+  3159→.ov-panel-empty {
+  3160→  text-align: center;
+  3161→  padding: 24px 16px;
+  3162→  font-size: 13px;
+  3163→  color: rgba(255,255,255,0.5);
+  3164→}
+  3165→.ov-prize-assigned {
+  3166→  font-size: 10px;
+  3167→  text-transform: uppercase;
+  3168→  font-weight: 700;
+  3169→  color: #34d399;
+  3170→  letter-spacing: 0.05em;
+  3171→}
+  3172→
+  3173→.ov-cd-label {
+  3174→  font-size: 11px;
+  3175→  text-transform: uppercase;
+  3176→  letter-spacing: 0.2em;
+  3177→  font-weight: 600;
+  3178→  color: rgba(255,255,255,0.5);
+  3179→  margin-bottom: 12px;
+  3180→}
+  3181→.ov-cd-title {
+  3182→  font-size: 28px;
+  3183→  font-weight: 900;
+  3184→  margin-bottom: 8px;
+  3185→  line-height: 1.2;
+  3186→}
+  3187→.ov-cd-subtitle {
+  3188→  font-size: 14px;
+  3189→  font-weight: 600;
+  3190→  color: rgba(255,255,255,0.5);
+  3191→  margin-top: 12px;
+  3192→}
+  3193→.ov-cd-digits {
+  3194→  display: flex;
+  3195→  align-items: center;
+  3196→  justify-content: center;
+  3197→  gap: 0;
+  3198→  margin: 16px 0;
+  3199→}
+  3200→.ov-cd-block {
+  3201→  display: flex;
+  3202→  align-items: baseline;
+  3203→  gap: 4px;
+  3204→}
+  3205→.ov-cd-number {
+  3206→  font-size: 56px;
+  3207→  font-weight: 900;
+  3208→  font-variant-numeric: tabular-nums;
+  3209→  line-height: 1;
+  3210→  background: linear-gradient(180deg, #fff, rgba(255,255,255,0.7));
+  3211→  -webkit-background-clip: text;
+  3212→  -webkit-text-fill-color: transparent;
+  3213→  background-clip: text;
+  3214→}
+  3215→.ov-cd-unit {
+  3216→  font-size: 14px;
+  3217→  font-weight: 700;
+  3218→  color: rgba(255,255,255,0.35);
+  3219→  text-transform: uppercase;
+  3220→  margin-left: 2px;
+  3221→}
+  3222→.ov-cd-colon {
+  3223→  font-size: 40px;
+  3224→  font-weight: 300;
+  3225→  color: rgba(255,255,255,0.2);
+  3226→  margin: 0 8px;
+  3227→  line-height: 1;
+  3228→}
+  3229→
+  3230→.ov-announcement {
+  3231→  max-width: 560px;
+  3232→  border-radius: 20px;
+  3233→  padding: 32px;
+  3234→  background: linear-gradient(135deg, #dc2626, #f59e0b);
+  3235→  box-shadow: 0 12px 50px rgba(220,38,38,0.3), 0 0 80px rgba(245,158,11,0.15);
+  3236→}
+  3237→.ov-announcement-header {
+  3238→  display: flex;
+  3239→  align-items: center;
+  3240→  gap: 8px;
+  3241→  margin-bottom: 12px;
+  3242→}
+  3243→.ov-announcement-badge {
+  3244→  font-size: 10px;
+  3245→  text-transform: uppercase;
+  3246→  font-weight: 800;
+  3247→  letter-spacing: 0.15em;
+  3248→  opacity: 0.8;
+  3249→}
+  3250→.ov-announcement-text {
+  3251→  font-size: 28px;
+  3252→  font-weight: 900;
+  3253→  line-height: 1.2;
+  3254→  text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  3255→}
+  3256→
+  3257→/* ═══════════════════════════════════════════════════════
+  3258→   BUSINESS MANAGE PANEL
+  3259→   ═══════════════════════════════════════════════════════ */
+  3260→.biz-panel-card {
+  3261→  border: 1px solid hsl(var(--primary) / 0.15);
+  3262→  background: hsl(var(--primary) / 0.03);
+  3263→  border-radius: 16px;
+  3264→  overflow: hidden;
+  3265→  position: relative;
+  3266→}
+  3267→.biz-panel-card::before {
+  3268→  content: "";
+  3269→  position: absolute;
+  3270→  top: 0;
+  3271→  left: 0;
+  3272→  right: 0;
+  3273→  height: 2px;
+  3274→  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.3), transparent);
+  3275→}
+  3276→.biz-panel-icon {
+  3277→  width: 28px;
+  3278→  height: 28px;
+  3279→  border-radius: 8px;
+  3280→  display: flex;
+  3281→  align-items: center;
+  3282→  justify-content: center;
+  3283→  background: hsl(var(--primary) / 0.1);
+  3284→  color: hsl(var(--primary));
+  3285→}
+  3286→.biz-panel-badge {
+  3287→  font-size: 9px;
+  3288→  padding: 2px 8px;
+  3289→  border-radius: 100px;
+  3290→  font-weight: 600;
+  3291→}
+  3292→.biz-panel-refresh {
+  3293→  border-radius: 10px;
+  3294→  font-size: 11px;
+  3295→}
+  3296→.biz-stat-card {
+  3297→  display: flex;
+  3298→  align-items: center;
+  3299→  gap: 10px;
+  3300→  padding: 10px 12px;
+  3301→  border-radius: 12px;
+  3302→  background: hsl(var(--card));
+  3303→  border: 1px solid hsl(var(--border) / 0.5);
+  3304→  transition: all 0.3s ease;
+  3305→}
+  3306→.biz-stat-card:hover {
+  3307→  border-color: hsl(var(--primary) / 0.25);
+  3308→  box-shadow: 0 2px 12px hsl(var(--primary) / 0.06);
+  3309→  transform: translateY(-1px);
+  3310→}
+  3311→.biz-stat-icon {
+  3312→  opacity: 0.7;
+  3313→}
+  3314→.biz-stat-value {
+  3315→  font-size: 18px;
+  3316→  font-weight: 800;
+  3317→  font-variant-numeric: tabular-nums;
+  3318→  line-height: 1;
+  3319→}
+  3320→.biz-stat-label {
+  3321→  font-size: 9px;
+  3322→  font-weight: 600;
+  3323→  text-transform: uppercase;
+  3324→  letter-spacing: 0.06em;
+  3325→  color: hsl(var(--muted-foreground));
+  3326→  margin-top: 2px;
+  3327→}
+  3328→.biz-quick-link {
+  3329→  border-radius: 10px;
+  3330→  font-size: 11px;
+  3331→  font-weight: 600;
+  3332→  border: 1px solid hsl(var(--border) / 0.5);
+  3333→  background: hsl(var(--card));
+  3334→  transition: all 0.2s ease;
+  3335→}
+  3336→.biz-quick-link:hover {
+  3337→  border-color: hsl(var(--primary) / 0.3);
+  3338→  background: hsl(var(--primary) / 0.05);
+  3339→}
+
+[showing lines 1340-3339 of 5586; use offset=3340 with limit to continue reading]

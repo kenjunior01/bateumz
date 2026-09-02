@@ -1,0 +1,1136 @@
+     1→import { useEffect, useRef, useState } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { Radio, Zap, Brain, Package, RotateCcw, Sparkles, Trophy, Users, Plus, Copy, Check, Search, Vote, Play, Square, Lock, Loader2, Gamepad2, Skull, Swords, Pencil, Bomb, Hash, SmilePlus, Shuffle, Flame, Heart, Grid3X3, Anchor, Dices, CircleDot, LayoutGrid, Target, Palette, Map, Crosshair, Layers, ChevronLeft, Filter } from "lucide-react";
+     4→import { Link } from "react-router-dom";
+     5→import Navbar from "@/components/Navbar";
+     6→import Footer from "@/components/Footer";
+     7→import BottomTabBar from "@/components/BottomTabBar";
+     8→import MobileDiscoveryHeader from "@/components/meituan/MobileDiscoveryHeader";
+     9→import TapBattle from "@/components/livegames/TapBattle";
+    10→import QuizBattle from "@/components/livegames/QuizBattle";
+    11→import MysteryBox from "@/components/livegames/MysteryBox";
+    12→import KeywordHunt from "@/components/livegames/KeywordHunt";
+    13→import EmojiBattle from "@/components/livegames/EmojiBattle";
+    14→import PrizeWheel, { DEFAULT_WHEEL_PRIZES, WheelPrize } from "@/components/livegames/PrizeWheel";
+    15→import EnhancedMillionaireGame from "@/components/livegames/EnhancedMillionaireGame";
+    16→import KahootMultiplayerQuiz from "@/components/livegames/KahootMultiplayerQuiz";
+    17→import LiveBingo from "@/components/livegames/LiveBingo";
+    18→import ChallengeRoulette from "@/components/livegames/ChallengeRoulette";
+    19→import VSDuelArena from "@/components/livegames/VSDuelArena";
+    20→import SpeedReaction from "@/components/livegames/SpeedReaction";
+    21→import TruthOrDare from "@/components/livegames/TruthOrDare";
+    22→import MemoryChallenge from "@/components/livegames/MemoryChallenge";
+    23→import PunishmentWheel from "@/components/livegames/PunishmentWheel";
+    24→import BattleOfKnowledge from "@/components/livegames/BattleOfKnowledge";
+    25→import GuessTheEmoji from "@/components/livegames/GuessTheEmoji";
+    26→import QuickDrawChallenge from "@/components/livegames/QuickDrawChallenge";
+    27→import HotPotatoGame from "@/components/livegames/HotPotatoGame";
+    28→import NumberGuessBattle from "@/components/livegames/NumberGuessBattle";
+    29→import ChaosChallenge from "@/components/livegames/ChaosChallenge";
+    30→import CheckersGame from "@/components/livegames/CheckersGame";
+    31→import LudoGame from "@/components/livegames/LudoGame";
+    32→import ConnectFourGame from "@/components/livegames/ConnectFourGame";
+    33→import BattleshipGame from "@/components/livegames/BattleshipGame";
+    34→import TicTacToeVS from "@/components/livegames/TicTacToeVS";
+    35→import UnoCardGame from "@/components/livegames/UnoCardGame";
+    36→import SnakeBattle from "@/components/livegames/SnakeBattle";
+    37→import RockPaperScissors from "@/components/livegames/RockPaperScissors";
+    38→import ColorSequence from "@/components/livegames/ColorSequence";
+    39→import SpaceShooter from "@/components/livegames/SpaceShooter";
+    40→import BallBreaker from "@/components/livegames/BallBreaker";
+    41→import ReactionRace from "@/components/livegames/ReactionRace";
+    42→import QuickMath from "@/components/livegames/QuickMath";
+    43→import MemoryCardsVS from "@/components/livegames/MemoryCardsVS";
+    44→import WordScramble from "@/components/livegames/WordScramble";
+    45→import TicTacToePro from "@/components/livegames/TicTacToePro";
+    46→import GuessNumber100 from "@/components/livegames/GuessNumber100";
+    47→import ColorMatch from "@/components/livegames/ColorMatch";
+    48→import TargetTap from "@/components/livegames/TargetTap";
+    49→import DiceDuel from "@/components/livegames/DiceDuel";
+    50→import PatternMemory from "@/components/livegames/PatternMemory";
+    51→import TriviaFlash from "@/components/livegames/TriviaFlash";
+    52→import Dominoes from "@/components/livegames/Dominoes";
+    53→import MazeRace from "@/components/livegames/MazeRace";
+    54→import SlotsVS from "@/components/livegames/SlotsVS";
+    55→import Match4Grid from "@/components/livegames/Match4Grid";
+    56→import TowerStack from "@/components/livegames/TowerStack";
+    57→import CannonBattle from "@/components/livegames/CannonBattle";
+    58→import SpotDifference from "@/components/livegames/SpotDifference";
+    59→import WordChain from "@/components/livegames/WordChain";
+    60→import NumberTetris from "@/components/livegames/NumberTetris";
+    61→import PongVS from "@/components/livegames/PongVS";
+    62→import WhackAMole from "@/components/livegames/WhackAMole";
+    63→import ColorCatch from "@/components/livegames/ColorCatch";
+    64→import MexericaGame from "@/components/livegames/MexericaGame";
+    65→import UrusseGame from "@/components/livegames/UrusseGame";
+    66→import CapulanaQuiz from "@/components/livegames/CapulanaQuiz";
+    67→import ChigogoGame from "@/components/livegames/ChigogoGame";
+    68→import NtchuvaGame from "@/components/livegames/NtchuvaGame";
+    69→import DjikotaGame from "@/components/livegames/DjikotaGame";
+    70→import UriGame from "@/components/livegames/UriGame";
+    71→import BichoGame from "@/components/livegames/BichoGame";
+    72→import LiveLeaderboard, { LeaderEntry } from "@/components/livegames/LiveLeaderboard";
+    73→import LiveControlPanel from "@/components/livegames/LiveControlPanel";
+    74→import LiveGameSettings, { DEFAULT_CONFIG, LiveGameConfig, CompanyBranding, DEFAULT_BRANDING } from "@/components/livegames/LiveGameSettings";
+    75→import { publish, subscribe, readLatest } from "@/lib/liveBus";
+    76→import { ParticleBackground } from "@/components/effects";
+    77→import { appendHistory } from "@/lib/liveHistory";
+    78→import { useToast } from "@/hooks/use-toast";
+    79→import AmbassadorPanel from "@/components/ambassadors/AmbassadorPanel";
+    80→import { useAuth } from "@/contexts/AuthContext";
+    81→import { getGameManagerPath } from "@/lib/game-manager-paths";
+    82→import { supabase } from "@/integrations/supabase/client";
+    83→import { toast } from "sonner";
+    84→
+    85→type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "urusse" | "capulanaquiz" | "chigogo" | "ntchuva" | "djikota" | "uri" | "bicho";
+    86→
+    87→type CatId = "todos" | "mocambicano" | "popular" | "tabuleiro" | "acao" | "puzzle" | "quiz" | "versus";
+    88→const CAT_LABELS: Record<CatId, string> = { todos: "Todos", mocambicano: "Moçambicanos", popular: "Popular", tabuleiro: "Tabuleiro", acao: "Ação", puzzle: "Puzzle", quiz: "Quiz", versus: "Versus" };
+    89→const CAT_LIST: CatId[] = ["todos", "mocambicano", "popular", "tabuleiro", "acao", "puzzle", "quiz", "versus"];
+    90→
+    91→interface SavedWheelGame {
+    92→  id: string;
+    93→  name: string;
+    94→  is_published?: boolean;
+    95→  segment_count?: number;
+    96→  rotation_duration?: number;
+    97→  wheel_background_color?: string;
+    98→  wheel_border_color?: string;
+    99→  spin_cost?: number;
+   100→  sound_enabled?: boolean;
+   101→  particle_effects?: boolean;
+   102→  background_image_url?: string;
+   103→  background_color?: string;
+   104→  company_logo_url?: string;
+   105→  company_slogan?: string;
+   106→  default_effect?: string;
+   107→}
+   108→
+   109→const GAMES: { id: GameId; label: string; icon: any; emoji: string; desc: string; grad: string; cat: CatId; moz: boolean }[] = [
+   110→  { id: "wheel", label: "Roda de Prémios", icon: RotateCcw, emoji: "🎰", desc: "Sorteie prémios reais com probabilidades configuráveis.", grad: "from-violet-500 to-fuchsia-500", cat: "popular" as const, moz: false },
+   111→  { id: "keyword", label: "Caça à Palavra", icon: Search, emoji: "🔎", desc: "Audiência adivinha a palavra-chave secreta.", grad: "from-amber-500 to-orange-500", cat: "popular" as const, moz: false },
+   112→  { id: "emoji", label: "Batalha de Emojis", icon: Vote, emoji: "💥", desc: "Vote ao vivo, vencedores entram no sorteio.", grad: "from-pink-500 to-rose-500", cat: "popular" as const, moz: false },
+   113→  { id: "tap", label: "Tap Battle", icon: Zap, emoji: "⚡", desc: "Batalha de toques: 1v1 ou contra o bot.", grad: "from-amber-500 to-orange-500", cat: "versus" as const, moz: false },
+   114→  { id: "quiz", label: "Quiz Battle", icon: Brain, emoji: "🧠", desc: "Trivia ao vivo, sozinho ou com convidado.", grad: "from-sky-500 to-blue-500", cat: "quiz" as const, moz: false },
+   115→  { id: "mystery", label: "Caixa Misteriosa", icon: Package, emoji: "🎁", desc: "4 caixas, prémios escondidos.", grad: "from-emerald-500 to-teal-500", cat: "popular" as const, moz: false },
+   116→  { id: "millionaire", label: "Quem Quer Ser Milionário?", icon: Trophy, emoji: "💰", desc: "Perguntas e respostas para ganhar o prêmio máximo!", grad: "from-purple-500 to-violet-500", cat: "quiz" as const, moz: false },
+   117→  { id: "kahoot", label: "Quiz ao Vivo", icon: Brain, emoji: "🎯", desc: "Quiz multiplayer — a audiência joga em tempo real!", grad: "from-sky-500 to-indigo-600", cat: "quiz" as const, moz: false },
+   118→  { id: "bingo", label: "Bingo ao Vivo", icon: Trophy, emoji: "🎱", desc: "Cartão virtual com números sorteados em tempo real!", grad: "from-emerald-500 to-teal-600", cat: "popular" as const, moz: false },
+   119→  { id: "challenge", label: "Roleta de Desafios", icon: RotateCcw, emoji: "🎭", desc: "Gire a roleta e cuma o desafio sorteado ao vivo!", grad: "from-fuchsia-500 to-pink-500", cat: "popular" as const, moz: false },
+   120→  { id: "vsduel", label: "Arena de Duelo VS", icon: Swords, emoji: "⚔️", desc: "Duelo 1v1: reação, matemática e palavras ao vivo!", grad: "from-red-500 to-orange-600", cat: "versus" as const, moz: false },
+   121→  { id: "speed", label: "Duelo de Velocidade", icon: Zap, emoji: "⚡", desc: "Quem reage mais rápido? Teste de reflexo 1v1!", grad: "from-cyan-500 to-blue-600", cat: "versus" as const, moz: false },
+   122→  { id: "truthordare", label: "Verdade ou Desafio", icon: Heart, emoji: "🔥", desc: "Verdades picantes e desafios engraçados ao vivo!", grad: "from-rose-500 to-red-600", cat: "popular" as const, moz: false },
+   123→  { id: "memory", label: "Jogo da Memória VS", icon: Brain, emoji: "🧠", desc: "Batalha de pares — quem tem melhor memória?", grad: "from-indigo-500 to-purple-600", cat: "puzzle" as const, moz: false },
+   124→  { id: "punishment", label: "Roleta de Castigos", icon: Skull, emoji: "💀", desc: "Gire a roleta e cumpra o castigo sorteado!", grad: "from-red-600 to-rose-700", cat: "popular" as const, moz: false },
+   125→  { id: "boknowledge", label: "Batalha de Conhecimentos", icon: Brain, emoji: "📚", desc: "Trivia VS com bônus de streak — 10 perguntas!", grad: "from-cyan-500 to-purple-600", cat: "quiz" as const, moz: false },
+   126→  { id: "guessEmoji", label: "Adivinhe o Emoji", icon: SmilePlus, emoji: "😎", desc: "Decifre a frase a partir dos emojis!", grad: "from-yellow-500 to-amber-600", cat: "quiz" as const, moz: false },
+   127→  { id: "quickdraw", label: "Desenho Rápido", icon: Pencil, emoji: "🎨", desc: "Desenhe e deixe o público adivinhar a palavra!", grad: "from-emerald-500 to-teal-600", cat: "quiz" as const, moz: false },
+   128→  { id: "hotpotato", label: "Batata Quente", icon: Bomb, emoji: "💣", desc: "Passe a batata — quem tiver com ela quando explodir, sai!", grad: "from-orange-500 to-red-600", cat: "acao" as const, moz: false },
+   129→  { id: "numguess", label: "Adivinha o Número VS", icon: Hash, emoji: "🔢", desc: "Duelo — quem adivinha o número secreto primeiro?", grad: "from-violet-500 to-fuchsia-600", cat: "versus" as const, moz: false },
+   130→  { id: "chaos", label: "Desafio Caótico", icon: Shuffle, emoji: "🌪️", desc: "Desafios aleatórios contra o relógio: físico, mental, talento!", grad: "from-rose-500 to-pink-600", cat: "acao" as const, moz: false },
+   131→  { id: "checkers", label: "Damas", icon: Grid3X3, emoji: "♟️", desc: "Jogo clássico de damas com capturas obrigatórias e promoção a rei!", grad: "from-amber-700 to-red-800", cat: "tabuleiro" as const, moz: false },
+   132→  { id: "ludo", label: "Ludo", icon: Dices, emoji: "🎲", desc: "4 jogadores, dado, peças e muita estratégia para chegar a casa!", grad: "from-emerald-600 to-teal-700", cat: "tabuleiro" as const, moz: false },
+   133→  { id: "connect4", label: "Ligar 4", icon: LayoutGrid, emoji: "🔴", desc: "Estratégia pura: ligue 4 peças em linha para vencer o VS!", grad: "from-blue-500 to-yellow-500", cat: "tabuleiro" as const, moz: false },
+   134→  { id: "battleship", label: "Batalha Naval", icon: Anchor, emoji: "🚢", desc: "Esconda os navios e afunde a frota inimiga!", grad: "from-slate-600 to-blue-900", cat: "tabuleiro" as const, moz: false },
+   135→  { id: "tictactoe", label: "Galo VS", icon: CircleDot, emoji: "✕", desc: "Rápido, com apostas, streaks e modo velocidade!", grad: "from-violet-500 to-pink-500", cat: "tabuleiro" as const, moz: false },
+   136→  { id: "uno", label: "UNO Cartas", icon: Sparkles, emoji: "🃏", desc: "Jogo de cartas clássico com cores, especiais e UNO!", grad: "from-indigo-500 to-purple-600", cat: "tabuleiro" as const, moz: false },
+   137→  { id: "snakebattle", label: "Batalha de Cobras", icon: Gamepad2, emoji: "🐍", desc: "Duas cobras, um tabuleiro — quem cresce mais ganha!", grad: "from-emerald-500 to-teal-600", cat: "acao" as const, moz: false },
+   138→  { id: "rps", label: "Pedra Papel Tesoura", icon: Swords, emoji: "✊", desc: "Clássico Jokenpô VS — melhor de 3, 5 ou 7 rounds!", grad: "from-amber-500 to-orange-600", cat: "versus" as const, moz: false },
+   139→  { id: "colorsequence", label: "Sequência de Cores", icon: Sparkles, emoji: "🟢", desc: "Memorize a sequência de cores e repita — quem vai mais longe?", grad: "from-violet-500 to-fuchsia-600", cat: "puzzle" as const, moz: false },
+   140→  { id: "spaceshooter", label: "Nave Espacial VS", icon: Zap, emoji: "🚀", desc: "Destrua naves inimigas — quem faz mais pontos!", grad: "from-slate-500 to-blue-700", cat: "acao" as const, moz: false },
+   141→  { id: "ballbreaker", label: "Quebra-Bloco VS", icon: Gamepad2, emoji: "🧱", desc: "Destrua todos os blocos — lado a lado, quem limpa primeiro!", grad: "from-red-500 to-orange-600", cat: "acao" as const, moz: false },
+   142→  { id: "reactionrace", label: "Corrida de Reação", icon: Zap, emoji: "⚡", desc: "Quem reage mais rápido ao sinal? Teste de reflexos puro!", grad: "from-yellow-500 to-red-600", cat: "acao" as const, moz: false },
+   143→  { id: "quickmath", label: "Duelo de Matemática", icon: Brain, emoji: "🧮", desc: "Contas rápidas — quem resolve primeiro marca ponto!", grad: "from-cyan-500 to-blue-700", cat: "versus" as const, moz: false },
+   144→  { id: "memorycards", label: "Memória VS Cartas", icon: Brain, emoji: "🃏", desc: "Encontre os pares no tabuleiro partilhado — turno a turno!", grad: "from-indigo-500 to-violet-600", cat: "puzzle" as const, moz: false },
+   145→  { id: "wordscramble", label: "Palavras Embaralhadas", icon: Shuffle, emoji: "🔤", desc: "Descubra a palavra escondida nas letras misturadas!", grad: "from-rose-500 to-pink-600", cat: "puzzle" as const, moz: false },
+   146→  { id: "tictactoepro", label: "Galo PRO", icon: Grid3X3, emoji: "✖", desc: "Galo Ultimate — 9 mini-tabuleiros, estratégia avançada!", grad: "from-violet-600 to-indigo-700", cat: "tabuleiro" as const, moz: false },
+   147→  { id: "guessnumber100", label: "Adivinha 1 a 100", icon: Hash, emoji: "🔢", desc: "Quente/Frio — quem adivinha o número secreto primeiro?", grad: "from-teal-500 to-cyan-700", cat: "versus" as const, moz: false },
+   148→  { id: "colormatch", label: "Cor versus Palavra", icon: Palette, emoji: "🎨", desc: "Teste Stroop — identifique a COR do texto, não a palavra!", grad: "from-pink-500 to-rose-700", cat: "puzzle" as const, moz: false },
+   149→  { id: "targettap", label: "Alvo Rápido", icon: Target, emoji: "🎯", desc: "Toque nos alvos certos antes que desapareçam!", grad: "from-orange-500 to-red-600", cat: "puzzle" as const, moz: false },
+   150→  { id: "diceluel", label: "Duelo de Dados", icon: Dices, emoji: "🎲", desc: "Banco ou Arriscar? Corrida a 100 ou melhor de rounds!", grad: "from-amber-600 to-yellow-600", cat: "versus" as const, moz: false },
+   151→  { id: "patternmemory", label: "Memória de Padrões", icon: Grid3X3, emoji: "🧩", desc: "Memorize o padrão de células iluminadas e repita!", grad: "from-purple-500 to-violet-700", cat: "puzzle" as const, moz: false },
+   152→  { id: "triviaflash", label: "Trivia Flash", icon: Brain, emoji: "❗", desc: "Verdadeiro ou Falso rápido — 20 perguntas, velocidade conta!", grad: "from-emerald-500 to-teal-700", cat: "quiz" as const, moz: false },
+   153→  { id: "dominoes", label: "Dominó", icon: LayoutGrid, emoji: "🎲", desc: "Dominó clássico — encaixe as peças e esvazie a mão!", grad: "from-slate-600 to-zinc-700", cat: "tabuleiro" as const, moz: false },
+   154→  { id: "mazerace", label: "Corrida no Labirinto", icon: Map, emoji: "🧩", desc: "Quem sai do labirinto primeiro? Labirintos aleatórios!", grad: "from-green-600 to-emerald-700", cat: "puzzle" as const, moz: false },
+   155→  { id: "slotsvs", label: "Caça-Níqueis VS", icon: Sparkles, emoji: "🎰", desc: "Gire as máquinas — quem acumula mais moedas vence!", grad: "from-amber-500 to-yellow-500", cat: "popular" as const, moz: false },
+   156→  { id: "match4", label: "Combina 4", icon: Sparkles, emoji: "✨", desc: "Combine 4+ peças iguais — cascatas e combos!", grad: "from-pink-500 to-rose-600", cat: "puzzle" as const, moz: false },
+   157→  { id: "towerstack", label: "Torre VS", icon: Layers, emoji: "🏗️", desc: "Empilhe blocos com precisão — quem constrói mais alto!", grad: "from-sky-500 to-blue-600", cat: "acao" as const, moz: false },
+   158→  { id: "cannonbattle", label: "Batalha de Canhões", icon: Crosshair, emoji: "💣", desc: "Ajuste ângulo e força — destrua o adversário!", grad: "from-red-600 to-orange-700", cat: "acao" as const, moz: false },
+   159→  { id: "spotdifference", label: "Encontre Diferenças", icon: Search, emoji: "🔍", desc: "Encontre 5 diferenças entre cenas geradas!", grad: "from-amber-500 to-yellow-600", cat: "puzzle" as const, moz: false },
+   160→  { id: "wordchain", label: "Corrente de Palavras", icon: Shuffle, emoji: "🔗", desc: "A última letra vira a primeira — não repita palavras!", grad: "from-teal-500 to-emerald-600", cat: "quiz" as const, moz: false },
+   161→  { id: "numbertetris", label: "Números Caindo", icon: LayoutGrid, emoji: "🔢", desc: "Números caem e combinam — estilo Tetris 2048!", grad: "from-orange-600 to-red-700", cat: "puzzle" as const, moz: false },
+   162→  { id: "pongvs", label: "Pong VS", icon: Gamepad2, emoji: "🏓", desc: "Clássico Pong arcade — 1v1 ou contra o bot, primeiro a 5!", grad: "from-blue-600 to-indigo-700", cat: "acao" as const, moz: false },
+   163→  { id: "whackamole", label: "Bate o Alvo", icon: Target, emoji: "🎯", desc: "Toque nas criaturas que aparecem — quem marca mais pontos em 30s!", grad: "from-emerald-500 to-green-600", cat: "acao" as const, moz: false },
+   164→  { id: "colorcatch", label: "Pesca Cores", icon: Palette, emoji: "🎨", desc: "Clique nas cores certas o mais rápido possível!", grad: "from-pink-500 to-rose-600", cat: "puzzle" as const, moz: false },
+   165→  { id: "mexerica", label: "Mexerica (Bate a Mão)", icon: Target, emoji: "✋", desc: "Jogo tradicional moçambicano — bata nas mãos que aparecem!", grad: "from-amber-600 to-yellow-600", cat: "mocambicano" as const, moz: true },
+   166→  { id: "urusse", label: "Urusse (Mancala)", icon: Gamepad2, emoji: "🫘", desc: "Jogo de sementes moçambicano — semee e capture!", grad: "from-green-700 to-emerald-600", cat: "mocambicano" as const, moz: true },
+   167→  { id: "capulanaquiz", label: "Quiz Capulana", icon: Brain, emoji: "🧠", desc: "Quiz sobre cultura, geografia e história de Moçambique!", grad: "from-red-600 to-amber-600", cat: "mocambicano" as const, moz: true },
+   168→  { id: "chigogo", label: "Chigogo (Pedras)", icon: Gamepad2, emoji: "🪨", desc: "Jogo tradicional de pedras com padrões capulana!", grad: "from-amber-700 to-orange-600", cat: "mocambicano" as const, moz: true },
+   169→  { id: "ntchuva", label: "Ntchuva (Amarelinha)", icon: Target, emoji: "🎯", desc: "Toque os números em sequência — não caia nas armadilhas!", grad: "from-green-600 to-yellow-600", cat: "mocambicano" as const, moz: true },
+   170→  { id: "djikota", label: "Djikota (Oware)", icon: Gamepad2, emoji: "🏺", desc: "Jogo de tabuleiro moçambicano — semeie e capture sementes!", grad: "from-amber-800 to-red-700", cat: "mocambicano" as const, moz: true },
+   171→  { id: "uri", label: "Uri (Adivinha)", icon: Brain, emoji: "🔢", desc: "Quente ou Frio? Adivinhe o número secreto antes do bot!", grad: "from-orange-500 to-red-600", cat: "mocambicano" as const, moz: true },
+   172→  { id: "bicho", label: "Jogo do Bicho", icon: Sparkles, emoji: "🦩", desc: "Aposte no animal sorteado — Moçambique style!", grad: "from-amber-500 to-yellow-500", cat: "mocambicano" as const, moz: true },
+   173→];
+   174→
+   175→const genCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+   176→
+   177→const LiveHub = () => {
+   178→  const { toast: uiToast } = useToast();
+   179→  const { user, role } = useAuth();
+   180→  const spinWheelManagerPath = getGameManagerPath(role, "spin-wheel");
+   181→  const [active, setActive] = useState<GameId>(() => {
+   182→    try { return (localStorage.getItem("liveActiveGame") as GameId) || "wheel"; } catch { return "wheel"; }
+   183→  });
+   184→  const [cat, setCat] = useState<CatId>("todos");
+   185→  const [showGame, setShowGame] = useState(false);
+   186→  const [config, setConfig] = useState<LiveGameConfig>(() => {
+   187→    try {
+   188→      const s = localStorage.getItem("liveGameConfig");
+   189→      return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG;
+   190→    } catch { return DEFAULT_CONFIG; }
+   191→  });
+   192→  const [branding, setBranding] = useState<CompanyBranding>(() => {
+   193→    try {
+   194→      const s = localStorage.getItem("liveBranding");
+   195→      return s ? { ...DEFAULT_BRANDING, ...JSON.parse(s) } : DEFAULT_BRANDING;
+   196→    } catch { return DEFAULT_BRANDING; }
+   197→  });
+   198→  const [wheelPrizes, setWheelPrizes] = useState<WheelPrize[]>(() => {
+   199→    try {
+   200→      const s = localStorage.getItem("liveWheelPrizes");
+   201→      return s ? JSON.parse(s) : DEFAULT_WHEEL_PRIZES;
+   202→    } catch { return DEFAULT_WHEEL_PRIZES; }
+   203→  });
+   204→  const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>(() => {
+   205→    try {
+   206→      const s = localStorage.getItem("liveLeaderboard");
+   207→      return s ? JSON.parse(s) : [];
+   208→    } catch { return []; }
+   209→  });
+   210→  const [savedGames, setSavedGames] = useState<SavedWheelGame[]>([]);
+   211→  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+   212→  const [loadingGames, setLoadingGames] = useState(false);
+   213→
+   214→  // Persist branding to localStorage
+   215→  useEffect(() => {
+   216→    localStorage.setItem("liveBranding", JSON.stringify(branding));
+   217→  }, [branding]);
+   218→
+   219→  // Apply branding to CSS variables
+   220→  useEffect(() => {
+   221→    const root = document.documentElement;
+   222→    root.style.setProperty('--theme-primary', branding.primaryColor);
+   223→    root.style.setProperty('--theme-secondary', branding.secondaryColor);
+   224→    root.style.setProperty('--theme-accent', branding.accentColor);
+   225→    root.style.setProperty('--theme-background', branding.backgroundColor);
+   226→    root.style.setProperty('--theme-text', branding.textColor);
+   227→  }, [branding]);
+   228→
+   229→  // Load saved games from database
+   230→  useEffect(() => {
+   231→    if (!user) return;
+   232→
+   233→    const loadSavedGames = async () => {
+   234→      setLoadingGames(true);
+   235→      try {
+   236→        const { data, error } = await supabase
+   237→          .from("spin_wheel_games")
+   238→          .select("*")
+   239→          .eq("created_by", user.id)
+   240→          .order("created_at", { ascending: false });
+   241→
+   242→        if (error) throw error;
+   243→
+   244→        setSavedGames(data || []);
+   245→      } catch (error) {
+   246→        console.error("Error loading saved games:", error);
+   247→        toast.error("Erro ao carregar jogos salvos");
+   248→      } finally {
+   249→        setLoadingGames(false);
+   250→      }
+   251→    };
+   252→
+   253→    loadSavedGames();
+   254→  }, [user]);
+   255→
+   256→  // Live session lifecycle
+   257→  const [isLive, setIsLive] = useState<boolean>(() => {
+   258→    try { return localStorage.getItem("liveActive") === "1"; } catch { return false; }
+   259→  });
+   260→  const [liveCode, setLiveCode] = useState<string>(() => {
+   261→    try { return localStorage.getItem("liveCurrentCode") || ""; } catch { return ""; }
+   262→  });
+   263→  const [startedAt, setStartedAt] = useState<number>(() => {
+   264→    try { return Number(localStorage.getItem("liveStartedAt") || 0); } catch { return 0; }
+   265→  });
+   266→  const winnersRef = useRef<{ name: string; meta?: string; at: number }[]>([]);
+   267→  const [copied, setCopied] = useState(false);
+   268→  const [elapsed, setElapsed] = useState(0);
+   269→
+   270→  // Session timer
+   271→  useEffect(() => {
+   272→    if (!isLive || !startedAt) return;
+   273→    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+   274→    return () => clearInterval(t);
+   275→  }, [isLive, startedAt]);
+   276→
+   277→  // Persist & broadcast
+   278→  useEffect(() => {
+   279→    try { localStorage.setItem("liveGameConfig", JSON.stringify(config)); } catch {}
+   280→    publish({ type: "config", payload: config });
+   281→  }, [config]);
+   282→  useEffect(() => {
+   283→    try { localStorage.setItem("liveWheelPrizes", JSON.stringify(wheelPrizes)); } catch {}
+   284→    publish({ type: "wheelPrizes", payload: wheelPrizes });
+   285→  }, [wheelPrizes]);
+   286→  useEffect(() => {
+   287→    try { localStorage.setItem("liveLeaderboard", JSON.stringify(leaderboard)); } catch {}
+   288→    publish({ type: "leaderboard", payload: leaderboard });
+   289→    if (isLive) {
+   290→      const myScore = leaderboard.filter((e) => e.game === active).reduce((a, b) => a + b.score, 0);
+   291→      publish({
+   292→        type: "roundState",
+   293→        payload: { game: active, phase: "running", timeLeft: 0, score: myScore, at: Date.now() },
+   294→      });
+   295→    }
+   296→  }, [leaderboard, isLive, active]);
+   297→  useEffect(() => {
+   298→    try { localStorage.setItem("liveActiveGame", active); } catch {}
+   299→    publish({ type: "activeGame", payload: active });
+   300→    if (isLive) publish({ type: "roundState", payload: { game: active, phase: "running", timeLeft: 0, at: Date.now() } });
+   301→  }, [active, isLive]);
+   302→
+   303→  // Listen for active-game changes from the dashboard tab
+   304→  useEffect(() => {
+   305→    const unsub = subscribe((evt) => {
+   306→      if (evt.type === "activeGame" && (evt.payload as GameId) !== active) {
+   307→        setActive(evt.payload as GameId);
+   308→      }
+   309→    });
+   310→    // Hydrate latest from bus
+   311→    const latest = readLatest<string>("activeGame");
+   312→    if (latest && latest !== active) setActive(latest as GameId);
+   313→    return unsub;
+   314→  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+   315→
+   316→  const recordScore = (game: string) => (name: string, score: number) => {
+   317→    if (!name) return;
+   318→    if (isLive) {
+   319→      setLeaderboard((prev) => [
+   320→        ...prev,
+   321→        { id: `${Date.now()}-${Math.random()}`, name, score, game, at: Date.now() },
+   322→      ]);
+   323→    }
+   324→  };
+   325→
+   326→  const broadcastWinner = (name: string, meta?: string) => {
+   327→    if (!isLive) return;
+   328→    const w = { name, meta, at: Date.now() };
+   329→    winnersRef.current = [...winnersRef.current, w];
+   330→    publish({ type: "winner", payload: w });
+   331→  };
+   332→
+   333→  const resetConfig = () => { setConfig(DEFAULT_CONFIG); setWheelPrizes(DEFAULT_WHEEL_PRIZES); };
+   334→
+   335→  const startLive = () => {
+   336→    const code = genCode();
+   337→    const now = Date.now();
+   338→    setLiveCode(code);
+   339→    setStartedAt(now);
+   340→    setIsLive(true);
+   341→    setLeaderboard([]);
+   342→    winnersRef.current = [];
+   343→    try {
+   344→      localStorage.setItem("liveCurrentCode", code);
+   345→      localStorage.setItem("liveStartedAt", String(now));
+   346→      localStorage.setItem("liveActive", "1");
+   347→    } catch {}
+   348→    publish({ type: "liveCode", payload: code });
+   349→    publish({ type: "liveStarted", payload: { code, at: now } });
+   350→    publish({ type: "roundState", payload: { game: active, phase: "running", timeLeft: 0, at: now } });
+   351→    (toast as any)({ title: "Live iniciada", description: `Código gerado: ${code}` });
+   352→  };
+   353→
+   354→  const [endOpen, setEndOpen] = useState(false);
+   355→  const [endCountdown, setEndCountdown] = useState(3);
+   356→  const [ending, setEnding] = useState(false);
+   357→
+   358→  // Countdown timer for end-live confirmation
+   359→  useEffect(() => {
+   360→    if (!endOpen) return;
+   361→    setEndCountdown(3);
+   362→    const t = setInterval(() => {
+   363→      setEndCountdown((c) => (c > 0 ? c - 1 : 0));
+   364→    }, 1000);
+   365→    return () => clearInterval(t);
+   366→  }, [endOpen]);
+   367→
+   368→  const requestEndLive = () => {
+   369→    if (!isLive || !liveCode || ending) return;
+   370→    setEndOpen(true);
+   371→  };
+   372→
+   373→  const confirmEndLive = () => {
+   374→    if (ending || endCountdown > 0) return;
+   375→    setEnding(true);
+   376→    const endedAt = Date.now();
+   377→    appendHistory({
+   378→      code: liveCode,
+   379→      startedAt: startedAt || endedAt,
+   380→      endedAt,
+   381→      durationSec: Math.max(1, Math.floor((endedAt - (startedAt || endedAt)) / 1000)),
+   382→      activeGame: active,
+   383→      winners: winnersRef.current,
+   384→      leaderboard,
+   385→    });
+   386→    publish({ type: "liveEnded", payload: { code: liveCode, at: endedAt } });
+   387→    publish({ type: "roundState", payload: { game: active, phase: "ended", timeLeft: 0, at: endedAt } });
+   388→    publish({ type: "liveCode", payload: "" });
+   389→    setIsLive(false);
+   390→    setLiveCode("");
+   391→    setStartedAt(0);
+   392→    setElapsed(0);
+   393→    try {
+   394→      localStorage.removeItem("liveCurrentCode");
+   395→      localStorage.removeItem("liveStartedAt");
+   396→      localStorage.setItem("liveActive", "0");
+   397→    } catch {}
+   398→    (toast as any)({ title: "Live encerrada", description: "Vencedores e ranking guardados no histórico." });
+   399→    setEndOpen(false);
+   400→    setEnding(false);
+   401→  };
+   402→
+   403→  const copyCode = async () => {
+   404→    if (!liveCode) return;
+   405→    await navigator.clipboard.writeText(`${window.location.origin}/lives?code=${liveCode}`);
+   406→    setCopied(true);
+   407→    setTimeout(() => setCopied(false), 1500);
+   408→  };
+   409→
+   410→  const fmtTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+   411→  const activeMeta = GAMES.find((g) => g.id === active);
+   412→  const filteredGames = cat === "todos" ? GAMES : GAMES.filter((g) => g.cat === cat);
+   413→  const mozGames = GAMES.filter((g) => g.moz);
+   414→  const handleSelectGame = (id: GameId) => { setActive(id); setShowGame(true); };
+   415→
+   416→  return (
+   417→    <div className="min-h-screen bg-background pb-20 lg:pb-0">
+   418→      <Navbar />
+   419→
+   420→      
+   421→
+   422→      <section className="relative overflow-hidden border-b border-border">
+   423→        <div className="absolute inset-0 bg-gradient-to-br from-[#009140]/20 via-background to-[#FFD700]/10" />
+   424→        <ParticleBackground preset="stars" count={20} className="absolute inset-0 pointer-events-none" />
+   425→        <div className="relative container mx-auto px-4 py-6 md:py-12">
+   426→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
+   427→            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-[#009140]/20 to-[#FFD700]/20 border border-[#009140]/30 text-[11px] font-bold text-[#009140] mb-2">
+   428→              <Radio className="h-3.5 w-3.5 animate-pulse" />
+   429→              JOGOS AO VIVO
+   430→            </div>
+   431→            <h1 className="font-display text-2xl md:text-4xl font-bold">
+   432→              Jogos para a sua <span className="bg-gradient-to-r from-[#009140] to-[#FFD700] bg-clip-text text-transparent">Live</span>
+   433→            </h1>
+   434→            <p className="text-muted-foreground text-xs md:text-sm mt-1 max-w-lg">
+   435→              Animes a tua audiência com jogos interativos, quizzes e desafios em tempo real.
+   436→            </p>
+   437→
+   438→            <div className="flex flex-wrap items-center gap-2">
+   439→              {user ? (
+   440→                isLive ? (
+   441→                  <>
+   442→                    <div className="flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-2">
+   443→                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+   444→                      <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold">AO VIVO · {fmtTime(elapsed)}</span>
+   445→                    </div>
+   446→                    <div className="flex items-center gap-2 rounded-full bg-card border border-border px-3 py-2">
+   447→                      <span className="text-[11px] text-muted-foreground">Código:</span>
+   448→                      <span className="font-mono text-sm font-bold text-primary">{liveCode}</span>
+   449→                      <button onClick={copyCode} className="p-1 rounded hover:bg-secondary" aria-label="Copiar">
+   450→                        {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+   451→                      </button>
+   452→                    </div>
+   453→                    <button onClick={requestEndLive} disabled={ending} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50">
+   454→                      <Square className="h-3.5 w-3.5 fill-current" /> Encerrar Live
+   455→                    </button>
+   456→                  </>
+   457→                ) : (
+   458→                  <button onClick={startLive} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#009140] to-[#009140]/80 text-white text-sm font-bold shadow-lg shadow-[#009140]/30 hover:shadow-xl transition-all">
+   459→                    <Play className="h-4 w-4 fill-current" /> Iniciar Live
+   460→                  </button>
+   461→                )
+   462→              ) : (
+   463→                <Link
+   464→                  to="/register"
+   465→                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#009140] to-[#FFD700] text-black text-sm font-bold shadow-lg hover:shadow-xl transition-all"
+   466→                >
+   467→                  <Gamepad2 className="h-4 w-4" /> Jogar Agora — Grátis
+   468→                </Link>
+   469→              )}
+   470→              {user && (
+   471→                <>
+   472→                  <LiveGameSettings 
+   473→                    config={config} 
+   474→                    onChange={setConfig} 
+   475→                    branding={branding}
+   476→                    onBrandingChange={setBranding}
+   477→                  />
+   478→                  <Link
+   479→                    to="/dashboard/raffles/create"
+   480→                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+   481→                  >
+   482→                    <Plus className="h-3.5 w-3.5" /> Criar Sorteio Vinculado
+   483→                  </Link>
+   484→                </>
+   485→              )}
+   486→            </div>
+   487→
+   488→
+   489→            {activeMeta && (
+   490→              <div className="mt-4 inline-flex items-center gap-3 rounded-2xl bg-card border border-border px-4 py-2.5">
+   491→                <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${activeMeta.grad} flex items-center justify-center text-lg`}>{activeMeta.emoji}</div>
+   492→                <div className="text-left">
+   493→                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{user ? "Jogo ativo no painel" : "A jogar"}</p>
+   494→                  <p className="text-sm font-bold leading-tight">{activeMeta.label}</p>
+   495→                </div>
+   496→                {user && (
+   497→                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isLive ? "bg-emerald-500/15 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
+   498→                    {isLive ? "transmitindo" : "em espera"}
+   499→                  </span>
+   500→                )}
+   501→              </div>
+   502→            )}
+   503→          </motion.div>
+   504→        </div>
+   505→      </section>
+   506→
+   507→      {!isLive && !user && (
+   508→        <div className="container mx-auto px-3 sm:px-4 pt-3">
+   509→          <div className="rounded-xl border bg-gradient-to-r from-[#009140]/5 to-[#FFD700]/5 border-[#009140]/20 px-4 py-2.5 text-xs text-muted-foreground flex items-center gap-2">
+   510→            <Gamepad2 className="h-4 w-4 text-[#009140] flex-shrink-0" />
+   511→            <span>Joga todos os jogos gratuitamente! <strong className="text-foreground">Cria uma conta</strong> para guardar pontuações e criar as tuas próprias lives.</span>
+   512→          </div>
+   513→        </div>
+   514→      )}
+   515→
+   516→      {!isLive && user && (
+   517→        <div className="container mx-auto px-3 sm:px-4 pt-3">
+   518→          <div className="rounded-xl border bg-gradient-to-r from-[#009140]/5 to-[#FFD700]/5 border-[#009140]/20 px-4 py-2.5 text-xs text-muted-foreground flex items-center gap-2">
+   519→            Joga livremente! <strong className="text-foreground">Inicia uma Live</strong> para gravar pontuações e vencedores.
+   520→          </div>
+   521→        </div>
+   522→      )}
+   523→
+   524→      <section className="container mx-auto px-3 sm:px-4 pt-2 md:py-8 pb-4 sm:pb-8">
+   525→        
+   526→
+   527→        <MobileDiscoveryHeader
+   528→          title="Jogos da Live"
+   529→          searchValue=""
+   530→          onSearchChange={() => {}}
+   531→          searchPlaceholder="Procurar jogo..."
+   532→          categories={GAMES.map((g) => ({ id: g.id, label: g.label, icon: g.emoji }))}
+   533→          activeCategory={active}
+   534→          onCategoryChange={(id) => setActive(id as GameId)}
+   535→        />
+   536→
+   537→        <div className="mb-6">
+   538→            <div className="flex items-center gap-2 mb-3">
+   539→              <Flame className="h-5 w-5 text-[#FF6B35]" />
+   540→              <h2 className="font-display text-base md:text-lg font-bold">Jogos Moçambicanos</h2>
+   541→              <span className="px-2 py-0.5 rounded-full bg-[#009140]/15 text-[#009140] text-[10px] font-bold">NOVOS</span>
+   542→            </div>
+   543→            <div className="flex gap-2.5 md:gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+   544→              {mozGames.map((g) => (
+   545→                <button
+   546→                  key={g.id}
+   547→                  onClick={() => handleSelectGame(g.id)}
+   548→                  className="flex-shrink-0 w-32 md:w-40 rounded-2xl border-2 border-[#009140]/30 bg-gradient-to-br from-[#009140]/10 to-[#FFD700]/5 p-2.5 md:p-3 text-left hover:border-[#FFD700] hover:shadow-lg hover:shadow-[#009140]/10 transition-all group active:scale-95"
+   549→                >
+   550→                  <div className="text-2xl md:text-3xl mb-1.5 group-hover:scale-110 transition-transform">{g.emoji}</div>
+   551→                  <p className="font-display text-[11px] md:text-xs font-bold text-foreground leading-tight">{g.label}</p>
+   552→                  <p className="text-[9px] md:text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{g.desc}</p>
+   553→                  <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded-full bg-[#009140]/15 text-[#009140] text-[8px] md:text-[9px] font-bold">MOÇAMBIQUE</span>
+   554→                </button>
+   555→              ))}
+   556→            </div>
+   557→          </div>
+   558→
+   559→          <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1">
+   560→            <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+   561→            {CAT_LIST.map((cid) => (
+   562→              <button
+   563→                key={cid}
+   564→                onClick={() => setCat(cid)}
+   565→                className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${cat === cid ? "bg-gradient-to-r from-[#009140] to-[#FFD700] text-white shadow-lg shadow-[#009140]/20" : "bg-card border border-border text-muted-foreground hover:border-[#009140]/40 hover:text-foreground"}`}
+   566→              >
+   567→                {CAT_LABELS[cid]}
+   568→              </button>
+   569→            ))}
+   570→          </div>
+   571→
+   572→          
+   573→
+   574→        <div id="game-grid" className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 md:gap-3 mb-8 mt-4">
+   575→          {filteredGames.map((g) => {
+   576→            const isActive = active === g.id;
+   577→            return (
+   578→              <button
+   579→                key={g.id}
+   580→                onClick={() => handleSelectGame(g.id)}
+   581→                className={`text-left rounded-2xl border-2 p-3 md:p-4 transition-all duration-200 ${
+   582→                  isActive
+   583→                    ? "border-primary bg-primary/5 shadow-lg shadow-primary/10 scale-[1.02]"
+   584→                    : g.moz
+   585→                      ? "border-[#009140]/30 bg-gradient-to-br from-[#009140]/5 to-[#FFD700]/5 hover:border-[#009140]/60 hover:shadow-lg hover:shadow-[#009140]/10 hover:scale-[1.01]"
+   586→                      : "border-border bg-card hover:border-primary/40 hover:shadow-md hover:scale-[1.01]"
+   587→                }`}
+   588→              >
+   589→                <div className={`inline-flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2 transition-transform`}
+   590→                  style={isActive ? { transform: "scale(1.1)" } : {}}>
+   591→                  <g.icon className="h-4 w-4 md:h-5 md:w-5 text-white" />
+   592→                </div>
+   593→                <div className="flex items-start justify-between gap-1">
+   594→                  <p className="font-display text-xs md:text-sm font-bold leading-tight">{g.label}</p>
+   595→                  {g.moz && <span className="text-[8px] md:text-[9px] px-1.5 py-0.5 rounded-full bg-[#009140]/15 text-[#009140] font-bold flex-shrink-0">MZ</span>}
+   596→                </div>
+   597→                <p className="text-[10px] md:text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{g.desc}</p>
+   598→              </button>
+   599→            );
+   600→          })}
+   601→        </div>
+   602→
+   603→        
+   604→
+   605→        <div className="grid lg:grid-cols-[1fr_320px] gap-6 mt-4 lg:mt-0">
+   606→          <div>
+   607→            
+   608→
+   609→            <div className="flex items-center gap-3 mb-4">
+   610→              <button
+   611→                onClick={() => { const el = document.getElementById('game-grid'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+   612→                className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all"
+   613→              >
+   614→                <ChevronLeft className="h-3.5 w-3.5" /> Jogos
+   615→              </button>
+   616→              {activeMeta && (
+   617→                <div className="flex items-center gap-2">
+   618→                  <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${activeMeta.grad} flex items-center justify-center text-base`}>
+   619→                    {activeMeta.emoji}
+   620→                  </div>
+   621→                  <div>
+   622→                    <p className="text-sm font-bold leading-tight">{activeMeta.label}</p>
+   623→                    <p className="text-[10px] text-muted-foreground">{activeMeta.desc}</p>
+   624→                  </div>
+   625→                </div>
+   626→              )}
+   627→            </div>
+   628→
+   629→            <AnimatePresence mode="wait">
+   630→              {active === "wheel" && (
+   631→                <motion.div key="wheel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   632→                  
+   633→
+   634→                  <div className="mb-8">
+   635→                    <div className="flex items-center justify-between mb-4">
+   636→                      <h3 className="text-xl font-bold flex items-center gap-2">
+   637→                        <Gamepad2 className="w-5 h-5" />
+   638→                        {selectedGameId ? "Jogo Selecionado" : "Escolha um Jogo Salvo"}
+   639→                      </h3>
+   640→                      <Link
+   641→                        to={spinWheelManagerPath}
+   642→                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+   643→                      >
+   644→                        <Plus className="h-3.5 w-3.5" /> Criar/Editar Jogo
+   645→                      </Link>
+   646→                    </div>
+   647→                    
+   648→                    {loadingGames ? (
+   649→                      <div className="flex items-center justify-center py-8">
+   650→                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   651→                      </div>
+   652→                    ) : savedGames.length === 0 ? (
+   653→                      <div className="text-center py-8 bg-card border border-dashed border-border rounded-2xl">
+   654→                        <p className="text-muted-foreground mb-4">Ainda não tens nenhum jogo salvo!</p>
+   655→                        <Link
+   656→                          to={spinWheelManagerPath}
+   657→                          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+   658→                        >
+   659→                          <Plus className="h-3.5 w-3.5" /> Criar Primeiro Jogo
+   660→                        </Link>
+   661→                      </div>
+   662→                    ) : (
+   663→                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   664→                        <button
+   665→                          onClick={() => setSelectedGameId(null)}
+   666→                          className={`p-4 rounded-2xl border-2 transition-all text-left ${
+   667→                            !selectedGameId ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+   668→                          }`}
+   669→                        >
+   670→                          <p className="font-bold">Modo Rápido</p>
+   671→                          <p className="text-xs text-muted-foreground">Edita prêmios diretamente aqui</p>
+   672→                        </button>
+   673→
+   674→                        {savedGames.map(game => (
+   675→                          <button
+   676→                            key={game.id}
+   677→                            onClick={() => setSelectedGameId(game.id)}
+   678→                            className={`p-4 rounded-2xl border-2 transition-all text-left ${
+   679→                              selectedGameId === game.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+   680→                            }`}
+   681→                          >
+   682→                            <div className="flex justify-between items-start">
+   683→                              <p className="font-bold">{game.name}</p>
+   684→                              {game.is_published ? (
+   685→                                <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-xs font-bold">
+   686→                                  Publicado
+   687→                                </span>
+   688→                              ) : (
+   689→                                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">
+   690→                                  Rascunho
+   691→                                </span>
+   692→                              )}
+   693→                            </div>
+   694→                            {game.company_slogan && <p className="text-xs text-muted-foreground mt-1">{game.company_slogan}</p>}
+   695→                          </button>
+   696→                        ))}
+   697→                      </div>
+   698→                    )}
+   699→                  </div>
+   700→                  
+   701→                  <PrizeWheel 
+   702→                    prizes={wheelPrizes} 
+   703→                    onChange={setWheelPrizes} 
+   704→                    gameId={selectedGameId || undefined}
+   705→                    branding={branding}
+   706→                  />
+   707→                </motion.div>
+   708→              )}
+   709→              {active === "tap" && (
+   710→                <motion.div key="tap" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   711→                  <TapBattle duration={config.tapDuration} onScore={recordScore("Tap Battle")} />
+   712→                </motion.div>
+   713→              )}
+   714→              {active === "quiz" && (
+   715→                <motion.div key="quiz" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   716→                  <QuizBattle totalQuestions={config.quizQuestions} timePerQ={config.quizTimePerQ} onScore={recordScore("Quiz Battle")} />
+   717→                </motion.div>
+   718→              )}
+   719→              {active === "mystery" && (
+   720→                <motion.div key="mystery" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   721→                  <MysteryBox
+   722→                    highChance={config.mysteryHigh}
+   723→                    lowChance={config.mysteryLow}
+   724→                    noneChance={config.mysteryNone}
+   725→                    onScore={recordScore("Caixa Misteriosa")}
+   726→                  />
+   727→                </motion.div>
+   728→              )}
+   729→              {active === "keyword" && (
+   730→                <motion.div key="keyword" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   731→                  <KeywordHunt
+   732→                    liveCode={liveCode}
+   733→                    onScore={recordScore("Caça à Palavra")}
+   734→                    onWinner={(name, kw) => broadcastWinner(name, `Caça à Palavra · "${kw}"`)}
+   735→                  />
+   736→                </motion.div>
+   737→              )}
+   738→              {active === "emoji" && (
+   739→                <motion.div key="emoji" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   740→                  <EmojiBattle
+   741→                    onScore={recordScore("Batalha de Emojis")}
+   742→                    onWinner={(label, votes) => broadcastWinner(label, `Batalha de Emojis · ${votes} votos`)}
+   743→                  />
+   744→                </motion.div>
+   745→              )}
+   746→              {active === "millionaire" && (
+   747→                <motion.div key="millionaire" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   748→                  <EnhancedMillionaireGame />
+   749→                </motion.div>
+   750→              )}
+   751→              {active === "kahoot" && (
+   752→                <motion.div key="kahoot" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   753→                  <KahootMultiplayerQuiz scheduledLiveId={undefined} liveCode={liveCode} />
+   754→                </motion.div>
+   755→              )}
+   756→              {active === "bingo" && (
+   757→                <motion.div key="bingo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   758→                  <LiveBingo liveCode={liveCode} />
+   759→                </motion.div>
+   760→              )}
+   761→              {active === "challenge" && (
+   762→                <motion.div key="challenge" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   763→                  <ChallengeRoulette />
+   764→                </motion.div>
+   765→              )}
+   766→              {active === "vsduel" && (
+   767→                <motion.div key="vsduel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   768→                  <VSDuelArena onScore={recordScore("Arena de Duelo VS")} liveCode={liveCode} />
+   769→                </motion.div>
+   770→              )}
+   771→              {active === "speed" && (
+   772→                <motion.div key="speed" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   773→                  <SpeedReaction onScore={recordScore("Duelo de Velocidade")} liveCode={liveCode} />
+   774→                </motion.div>
+   775→              )}
+   776→              {active === "truthordare" && (
+   777→                <motion.div key="truthordare" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   778→                  <TruthOrDare onScore={recordScore("Verdade ou Desafio")} liveCode={liveCode} />
+   779→                </motion.div>
+   780→              )}
+   781→              {active === "memory" && (
+   782→                <motion.div key="memory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   783→                  <MemoryChallenge onScore={recordScore("Jogo da Memória VS")} liveCode={liveCode} />
+   784→                </motion.div>
+   785→              )}
+   786→              {active === "punishment" && (
+   787→                <motion.div key="punishment" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   788→                  <PunishmentWheel />
+   789→                </motion.div>
+   790→              )}
+   791→              {active === "boknowledge" && (
+   792→                <motion.div key="boknowledge" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   793→                  <BattleOfKnowledge onScore={recordScore("Batalha de Conhecimentos")} liveCode={liveCode} />
+   794→                </motion.div>
+   795→              )}
+   796→              {active === "guessEmoji" && (
+   797→                <motion.div key="guessEmoji" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   798→                  <GuessTheEmoji onScore={recordScore("Adivinhe o Emoji")} liveCode={liveCode} />
+   799→                </motion.div>
+   800→              )}
+   801→              {active === "quickdraw" && (
+   802→                <motion.div key="quickdraw" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   803→                  <QuickDrawChallenge onScore={recordScore("Desenho Rápido")} liveCode={liveCode} />
+   804→                </motion.div>
+   805→              )}
+   806→              {active === "hotpotato" && (
+   807→                <motion.div key="hotpotato" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   808→                  <HotPotatoGame onScore={recordScore("Batata Quente")} liveCode={liveCode} />
+   809→                </motion.div>
+   810→              )}
+   811→              {active === "numguess" && (
+   812→                <motion.div key="numguess" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   813→                  <NumberGuessBattle onScore={recordScore("Adivinha o Número VS")} liveCode={liveCode} />
+   814→                </motion.div>
+   815→              )}
+   816→              {active === "chaos" && (
+   817→                <motion.div key="chaos" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   818→                  <ChaosChallenge onScore={recordScore("Desafio Caótico")} liveCode={liveCode} />
+   819→                </motion.div>
+   820→              )}
+   821→              {active === "checkers" && (
+   822→                <motion.div key="checkers" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   823→                  <CheckersGame onScore={recordScore("Damas")} liveCode={liveCode} />
+   824→                </motion.div>
+   825→              )}
+   826→              {active === "ludo" && (
+   827→                <motion.div key="ludo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   828→                  <LudoGame onScore={recordScore("Ludo")} liveCode={liveCode} />
+   829→                </motion.div>
+   830→              )}
+   831→              {active === "connect4" && (
+   832→                <motion.div key="connect4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   833→                  <ConnectFourGame onScore={recordScore("Ligar 4")} liveCode={liveCode} />
+   834→                </motion.div>
+   835→              )}
+   836→              {active === "battleship" && (
+   837→                <motion.div key="battleship" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   838→                  <BattleshipGame onScore={recordScore("Batalha Naval")} liveCode={liveCode} />
+   839→                </motion.div>
+   840→              )}
+   841→              {active === "tictactoe" && (
+   842→                <motion.div key="tictactoe" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   843→                  <TicTacToeVS onScore={recordScore("Galo VS")} liveCode={liveCode} />
+   844→                </motion.div>
+   845→              )}
+   846→              {active === "uno" && (
+   847→                <motion.div key="uno" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   848→                  <UnoCardGame onScore={recordScore("UNO Cartas")} liveCode={liveCode} />
+   849→                </motion.div>
+   850→              )}
+   851→              {active === "snakebattle" && (
+   852→                <motion.div key="snakebattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   853→                  <SnakeBattle onScore={recordScore("Batalha de Cobras")} liveCode={liveCode} />
+   854→                </motion.div>
+   855→              )}
+   856→              {active === "rps" && (
+   857→                <motion.div key="rps" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   858→                  <RockPaperScissors onScore={recordScore("Pedra Papel Tesoura")} liveCode={liveCode} />
+   859→                </motion.div>
+   860→              )}
+   861→              {active === "colorsequence" && (
+   862→                <motion.div key="colorsequence" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   863→                  <ColorSequence onScore={recordScore("Sequência de Cores")} liveCode={liveCode} />
+   864→                </motion.div>
+   865→              )}
+   866→              {active === "spaceshooter" && (
+   867→                <motion.div key="spaceshooter" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   868→                  <SpaceShooter onScore={recordScore("Nave Espacial VS")} liveCode={liveCode} />
+   869→                </motion.div>
+   870→              )}
+   871→              {active === "ballbreaker" && (
+   872→                <motion.div key="ballbreaker" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   873→                  <BallBreaker onScore={recordScore("Quebra-Bloco VS")} liveCode={liveCode} />
+   874→                </motion.div>
+   875→              )}
+   876→              {active === "reactionrace" && (
+   877→                <motion.div key="reactionrace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   878→                  <ReactionRace onScore={recordScore("Corrida de Reação")} liveCode={liveCode} />
+   879→                </motion.div>
+   880→              )}
+   881→              {active === "quickmath" && (
+   882→                <motion.div key="quickmath" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   883→                  <QuickMath onScore={recordScore("Duelo de Matemática")} liveCode={liveCode} />
+   884→                </motion.div>
+   885→              )}
+   886→              {active === "memorycards" && (
+   887→                <motion.div key="memorycards" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   888→                  <MemoryCardsVS onScore={recordScore("Memória VS Cartas")} liveCode={liveCode} />
+   889→                </motion.div>
+   890→              )}
+   891→              {active === "wordscramble" && (
+   892→                <motion.div key="wordscramble" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   893→                  <WordScramble onScore={recordScore("Palavras Embaralhadas")} liveCode={liveCode} />
+   894→                </motion.div>
+   895→              )}
+   896→              {active === "tictactoepro" && (
+   897→                <motion.div key="tictactoepro" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   898→                  <TicTacToePro onScore={recordScore("Galo PRO")} liveCode={liveCode} />
+   899→                </motion.div>
+   900→              )}
+   901→              {active === "guessnumber100" && (
+   902→                <motion.div key="guessnumber100" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   903→                  <GuessNumber100 onScore={recordScore("Adivinha 1 a 100")} liveCode={liveCode} />
+   904→                </motion.div>
+   905→              )}
+   906→              {active === "colormatch" && (
+   907→                <motion.div key="colormatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   908→                  <ColorMatch onScore={recordScore("Cor versus Palavra")} liveCode={liveCode} />
+   909→                </motion.div>
+   910→              )}
+   911→              {active === "targettap" && (
+   912→                <motion.div key="targettap" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   913→                  <TargetTap onScore={recordScore("Alvo Rápido")} liveCode={liveCode} />
+   914→                </motion.div>
+   915→              )}
+   916→              {active === "diceluel" && (
+   917→                <motion.div key="diceluel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   918→                  <DiceDuel onScore={recordScore("Duelo de Dados")} liveCode={liveCode} />
+   919→                </motion.div>
+   920→              )}
+   921→              {active === "patternmemory" && (
+   922→                <motion.div key="patternmemory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   923→                  <PatternMemory onScore={recordScore("Memória de Padrões")} liveCode={liveCode} />
+   924→                </motion.div>
+   925→              )}
+   926→              {active === "triviaflash" && (
+   927→                <motion.div key="triviaflash" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   928→                  <TriviaFlash onScore={recordScore("Trivia Flash")} liveCode={liveCode} />
+   929→                </motion.div>
+   930→              )}
+   931→              {active === "dominoes" && (
+   932→                <motion.div key="dominoes" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   933→                  <Dominoes onScore={recordScore("Dominó")} liveCode={liveCode} />
+   934→                </motion.div>
+   935→              )}
+   936→              {active === "mazerace" && (
+   937→                <motion.div key="mazerace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   938→                  <MazeRace onScore={recordScore("Corrida no Labirinto")} liveCode={liveCode} />
+   939→                </motion.div>
+   940→              )}
+   941→              {active === "slotsvs" && (
+   942→                <motion.div key="slotsvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   943→                  <SlotsVS onScore={recordScore("Caça-Níqueis VS")} liveCode={liveCode} />
+   944→                </motion.div>
+   945→              )}
+   946→              {active === "match4" && (
+   947→                <motion.div key="match4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   948→                  <Match4Grid onScore={recordScore("Combina 4")} liveCode={liveCode} />
+   949→                </motion.div>
+   950→              )}
+   951→              {active === "towerstack" && (
+   952→                <motion.div key="towerstack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   953→                  <TowerStack onScore={recordScore("Torre VS")} liveCode={liveCode} />
+   954→                </motion.div>
+   955→              )}
+   956→              {active === "cannonbattle" && (
+   957→                <motion.div key="cannonbattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   958→                  <CannonBattle onScore={recordScore("Batalha de Canhões")} liveCode={liveCode} />
+   959→                </motion.div>
+   960→              )}
+   961→              {active === "spotdifference" && (
+   962→                <motion.div key="spotdifference" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   963→                  <SpotDifference onScore={recordScore("Encontre Diferenças")} liveCode={liveCode} />
+   964→                </motion.div>
+   965→              )}
+   966→              {active === "wordchain" && (
+   967→                <motion.div key="wordchain" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   968→                  <WordChain onScore={recordScore("Corrente de Palavras")} liveCode={liveCode} />
+   969→                </motion.div>
+   970→              )}
+   971→              {active === "numbertetris" && (
+   972→                <motion.div key="numbertetris" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   973→                  <NumberTetris onScore={recordScore("Números Caindo")} liveCode={liveCode} />
+   974→                </motion.div>
+   975→              )}
+   976→              {active === "pongvs" && (
+   977→                <motion.div key="pongvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   978→                  <PongVS onScore={recordScore("Pong VS")} liveCode={liveCode} />
+   979→                </motion.div>
+   980→              )}
+   981→              {active === "whackamole" && (
+   982→                <motion.div key="whackamole" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   983→                  <WhackAMole onScore={recordScore("Bate o Alvo")} liveCode={liveCode} />
+   984→                </motion.div>
+   985→              )}
+   986→              {active === "colorcatch" && (
+   987→                <motion.div key="colorcatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   988→                  <ColorCatch onScore={recordScore("Pesca Cores")} liveCode={liveCode} />
+   989→                </motion.div>
+   990→              )}
+   991→              {active === "mexerica" && (
+   992→                <motion.div key="mexerica" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   993→                  <MexericaGame onScore={recordScore("Mexerica")} liveCode={liveCode} />
+   994→                </motion.div>
+   995→              )}
+   996→              {active === "urusse" && (
+   997→                <motion.div key="urusse" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+   998→                  <UrusseGame onScore={recordScore("Urusse")} liveCode={liveCode} />
+   999→                </motion.div>
+  1000→              )}
+  1001→              {active === "capulanaquiz" && (
+  1002→                <motion.div key="capulanaquiz" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1003→                  <CapulanaQuiz onScore={recordScore("Quiz Capulana")} liveCode={liveCode} />
+  1004→                </motion.div>
+  1005→              )}
+  1006→              {active === "chigogo" && (
+  1007→                <motion.div key="chigogo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1008→                  <ChigogoGame onScore={recordScore("Chigogo")} liveCode={liveCode} />
+  1009→                </motion.div>
+  1010→              )}
+  1011→              {active === "ntchuva" && (
+  1012→                <motion.div key="ntchuva" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1013→                  <NtchuvaGame onScore={recordScore("Ntchuva")} liveCode={liveCode} />
+  1014→                </motion.div>
+  1015→              )}
+  1016→              {active === "djikota" && (
+  1017→                <motion.div key="djikota" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1018→                  <DjikotaGame onScore={recordScore("Djikota")} liveCode={liveCode} />
+  1019→                </motion.div>
+  1020→              )}
+  1021→              {active === "uri" && (
+  1022→                <motion.div key="uri" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1023→                  <UriGame onScore={recordScore("Uri")} liveCode={liveCode} />
+  1024→                </motion.div>
+  1025→              )}
+  1026→              {active === "bicho" && (
+  1027→                <motion.div key="bicho" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+  1028→                  <BichoGame onScore={recordScore("Jogo do Bicho")} liveCode={liveCode} />
+  1029→                </motion.div>
+  1030→              )}
+  1031→            </AnimatePresence>
+  1032→          </div>
+  1033→
+  1034→          {user && (
+  1035→          <aside className="space-y-4">
+  1036→            <LiveControlPanel
+  1037→              liveCode={liveCode}
+  1038→              entries={leaderboard}
+  1039→              onClear={() => setLeaderboard([])}
+  1040→              onResetConfig={resetConfig}
+  1041→            />
+  1042→            <LiveLeaderboard entries={leaderboard} onClear={() => setLeaderboard([])} />
+  1043→            {user && (
+  1044→              <AmbassadorPanel
+  1045→                businessUserId={user.id}
+  1046→                businessName={user.email?.split("@")[0] || "esta empresa"}
+  1047→                liveCode={liveCode}
+  1048→                compact
+  1049→              />
+  1050→            )}
+  1051→
+  1052→            <div className="rounded-2xl border border-border bg-card p-4">
+  1053→              <div className="flex items-center gap-2 mb-2">
+  1054→                <Sparkles className="h-4 w-4 text-primary" />
+  1055→                <h3 className="font-display text-sm font-bold">Dicas para a sua Live</h3>
+  1056→              </div>
+  1057→              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+  1058→                <li>Configure os prémios e probabilidades antes de começar.</li>
+  1059→                <li>Partilhe o código da live para os participantes.</li>
+  1060→                <li>Use o leaderboard para coroar o vencedor no fim.</li>
+  1061→                <li>Vincule um sorteio para distribuir prémios reais.</li>
+  1062→              </ul>
+  1063→            </div>
+  1064→
+  1065→            <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+  1066→              <div className="flex items-center gap-2 mb-1">
+  1067→                <Users className="h-4 w-4 text-primary" />
+  1068→                <h3 className="font-display text-sm font-bold">Modo Multi-jogador</h3>
+  1069→              </div>
+  1070→              <p className="text-xs text-muted-foreground">
+  1071→                Tap Battle e Quiz Battle suportam 1v1 ou contra bot — perfeito para desafios entre o anfitrião e convidados.
+  1072→              </p>
+  1073→            </div>
+  1074→          </aside>
+  1075→          )}
+  1076→        </div>
+  1077→      </section>
+  1078→
+  1079→      <Footer />
+  1080→      <BottomTabBar />
+  1081→
+  1082→      <AnimatePresence>
+  1083→        {endOpen && (
+  1084→          <motion.div
+  1085→            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+  1086→            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+  1087→            onClick={() => !ending && setEndOpen(false)}
+  1088→          >
+  1089→            <motion.div
+  1090→              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+  1091→              className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
+  1092→              onClick={(e) => e.stopPropagation()}
+  1093→            >
+  1094→              <div className="flex items-center gap-3 mb-3">
+  1095→                <div className="h-12 w-12 rounded-2xl bg-destructive/15 text-destructive flex items-center justify-center">
+  1096→                  <Square className="h-5 w-5 fill-current" />
+  1097→                </div>
+  1098→                <div>
+  1099→                  <h3 className="font-display text-lg font-bold">Encerrar a Live?</h3>
+  1100→                  <p className="text-xs text-muted-foreground">O código <span className="font-mono font-bold text-foreground">{liveCode}</span> será invalidado e o ranking será arquivado no histórico.</p>
+  1101→                </div>
+  1102→              </div>
+  1103→
+  1104→              <div className="rounded-2xl bg-muted/40 border border-border p-4 mb-4 text-center">
+  1105→                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Confirmação disponível em</p>
+  1106→                <p className={`font-mono text-3xl font-bold ${endCountdown === 0 ? "text-destructive" : "text-primary"}`}>
+  1107→                  {endCountdown > 0 ? `${endCountdown}s` : "Pronto"}
+  1108→                </p>
+  1109→              </div>
+  1110→
+  1111→              <div className="flex gap-2">
+  1112→                <button
+  1113→                  onClick={() => !ending && setEndOpen(false)}
+  1114→                  disabled={ending}
+  1115→                  className="flex-1 px-4 py-2.5 rounded-full bg-secondary text-foreground text-sm font-bold disabled:opacity-50"
+  1116→                >
+  1117→                  Cancelar
+  1118→                </button>
+  1119→                <button
+  1120→                  onClick={confirmEndLive}
+  1121→                  disabled={endCountdown > 0 || ending}
+  1122→                  className="flex-1 px-4 py-2.5 rounded-full bg-destructive text-destructive-foreground text-sm font-bold hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+  1123→                >
+  1124→                  {ending ? "A encerrar…" : "Encerrar Live"}
+  1125→                </button>
+  1126→              </div>
+  1127→            </motion.div>
+  1128→          </motion.div>
+  1129→        )}
+  1130→      </AnimatePresence>
+  1131→    </div>
+  1132→  );
+  1133→};
+  1134→
+  1135→export default LiveHub;
+  1136→

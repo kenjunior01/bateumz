@@ -1,0 +1,582 @@
+     1→import { useState, useEffect, useCallback } from "react";
+     2→import { motion, AnimatePresence, type Variants } from "framer-motion";
+     3→import { useLocation, useNavigate, Link } from "react-router-dom";
+     4→import {
+     5→  Zap, Star, ChevronRight, Trophy, Ticket, Sparkles, Building2, Users,
+     6→  MessageCircle, History, ShieldCheck, Radio, HelpCircle, BookOpen,
+     7→  Gift, Store, Gamepad2, Bell, Search, Flame, Wallet, Clock, Heart,
+     8→  BadgeCheck, LogOut, Settings, User, X, Home, Layers, TrendingUp,
+     9→  Swords, Newspaper, CreditCard, Target, Dice5, Globe, ChevronDown, Play, Shield, MapPin, Megaphone
+    10→} from "lucide-react";
+    11→import { useAuth } from "@/contexts/AuthContext";
+    12→import { useLanguage } from "@/contexts/LanguageContext";
+    13→import { useCurrency } from "@/contexts/CurrencyContext";
+    14→import { useMobileNav } from "@/contexts/MobileNavigationContext";
+    15→import { supabase } from "@/integrations/supabase/client";
+    16→import bateuLogo from "@/assets/bateu-logo.png";
+    17→
+    18→type NavItem = {
+    19→  icon: typeof Home;
+    20→  labelKey: string;
+    21→  href: string;
+    22→  badge?: string;
+    23→  live?: boolean;
+    24→  trending?: boolean;
+    25→  grad: string;
+    26→};
+    27→
+    28→type NavGroup = {
+    29→  titleKey: string;
+    30→  icon: typeof Trophy;
+    31→  items: NavItem[];
+    32→};
+    33→
+    34→const NAV_GROUPS: NavGroup[] = [
+    35→  {
+    36→    titleKey: "mob.group.raffles",
+    37→    icon: Ticket,
+    38→    items: [
+    39→      { icon: Store, labelKey: "menu.marketplace", href: "/marketplace", grad: "from-primary to-accent" },
+    40→      { icon: Trophy, labelKey: "menu.contests", href: "/concursos", grad: "from-amber-500 to-orange-500" },
+    41→      { icon: Sparkles, labelKey: "menu.instantWin", href: "/instant-win", grad: "from-violet-500 to-fuchsia-500" },
+    42→      { icon: Radio, labelKey: "menu.liveHub", href: "/lives", grad: "from-red-500 to-pink-500", live: true },
+    43→      { icon: Ticket, labelKey: "menu.myTickets", href: "/my-tickets", grad: "from-emerald-500 to-teal-500" },
+    44→    ],
+    45→  },
+    46→  {
+    47→    titleKey: "mob.group.games",
+    48→    icon: Gamepad2,
+    49→    items: [
+    50→      { icon: Zap, labelKey: "menu.games", href: "/jogos", grad: "from-amber-400 to-yellow-600", badge: "NOVO" },
+    51→      { icon: Swords, labelKey: "mob.battles", href: "/jogos", grad: "from-blue-600 to-indigo-800", trending: true },
+    52→      { icon: Dice5, labelKey: "mob.spinWheel", href: "/marketplace?tab=games", grad: "from-purple-500 to-pink-600" },
+    53→      { icon: Target, labelKey: "tournament.title", href: "/tournaments", grad: "from-emerald-500 to-teal-600", badge: "NOVO" },
+    54→    ],
+    55→  },
+    56→  {
+    57→    titleKey: "mob.group.business",
+    58→    icon: Building2,
+    59→    items: [
+    60→      { icon: Building2, labelKey: "menu.directory", href: "/empresas", grad: "from-blue-500 to-cyan-500" },
+    61→      { icon: CreditCard, labelKey: "menu.installments", href: "/prestacoes/catalogo", grad: "from-rose-500 to-pink-500", badge: "NOVO" },
+    62→      { icon: Gift, labelKey: "menu.createRaffle", href: "/dashboard/raffles/create", grad: "from-yellow-500 to-amber-500" },
+    63→    ],
+    64→  },
+    65→  {
+    66→    titleKey: "mob.group.community",
+    67→    icon: Users,
+    68→    items: [
+    69→      { icon: MessageCircle, labelKey: "menu.hub", href: "/community", grad: "from-sky-500 to-indigo-500" },
+    70→      { icon: History, labelKey: "menu.winners", href: "/historico", grad: "from-amber-500 to-yellow-500" },
+    71→      { icon: ShieldCheck, labelKey: "menu.transparency", href: "/transparencia", grad: "from-emerald-500 to-green-500" },
+    72→      { icon: Users, labelKey: "menu.referral", href: "/referral", grad: "from-fuchsia-500 to-pink-500" },
+    73→      { icon: Newspaper, labelKey: "menu.blog", href: "/blog", grad: "from-slate-500 to-slate-600" },
+    74→    ],
+    75→  },
+    76→  {
+    77→    titleKey: "mob.group.more",
+    78→    icon: Layers,
+    79→    items: [
+    80→      { icon: BookOpen, labelKey: "menu.howItWorks", href: "/como-funciona", grad: "from-slate-500 to-slate-600" },
+    81→      { icon: HelpCircle, labelKey: "menu.faq", href: "/faq", grad: "from-zinc-500 to-zinc-600" },
+    82→      { icon: Globe, labelKey: "mob.languages", href: "/", grad: "from-teal-500 to-cyan-600" },
+    83→      { icon: Shield, labelKey: "mob.terms", href: "/termos", grad: "from-gray-500 to-gray-600" },
+    84→    ],
+    85→  },
+    86→];
+    87→
+    88→const QUICK_ACTIONS = [
+    89→  { icon: Radio, labelKey: "mob.liveNow", href: "/lives-agora", live: true, grad: "from-red-500 to-rose-600" },
+    90→  { icon: Gamepad2, labelKey: "mob.games", href: "/jogos", grad: "from-purple-500 to-violet-600" },
+    91→  { icon: Store, labelKey: "mob.shop", href: "/marketplace", grad: "from-blue-500 to-indigo-600" },
+    92→  { icon: Ticket, labelKey: "mob.tickets", href: "/my-tickets", grad: "from-emerald-500 to-teal-600" },
+    93→];
+    94→
+    95→const overlayVariants: Variants = {
+    96→  hidden: { opacity: 0 },
+    97→  visible: { opacity: 1 },
+    98→  exit: { opacity: 0 },
+    99→};
+   100→
+   101→const drawerVariants: Variants = {
+   102→  hidden: { y: "-100%", opacity: 0.5, scale: 0.95 },
+   103→  visible: {
+   104→    y: 0, opacity: 1, scale: 1,
+   105→    transition: { type: "spring", stiffness: 260, damping: 28, mass: 0.8 },
+   106→  },
+   107→  exit: {
+   108→    y: "-100%", opacity: 0.5, scale: 0.95,
+   109→    transition: { duration: 0.2, ease: "easeIn" },
+   110→  },
+   111→};
+   112→
+   113→const staggerContainer: Variants = {
+   114→  hidden: { opacity: 0 },
+   115→  visible: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.1 } },
+   116→  exit: { opacity: 0, transition: { staggerChildren: 0.02, staggerDirection: -1 } },
+   117→};
+   118→
+   119→const itemVariants: Variants = {
+   120→  hidden: { opacity: 0, y: 16, scale: 0.95 },
+   121→  visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 400, damping: 24 } },
+   122→  exit: { opacity: 0, y: 8, scale: 0.97, transition: { duration: 0.15 } },
+   123→};
+   124→
+   125→const RECENT_PAGES_KEY = "bateu_recent_pages";
+   126→const FAVORITES_KEY = "bateu_menu_favorites";
+   127→const MAX_RECENT = 6;
+   128→
+   129→function trackPageVisit(path: string) {
+   130→  if (path === "/") return;
+   131→  try {
+   132→    const raw = sessionStorage.getItem(RECENT_PAGES_KEY);
+   133→    const pages: string[] = raw ? JSON.parse(raw) : [];
+   134→    const filtered = pages.filter((p) => p !== path);
+   135→    filtered.unshift(path);
+   136→    sessionStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(filtered.slice(0, MAX_RECENT)));
+   137→  } catch { /* noop */ }
+   138→}
+   139→
+   140→export function useTrackRecentPages() {
+   141→  const location = useLocation();
+   142→  useEffect(() => { trackPageVisit(location.pathname); }, [location.pathname]);
+   143→}
+   144→
+   145→const ROUTE_META: Record<string, { icon: typeof Home; labelKey: string; grad: string }> = {
+   146→  "/marketplace": { icon: Store, labelKey: "menu.marketplace", grad: "from-primary to-accent" },
+   147→  "/concursos": { icon: Trophy, labelKey: "menu.contests", grad: "from-amber-500 to-orange-500" },
+   148→  "/jogos": { icon: Gamepad2, labelKey: "menu.games", grad: "from-purple-500 to-violet-600" },
+   149→  "/lives": { icon: Radio, labelKey: "menu.liveHub", grad: "from-red-500 to-pink-500" },
+   150→  "/lives-agora": { icon: Radio, labelKey: "mob.liveNow", grad: "from-red-500 to-rose-600" },
+   151→  "/blog": { icon: Newspaper, labelKey: "menu.blog", grad: "from-slate-500 to-slate-600" },
+   152→  "/empresas": { icon: Building2, labelKey: "menu.directory", grad: "from-blue-500 to-cyan-500" },
+   153→  "/community": { icon: MessageCircle, labelKey: "menu.hub", grad: "from-sky-500 to-indigo-500" },
+   154→  "/wallet": { icon: Wallet, labelKey: "tab.wallet", grad: "from-emerald-500 to-teal-500" },
+   155→  "/my-tickets": { icon: Ticket, labelKey: "menu.myTickets", grad: "from-emerald-500 to-teal-500" },
+   156→  "/my-points": { icon: Star, labelKey: "menu.points", grad: "from-amber-500 to-orange-500" },
+   157→  "/instant-win": { icon: Sparkles, labelKey: "menu.instantWin", grad: "from-violet-500 to-fuchsia-500" },
+   158→  "/tournaments": { icon: Target, labelKey: "tournament.title", grad: "from-emerald-500 to-teal-600" },
+   159→  "/batalhas": { icon: Swords, labelKey: "Batalhas", grad: "from-red-500 to-orange-600" },
+   160→  "/referral": { icon: Users, labelKey: "menu.referral", grad: "from-fuchsia-500 to-pink-500" },
+   161→  "/historico": { icon: History, labelKey: "menu.winners", grad: "from-amber-500 to-yellow-500" },
+   162→  "/prestacoes/catalogo": { icon: CreditCard, labelKey: "menu.installments", grad: "from-rose-500 to-pink-500" },
+   163→};
+   164→
+   165→export default function MobileMenuDrawer() {
+   166→  const location = useLocation();
+   167→  const navigate = useNavigate();
+   168→  const { user, role, signOut } = useAuth();
+   169→  const { t } = useLanguage();
+   170→  const { format } = useCurrency();
+   171→  const { menuOpen, setMenuOpen } = useMobileNav();
+   172→
+   173→  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+   174→    [NAV_GROUPS[0].titleKey]: true,
+   175→  });
+   176→  const [liveCount, setLiveCount] = useState(0);
+   177→  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+   178→  const [unread, setUnread] = useState(0);
+   179→  const [recentPages, setRecentPages] = useState<string[]>([]);
+   180→  const [favorites, setFavorites] = useState<Set<string>>(() => {
+   181→    try { return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]")); } catch { return new Set(); }
+   182→  });
+   183→  const [showRecents, setShowRecents] = useState(true);
+   184→
+   185→  useEffect(() => { setMenuOpen(false); }, [location.pathname, setMenuOpen]);
+   186→
+   187→  useEffect(() => {
+   188→    const loadLive = async () => {
+   189→      const { count } = await (supabase as any)
+   190→        .from("lives").select("id", { count: "exact", head: true }).eq("status", "active");
+   191→      setLiveCount(count || 0);
+   192→    };
+   193→    loadLive();
+   194→    const ch = supabase
+   195→      .channel("mob-menu-live")
+   196→      .on("postgres_changes", { event: "*", schema: "public", table: "lives" }, loadLive)
+   197→      .subscribe();
+   198→    return () => { supabase.removeChannel(ch); };
+   199→  }, []);
+   200→
+   201→  useEffect(() => {
+   202→    if (!user) { setWalletBalance(null); setUnread(0); return; }
+   203→    let mounted = true;
+   204→    const load = async () => {
+   205→      const { data: wd } = await (supabase as any)
+   206→        .from("wallets").select("balance").eq("user_id", user.id).single();
+   207→      if (mounted && wd) setWalletBalance(wd.balance);
+   208→      const { count } = await (supabase as any)
+   209→        .from("notifications").select("id", { count: "exact", head: true })
+   210→        .eq("user_id", user.id).eq("read", false);
+   211→      if (mounted) setUnread(count || 0);
+   212→    };
+   213→    load();
+   214→    const ch = supabase
+   215→      .channel("mob-menu-data")
+   216→      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: "user_id=eq." + user.id }, load)
+   217→      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, () => load())
+   218→      .subscribe();
+   219→    return () => { mounted = false; supabase.removeChannel(ch); };
+   220→  }, [user]);
+   221→
+   222→  useEffect(() => {
+   223→    try {
+   224→      const raw = sessionStorage.getItem(RECENT_PAGES_KEY);
+   225→      if (raw) setRecentPages(JSON.parse(raw));
+   226→    } catch { /* noop */ }
+   227→  }, [menuOpen]);
+   228→
+   229→  const toggleFavorite = useCallback((path: string) => {
+   230→    setFavorites((prev) => {
+   231→      const next = new Set(prev);
+   232→      if (next.has(path)) next.delete(path); else next.add(path);
+   233→      localStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]));
+   234→      return next;
+   235→    });
+   236→  }, []);
+   237→
+   238→  const toggleGroup = (titleKey: string) => {
+   239→    setExpandedGroups((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
+   240→  };
+   241→
+   242→  const goOrAuth = (href: string, requiresAuth = false) => {
+   243→    setMenuOpen(false);
+   244→    if (requiresAuth && !user) navigate("/login");
+   245→    else navigate(href);
+   246→  };
+   247→
+   248→  const userDashboardHref = role === "admin" ? "/admin" : role === "business" ? "/dashboard" : "/profile";
+   249→
+   250→  if (location.pathname.startsWith("/overlay")) return null;
+   251→
+   252→  return (
+   253→    <AnimatePresence>
+   254→      {menuOpen && (
+   255→        <>
+   256→          <motion.div
+   257→            key="mob-overlay"
+   258→            variants={overlayVariants}
+   259→            initial="hidden"
+   260→            animate="visible"
+   261→            exit="exit"
+   262→            transition={{ duration: 0.25 }}
+   263→            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md lg:hidden"
+   264→            onClick={() => setMenuOpen(false)}
+   265→          />
+   266→
+   267→          <motion.div
+   268→            key="mob-drawer"
+   269→            variants={drawerVariants}
+   270→            initial="hidden"
+   271→            animate="visible"
+   272→            exit="exit"
+   273→            className="fixed inset-0 z-[101] flex flex-col lg:hidden overflow-hidden"
+   274→            style={{ background: "hsl(var(--background))" }}
+   275→          >
+   276→            <div className="mob-menu-glow" aria-hidden="true" />
+   277→
+   278→            <div className="relative z-10 flex flex-col h-full">
+   279→              <div className="mob-menu-header">
+   280→                <Link to="/" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5">
+   281→                  <div className="mob-menu-logo-ring">
+   282→                    <img src={bateuLogo} alt="Bateu" className="h-9 w-9 rounded-lg" />
+   283→                  </div>
+   284→                  <div>
+   285→                    <div className="flex items-center gap-1.5">
+   286→                      <span className="font-display text-xl font-bold">Bateu</span>
+   287→                      <BadgeCheck className="h-4 w-4 text-primary" strokeWidth={2.5} />
+   288→                    </div>
+   289→                    <span className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase">
+   290→                      {t("mob.tagline")}
+   291→                    </span>
+   292→                  </div>
+   293→                </Link>
+   294→                <motion.button
+   295→                  whileTap={{ scale: 0.85, rotate: 90 }}
+   296→                  onClick={() => setMenuOpen(false)}
+   297→                  className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary/80 text-foreground"
+   298→                >
+   299→                  <X className="h-5 w-5" />
+   300→                </motion.button>
+   301→              </div>
+   302→
+   303→              <div className="flex-1 overflow-y-auto overflow-x-hidden mob-menu-scroll">
+   304→                <motion.div
+   305→                  variants={staggerContainer}
+   306→                  initial="hidden"
+   307→                  animate="visible"
+   308→                  exit="exit"
+   309→                  className="px-4 pt-4 pb-8 space-y-3"
+   310→                >
+   311→                  <motion.div variants={itemVariants} className="grid grid-cols-4 gap-2.5">
+   312→                    {QUICK_ACTIONS.map((qa) => (
+   313→                      <button
+   314→                        key={qa.labelKey}
+   315→                        onClick={() => goOrAuth(qa.href, qa.href === "/my-tickets")}
+   316→                        className="mob-quick-card group"
+   317→                      >
+   318→                        <div className={"flex h-11 w-11 mx-auto items-center justify-center rounded-2xl bg-gradient-to-br " + qa.grad + " shadow-lg group-active:scale-90 transition-transform"}>
+   319→                          <qa.icon className="h-5 w-5 text-white" strokeWidth={2} />
+   320→                          {qa.live && <span className="mob-quick-live-dot" />}
+   321→                        </div>
+   322→                        <span className="text-[10.5px] font-semibold mt-1.5 text-center leading-tight">{t(qa.labelKey)}</span>
+   323→                      </button>
+   324→                    ))}
+   325→                  </motion.div>
+   326→
+   327→                  {liveCount > 0 && (
+   328→                    <motion.div variants={itemVariants}>
+   329→                      <button
+   330→                        onClick={() => goOrAuth("/lives-agora")}
+   331→                        className="mob-live-banner w-full flex items-center gap-3 rounded-2xl px-4 py-3"
+   332→                      >
+   333→                        <span className="mob-live-pulse-ring" aria-hidden="true" />
+   334→                        <Radio className="h-5 w-5 text-white shrink-0" />
+   335→                        <div className="flex-1 text-left">
+   336→                          <p className="text-sm font-bold text-white">{liveCount} {t("mob.livesActive")}</p>
+   337→                          <p className="text-[11px] text-white/80">{t("mob.tapToWatch")}</p>
+   338→                        </div>
+   339→                        <Play className="h-5 w-5 text-white/80" />
+   340→                      </button>
+   341→                    </motion.div>
+   342→                  )}
+   343→
+   344→                  <motion.div variants={itemVariants}>
+   345→                    <button
+   346→                      onClick={() => goOrAuth("/marketplace")}
+   347→                      className="w-full flex items-center gap-3 rounded-2xl border border-border/60 bg-card/60 px-4 py-3 text-left backdrop-blur-sm"
+   348→                    >
+   349→                      <Search className="h-4.5 w-4.5 text-muted-foreground" />
+   350→                      <span className="text-sm text-muted-foreground flex-1">{t("mob.searchPlaceholder")}</span>
+   351→                    </button>
+   352→                  </motion.div>
+   353→
+   354→                  {recentPages.length > 0 && showRecents && (
+   355→                    <motion.div variants={itemVariants}>
+   356→                      <div className="flex items-center justify-between px-3 mb-1.5">
+   357→                        <div className="flex items-center gap-1.5">
+   358→                          <Clock className="h-3 w-3 text-muted-foreground" />
+   359→                          <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{t("mob.recent")}</span>
+   360→                        </div>
+   361→                        <button onClick={() => setShowRecents(false)} className="text-[10px] text-muted-foreground">{t("mob.hide")}</button>
+   362→                      </div>
+   363→                      <div className="flex gap-2 overflow-x-auto pb-1 mob-menu-scroll">
+   364→                        {recentPages.filter((p) => ROUTE_META[p]).map((path) => {
+   365→                          const meta = ROUTE_META[path];
+   366→                          return (
+   367→                            <button
+   368→                              key={path}
+   369→                              onClick={() => goOrAuth(path)}
+   370→                              className="mob-recent-chip group flex items-center gap-1.5 shrink-0 rounded-full bg-card/80 border border-border/40 px-3 py-2"
+   371→                            >
+   372→                              <meta.icon className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+   373→                              <span className="text-[11px] font-semibold">{t(meta.labelKey)}</span>
+   374→                              <button
+   375→                                onClick={(e) => { e.stopPropagation(); toggleFavorite(path); }}
+   376→                                className={"h-4 w-4 flex items-center justify-center " + (favorites.has(path) ? "text-accent" : "text-muted-foreground/30")}
+   377→                              >
+   378→                                <Heart className={"h-3 w-3 " + (favorites.has(path) ? "fill-accent" : "")} />
+   379→                              </button>
+   380→                            </button>
+   381→                          );
+   382→                        })}
+   383→                      </div>
+   384→                    </motion.div>
+   385→                  )}
+   386→
+   387→                  {favorites.size > 0 && (
+   388→                    <motion.div variants={itemVariants}>
+   389→                      <div className="flex items-center gap-1.5 px-3 mb-1.5">
+   390→                        <Heart className="h-3 w-3 text-accent" />
+   391→                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{t("mob.favorites")}</span>
+   392→                      </div>
+   393→                      <div className="grid grid-cols-3 gap-2">
+   394→                        {[...favorites].filter((p) => ROUTE_META[p]).map((path) => {
+   395→                          const meta = ROUTE_META[path];
+   396→                          return (
+   397→                            <motion.button
+   398→                              key={path}
+   399→                              whileTap={{ scale: 0.92 }}
+   400→                              onClick={() => goOrAuth(path)}
+   401→                              className="mob-menu-item group flex flex-col items-center gap-1.5 rounded-2xl bg-card/80 border border-accent/20 p-2.5 backdrop-blur-sm"
+   402→                            >
+   403→                              <div className={"flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br " + meta.grad + " shadow-md group-active:scale-90 transition-transform"}>
+   404→                                <meta.icon className="h-5 w-5 text-white" strokeWidth={1.8} />
+   405→                              </div>
+   406→                              <span className="text-[10.5px] font-semibold leading-tight text-center line-clamp-2 px-0.5">{t(meta.labelKey)}</span>
+   407→                            </motion.button>
+   408→                          );
+   409→                        })}
+   410→                      </div>
+   411→                    </motion.div>
+   412→                  )}
+   413→
+   414→                  {!user && (
+   415→                    <motion.div variants={itemVariants}>
+   416→                      <button
+   417→                        onClick={() => goOrAuth("/register")}
+   418→                        className="mob-hero-cta w-full flex items-center gap-3.5 rounded-2xl p-4"
+   419→                      >
+   420→                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+   421→                          <Flame className="h-5 w-5 text-white" />
+   422→                        </div>
+   423→                        <div className="flex-1 text-left">
+   424→                          <p className="text-sm font-bold text-white">{t("mob.cta.title")}</p>
+   425→                          <p className="text-[11px] text-white/80">{t("mob.cta.subtitle")}</p>
+   426→                        </div>
+   427→                        <Zap className="h-4 w-4 text-white" />
+   428→                      </button>
+   429→                    </motion.div>
+   430→                  )}
+   431→
+   432→                  {user && (
+   433→                    <motion.div variants={itemVariants}>
+   434→                      <button
+   435→                        onClick={() => goOrAuth(userDashboardHref)}
+   436→                        className="mob-user-card w-full flex items-center gap-3 rounded-2xl p-3"
+   437→                      >
+   438→                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-white font-bold text-lg">
+   439→                          {user.email ? user.email.charAt(0).toUpperCase() : "U"}
+   440→                        </div>
+   441→                        <div className="flex-1 min-w-0 text-left">
+   442→                          <p className="text-sm font-bold truncate">
+   443→                            {role === "admin" ? t("mob.admin") : role === "business" ? t("mob.business") : t("mob.hiUser")}
+   444→                          </p>
+   445→                          <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+   446→                        </div>
+   447→                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+   448→                      </button>
+   449→                    </motion.div>
+   450→                  )}
+   451→
+   452→                  <div className="space-y-1">
+   453→                    {NAV_GROUPS.map((group) => {
+   454→                      const isExpanded = expandedGroups[group.titleKey] !== false;
+   455→                      return (
+   456→                        <motion.div key={group.titleKey} variants={itemVariants}>
+   457→                          <button
+   458→                            onClick={() => toggleGroup(group.titleKey)}
+   459→                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left"
+   460→                          >
+   461→                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+   462→                              <group.icon className="h-3.5 w-3.5" strokeWidth={2} />
+   463→                            </div>
+   464→                            <span className="flex-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+   465→                              {t(group.titleKey)}
+   466→                            </span>
+   467→                            <motion.span
+   468→                              animate={{ rotate: isExpanded ? 180 : 0 }}
+   469→                              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+   470→                            >
+   471→                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   472→                            </motion.span>
+   473→                          </button>
+   474→
+   475→                          <AnimatePresence initial={false}>
+   476→                            {isExpanded && (
+   477→                              <motion.div
+   478→                                initial={{ height: 0, opacity: 0 }}
+   479→                                animate={{ height: "auto", opacity: 1, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } }}
+   480→                                exit={{ height: 0, opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
+   481→                                className="overflow-hidden"
+   482→                              >
+   483→                                <div className="grid grid-cols-3 gap-2 pb-1.5">
+   484→                                  {group.items.map((item) => (
+   485→                                    <motion.button
+   486→                                      key={item.labelKey}
+   487→                                      whileTap={{ scale: 0.92 }}
+   488→                                      onClick={() => goOrAuth(item.href, item.href === "/my-tickets")}
+   489→                                      className="mob-menu-item group flex flex-col items-center gap-1.5 rounded-2xl bg-card/80 border border-border/50 p-2.5 backdrop-blur-sm"
+   490→                                    >
+   491→                                      <div className={"relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br " + item.grad + " shadow-md group-active:scale-90 transition-transform"}>
+   492→                                        <item.icon className="h-5 w-5 text-white" strokeWidth={1.8} />
+   493→                                        {item.live && <span className="mob-item-live-dot" />}
+   494→                                        {item.badge && <span className="mob-item-badge">{item.badge}</span>}
+   495→                                      </div>
+   496→                                      <span className="text-[10.5px] font-semibold leading-tight text-center line-clamp-2 px-0.5">
+   497→                                        {t(item.labelKey)}
+   498→                                      </span>
+   499→                                      {item.trending && (
+   500→                                        <span className="mob-item-trending">
+   501→                                          <Flame className="h-2.5 w-2.5" /> Trending
+   502→                                        </span>
+   503→                                      )}
+   504→                                    </motion.button>
+   505→                                  ))}
+   506→                                </div>
+   507→                              </motion.div>
+   508→                            )}
+   509→                          </AnimatePresence>
+   510→                        </motion.div>
+   511→                      );
+   512→                    })}
+   513→                  </div>
+   514→
+   515→                  <motion.div variants={itemVariants} className="pt-3 border-t border-border/40">
+   516→                    <div className="grid grid-cols-2 gap-2">
+   517→                      {walletBalance !== null && (
+   518→                        <button
+   519→                          onClick={() => goOrAuth("/wallet")}
+   520→                          className="mob-wallet-pill flex items-center justify-center gap-2 rounded-2xl py-3"
+   521→                        >
+   522→                          <Wallet className="h-4 w-4 text-white" />
+   523→                          <span className="text-sm font-bold text-white">{t("mob.wallet")}: {format(walletBalance)}</span>
+   524→                          <span className="mob-wallet-shine" aria-hidden="true" />
+   525→                        </button>
+   526→                      )}
+   527→                      <button
+   528→                        onClick={() => goOrAuth("/my-points")}
+   529→                        className="flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card/60 py-3"
+   530→                      >
+   531→                        <Star className="h-4 w-4 text-accent fill-accent/30" />
+   532→                        <span className="text-sm font-bold text-accent">{t("mob.points")}</span>
+   533→                      </button>
+   534→                    </div>
+   535→
+   536→                    {!user ? (
+   537→                      <div className="grid grid-cols-2 gap-2 mt-2">
+   538→                        <button
+   539→                          onClick={() => goOrAuth("/login")}
+   540→                          className="flex items-center justify-center rounded-2xl border border-border bg-secondary/50 py-3 text-sm font-semibold"
+   541→                        >
+   542→                          {t("mob.signin")}
+   543→                        </button>
+   544→                        <button
+   545→                          onClick={() => goOrAuth("/register")}
+   546→                          className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent py-3 text-sm font-bold text-white"
+   547→                        >
+   548→                          <Zap className="h-4 w-4" /> {t("mob.signup")}
+   549→                        </button>
+   550→                      </div>
+   551→                    ) : (
+   552→                      <div className="grid grid-cols-4 gap-2 mt-3">
+   553→                        <button onClick={() => goOrAuth(userDashboardHref)} className="mob-footer-action">
+   554→                          <User className="h-4 w-4" />
+   555→                          <span>{t("mob.profile")}</span>
+   556→                        </button>
+   557→                        <button onClick={() => goOrAuth(role === "business" ? "/dashboard/notifications" : "/profile")} className="mob-footer-action relative">
+   558→                          <Bell className="h-4 w-4" />
+   559→                          <span>{t("mob.alerts")}</span>
+   560→                          {unread > 0 && <span className="mob-notif-badge">{unread > 9 ? "9+" : unread}</span>}
+   561→                        </button>
+   562→                        <button onClick={() => goOrAuth(role === "business" ? "/dashboard/settings" : "/profile")} className="mob-footer-action">
+   563→                          <Settings className="h-4 w-4" />
+   564→                          <span>{t("mob.settings")}</span>
+   565→                        </button>
+   566→                        <button onClick={() => { setMenuOpen(false); signOut(); }} className="mob-footer-action">
+   567→                          <LogOut className="h-4 w-4" />
+   568→                          <span>{t("mob.logout")}</span>
+   569→                        </button>
+   570→                      </div>
+   571→                    )}
+   572→                  </motion.div>
+   573→                </motion.div>
+   574→              </div>
+   575→            </div>
+   576→          </motion.div>
+   577→        </>
+   578→      )}
+   579→    </AnimatePresence>
+   580→  );
+   581→}
+   582→

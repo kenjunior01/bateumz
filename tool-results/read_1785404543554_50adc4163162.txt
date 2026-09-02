@@ -1,0 +1,1083 @@
+     1→import { useState, useEffect, useRef, useCallback } from "react";
+     2→import { motion, AnimatePresence } from "framer-motion";
+     3→import { supabase } from "@/integrations/supabase/client";
+     4→import { useAuth } from "@/contexts/AuthContext";
+     5→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Input } from "@/components/ui/input";
+     8→import { Label } from "@/components/ui/label";
+     9→import { toast } from "sonner";
+    10→import {
+    11→  Palette,
+    12→  Save,
+    13→  Upload,
+    14→  X,
+    15→  Image as ImageIcon,
+    16→  Eye,
+    17→  Sparkles,
+    18→  Trophy,
+    19→  Crown,
+    20→  Gamepad2,
+    21→  Monitor,
+    22→  Zap,
+    23→  Star,
+    24→  Check,
+    25→} from "lucide-react";
+    26→
+    27→// Preset theme definitions
+    28→const PRESETS = [
+    29→  { name: "Amarelo Premium", primary: "#fbbf24", secondary: "#f97316", accent: "#eab308", bg: "#0a0a0a", text: "#ffffff" },
+    30→  { name: "Azul Corporativo", primary: "#3b82f6", secondary: "#06b6d4", accent: "#8b5cf6", bg: "#0f172a", text: "#f1f5f9" },
+    31→  { name: "Roxo Neon", primary: "#a855f7", secondary: "#ec4899", accent: "#6366f1", bg: "#0a0014", text: "#e9d5ff" },
+    32→  { name: "Verde Gaming", primary: "#10b981", secondary: "#22d3ee", accent: "#84cc16", bg: "#022c22", text: "#d1fae5" },
+    33→  { name: "Vermelho Live", primary: "#ef4444", secondary: "#f97316", accent: "#fbbf24", bg: "#1a0000", text: "#fee2e2" },
+    34→];
+    35→
+    36→// Overlay style definitions
+    37→type OverlayStyle = "modern" | "minimal" | "neon" | "classic" | "gaming";
+    38→
+    39→const OVERLAY_STYLES: { id: OverlayStyle; label: string; icon: React.ReactNode; desc: string }[] = [
+    40→  { id: "modern", label: "Moderno", icon: <Monitor className="h-5 w-5" />, desc: "Limpo e profissional" },
+    41→  { id: "minimal", label: "Minimal", icon: <Eye className="h-5 w-5" />, desc: "Elegante e simples" },
+    42→  { id: "neon", label: "Neon", icon: <Zap className="h-5 w-5" />, desc: "Brilhante e vibrante" },
+    43→  { id: "classic", label: "Classico", icon: <Crown className="h-5 w-5" />, desc: "Tradicional e sofisticado" },
+    44→  { id: "gaming", label: "Gaming", icon: <Gamepad2 className="h-5 w-5" />, desc: "Dinamico e intenso" },
+    45→];
+    46→
+    47→// Mock leaderboard data for preview
+    48→const MOCK_LEADERBOARD = [
+    49→  { rank: 1, name: "Ana Silva", score: 2850 },
+    50→  { rank: 2, name: "Carlos M.", score: 2340 },
+    51→  { rank: 3, name: "Beatriz L.", score: 1980 },
+    52→  { rank: 4, name: "Diogo R.", score: 1650 },
+    53→  { rank: 5, name: "Elena F.", score: 1420 },
+    54→];
+    55→
+    56→// Spring animation configs defined outside JSX
+    57→const fadeInUp = { type: "spring" as const, stiffness: 120, damping: 14 };
+    58→const fadeInUpSlow = { type: "spring" as const, stiffness: 100, damping: 16 };
+    59→const staggerChildren = { type: "spring" as const, stiffness: 140, damping: 12 };
+    60→const scaleIn = { type: "spring" as const, stiffness: 200, damping: 15 };
+    61→
+    62→// Default branding state
+    63→const DEFAULT_BRANDING = {
+    64→  company_name: "",
+    65→  company_slogan: "",
+    66→  company_logo_url: "",
+    67→  background_image_url: "",
+    68→  primary_color: "#22c55e",
+    69→  secondary_color: "#eab308",
+    70→  accent_color: "#f97316",
+    71→  background_color: "#0a0a0a",
+    72→  text_color: "#ffffff",
+    73→  overlay_style: "modern" as OverlayStyle,
+    74→  enabled: true,
+    75→};
+    76→
+    77→// Main component
+    78→export default function GameBrandingConfig() {
+    79→  const { user } = useAuth();
+    80→  const [saving, setSaving] = useState(false);
+    81→  const [loading, setLoading] = useState(true);
+    82→  const [existingId, setExistingId] = useState<string | null>(null);
+    83→
+    84→  const [branding, setBranding] = useState(DEFAULT_BRANDING);
+    85→  const [logoFile, setLogoFile] = useState<File | null>(null);
+    86→  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    87→  const [bgFile, setBgFile] = useState<File | null>(null);
+    88→  const [bgPreview, setBgPreview] = useState<string | null>(null);
+    89→  const [uploading, setUploading] = useState<"logo" | "bg" | null>(null);
+    90→
+    91→  const logoInputRef = useRef<HTMLInputElement>(null);
+    92→  const bgInputRef = useRef<HTMLInputElement>(null);
+    93→
+    94→  // Load existing branding on mount
+    95→  useEffect(() => {
+    96→    if (!user) return;
+    97→
+    98→    const loadBranding = async () => {
+    99→      const { data } = await supabase
+   100→        .from("company_branding")
+   101→        .select("*")
+   102→        .eq("user_id", user.id)
+   103→        .maybeSingle();
+   104→
+   105→      if (data) {
+   106→        const row = data as any;
+   107→        setExistingId(row.id);
+   108→        setBranding({
+   109→          company_name: row.company_name || "",
+   110→          company_slogan: row.company_slogan || "",
+   111→          company_logo_url: row.company_logo_url || "",
+   112→          background_image_url: row.background_image_url || "",
+   113→          primary_color: row.primary_color || "#22c55e",
+   114→          secondary_color: row.secondary_color || "#eab308",
+   115→          accent_color: row.accent_color || "#f97316",
+   116→          background_color: row.background_color || "#0a0a0a",
+   117→          text_color: row.text_color || "#ffffff",
+   118→          overlay_style: row.overlay_style || "modern",
+   119→          enabled: row.enabled ?? true,
+   120→        });
+   121→        if (row.company_logo_url) setLogoPreview(row.company_logo_url);
+   122→        if (row.background_image_url) setBgPreview(row.background_image_url);
+   123→      }
+   124→      setLoading(false);
+   125→    };
+   126→
+   127→    loadBranding();
+   128→  }, [user]);
+   129→
+   130→  // Field change helpers
+   131→  const updateField = useCallback((field: string, value: string | boolean) => {
+   132→    setBranding((prev) => ({ ...prev, [field]: value }));
+   133→  }, []);
+   134→
+   135→  const applyPreset = useCallback((preset: (typeof PRESETS)[number]) => {
+   136→    setBranding((prev) => ({
+   137→      ...prev,
+   138→      primary_color: preset.primary,
+   139→      secondary_color: preset.secondary,
+   140→      accent_color: preset.accent,
+   141→      background_color: preset.bg,
+   142→      text_color: preset.text,
+   143→    }));
+   144→  }, []);
+   145→
+   146→  // File selection handlers
+   147→  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+   148→    const file = e.target.files?.[0];
+   149→    if (!file) return;
+   150→    if (file.size > 5 * 1024 * 1024) {
+   151→      toast.error("O logo deve ter no maximo 5MB");
+   152→      return;
+   153→    }
+   154→    if (!file.type.startsWith("image/")) {
+   155→      toast.error("Selecione um ficheiro de imagem valido");
+   156→      return;
+   157→    }
+   158→    setLogoFile(file);
+   159→    setLogoPreview(URL.createObjectURL(file));
+   160→  };
+   161→
+   162→  const handleBgSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+   163→    const file = e.target.files?.[0];
+   164→    if (!file) return;
+   165→    if (file.size > 10 * 1024 * 1024) {
+   166→      toast.error("A imagem de fundo deve ter no maximo 10MB");
+   167→      return;
+   168→    }
+   169→    if (!file.type.startsWith("image/")) {
+   170→      toast.error("Selecione um ficheiro de imagem valido");
+   171→      return;
+   172→    }
+   173→    setBgFile(file);
+   174→    setBgPreview(URL.createObjectURL(file));
+   175→  };
+   176→
+   177→  // Upload helpers
+   178→  const uploadFile = async (
+   179→    file: File,
+   180→    type: "logo" | "bg",
+   181→  ): Promise<string | null> => {
+   182→    setUploading(type);
+   183→    const ext = file.name.split(".").pop();
+   184→    const prefix = type === "logo" ? "logo" : "bg";
+   185→    const path = `${user!.id}/${prefix}-${Date.now()}.${ext}`;
+   186→
+   187→    const { error } = await supabase.storage
+   188→      .from("company-branding-logos")
+   189→      .upload(path, file);
+   190→
+   191→    setUploading(null);
+   192→
+   193→    if (error) {
+   194→      toast.error("Erro ao enviar ficheiro: " + error.message);
+   195→      return null;
+   196→    }
+   197→
+   198→    const { data: urlData } = supabase.storage
+   199→      .from("company-branding-logos")
+   200→      .getPublicUrl(path);
+   201→
+   202→    return urlData.publicUrl;
+   203→  };
+   204→
+   205→  // Save handler
+   206→  const handleSave = async () => {
+   207→    if (!user) return;
+   208→
+   209→    if (!branding.company_name.trim()) {
+   210→      toast.error("Preencha o nome da empresa");
+   211→      return;
+   212→    }
+   213→
+   214→    setSaving(true);
+   215→
+   216→    let logoUrl = branding.company_logo_url;
+   217→    let bgUrl = branding.background_image_url;
+   218→
+   219→    if (logoFile) {
+   220→      const uploaded = await uploadFile(logoFile, "logo");
+   221→      if (uploaded) logoUrl = uploaded;
+   222→    }
+   223→
+   224→    if (bgFile) {
+   225→      const uploaded = await uploadFile(bgFile, "bg");
+   226→      if (uploaded) bgUrl = uploaded;
+   227→    }
+   228→
+   229→    const payload = {
+   230→      user_id: user.id,
+   231→      company_name: branding.company_name,
+   232→      company_slogan: branding.company_slogan,
+   233→      company_logo_url: logoUrl,
+   234→      background_image_url: bgUrl,
+   235→      primary_color: branding.primary_color,
+   236→      secondary_color: branding.secondary_color,
+   237→      accent_color: branding.accent_color,
+   238→      background_color: branding.background_color,
+   239→      text_color: branding.text_color,
+   240→      overlay_style: branding.overlay_style,
+   241→      enabled: branding.enabled,
+   242→    } as any;
+   243→
+   244→    if (existingId) {
+   245→      const { error } = await supabase
+   246→        .from("company_branding")
+   247→        .update(payload)
+   248→        .eq("id", existingId);
+   249→
+   250→      if (error) {
+   251→        toast.error("Erro ao guardar: " + error.message);
+   252→      } else {
+   253→        setBranding((prev) => ({
+   254→          ...prev,
+   255→          company_logo_url: logoUrl,
+   256→          background_image_url: bgUrl,
+   257→        }));
+   258→        setLogoFile(null);
+   259→        setBgFile(null);
+   260→        toast.success("Branding atualizado com sucesso!");
+   261→      }
+   262→    } else {
+   263→      const { data, error } = await supabase
+   264→        .from("company_branding")
+   265→        .insert(payload)
+   266→        .select()
+   267→        .single();
+   268→
+   269→      if (error) {
+   270→        toast.error("Erro ao guardar: " + error.message);
+   271→      } else {
+   272→        setExistingId((data as any).id);
+   273→        setBranding((prev) => ({
+   274→          ...prev,
+   275→          company_logo_url: logoUrl,
+   276→          background_image_url: bgUrl,
+   277→        }));
+   278→        setLogoFile(null);
+   279→        setBgFile(null);
+   280→        toast.success("Branding criado com sucesso!");
+   281→      }
+   282→    }
+   283→
+   284→    setSaving(false);
+   285→  };
+   286→
+   287→  // Preview helpers
+   288→  const previewLogo = logoPreview || branding.company_logo_url;
+   289→  const previewBg = bgPreview || branding.background_image_url;
+   290→
+   291→  const getOverlayBorderStyle = (): React.CSSProperties => {
+   292→    switch (branding.overlay_style) {
+   293→      case "neon":
+   294→        return {
+   295→          boxShadow: `0 0 20px ${branding.accent_color}66, inset 0 0 20px ${branding.primary_color}11`,
+   296→          border: `2px solid ${branding.accent_color}44`,
+   297→        };
+   298→      case "gaming":
+   299→        return {
+   300→          boxShadow: `4px 4px 0px ${branding.accent_color}, inset 0 1px 0 ${branding.accent_color}33`,
+   301→          border: `2px solid ${branding.accent_color}`,
+   302→          borderRadius: "0",
+   303→        };
+   304→      case "classic":
+   305→        return {
+   306→          boxShadow: `0 4px 12px rgba(0,0,0,0.3)`,
+   307→          border: `1px solid ${branding.primary_color}66`,
+   308→        };
+   309→      case "minimal":
+   310→        return {
+   311→          boxShadow: `0 1px 3px rgba(0,0,0,0.12)`,
+   312→          border: `1px solid ${branding.primary_color}22`,
+   313→        };
+   314→      default:
+   315→        return {
+   316→          boxShadow: `0 8px 32px ${branding.primary_color}33`,
+   317→          border: `1px solid ${branding.primary_color}44`,
+   318→        };
+   319→    }
+   320→  };
+   321→
+   322→  const getRankStyle = (rank: number): React.CSSProperties => {
+   323→    if (rank === 1) return { color: branding.accent_color };
+   324→    if (rank === 2) return { color: branding.secondary_color };
+   325→    if (rank === 3) return { color: "#cd7f32" };
+   326→    return { color: branding.text_color + "99" };
+   327→  };
+   328→
+   329→  // Loading state
+   330→  if (loading) {
+   331→    return (
+   332→      <div className="flex h-64 items-center justify-center">
+   333→        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+   334→      </div>
+   335→    );
+   336→  }
+   337→
+   338→  // Render
+   339→  return (
+   340→    <div className="mx-auto max-w-7xl space-y-6">
+   341→      <motion.div
+   342→        initial={{ opacity: 0, y: -12 }}
+   343→        animate={{ opacity: 1, y: 0 }}
+   344→        transition={fadeInUp}
+   345→        className="flex items-center gap-3"
+   346→      >
+   347→        <div
+   348→          className="flex h-12 w-12 items-center justify-center rounded-xl"
+   349→          style={{ background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.accent_color})` }}
+   350→        >
+   351→          <Palette className="h-6 w-6 text-white" />
+   352→        </div>
+   353→        <div>
+   354→          <h1 className="font-display text-2xl font-bold text-foreground">
+   355→            Branding do Jogo
+   356→          </h1>
+   357→          <p className="text-sm text-muted-foreground">
+   358→            Personalize a identidade visual dos seus jogos ao vivo
+   359→          </p>
+   360→        </div>
+   361→      </motion.div>
+   362→
+   363→      <div className="grid gap-6 lg:grid-cols-2">
+   364→        <div className="space-y-6">
+   365→
+   366→          <motion.div
+   367→            initial={{ opacity: 0, y: 20 }}
+   368→            animate={{ opacity: 1, y: 0 }}
+   369→            transition={fadeInUp}
+   370→          >
+   371→            <Card className="glass">
+   372→              <CardHeader className="pb-4">
+   373→                <CardTitle className="text-lg flex items-center gap-2">
+   374→                  <Sparkles className="h-5 w-5" style={{ color: branding.primary_color }} />
+   375→                  Identidade da Empresa
+   376→                </CardTitle>
+   377→              </CardHeader>
+   378→              <CardContent className="space-y-4">
+   379→                <div>
+   380→                  <Label htmlFor="company_name" className="mb-1.5 block">
+   381→                    Nome da Empresa
+   382→                  </Label>
+   383→                  <Input
+   384→                    id="company_name"
+   385→                    value={branding.company_name}
+   386→                    onChange={(e) => updateField("company_name", e.target.value)}
+   387→                    placeholder="Ex: Bateu Mozambique"
+   388→                  />
+   389→                </div>
+   390→                <div>
+   391→                  <Label htmlFor="company_slogan" className="mb-1.5 block">
+   392→                    Slogan / Tagline
+   393→                  </Label>
+   394→                  <Input
+   395→                    id="company_slogan"
+   396→                    value={branding.company_slogan}
+   397→                    onChange={(e) => updateField("company_slogan", e.target.value)}
+   398→                    placeholder="Ex: Onde cada aposta e uma oportunidade"
+   399→                  />
+   400→                </div>
+   401→              </CardContent>
+   402→            </Card>
+   403→          </motion.div>
+   404→
+   405→          <motion.div
+   406→            initial={{ opacity: 0, y: 20 }}
+   407→            animate={{ opacity: 1, y: 0 }}
+   408→            transition={{ ...fadeInUp, delay: 0.05 }}
+   409→          >
+   410→            <Card className="glass">
+   411→              <CardHeader className="pb-4">
+   412→                <CardTitle className="text-lg flex items-center gap-2">
+   413→                  <Star className="h-5 w-5" style={{ color: branding.accent_color }} />
+   414→                  Temas Pre-definidos
+   415→                </CardTitle>
+   416→              </CardHeader>
+   417→              <CardContent>
+   418→                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+   419→                  {PRESETS.map((preset) => (
+   420→                    <motion.button
+   421→                      key={preset.name}
+   422→                      onClick={() => applyPreset(preset)}
+   423→                      className="group relative overflow-hidden rounded-xl p-3 text-left transition-all hover:scale-[1.02]"
+   424→                      style={{ background: preset.bg }}
+   425→                      whileHover={{ scale: 1.03 }}
+   426→                      whileTap={{ scale: 0.98 }}
+   427→                      transition={scaleIn}
+   428→                    >
+   429→                      <div className="mb-2 flex gap-1.5">
+   430→                        <div className="h-4 w-4 rounded-full" style={{ background: preset.primary }} />
+   431→                        <div className="h-4 w-4 rounded-full" style={{ background: preset.secondary }} />
+   432→                        <div className="h-4 w-4 rounded-full" style={{ background: preset.accent }} />
+   433→                      </div>
+   434→                      <p className="text-xs font-semibold" style={{ color: preset.text }}>
+   435→                        {preset.name}
+   436→                      </p>
+   437→                      <div
+   438→                        className="absolute inset-x-0 bottom-0 h-0.5 transition-all group-hover:h-1"
+   439→                        style={{ background: `linear-gradient(90deg, ${preset.primary}, ${preset.accent})` }}
+   440→                      />
+   441→                    </motion.button>
+   442→                  ))}
+   443→                </div>
+   444→              </CardContent>
+   445→            </Card>
+   446→          </motion.div>
+   447→
+   448→          <motion.div
+   449→            initial={{ opacity: 0, y: 20 }}
+   450→            animate={{ opacity: 1, y: 0 }}
+   451→            transition={{ ...fadeInUp, delay: 0.1 }}
+   452→          >
+   453→            <Card className="glass">
+   454→              <CardHeader className="pb-4">
+   455→                <CardTitle className="text-lg flex items-center gap-2">
+   456→                  <Palette className="h-5 w-5" style={{ color: branding.primary_color }} />
+   457→                  Cores da Marca
+   458→                </CardTitle>
+   459→              </CardHeader>
+   460→              <CardContent className="space-y-4">
+   461→                <div className="grid gap-4 sm:grid-cols-2">
+   462→
+   463→                  <div>
+   464→                    <Label className="mb-1.5 block text-xs text-muted-foreground">
+   465→                      Cor Primaria
+   466→                    </Label>
+   467→                    <div className="flex items-center gap-2.5">
+   468→                      <input
+   469→                        type="color"
+   470→                        value={branding.primary_color}
+   471→                        onChange={(e) => updateField("primary_color", e.target.value)}
+   472→                        className="h-10 w-12 rounded-lg border border-border cursor-pointer bg-transparent"
+   473→                      />
+   474→                      <Input
+   475→                        value={branding.primary_color}
+   476→                        onChange={(e) => updateField("primary_color", e.target.value)}
+   477→                        className="h-10 flex-1 font-mono text-sm"
+   478→                      />
+   479→                    </div>
+   480→                  </div>
+   481→
+   482→                  <div>
+   483→                    <Label className="mb-1.5 block text-xs text-muted-foreground">
+   484→                      Cor Secundaria
+   485→                    </Label>
+   486→                    <div className="flex items-center gap-2.5">
+   487→                      <input
+   488→                        type="color"
+   489→                        value={branding.secondary_color}
+   490→                        onChange={(e) => updateField("secondary_color", e.target.value)}
+   491→                        className="h-10 w-12 rounded-lg border border-border cursor-pointer bg-transparent"
+   492→                      />
+   493→                      <Input
+   494→                        value={branding.secondary_color}
+   495→                        onChange={(e) => updateField("secondary_color", e.target.value)}
+   496→                        className="h-10 flex-1 font-mono text-sm"
+   497→                      />
+   498→                    </div>
+   499→                  </div>
+   500→
+   501→                  <div>
+   502→                    <Label className="mb-1.5 block text-xs text-muted-foreground">
+   503→                      Cor de Destaque
+   504→                    </Label>
+   505→                    <div className="flex items-center gap-2.5">
+   506→                      <input
+   507→                        type="color"
+   508→                        value={branding.accent_color}
+   509→                        onChange={(e) => updateField("accent_color", e.target.value)}
+   510→                        className="h-10 w-12 rounded-lg border border-border cursor-pointer bg-transparent"
+   511→                      />
+   512→                      <Input
+   513→                        value={branding.accent_color}
+   514→                        onChange={(e) => updateField("accent_color", e.target.value)}
+   515→                        className="h-10 flex-1 font-mono text-sm"
+   516→                      />
+   517→                    </div>
+   518→                  </div>
+   519→
+   520→                  <div>
+   521→                    <Label className="mb-1.5 block text-xs text-muted-foreground">
+   522→                      Cor de Fundo
+   523→                    </Label>
+   524→                    <div className="flex items-center gap-2.5">
+   525→                      <input
+   526→                        type="color"
+   527→                        value={branding.background_color}
+   528→                        onChange={(e) => updateField("background_color", e.target.value)}
+   529→                        className="h-10 w-12 rounded-lg border border-border cursor-pointer bg-transparent"
+   530→                      />
+   531→                      <Input
+   532→                        value={branding.background_color}
+   533→                        onChange={(e) => updateField("background_color", e.target.value)}
+   534→                        className="h-10 flex-1 font-mono text-sm"
+   535→                      />
+   536→                    </div>
+   537→                  </div>
+   538→                </div>
+   539→
+   540→                <div>
+   541→                  <Label className="mb-1.5 block text-xs text-muted-foreground">
+   542→                    Cor do Texto
+   543→                  </Label>
+   544→                  <div className="flex items-center gap-2.5">
+   545→                    <input
+   546→                      type="color"
+   547→                      value={branding.text_color}
+   548→                      onChange={(e) => updateField("text_color", e.target.value)}
+   549→                      className="h-10 w-12 rounded-lg border border-border cursor-pointer bg-transparent"
+   550→                    />
+   551→                    <Input
+   552→                      value={branding.text_color}
+   553→                      onChange={(e) => updateField("text_color", e.target.value)}
+   554→                      className="h-10 flex-1 font-mono text-sm"
+   555→                    />
+   556→                    <div
+   557→                      className="flex h-10 w-20 items-center justify-center rounded-lg border border-border text-xs font-medium"
+   558→                      style={{
+   559→                        background: branding.background_color,
+   560→                        color: branding.text_color,
+   561→                      }}
+   562→                    >
+   563→                      Preview
+   564→                    </div>
+   565→                  </div>
+   566→                </div>
+   567→              </CardContent>
+   568→            </Card>
+   569→          </motion.div>
+   570→
+   571→          <motion.div
+   572→            initial={{ opacity: 0, y: 20 }}
+   573→            animate={{ opacity: 1, y: 0 }}
+   574→            transition={{ ...fadeInUp, delay: 0.15 }}
+   575→          >
+   576→            <Card className="glass">
+   577→              <CardHeader className="pb-4">
+   578→                <CardTitle className="text-lg flex items-center gap-2">
+   579→                  <ImageIcon className="h-5 w-5" style={{ color: branding.secondary_color }} />
+   580→                  Logo e Fundo
+   581→                </CardTitle>
+   582→              </CardHeader>
+   583→              <CardContent className="space-y-5">
+   584→
+   585→                <div>
+   586→                  <Label className="mb-2 block text-sm font-medium">Logotipo da Empresa</Label>
+   587→                  <input
+   588→                    ref={logoInputRef}
+   589→                    type="file"
+   590→                    accept="image/*"
+   591→                    onChange={handleLogoSelect}
+   592→                    className="hidden"
+   593→                  />
+   594→
+   595→                  {previewLogo ? (
+   596→                    <div className="flex items-center gap-4">
+   597→                      <div className="relative">
+   598→                        <img
+   599→                          src={previewLogo}
+   600→                          alt="Company logo"
+   601→                          className="h-20 w-20 rounded-xl object-cover border border-border shadow-sm"
+   602→                        />
+   603→                        <button
+   604→                          onClick={() => {
+   605→                            setLogoFile(null);
+   606→                            setLogoPreview(null);
+   607→                            updateField("company_logo_url", "");
+   608→                            if (logoInputRef.current) logoInputRef.current.value = "";
+   609→                          }}
+   610→                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/80 transition-colors shadow-sm"
+   611→                        >
+   612→                          <X className="h-3 w-3" />
+   613→                        </button>
+   614→                      </div>
+   615→                      <div className="flex-1 space-y-2">
+   616→                        <Button
+   617→                          variant="outline"
+   618→                          size="sm"
+   619→                          onClick={() => logoInputRef.current?.click()}
+   620→                          className="gap-1.5"
+   621→                        >
+   622→                          <Upload className="h-3.5 w-3.5" /> Trocar Logo
+   623→                        </Button>
+   624→                        {logoFile && (
+   625→                          <p className="text-[11px] flex items-center gap-1" style={{ color: branding.accent_color }}>
+   626→                            <ImageIcon className="h-3 w-3" /> Novo ficheiro: {logoFile.name}
+   627→                          </p>
+   628→                        )}
+   629→                      </div>
+   630→                    </div>
+   631→                  ) : (
+   632→                    <button
+   633→                      onClick={() => logoInputRef.current?.click()}
+   634→                      className="flex h-24 w-full items-center justify-center rounded-xl border-2 border-dashed border-border bg-secondary/20 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-secondary/40"
+   635→                    >
+   636→                      <div className="text-center">
+   637→                        <Upload className="mx-auto h-6 w-6 mb-1.5" />
+   638→                        <p className="text-xs font-medium">Enviar logotipo</p>
+   639→                        <p className="text-[10px] text-muted-foreground">PNG, JPG ate 5MB</p>
+   640→                      </div>
+   641→                    </button>
+   642→                  )}
+   643→                </div>
+   644→
+   645→                <div>
+   646→                  <Label className="mb-2 block text-sm font-medium">Imagem de Fundo</Label>
+   647→                  <input
+   648→                    ref={bgInputRef}
+   649→                    type="file"
+   650→                    accept="image/*"
+   651→                    onChange={handleBgSelect}
+   652→                    className="hidden"
+   653→                  />
+   654→
+   655→                  {previewBg ? (
+   656→                    <div className="space-y-2">
+   657→                      <div className="relative h-24 overflow-hidden rounded-xl border border-border shadow-sm">
+   658→                        <img
+   659→                          src={previewBg}
+   660→                          alt="Background"
+   661→                          className="h-full w-full object-cover"
+   662→                        />
+   663→                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+   664→                        <button
+   665→                          onClick={() => {
+   666→                            setBgFile(null);
+   667→                            setBgPreview(null);
+   668→                            updateField("background_image_url", "");
+   669→                            if (bgInputRef.current) bgInputRef.current.value = "";
+   670→                          }}
+   671→                          className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center hover:bg-destructive transition-colors shadow-sm"
+   672→                        >
+   673→                          <X className="h-3 w-3" />
+   674→                        </button>
+   675→                      </div>
+   676→                      <div className="flex items-center gap-2">
+   677→                        <Button
+   678→                          variant="outline"
+   679→                          size="sm"
+   680→                          onClick={() => bgInputRef.current?.click()}
+   681→                          className="gap-1.5"
+   682→                        >
+   683→                          <Upload className="h-3.5 w-3.5" /> Trocar Fundo
+   684→                        </Button>
+   685→                        {bgFile && (
+   686→                          <p className="text-[11px] flex items-center gap-1" style={{ color: branding.accent_color }}>
+   687→                            <ImageIcon className="h-3 w-3" /> Novo ficheiro: {bgFile.name}
+   688→                          </p>
+   689→                        )}
+   690→                      </div>
+   691→                    </div>
+   692→                  ) : (
+   693→                    <button
+   694→                      onClick={() => bgInputRef.current?.click()}
+   695→                      className="flex h-24 w-full items-center justify-center rounded-xl border-2 border-dashed border-border bg-secondary/20 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-secondary/40"
+   696→                    >
+   697→                      <div className="text-center">
+   698→                        <ImageIcon className="mx-auto h-6 w-6 mb-1.5" />
+   699→                        <p className="text-xs font-medium">Enviar imagem de fundo</p>
+   700→                        <p className="text-[10px] text-muted-foreground">PNG, JPG ate 10MB</p>
+   701→                      </div>
+   702→                    </button>
+   703→                  )}
+   704→                </div>
+   705→              </CardContent>
+   706→            </Card>
+   707→          </motion.div>
+   708→
+   709→          <motion.div
+   710→            initial={{ opacity: 0, y: 20 }}
+   711→            animate={{ opacity: 1, y: 0 }}
+   712→            transition={{ ...fadeInUp, delay: 0.2 }}
+   713→          >
+   714→            <Card className="glass">
+   715→              <CardHeader className="pb-4">
+   716→                <CardTitle className="text-lg flex items-center gap-2">
+   717→                  <Monitor className="h-5 w-5" style={{ color: branding.accent_color }} />
+   718→                  Estilo do Overlay
+   719→                </CardTitle>
+   720→              </CardHeader>
+   721→              <CardContent>
+   722→                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+   723→                  {OVERLAY_STYLES.map((style) => {
+   724→                    const isSelected = branding.overlay_style === style.id;
+   725→                    return (
+   726→                      <motion.button
+   727→                        key={style.id}
+   728→                        onClick={() => updateField("overlay_style", style.id)}
+   729→                        className="relative flex flex-col items-center gap-2 rounded-xl p-4 text-center transition-all"
+   730→                        style={{
+   731→                          background: isSelected
+   732→                            ? `${branding.primary_color}18`
+   733→                            : "transparent",
+   734→                          border: `2px solid ${
+   735→                            isSelected ? branding.primary_color : "transparent"
+   736→                          }`,
+   737→                        }}
+   738→                        whileHover={{ scale: 1.04 }}
+   739→                        whileTap={{ scale: 0.97 }}
+   740→                        transition={scaleIn}
+   741→                      >
+   742→                        <div
+   743→                          className="flex h-10 w-10 items-center justify-center rounded-lg"
+   744→                          style={{
+   745→                            background: isSelected
+   746→                              ? branding.primary_color
+   747→                              : branding.primary_color + "33",
+   748→                            color: isSelected ? "#ffffff" : branding.primary_color,
+   749→                          }}
+   750→                        >
+   751→                          {style.icon}
+   752→                        </div>
+   753→                        <p
+   754→                          className="text-xs font-semibold"
+   755→                          style={{ color: isSelected ? branding.primary_color : "var(--foreground)" }}
+   756→                        >
+   757→                          {style.label}
+   758→                        </p>
+   759→                        <p className="text-[10px] text-muted-foreground leading-tight">
+   760→                          {style.desc}
+   761→                        </p>
+   762→                        {isSelected && (
+   763→                          <motion.div
+   764→                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full flex items-center justify-center"
+   765→                            style={{ background: branding.primary_color }}
+   766→                            initial={{ scale: 0 }}
+   767→                            animate={{ scale: 1 }}
+   768→                            transition={scaleIn}
+   769→                          >
+   770→                            <Check className="h-3 w-3 text-white" />
+   771→                          </motion.div>
+   772→                        )}
+   773→                      </motion.button>
+   774→                    );
+   775→                  })}
+   776→                </div>
+   777→              </CardContent>
+   778→            </Card>
+   779→          </motion.div>
+   780→
+   781→          <motion.div
+   782→            initial={{ opacity: 0, y: 20 }}
+   783→            animate={{ opacity: 1, y: 0 }}
+   784→            transition={{ ...fadeInUp, delay: 0.25 }}
+   785→            className="pb-8"
+   786→          >
+   787→            <Button
+   788→              onClick={handleSave}
+   789→              disabled={saving || uploading !== null}
+   790→              className="w-full gap-2 glow-primary"
+   791→              size="lg"
+   792→            >
+   793→              {saving || uploading ? (
+   794→                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+   795→              ) : (
+   796→                <Save className="h-4 w-4" />
+   797→              )}
+   798→              {uploading === "logo"
+   799→                ? "A enviar logo..."
+   800→                : uploading === "bg"
+   801→                  ? "A enviar fundo..."
+   802→                  : saving
+   803→                    ? "A guardar..."
+   804→                    : existingId
+   805→                      ? "Atualizar Branding"
+   806→                      : "Guardar Branding"}
+   807→            </Button>
+   808→          </motion.div>
+   809→        </div>
+   810→
+   811→        <div className="lg:sticky lg:top-6 lg:self-start space-y-6">
+   812→          <motion.div
+   813→            initial={{ opacity: 0, x: 30 }}
+   814→            animate={{ opacity: 1, x: 0 }}
+   815→            transition={fadeInUpSlow}
+   816→          >
+   817→            <div className="mb-3 flex items-center gap-2">
+   818→              <Eye className="h-4 w-4" style={{ color: branding.primary_color }} />
+   819→              <span className="text-sm font-semibold text-foreground">Pre-visualizacao ao Vivo</span>
+   820→            </div>
+   821→
+   822→            <div
+   823→              className="relative overflow-hidden"
+   824→              style={{
+   825→                ...getOverlayBorderStyle(),
+   826→                borderRadius:
+   827→                  branding.overlay_style === "gaming" ? "0" : "16px",
+   828→              }}
+   829→            >
+   830→              <div
+   831→                className="relative min-h-[180px] p-5"
+   832→                style={{
+   833→                  background: previewBg
+   834→                    ? `url(${previewBg}) center/cover no-repeat`
+   835→                    : branding.background_color,
+   836→                }}
+   837→              >
+   838→                <div
+   839→                  className="absolute inset-0"
+   840→                  style={{
+   841→                    background: previewBg
+   842→                      ? `linear-gradient(135deg, ${branding.background_color}ee, ${branding.background_color}88)`
+   843→                      : "none",
+   844→                  }}
+   845→                />
+   846→
+   847→                {branding.overlay_style === "neon" && (
+   848→                  <div
+   849→                    className="absolute inset-0 opacity-30"
+   850→                    style={{
+   851→                      background: `radial-gradient(ellipse at top, ${branding.primary_color}44 0%, transparent 60%)`,
+   852→                    }}
+   853→                  />
+   854→                )}
+   855→
+   856→                <div className="relative z-10 flex items-start gap-4">
+   857→                  <AnimatePresence mode="wait">
+   858→                    <motion.div
+   859→                      key={previewLogo || "placeholder"}
+   860→                      initial={{ scale: 0.8, opacity: 0 }}
+   861→                      animate={{ scale: 1, opacity: 1 }}
+   862→                      exit={{ scale: 0.8, opacity: 0 }}
+   863→                      transition={scaleIn}
+   864→                    >
+   865→                      {previewLogo ? (
+   866→                        <img
+   867→                          src={previewLogo}
+   868→                          alt="Logo"
+   869→                          className="h-14 w-14 rounded-xl object-cover shadow-lg"
+   870→                          style={{
+   871→                            border: `2px solid ${branding.primary_color}44`,
+   872→                          }}
+   873→                        />
+   874→                      ) : (
+   875→                        <div
+   876→                          className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl font-bold shadow-lg"
+   877→                          style={{
+   878→                            background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.secondary_color})`,
+   879→                            color: "#ffffff",
+   880→                            border: `2px solid ${branding.primary_color}44`,
+   881→                          }}
+   882→                        >
+   883→                          {branding.company_name.charAt(0) || "B"}
+   884→                        </div>
+   885→                      )}
+   886→                    </motion.div>
+   887→                  </AnimatePresence>
+   888→
+   889→                  <div className="flex-1 min-w-0">
+   890→                    <h2
+   891→                      className="font-display text-xl font-bold truncate"
+   892→                      style={{ color: branding.text_color }}
+   893→                    >
+   894→                      {branding.company_name || "Nome da Empresa"}
+   895→                    </h2>
+   896→                    <p
+   897→                      className="text-sm mt-0.5 truncate"
+   898→                      style={{ color: branding.text_color + "99" }}
+   899→                    >
+   900→                      {branding.company_slogan || "Slogan da sua empresa"}
+   901→                    </p>
+   902→
+   903→                    <div className="mt-2 flex items-center gap-2">
+   904→                      <motion.div
+   905→                        className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+   906→                        style={{
+   907→                          background: "#ef4444",
+   908→                          color: "#ffffff",
+   909→                        }}
+   910→                        animate={{ opacity: [1, 0.7, 1] }}
+   911→                        transition={{ duration: 2, repeat: Infinity }}
+   912→                      >
+   913→                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+   914→                        AO VIVO
+   915→                      </motion.div>
+   916→                      <span
+   917→                        className="text-[10px] font-medium"
+   918→                        style={{ color: branding.text_color + "77" }}
+   919→                      >
+   920→                        1.2k espectadores
+   921→                      </span>
+   922→                    </div>
+   923→                  </div>
+   924→                </div>
+   925→
+   926→                {branding.overlay_style === "gaming" && (
+   927→                  <div
+   928→                    className="absolute top-0 right-0 h-24 w-24 opacity-20"
+   929→                    style={{
+   930→                      background: `linear-gradient(135deg, transparent 50%, ${branding.accent_color} 50%)`,
+   931→                    }}
+   932→                  />
+   933→                )}
+   934→                {branding.overlay_style === "modern" && (
+   935→                  <div
+   936→                    className="absolute bottom-0 left-0 right-0 h-1"
+   937→                    style={{
+   938→                      background: `linear-gradient(90deg, ${branding.primary_color}, ${branding.accent_color}, ${branding.secondary_color})`,
+   939→                    }}
+   940→                  />
+   941→                )}
+   942→              </div>
+   943→            </div>
+   944→          </motion.div>
+   945→
+   946→          <motion.div
+   947→            initial={{ opacity: 0, x: 30 }}
+   948→            animate={{ opacity: 1, x: 0 }}
+   949→            transition={{ ...fadeInUpSlow, delay: 0.08 }}
+   950→            style={{
+   951→              ...getOverlayBorderStyle(),
+   952→              borderRadius:
+   953→                branding.overlay_style === "gaming" ? "0" : "16px",
+   954→            }}
+   955→          >
+   956→            <div
+   957→              className="p-5"
+   958→              style={{ background: branding.background_color }}
+   959→            >
+   960→              <div className="mb-4 flex items-center justify-between">
+   961→                <div className="flex items-center gap-2">
+   962→                  <Trophy className="h-5 w-5" style={{ color: branding.accent_color }} />
+   963→                  <span
+   964→                    className="font-display text-sm font-bold"
+   965→                    style={{ color: branding.text_color }}
+   966→                  >
+   967→                    Leaderboard
+   968→                  </span>
+   969→                </div>
+   970→                <span
+   971→                  className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+   972→                  style={{
+   973→                    background: branding.primary_color + "22",
+   974→                    color: branding.primary_color,
+   975→                  }}
+   976→                >
+   977→                  RODADA #42
+   978→                </span>
+   979→              </div>
+   980→
+   981→              <div className="space-y-2">
+   982→                {MOCK_LEADERBOARD.map((entry, index) => (
+   983→                  <motion.div
+   984→                    key={entry.rank}
+   985→                    initial={{ opacity: 0, x: -10 }}
+   986→                    animate={{ opacity: 1, x: 0 }}
+   987→                    transition={{
+   988→                      ...staggerChildren,
+   989→                      delay: index * 0.06,
+   990→                    }}
+   991→                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
+   992→                    style={{
+   993→                      background:
+   994→                        entry.rank <= 3
+   995→                          ? `${branding.primary_color}11`
+   996→                          : "transparent",
+   997→                      border: `1px solid ${
+   998→                        entry.rank === 1
+   999→                          ? branding.accent_color + "33"
+  1000→                          : "transparent"
+  1001→                      }`,
+  1002→                      borderRadius:
+  1003→                        branding.overlay_style === "gaming" ? "0" : "8px",
+  1004→                    }}
+  1005→                  >
+  1006→                    <div className="flex h-7 w-7 items-center justify-center text-sm font-bold">
+  1007→                      {entry.rank === 1 ? (
+  1008→                        <Crown className="h-5 w-5" style={{ color: branding.accent_color }} />
+  1009→                      ) : (
+  1010→                        <span style={getRankStyle(entry.rank)}>
+  1011→                          {entry.rank}
+  1012→                        </span>
+  1013→                      )}
+  1014→                    </div>
+  1015→
+  1016→                    <div
+  1017→                      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+  1018→                      style={{
+  1019→                        background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.secondary_color})`,
+  1020→                        color: "#ffffff",
+  1021→                      }}
+  1022→                    >
+  1023→                      {entry.name.charAt(0)}
+  1024→                    </div>
+  1025→
+  1026→                    <span
+  1027→                      className="flex-1 text-sm font-medium truncate"
+  1028→                      style={{ color: branding.text_color }}
+  1029→                    >
+  1030→                      {entry.name}
+  1031→                    </span>
+  1032→
+  1033→                    <span
+  1034→                      className="text-sm font-bold tabular-nums"
+  1035→                      style={{
+  1036→                        color:
+  1037→                          entry.rank === 1
+  1038→                            ? branding.accent_color
+  1039→                            : branding.text_color,
+  1040→                      }}
+  1041→                    >
+  1042→                      {entry.score.toLocaleString()}
+  1043→                    </span>
+  1044→                  </motion.div>
+  1045→                ))}
+  1046→              </div>
+  1047→
+  1048→              <div className="mt-4 h-0.5 w-full" style={{
+  1049→                background: `linear-gradient(90deg, ${branding.primary_color}44, ${branding.accent_color}22, transparent)`,
+  1050→              }} />
+  1051→            </div>
+  1052→          </motion.div>
+  1053→
+  1054→          <motion.div
+  1055→            initial={{ opacity: 0, x: 30 }}
+  1056→            animate={{ opacity: 1, x: 0 }}
+  1057→            transition={{ ...fadeInUpSlow, delay: 0.16 }}
+  1058→            className="flex h-10 overflow-hidden"
+  1059→            style={{
+  1060→              borderRadius:
+  1061→                branding.overlay_style === "gaming" ? "0" : "12px",
+  1062→            }}
+  1063→          >
+  1064→            <div className="flex-1" style={{ background: branding.primary_color }} />
+  1065→            <div className="flex-1" style={{ background: branding.secondary_color }} />
+  1066→            <div className="flex-1" style={{ background: branding.accent_color }} />
+  1067→            <div className="flex-1" style={{ background: branding.background_color }} />
+  1068→            <div
+  1069→              className="flex flex-1 items-center justify-center text-[10px] font-bold"
+  1070→              style={{
+  1071→                background: branding.text_color,
+  1072→                color: branding.background_color,
+  1073→              }}
+  1074→            >
+  1075→              Aa
+  1076→            </div>
+  1077→          </motion.div>
+  1078→        </div>
+  1079→      </div>
+  1080→    </div>
+  1081→  );
+  1082→}
+  1083→

@@ -1,0 +1,733 @@
+     1→import { useEffect, useState } from "react";
+     2→import { Navigate } from "react-router-dom";
+     3→import { supabase as _supabase } from "@/integrations/supabase/client";
+     4→const supabase: any = _supabase;
+     5→import { useAuth } from "@/contexts/AuthContext";
+     6→import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
+     7→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     8→import { Button } from "@/components/ui/button";
+     9→import { Input } from "@/components/ui/input";
+    10→import { Label } from "@/components/ui/label";
+    11→import { Textarea } from "@/components/ui/textarea";
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    13→import { Badge } from "@/components/ui/badge";
+    14→import { Loader2, Plus, Edit2, Trash2, Eye } from "lucide-react";
+    15→import { toast } from "sonner";
+    16→import { Switch } from "@/components/ui/switch";
+    17→import { ImageUpload } from "@/components/ImageUpload";
+    18→import { motion } from "framer-motion";
+    19→
+    20→interface PrizeLevel {
+    21→  level: number;
+    22→  amount: number;
+    23→  currency: string;
+    24→  is_safe_haven?: boolean;
+    25→}
+    26→
+    27→interface Game {
+    28→  id: string;
+    29→  name: string;
+    30→  description?: string;
+    31→  background_image_url?: string;
+    32→  background_color?: string;
+    33→  primary_color?: string;
+    34→  company_logo_url?: string;
+    35→  company_slogan?: string;
+    36→  total_questions: number;
+    37→  time_per_question: number;
+    38→  prize_structure?: PrizeLevel[];
+    39→  lifelines?: Record<string, boolean>;
+    40→  is_active?: boolean;
+    41→  is_published?: boolean;
+    42→  created_at: string;
+    43→  created_by?: string;
+    44→  region_id?: string;
+    45→}
+    46→
+    47→interface Question {
+    48→  id: string;
+    49→  question_number: number;
+    50→  question_text: string;
+    51→  option_a: string;
+    52→  option_b: string;
+    53→  option_c: string;
+    54→  option_d: string;
+    55→  correct_answer: string;
+    56→  explanation?: string;
+    57→}
+    58→
+    59→const DEFAULT_PRIZE_STRUCTURE: PrizeLevel[] = [
+    60→  { level: 1, amount: 100, currency: "MZN" },
+    61→  { level: 2, amount: 200, currency: "MZN" },
+    62→  { level: 3, amount: 300, currency: "MZN" },
+    63→  { level: 4, amount: 500, currency: "MZN" },
+    64→  { level: 5, amount: 1000, currency: "MZN", is_safe_haven: true },
+    65→  { level: 6, amount: 2000, currency: "MZN" },
+    66→  { level: 7, amount: 4000, currency: "MZN" },
+    67→  { level: 8, amount: 8000, currency: "MZN" },
+    68→  { level: 9, amount: 16000, currency: "MZN" },
+    69→  { level: 10, amount: 32000, currency: "MZN", is_safe_haven: true },
+    70→  { level: 11, amount: 64000, currency: "MZN" },
+    71→  { level: 12, amount: 125000, currency: "MZN" },
+    72→  { level: 13, amount: 250000, currency: "MZN" },
+    73→  { level: 14, amount: 500000, currency: "MZN" },
+    74→  { level: 15, amount: 1000000, currency: "MZN" },
+    75→];
+    76→
+    77→export default function AdminMillionaireManager() {
+    78→  const { user, role } = useAuth();
+    79→  const { region } = useRegionalTheme();
+    80→  const [loading, setLoading] = useState(true);
+    81→  const [games, setGames] = useState<Game[]>([]);
+    82→  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+    83→  const [questions, setQuestions] = useState<Question[]>([]);
+    84→  const [saving, setSaving] = useState(false);
+    85→
+    86→  // Form states
+    87→  const [gameName, setGameName] = useState("");
+    88→  const [gameDescription, setGameDescription] = useState("");
+    89→  const [totalQuestions, setTotalQuestions] = useState(15);
+    90→  const [timePerQuestion, setTimePerQuestion] = useState(30);
+    91→  const [primaryColor, setPrimaryColor] = useState("#fbbf24");
+    92→  const [backgroundColor, setBackgroundColor] = useState("#0a0e17");
+    93→  const [backgroundImage, setBackgroundImage] = useState("");
+    94→  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+    95→  const [companySlogan, setCompanySlogan] = useState("");
+    96→  const [currency, setCurrency] = useState("MZN");
+    97→  const [prizeStructure, setPrizeStructure] = useState<PrizeLevel[]>(DEFAULT_PRIZE_STRUCTURE);
+    98→  const [lifelines, setLifelines] = useState({ fiftyFifty: true, askAudience: false, phoneFriend: false });
+    99→
+   100→  // Question form
+   101→  const [questionText, setQuestionText] = useState("");
+   102→  const [optionA, setOptionA] = useState("");
+   103→  const [optionB, setOptionB] = useState("");
+   104→  const [optionC, setOptionC] = useState("");
+   105→  const [optionD, setOptionD] = useState("");
+   106→  const [correctAnswer, setCorrectAnswer] = useState("A");
+   107→  const [explanation, setExplanation] = useState("");
+   108→
+   109→  useEffect(() => {
+   110→    if (!user) return;
+   111→    if (role !== "admin" && role !== "superadmin" && role !== "business") return;
+   112→    loadGames();
+   113→  }, [user, role]);
+   114→
+   115→  const loadGames = async () => {
+   116→    setLoading(true);
+   117→    try {
+   118→      let query = supabase.from("millionaire_games").select("*").order("created_at", { ascending: false });
+   119→      if (role !== "superadmin") {
+   120→        query = query.eq("created_by", user!.id);
+   121→      }
+   122→      const { data, error } = await query;
+   123→
+   124→      if (error) throw error;
+   125→      setGames(data || []);
+   126→    } catch (error) {
+   127→      console.error("Error loading games:", error);
+   128→      toast.error("Erro ao carregar jogos");
+   129→    } finally {
+   130→      setLoading(false);
+   131→    }
+   132→  };
+   133→
+   134→  const loadQuestions = async (gameId: string) => {
+   135→    try {
+   136→      const { data, error } = await supabase
+   137→        .from("millionaire_questions")
+   138→        .select("*")
+   139→        .eq("game_id", gameId)
+   140→        .order("question_number");
+   141→
+   142→      if (error) throw error;
+   143→      setQuestions(data || []);
+   144→    } catch (error) {
+   145→      console.error("Error loading questions:", error);
+   146→      toast.error("Erro ao carregar perguntas");
+   147→    }
+   148→  };
+   149→
+   150→  const selectGameForEdit = (game: Game) => {
+   151→    setSelectedGame(game);
+   152→    setGameName(game.name);
+   153→    setGameDescription(game.description || "");
+   154→    setTotalQuestions(game.total_questions);
+   155→    setTimePerQuestion(game.time_per_question);
+   156→    setPrimaryColor(game.primary_color || "#fbbf24");
+   157→    setBackgroundColor(game.background_color || "#0a0e17");
+   158→    setBackgroundImage(game.background_image_url || "");
+   159→    setCompanyLogoUrl(game.company_logo_url || "");
+   160→    setCompanySlogan(game.company_slogan || "");
+   161→    setPrizeStructure(game.prize_structure || DEFAULT_PRIZE_STRUCTURE);
+   162→    setLifelines((game.lifelines as any) || { fiftyFifty: true, askAudience: false, phoneFriend: false });
+   163→    loadQuestions(game.id);
+   164→  };
+   165→
+   166→  const createGame = async () => {
+   167→    if (!gameName.trim()) {
+   168→      toast.error("Nome do jogo é obrigatório");
+   169→      return;
+   170→    }
+   171→
+   172→    setSaving(true);
+   173→    try {
+   174→      const regionId = region?.id || (await supabase.from("regions").select("id").limit(1).single()).data?.id;
+   175→
+   176→      if (!regionId) {
+   177→        toast.error("Erro: Nenhuma região encontrada.");
+   178→        setSaving(false);
+   179→        return;
+   180→      }
+   181→
+   182→      // Adjust prize structure to match total questions
+   183→      const adjustedPrizeStructure = prizeStructure.slice(0, totalQuestions);
+   184→      
+   185→      const { data, error } = await supabase
+   186→        .from("millionaire_games")
+   187→        .insert({
+   188→          name: gameName,
+   189→          description: gameDescription,
+   190→          total_questions: totalQuestions,
+   191→          time_per_question: timePerQuestion,
+   192→          primary_color: primaryColor,
+   193→          background_color: backgroundColor,
+   194→          background_image_url: backgroundImage,
+   195→          company_logo_url: companyLogoUrl,
+   196→          company_slogan: companySlogan,
+   197→          prize_structure: adjustedPrizeStructure,
+   198→          lifelines: {
+   199→            '50_50': lifelines.fiftyFifty,
+   200→            'ask_audience': lifelines.askAudience,
+   201→            'phone_friend': lifelines.phoneFriend
+   202→          },
+   203→          created_by: user!.id,
+   204→          region_id: regionId,
+   205→          is_active: true,
+   206→          is_published: false
+   207→        })
+   208→        .select()
+   209→        .single();
+   210→
+   211→      if (error) throw error;
+   212→
+   213→      setGames([data, ...games]);
+   214→      setSelectedGame(data);
+   215→      resetGameForm();
+   216→      toast.success("Jogo criado com sucesso!");
+   217→    } catch (error) {
+   218→      console.error("Error creating game:", error);
+   219→      toast.error("Erro ao criar jogo");
+   220→    } finally {
+   221→      setSaving(false);
+   222→    }
+   223→  };
+   224→
+   225→  const updateGame = async () => {
+   226→    if (!selectedGame || !gameName.trim()) {
+   227→      toast.error("Nome do jogo é obrigatório");
+   228→      return;
+   229→    }
+   230→
+   231→    setSaving(true);
+   232→    try {
+   233→      const adjustedPrizeStructure = prizeStructure.slice(0, totalQuestions);
+   234→      
+   235→      const { error } = await supabase
+   236→        .from("millionaire_games")
+   237→        .update({
+   238→          name: gameName,
+   239→          description: gameDescription,
+   240→          total_questions: totalQuestions,
+   241→          time_per_question: timePerQuestion,
+   242→          primary_color: primaryColor,
+   243→          background_color: backgroundColor,
+   244→          background_image_url: backgroundImage,
+   245→          company_logo_url: companyLogoUrl,
+   246→          company_slogan: companySlogan,
+   247→          prize_structure: adjustedPrizeStructure,
+   248→          lifelines: {
+   249→            '50_50': lifelines.fiftyFifty,
+   250→            'ask_audience': lifelines.askAudience,
+   251→            'phone_friend': lifelines.phoneFriend
+   252→          }
+   253→        })
+   254→        .eq("id", selectedGame.id);
+   255→
+   256→      if (error) throw error;
+   257→
+   258→      setGames(games.map(g => g.id === selectedGame.id ? { ...g, name: gameName } : g));
+   259→      toast.success("Jogo atualizado com sucesso!");
+   260→    } catch (error) {
+   261→      console.error("Error updating game:", error);
+   262→      toast.error("Erro ao atualizar jogo");
+   263→    } finally {
+   264→      setSaving(false);
+   265→    }
+   266→  };
+   267→
+   268→  const addQuestion = async () => {
+   269→    if (!selectedGame || !questionText.trim()) {
+   270→      toast.error("Pergunta e opções são obrigatórias");
+   271→      return;
+   272→    }
+   273→
+   274→    setSaving(true);
+   275→    try {
+   276→      const questionNumber = questions.length + 1;
+   277→
+   278→      const { data, error } = await supabase
+   279→        .from("millionaire_questions")
+   280→        .insert({
+   281→          game_id: selectedGame.id,
+   282→          question_number: questionNumber,
+   283→          question_text: questionText,
+   284→          option_a: optionA,
+   285→          option_b: optionB,
+   286→          option_c: optionC,
+   287→          option_d: optionD,
+   288→          correct_answer: correctAnswer,
+   289→          explanation: explanation,
+   290→        })
+   291→        .select()
+   292→        .single();
+   293→
+   294→      if (error) throw error;
+   295→
+   296→      setQuestions([...questions, data]);
+   297→      resetQuestionForm();
+   298→      toast.success("Pergunta adicionada!");
+   299→    } catch (error) {
+   300→      console.error("Error adding question:", error);
+   301→      toast.error("Erro ao adicionar pergunta");
+   302→    } finally {
+   303→      setSaving(false);
+   304→    }
+   305→  };
+   306→
+   307→  const deleteQuestion = async (questionId: string) => {
+   308→    try {
+   309→      const { error } = await supabase
+   310→        .from("millionaire_questions")
+   311→        .delete()
+   312→        .eq("id", questionId);
+   313→
+   314→      if (error) throw error;
+   315→
+   316→      setQuestions(questions.filter((q) => q.id !== questionId));
+   317→      toast.success("Pergunta removida");
+   318→    } catch (error) {
+   319→      console.error("Error deleting question:", error);
+   320→      toast.error("Erro ao remover pergunta");
+   321→    }
+   322→  };
+   323→
+   324→  const publishGame = async (gameId: string) => {
+   325→    try {
+   326→      const { error } = await supabase
+   327→        .from("millionaire_games")
+   328→        .update({ is_published: true })
+   329→        .eq("id", gameId);
+   330→
+   331→      if (error) throw error;
+   332→
+   333→      setGames(
+   334→        games.map((g) =>
+   335→          g.id === gameId ? { ...g, is_published: true } : g
+   336→        )
+   337→      );
+   338→      toast.success("Jogo publicado!");
+   339→    } catch (error) {
+   340→      console.error("Error publishing game:", error);
+   341→      toast.error("Erro ao publicar jogo");
+   342→    }
+   343→  };
+   344→
+   345→  const resetGameForm = () => {
+   346→    setGameName("");
+   347→    setGameDescription("");
+   348→    setTotalQuestions(15);
+   349→    setTimePerQuestion(30);
+   350→    setPrimaryColor("#fbbf24");
+   351→    setBackgroundColor("#0a0e17");
+   352→    setBackgroundImage("");
+   353→    setCompanyLogoUrl("");
+   354→    setCompanySlogan("");
+   355→    setPrizeStructure(DEFAULT_PRIZE_STRUCTURE);
+   356→    setLifelines({ fiftyFifty: true, askAudience: false, phoneFriend: false });
+   357→  };
+   358→
+   359→  const resetQuestionForm = () => {
+   360→    setQuestionText("");
+   361→    setOptionA("");
+   362→    setOptionB("");
+   363→    setOptionC("");
+   364→    setOptionD("");
+   365→    setCorrectAnswer("A");
+   366→    setExplanation("");
+   367→  };
+   368→
+   369→  const updatePrizeLevel = (index: number, updates: Partial<PrizeLevel>) => {
+   370→    setPrizeStructure(prev => prev.map((level, i) => 
+   371→      i === index ? { ...level, ...updates } : level
+   372→    ));
+   373→  };
+   374→
+   375→  if (role !== "admin" && role !== "superadmin" && role !== "business") {
+   376→    return <Navigate to="/profile" replace />;
+   377→  }
+   378→
+   379→  if (loading) {
+   380→    return (
+   381→      <div className="flex h-64 items-center justify-center">
+   382→        <Loader2 className="h-6 w-6 animate-spin" />
+   383→      </div>
+   384→    );
+   385→  }
+   386→
+   387→  return (
+   388→    <motion.div className="space-y-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+   389→      <h1 className="font-display text-2xl font-bold">Gerenciar Quem Quer Ser Milionário</h1>
+   390→
+   391→      <Tabs defaultValue="games" className="w-full">
+   392→        <TabsList className="grid w-full grid-cols-2">
+   393→          <TabsTrigger value="games">Meus Jogos</TabsTrigger>
+   394→          <TabsTrigger value="create">{selectedGame ? "Editar Jogo" : "Criar Novo Jogo"}</TabsTrigger>
+   395→        </TabsList>
+   396→
+   397→        <TabsContent value="games" className="space-y-4">
+   398→          {games.length === 0 ? (
+   399→            <Card>
+   400→              <CardContent className="py-12 text-center text-muted-foreground">
+   401→                Nenhum jogo criado ainda
+   402→              </CardContent>
+   403→            </Card>
+   404→          ) : (
+   405→            <div className="grid gap-4">
+   406→              {games.map((game) => (
+   407→                <Card
+   408→                  key={game.id}
+   409→                  className="cursor-pointer hover:shadow-lg transition-shadow"
+   410→                  onClick={() => selectGameForEdit(game)}
+   411→                >
+   412→                  <CardHeader>
+   413→                    <div className="flex items-start justify-between">
+   414→                      <div>
+   415→                        <CardTitle>{game.name}</CardTitle>
+   416→                        <p className="text-sm text-muted-foreground mt-2">
+   417→                          {game.description}
+   418→                        </p>
+   419→                      </div>
+   420→                      <div className="flex gap-2">
+   421→                        <Badge variant={game.is_published ? "default" : "outline"}>
+   422→                          {game.is_published ? "Publicado" : "Rascunho"}
+   423→                        </Badge>
+   424→                      </div>
+   425→                    </div>
+   426→                  </CardHeader>
+   427→                  <CardContent>
+   428→                    <div className="flex items-center justify-between">
+   429→                      <p className="text-sm text-muted-foreground">
+   430→                        {game.total_questions} perguntas
+   431→                      </p>
+   432→                      <div className="flex gap-2">
+   433→                        <Button size="sm" variant="outline" onClick={(e) => {
+   434→                          e.stopPropagation();
+   435→                          selectGameForEdit(game);
+   436→                        }}>
+   437→                          <Edit2 className="h-4 w-4 mr-2" />
+   438→                          Editar
+   439→                        </Button>
+   440→                        {!game.is_published && (
+   441→                          <Button
+   442→                            size="sm"
+   443→                            onClick={(e) => {
+   444→                              e.stopPropagation();
+   445→                              publishGame(game.id);
+   446→                            }}
+   447→                          >
+   448→                            <Eye className="h-4 w-4 mr-2" />
+   449→                            Publicar
+   450→                          </Button>
+   451→                        )}
+   452→                        <Button size="sm" variant="secondary" asChild onClick={(e) => e.stopPropagation()}>
+   453→                          <a href={`/games/millionaire/${game.id}`} target="_blank" rel="noreferrer">
+   454→                            <Eye className="h-4 w-4 mr-2" />
+   455→                            Pré-visualizar
+   456→                          </a>
+   457→                        </Button>
+   458→                      </div>
+   459→                    </div>
+   460→                  </CardContent>
+   461→                </Card>
+   462→              ))}
+   463→            </div>
+   464→          )}
+   465→        </TabsContent>
+   466→
+   467→        <TabsContent value="create" className="space-y-4">
+   468→          <Card>
+   469→            <CardHeader>
+   470→              <CardTitle>{selectedGame ? "Editar Jogo" : "Criar Novo Jogo"}</CardTitle>
+   471→            </CardHeader>
+   472→            <CardContent className="space-y-4">
+   473→              <div>
+   474→                <Label>Nome do Jogo</Label>
+   475→                <Input
+   476→                  placeholder="Ex: Quem Quer Ser Milionário - Edição 2026"
+   477→                  value={gameName}
+   478→                  onChange={(e) => setGameName(e.target.value)}
+   479→                />
+   480→              </div>
+   481→
+   482→              <div>
+   483→                <Label>Descrição</Label>
+   484→                <Textarea
+   485→                  placeholder="Descreve o teu jogo..."
+   486→                  value={gameDescription}
+   487→                  onChange={(e) => setGameDescription(e.target.value)}
+   488→                  rows={3}
+   489→                />
+   490→              </div>
+   491→
+   492→              <div className="grid gap-4 md:grid-cols-2">
+   493→                <div>
+   494→                  <Label>Total de Perguntas</Label>
+   495→                  <Input
+   496→                    type="number"
+   497→                    min="1"
+   498→                    max="50"
+   499→                    value={totalQuestions}
+   500→                    onChange={(e) => setTotalQuestions(parseInt(e.target.value) || 15)}
+   501→                  />
+   502→                </div>
+   503→
+   504→                <div>
+   505→                  <Label>Tempo por Pergunta (segundos)</Label>
+   506→                  <Input
+   507→                    type="number"
+   508→                    min="5"
+   509→                    max="300"
+   510→                    value={timePerQuestion}
+   511→                    onChange={(e) => setTimePerQuestion(parseInt(e.target.value) || 30)}
+   512→                  />
+   513→                </div>
+   514→              </div>
+   515→
+   516→              <div className="grid gap-4 md:grid-cols-2">
+   517→                <div>
+   518→                  <Label>Cor Primária</Label>
+   519→                  <div className="flex gap-2">
+   520→                    <input
+   521→                      type="color"
+   522→                      value={primaryColor}
+   523→                      onChange={(e) => setPrimaryColor(e.target.value)}
+   524→                      className="w-12 h-10 rounded cursor-pointer"
+   525→                    />
+   526→                    <Input
+   527→                      value={primaryColor}
+   528→                      onChange={(e) => setPrimaryColor(e.target.value)}
+   529→                      className="flex-1"
+   530→                    />
+   531→                  </div>
+   532→                </div>
+   533→
+   534→                <div>
+   535→                  <Label>Cor de Fundo</Label>
+   536→                  <div className="flex gap-2">
+   537→                    <input
+   538→                      type="color"
+   539→                      value={backgroundColor}
+   540→                      onChange={(e) => setBackgroundColor(e.target.value)}
+   541→                      className="w-12 h-10 rounded cursor-pointer"
+   542→                    />
+   543→                    <Input
+   544→                      value={backgroundColor}
+   545→                      onChange={(e) => setBackgroundColor(e.target.value)}
+   546→                      className="flex-1"
+   547→                    />
+   548→                  </div>
+   549→                </div>
+   550→              </div>
+   551→
+   552→              <div>
+   553→                <ImageUpload
+   554→                  label="Imagem de Fundo"
+   555→                  value={backgroundImage}
+   556→                  onChange={setBackgroundImage}
+   557→                  placeholder="URL da imagem de fundo"
+   558→                  bucketName="game-images"
+   559→                />
+   560→              </div>
+   561→
+   562→              <div className="grid gap-4 md:grid-cols-2">
+   563→                <div>
+   564→                  <ImageUpload
+   565→                    label="Logo da Empresa"
+   566→                    value={companyLogoUrl}
+   567→                    onChange={setCompanyLogoUrl}
+   568→                    placeholder="URL do logo"
+   569→                    bucketName="game-images"
+   570→                  />
+   571→                </div>
+   572→                <div>
+   573→                  <Label>Slogan da Empresa</Label>
+   574→                  <Input
+   575→                    placeholder="Slogan..."
+   576→                    value={companySlogan}
+   577→                    onChange={(e) => setCompanySlogan(e.target.value)}
+   578→                  />
+   579→                </div>
+   580→              </div>
+   581→
+   582→              <div>
+   583→                <Label>Moeda</Label>
+   584→                <Input
+   585→                  value={currency}
+   586→                  onChange={(e) => setCurrency(e.target.value)}
+   587→                  placeholder="MZN"
+   588→                />
+   589→              </div>
+   590→
+   591→              <div>
+   592→                <Label>Pirâmide de Prémios</Label>
+   593→                <div className="mt-2 max-h-60 overflow-y-auto space-y-2 border rounded-lg p-3">
+   594→                  {prizeStructure.slice(0, totalQuestions).map((prize, index) => (
+   595→                    <div key={index} className="flex gap-2 items-center">
+   596→                      <span className="w-8 text-sm font-bold">{prize.level}</span>
+   597→                      <Input
+   598→                        type="number"
+   599→                        value={prize.amount}
+   600→                        onChange={(e) => updatePrizeLevel(index, { amount: parseInt(e.target.value) || 0 })}
+   601→                        className="flex-1"
+   602→                      />
+   603→                      <Switch
+   604→                        checked={prize.is_safe_haven}
+   605→                        onCheckedChange={(checked) => updatePrizeLevel(index, { is_safe_haven: checked })}
+   606→                      />
+   607→                      <span className="text-xs text-muted-foreground">Seguro</span>
+   608→                    </div>
+   609→                  ))}
+   610→                </div>
+   611→              </div>
+   612→
+   613→              <div>
+   614→                <Label>Ajudas</Label>
+   615→                <div className="mt-2 space-y-2">
+   616→                  <div className="flex items-center justify-between">
+   617→                    <span>50/50</span>
+   618→                    <Switch
+   619→                      checked={lifelines.fiftyFifty}
+   620→                      onCheckedChange={(checked) => setLifelines(prev => ({ ...prev, fiftyFifty: checked }))}
+   621→                    />
+   622→                  </div>
+   623→                  <div className="flex items-center justify-between">
+   624→                    <span>Pedir ajuda ao público</span>
+   625→                    <Switch
+   626→                      checked={lifelines.askAudience}
+   627→                      onCheckedChange={(checked) => setLifelines(prev => ({ ...prev, askAudience: checked }))}
+   628→                    />
+   629→                  </div>
+   630→                  <div className="flex items-center justify-between">
+   631→                    <span>Ligar para um amigo</span>
+   632→                    <Switch
+   633→                      checked={lifelines.phoneFriend}
+   634→                      onCheckedChange={(checked) => setLifelines(prev => ({ ...prev, phoneFriend: checked }))}
+   635→                    />
+   636→                  </div>
+   637→                </div>
+   638→              </div>
+   639→
+   640→              <Button
+   641→                onClick={selectedGame ? updateGame : createGame}
+   642→                disabled={saving}
+   643→                className="w-full"
+   644→              >
+   645→                {saving ? (
+   646→                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+   647→                ) : (
+   648→                  <Plus className="h-4 w-4 mr-2" />
+   649→                )}
+   650→                {selectedGame ? "Atualizar Jogo" : "Criar Jogo"}
+   651→              </Button>
+   652→            </CardContent>
+   653→          </Card>
+   654→        </TabsContent>
+   655→      </Tabs>
+   656→
+   657→      {selectedGame && (
+   658→        <Card className="mt-8">
+   659→          <CardHeader>
+   660→            <CardTitle>Perguntas - {selectedGame.name}</CardTitle>
+   661→          </CardHeader>
+   662→          <CardContent className="space-y-6">
+   663→            <div className="border-t pt-6">
+   664→              <h3 className="font-bold mb-4">Adicionar Pergunta</h3>
+   665→              <div className="space-y-4">
+   666→                <div>
+   667→                  <Label>Pergunta</Label>
+   668→                  <Textarea
+   669→                    placeholder="Digite a pergunta..."
+   670→                    value={questionText}
+   671→                    onChange={(e) => setQuestionText(e.target.value)}
+   672→                    rows={2}
+   673→                  />
+   674→                </div>
+   675→
+   676→                <div className="grid gap-4 md:grid-cols-2">
+   677→                  <Input placeholder="Opção A" value={optionA} onChange={(e) => setOptionA(e.target.value)} />
+   678→                  <Input placeholder="Opção B" value={optionB} onChange={(e) => setOptionB(e.target.value)} />
+   679→                  <Input placeholder="Opção C" value={optionC} onChange={(e) => setOptionC(e.target.value)} />
+   680→                  <Input placeholder="Opção D" value={optionD} onChange={(e) => setOptionD(e.target.value)} />
+   681→                </div>
+   682→
+   683→                <div className="grid gap-4 md:grid-cols-2">
+   684→                  <div>
+   685→                    <Label>Resposta Correta</Label>
+   686→                    <select
+   687→                      value={correctAnswer}
+   688→                      onChange={(e) => setCorrectAnswer(e.target.value)}
+   689→                      className="w-full px-3 py-2 border rounded-md"
+   690→                    >
+   691→                      <option value="A">A</option>
+   692→                      <option value="B">B</option>
+   693→                      <option value="C">C</option>
+   694→                      <option value="D">D</option>
+   695→                    </select>
+   696→                  </div>
+   697→                </div>
+   698→
+   699→                <Button
+   700→                  onClick={addQuestion}
+   701→                  disabled={saving}
+   702→                  className="w-full"
+   703→                >
+   704→                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+   705→                  Adicionar Pergunta
+   706→                </Button>
+   707→              </div>
+   708→            </div>
+   709→
+   710→            {questions.length > 0 && (
+   711→              <div className="border-t pt-6">
+   712→                <h3 className="font-bold mb-4">Perguntas Adicionadas ({questions.length})</h3>
+   713→                <div className="space-y-3">
+   714→                  {questions.map((q) => (
+   715→                    <div key={q.id} className="p-4 border rounded-lg flex justify-between items-start">
+   716→                      <div>
+   717→                        <p className="font-semibold">{q.question_number}. {q.question_text}</p>
+   718→                        <p className="text-sm text-green-600 font-bold">Resposta: {q.correct_answer}</p>
+   719→                      </div>
+   720→                      <Button size="sm" variant="ghost" onClick={() => deleteQuestion(q.id)}>
+   721→                        <Trash2 className="h-4 w-4 text-destructive" />
+   722→                      </Button>
+   723→                    </div>
+   724→                  ))}
+   725→                </div>
+   726→              </div>
+   727→            )}
+   728→          </CardContent>
+   729→        </Card>
+   730→      )}
+   731→    </div>
+   732→  );
+   733→}
