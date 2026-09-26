@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { getStoredCountry, resolveLangFromCountry } from "@/lib/country-language";
-
-export type Lang = "en" | "pt" | "pt-BR" | "es" | "fr" | "hi";
+export type { Lang } from "@/lib/country-language";
 
 type Dict = Record<string, string>;
 

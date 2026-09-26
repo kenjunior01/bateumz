@@ -1,4 +1,4 @@
-import type { Lang } from "@/contexts/LanguageContext";
+export type Lang = "en" | "pt" | "pt-BR" | "es" | "fr" | "hi";
 
 const SUPPORTED: Lang[] = ["en", "pt", "pt-BR", "es", "fr", "hi"];
 
