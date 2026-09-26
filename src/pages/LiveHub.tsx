@@ -1,0 +1,1385 @@
+import { useEffect, useRef, useState, useCallback, useMemo, Component, lazy, Suspense, type ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Radio, Zap, Brain, Package, RotateCcw, Sparkles, Trophy, Users, Plus, Copy, Check, Search, Vote, Play, Square, Lock, Loader2, Gamepad2, Skull, Swords, Pencil, Bomb, Hash, SmilePlus, Shuffle, Flame, Heart, Grid3X3, Anchor, Dices, CircleDot, LayoutGrid, Target, Palette, Map, Crosshair, Layers, Globe, Coins, HandCoins } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useSoundEffects } from "@/hooks/useSoundEffects";
+import GlowPulse from "@/components/ui/GlowPulse";
+import ShimmerText from "@/components/ui/ShimmerText";
+import NeonBorder from "@/components/ui/NeonBorder";
+import ButtonRipple from "@/components/ui/ButtonRipple";
+import MobileDiscoveryHeader from "@/components/meituan/MobileDiscoveryHeader";
+const TapBattle = lazy(() => import("@/components/livegames/TapBattle"));
+const QuizBattle = lazy(() => import("@/components/livegames/QuizBattle"));
+const MysteryBox = lazy(() => import("@/components/livegames/MysteryBox"));
+const KeywordHunt = lazy(() => import("@/components/livegames/KeywordHunt"));
+const EmojiBattle = lazy(() => import("@/components/livegames/EmojiBattle"));
+const PrizeWheel = lazy(() => import("@/components/livegames/PrizeWheel"));
+const EnhancedMillionaireGame = lazy(() => import("@/components/livegames/EnhancedMillionaireGame"));
+const KahootMultiplayerQuiz = lazy(() => import("@/components/livegames/KahootMultiplayerQuiz"));
+const LiveBingo = lazy(() => import("@/components/livegames/LiveBingo"));
+const ChallengeRoulette = lazy(() => import("@/components/livegames/ChallengeRoulette"));
+const VSDuelArena = lazy(() => import("@/components/livegames/VSDuelArena"));
+const SpeedReaction = lazy(() => import("@/components/livegames/SpeedReaction"));
+const TruthOrDare = lazy(() => import("@/components/livegames/TruthOrDare"));
+const MemoryChallenge = lazy(() => import("@/components/livegames/MemoryChallenge"));
+const PunishmentWheel = lazy(() => import("@/components/livegames/PunishmentWheel"));
+const BattleOfKnowledge = lazy(() => import("@/components/livegames/BattleOfKnowledge"));
+const GuessTheEmoji = lazy(() => import("@/components/livegames/GuessTheEmoji"));
+const QuickDrawChallenge = lazy(() => import("@/components/livegames/QuickDrawChallenge"));
+const HotPotatoGame = lazy(() => import("@/components/livegames/HotPotatoGame"));
+const NumberGuessBattle = lazy(() => import("@/components/livegames/NumberGuessBattle"));
+const ChaosChallenge = lazy(() => import("@/components/livegames/ChaosChallenge"));
+const CheckersGame = lazy(() => import("@/components/livegames/CheckersGame"));
+const LudoGame = lazy(() => import("@/components/livegames/LudoGame"));
+const ConnectFourGame = lazy(() => import("@/components/livegames/ConnectFourGame"));
+const BattleshipGame = lazy(() => import("@/components/livegames/BattleshipGame"));
+const TicTacToeVS = lazy(() => import("@/components/livegames/TicTacToeVS"));
+const UnoCardGame = lazy(() => import("@/components/livegames/UnoCardGame"));
+const SnakeBattle = lazy(() => import("@/components/livegames/SnakeBattle"));
+const RockPaperScissors = lazy(() => import("@/components/livegames/RockPaperScissors"));
+const ColorSequence = lazy(() => import("@/components/livegames/ColorSequence"));
+const SpaceShooter = lazy(() => import("@/components/livegames/SpaceShooter"));
+const BallBreaker = lazy(() => import("@/components/livegames/BallBreaker"));
+const ReactionRace = lazy(() => import("@/components/livegames/ReactionRace"));
+const QuickMath = lazy(() => import("@/components/livegames/QuickMath"));
+const MemoryCardsVS = lazy(() => import("@/components/livegames/MemoryCardsVS"));
+const WordScramble = lazy(() => import("@/components/livegames/WordScramble"));
+const TicTacToePro = lazy(() => import("@/components/livegames/TicTacToePro"));
+const GuessNumber100 = lazy(() => import("@/components/livegames/GuessNumber100"));
+const ColorMatch = lazy(() => import("@/components/livegames/ColorMatch"));
+const TargetTap = lazy(() => import("@/components/livegames/TargetTap"));
+const DiceDuel = lazy(() => import("@/components/livegames/DiceDuel"));
+const PatternMemory = lazy(() => import("@/components/livegames/PatternMemory"));
+const TriviaFlash = lazy(() => import("@/components/livegames/TriviaFlash"));
+const Dominoes = lazy(() => import("@/components/livegames/Dominoes"));
+const MazeRace = lazy(() => import("@/components/livegames/MazeRace"));
+const SlotsVS = lazy(() => import("@/components/livegames/SlotsVS"));
+const Match4Grid = lazy(() => import("@/components/livegames/Match4Grid"));
+const TowerStack = lazy(() => import("@/components/livegames/TowerStack"));
+const CannonBattle = lazy(() => import("@/components/livegames/CannonBattle"));
+const SpotDifference = lazy(() => import("@/components/livegames/SpotDifference"));
+const WordChain = lazy(() => import("@/components/livegames/WordChain"));
+const NumberTetris = lazy(() => import("@/components/livegames/NumberTetris"));
+const PongVS = lazy(() => import("@/components/livegames/PongVS"));
+const WhackAMole = lazy(() => import("@/components/livegames/WhackAMole"));
+const ColorCatch = lazy(() => import("@/components/livegames/ColorCatch"));
+const MexericaGame = lazy(() => import("@/components/livegames/MexericaGame"));
+const ChigogoGame = lazy(() => import("@/components/livegames/ChigogoGame"));
+const UrusseGame = lazy(() => import("@/components/livegames/UrusseGame"));
+const CapulanaQuiz = lazy(() => import("@/components/livegames/CapulanaQuiz"));
+const CarromBoard = lazy(() => import("@/components/livegames/CarromBoard"));
+const TeenPatti = lazy(() => import("@/components/livegames/TeenPatti"));
+const KabaddiRaid = lazy(() => import("@/components/livegames/KabaddiRaid"));
+const RpgArenaBattle = lazy(() => import("@/components/livegames/RpgArenaBattle"));
+const BattleRoyaleGame = lazy(() => import("@/components/livegames/BattleRoyaleGame"));
+const ChessGame = lazy(() => import("@/components/livegames/ChessGame"));
+const FlappyBirdGame = lazy(() => import("@/components/livegames/FlappyBirdGame"));
+const FruitNinjaGame = lazy(() => import("@/components/livegames/FruitNinjaGame"));
+const TypingRacer = lazy(() => import("@/components/livegames/TypingRacer"));
+const CampaignRPGGame = lazy(() => import("@/components/livegames/CampaignRPGGame"));
+const MMORPGGame = lazy(() => import("@/components/livegames/MMORPGGame"));
+const P2PBetArena = lazy(() => import("@/components/livegames/P2PBetArena"));
+const NtchuvaGame = lazy(() => import("@/components/livegames/NtchuvaGame"));
+const DjikotaGame = lazy(() => import("@/components/livegames/DjikotaGame"));
+const BichoGame = lazy(() => import("@/components/livegames/BichoGame"));
+const UriGame = lazy(() => import("@/components/livegames/UriGame"));
+import LiveLeaderboard, { type LeaderEntry } from "@/components/livegames/LiveLeaderboard";
+import LiveControlPanel from "@/components/livegames/LiveControlPanel";
+import LiveGameSettings, { DEFAULT_CONFIG, type LiveGameConfig, type CompanyBranding, DEFAULT_BRANDING } from "@/components/livegames/LiveGameSettings";
+import { DEFAULT_WHEEL_PRIZES, type WheelPrize } from "@/components/livegames/PrizeWheel";
+import { publish, subscribe, readLatest } from "@/lib/liveBus";
+import { ParticleBackground } from "@/components/effects";
+import { appendHistory } from "@/lib/liveHistory";
+import { useToast } from "@/hooks/use-toast";
+import AmbassadorPanel from "@/components/ambassadors/AmbassadorPanel";
+import { useAuth } from "@/contexts/AuthContext";
+import { getGameManagerPath } from "@/lib/game-manager-paths";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import GameFullscreenWrapper from "@/components/livegames/GameFullscreenWrapper";
+import EngagementBar from "@/components/engagement/EngagementBar";
+import LevelProgressWidget from "@/components/engagement/LevelProgressWidget";
+import { useSEO } from "@/hooks/useSEO";
+
+
+// Per-game error boundary so one crashing game does not kill the whole page
+class GameErrorBoundary extends Component<{children: ReactNode; gameName: string}, {hasError: boolean; resetKey: number; errorMsg: string}> {
+  constructor(props: {children: ReactNode; gameName: string}) { super(props); this.state = {hasError: false, resetKey: 0, errorMsg: ""}; }
+  static getDerivedStateFromError() { return {hasError: true}; }
+  componentDidCatch(err: Error) {
+    console.error(`[GameErrorBoundary] ${this.props.gameName}:`, err);
+    const msg = err.message || "Erro desconhecido";
+    this.setState({ errorMsg: msg.length > 120 ? msg.slice(0, 120) + "..." : msg });
+  }
+  handleRetry = () => { this.setState((s) => ({ hasError: false, resetKey: (s.resetKey || 0) + 1, errorMsg: "" })); };
+  handleSelectOther = () => {
+    window.dispatchEvent(new CustomEvent("game-error-select-other"));
+  };
+  render() {
+    if (this.state.hasError) return (
+      <div className="flex flex-col items-center justify-center py-20 px-6 rounded-2xl border border-dashed border-destructive/30 bg-gradient-to-b from-destructive/5 to-transparent">
+        <div className="text-5xl mb-4">⚠️</div>
+        <p className="text-sm font-bold mb-1">Error loading {this.props.gameName}</p>
+        <p className="text-[11px] text-muted-foreground mb-2 text-center max-w-xs">{this.state.errorMsg}</p>
+        <div className="flex items-center gap-2">
+          <button onClick={this.handleRetry} className="text-xs px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-colors">Try Again</button>
+          <button onClick={this.handleSelectOther} className="text-xs px-4 py-2 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 font-semibold transition-colors">Other game</button>
+        </div>
+      </div>
+    );
+    return <div key={this.state.resetKey}>{this.props.children}</div>;
+  }
+}
+type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "chigogo" | "urusse" | "capulanaquiz" | "carromboard" | "teenpatti" | "kabaddiraid" | "rpgarena" | "battleroyale" | "chess" | "flappybird" | "fruitninja" | "typingracer" | "campaignrpg" | "mmorpg" | "p2pbet" | "ntchuva" | "djikota" | "bicho" | "uri";
+
+interface SavedWheelGame {
+  id: string;
+  name: string;
+  is_published?: boolean;
+  segment_count?: number;
+  rotation_duration?: number;
+  wheel_background_color?: string;
+  wheel_border_color?: string;
+  spin_cost?: number;
+  sound_enabled?: boolean;
+  particle_effects?: boolean;
+  background_image_url?: string;
+  background_color?: string;
+  company_logo_url?: string;
+  company_slogan?: string;
+  default_effect?: string;
+}
+
+const GAME_DEFS: { id: GameId; icon: any; emoji: string; grad: string }[] = [
+  { id: "mmorpg", icon: Globe, emoji: "🌍", grad: "from-blue-600 to-purple-700" },
+  { id: "wheel", icon: RotateCcw, emoji: "🎰", grad: "from-violet-500 to-fuchsia-500" },
+  { id: "keyword", icon: Search, emoji: "🔎", grad: "from-amber-500 to-orange-500" },
+  { id: "emoji", icon: Vote, emoji: "💥", grad: "from-pink-500 to-rose-500" },
+  { id: "tap", icon: Zap, emoji: "⚡", grad: "from-amber-500 to-orange-500" },
+  { id: "quiz", icon: Brain, emoji: "🧠", grad: "from-sky-500 to-blue-500" },
+  { id: "mystery", icon: Package, emoji: "🎁", grad: "from-emerald-500 to-teal-500" },
+  { id: "millionaire", icon: Trophy, emoji: "💰", grad: "from-purple-500 to-violet-500" },
+  { id: "kahoot", icon: Brain, emoji: "🎯", grad: "from-sky-500 to-indigo-600" },
+  { id: "bingo", icon: Trophy, emoji: "🎱", grad: "from-emerald-500 to-teal-600" },
+  { id: "challenge", icon: RotateCcw, emoji: "🎭", grad: "from-fuchsia-500 to-pink-500" },
+  { id: "vsduel", icon: Swords, emoji: "⚔️", grad: "from-red-500 to-orange-600" },
+  { id: "speed", icon: Zap, emoji: "⚡", grad: "from-cyan-500 to-blue-600" },
+  { id: "truthordare", icon: Heart, emoji: "🔥", grad: "from-rose-500 to-red-600" },
+  { id: "memory", icon: Brain, emoji: "🧠", grad: "from-indigo-500 to-purple-600" },
+  { id: "punishment", icon: Skull, emoji: "💀", grad: "from-red-600 to-rose-700" },
+  { id: "boknowledge", icon: Brain, emoji: "📚", grad: "from-cyan-500 to-purple-600" },
+  { id: "guessEmoji", icon: SmilePlus, emoji: "😎", grad: "from-yellow-500 to-amber-600" },
+  { id: "quickdraw", icon: Pencil, emoji: "🎨", grad: "from-emerald-500 to-teal-600" },
+  { id: "hotpotato", icon: Bomb, emoji: "💣", grad: "from-orange-500 to-red-600" },
+  { id: "numguess", icon: Hash, emoji: "🔢", grad: "from-violet-500 to-fuchsia-600" },
+  { id: "chaos", icon: Shuffle, emoji: "🌪️", grad: "from-rose-500 to-pink-600" },
+  { id: "checkers", icon: Grid3X3, emoji: "♟️", grad: "from-amber-700 to-red-800" },
+  { id: "ludo", icon: Dices, emoji: "🎲", grad: "from-emerald-600 to-teal-700" },
+  { id: "connect4", icon: LayoutGrid, emoji: "🔴", grad: "from-blue-500 to-yellow-500" },
+  { id: "battleship", icon: Anchor, emoji: "🚢", grad: "from-slate-600 to-blue-900" },
+  { id: "tictactoe", icon: CircleDot, emoji: "✕", grad: "from-violet-500 to-pink-500" },
+  { id: "uno", icon: Sparkles, emoji: "🃏", grad: "from-indigo-500 to-purple-600" },
+  { id: "snakebattle", icon: Gamepad2, emoji: "🐍", grad: "from-emerald-500 to-teal-600" },
+  { id: "rps", icon: Swords, emoji: "✊", grad: "from-amber-500 to-orange-600" },
+  { id: "colorsequence", icon: Sparkles, emoji: "🟢", grad: "from-violet-500 to-fuchsia-600" },
+  { id: "spaceshooter", icon: Zap, emoji: "🚀", grad: "from-slate-500 to-blue-700" },
+  { id: "ballbreaker", icon: Gamepad2, emoji: "🧱", grad: "from-red-500 to-orange-600" },
+  { id: "reactionrace", icon: Zap, emoji: "⚡", grad: "from-yellow-500 to-red-600" },
+  { id: "quickmath", icon: Brain, emoji: "🧮", grad: "from-cyan-500 to-blue-700" },
+  { id: "memorycards", icon: Brain, emoji: "🃏", grad: "from-indigo-500 to-violet-600" },
+  { id: "wordscramble", icon: Shuffle, emoji: "🔤", grad: "from-rose-500 to-pink-600" },
+  { id: "tictactoepro", icon: Grid3X3, emoji: "✖", grad: "from-violet-600 to-indigo-700" },
+  { id: "guessnumber100", icon: Hash, emoji: "🔢", grad: "from-teal-500 to-cyan-700" },
+  { id: "colormatch", icon: Palette, emoji: "🎨", grad: "from-pink-500 to-rose-700" },
+  { id: "targettap", icon: Target, emoji: "🎯", grad: "from-orange-500 to-red-600" },
+  { id: "diceluel", icon: Dices, emoji: "🎲", grad: "from-amber-600 to-yellow-600" },
+  { id: "patternmemory", icon: Grid3X3, emoji: "🧩", grad: "from-purple-500 to-violet-700" },
+  { id: "triviaflash", icon: Brain, emoji: "❗", grad: "from-emerald-500 to-teal-700" },
+  { id: "dominoes", icon: LayoutGrid, emoji: "🎲", grad: "from-slate-600 to-zinc-700" },
+  { id: "mazerace", icon: Map, emoji: "🧩", grad: "from-green-600 to-emerald-700" },
+  { id: "slotsvs", icon: Sparkles, emoji: "🎰", grad: "from-amber-500 to-yellow-500" },
+  { id: "match4", icon: Sparkles, emoji: "✨", grad: "from-pink-500 to-rose-600" },
+  { id: "towerstack", icon: Layers, emoji: "🏗️", grad: "from-sky-500 to-blue-600" },
+  { id: "cannonbattle", icon: Crosshair, emoji: "💣", grad: "from-red-600 to-orange-700" },
+  { id: "spotdifference", icon: Search, emoji: "🔍", grad: "from-amber-500 to-yellow-600" },
+  { id: "wordchain", icon: Shuffle, emoji: "🔗", grad: "from-teal-500 to-emerald-600" },
+  { id: "numbertetris", icon: LayoutGrid, emoji: "🔢", grad: "from-orange-600 to-red-700" },
+  { id: "pongvs", icon: Gamepad2, emoji: "🏓", grad: "from-blue-600 to-indigo-700" },
+  { id: "whackamole", icon: Target, emoji: "🎯", grad: "from-emerald-500 to-green-600" },
+  { id: "colorcatch", icon: Palette, emoji: "🎨", grad: "from-pink-500 to-rose-600" },
+  { id: "mexerica", icon: Zap, emoji: "✋", grad: "from-amber-600 to-red-700" },
+  { id: "chigogo", icon: Target, emoji: "🪨", grad: "from-yellow-700 to-amber-800" },
+  { id: "urusse", icon: Gamepad2, emoji: "🟤", grad: "from-green-700 to-amber-900" },
+  { id: "capulanaquiz", icon: Brain, emoji: "👗", grad: "from-yellow-500 to-green-700" },
+  { id: "carromboard", icon: Target, emoji: "🎱", grad: "from-amber-600 to-orange-500" },
+  { id: "teenpatti", icon: Target, emoji: "🃏", grad: "from-emerald-600 to-green-500" },
+  { id: "kabaddiraid", icon: Zap, emoji: "🧔", grad: "from-orange-500 to-red-600" },
+  { id: "rpgarena", icon: Swords, emoji: "⚔", grad: "from-red-600 to-purple-800" },
+  { id: "battleroyale", icon: Target, emoji: "🎱", grad: "from-amber-500 to-red-700" },
+  { id: "chess", icon: Grid3X3, emoji: "♚", grad: "from-slate-700 to-zinc-900" },
+  { id: "flappybird", icon: Gamepad2, emoji: "🐦", grad: "from-sky-400 to-green-500" },
+  { id: "fruitninja", icon: Sparkles, emoji: "🍎", grad: "from-red-500 to-orange-500" },
+  { id: "typingracer", icon: Zap, emoji: "⌨", grad: "from-cyan-500 to-blue-600" },
+  { id: "campaignrpg", icon: Swords, emoji: "⚔️", grad: "from-yellow-600 to-red-700" },
+  { id: "p2pbet", icon: Coins, emoji: "💰", grad: "from-amber-500 to-yellow-400" },
+  { id: "ntchuva", icon: Zap, emoji: "✋", grad: "from-amber-600 to-red-700" },
+  { id: "djikota", icon: Target, emoji: "🎯", grad: "from-green-600 to-teal-700" },
+  { id: "bicho", icon: Dices, emoji: "🦎", grad: "from-emerald-500 to-green-600" },
+  { id: "uri", icon: Zap, emoji: "👆", grad: "from-orange-500 to-red-600" },
+];
+
+const genCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+
+const LiveHub = () => {
+  const { toast: uiToast } = useToast();
+  const { t } = useLanguage();
+  useSEO({ title: 'Lives ao Vivo', description: 'Assista e participe em lives ao vivo na Bateu. Sorteios em direto, interação em tempo real e a oportunidade de ganhar prémios exclusivos.', canonicalPath: '/lives' });
+  const { sfx } = useSoundEffects();
+  const GAMES = useMemo(() => GAME_DEFS.map(g => ({
+    ...g,
+    label: t("livehub.game." + g.id),
+    desc: t("livehub.game." + g.id + ".desc"),
+  })), [t]);
+  const [searchParams] = useSearchParams();
+  const gameFromUrl = searchParams.get("game") as GameId | null;
+  const templateId = searchParams.get("template");
+  const { user, role } = useAuth();
+  const spinWheelManagerPath = getGameManagerPath(role, "spin-wheel");
+  const [templateName, setTemplateName] = useState<string | null>(null);
+  const [active, setActive] = useState<GameId>(() => {
+    try {
+      const fromUrl = gameFromUrl;
+      if (fromUrl && GAMES.some(g => g.id === fromUrl)) return fromUrl;
+      return (localStorage.getItem("liveActiveGame") as GameId) || "wheel";
+    } catch { return "wheel"; }
+  });
+  const [config, setConfig] = useState<LiveGameConfig>(() => {
+    try {
+      const s = localStorage.getItem("liveGameConfig");
+      return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG;
+    } catch { return DEFAULT_CONFIG; }
+  });
+  const [branding, setBranding] = useState<CompanyBranding>(() => {
+    try {
+      const s = localStorage.getItem("liveBranding");
+      return s ? { ...DEFAULT_BRANDING, ...JSON.parse(s) } : DEFAULT_BRANDING;
+    } catch { return DEFAULT_BRANDING; }
+  });
+
+  // Load template from ?template= param
+  useEffect(() => {
+    if (!templateId) return;
+    const loadTemplate = async () => {
+      try {
+        const { data: tpl } = await (supabase as any)
+          .from("live_templates")
+          .select("name, game_ids, branding, rules, challenges")
+          .eq("id", templateId)
+          .single();
+        if (!tpl) return;
+        setTemplateName(tpl.name);
+        // Apply template branding if available
+        if (tpl.branding) {
+          const b = tpl.branding;
+          const tplBranding: Partial<CompanyBranding> = {};
+          if (b.primaryColor) tplBranding.primaryColor = b.primaryColor;
+          if (b.secondaryColor) tplBranding.secondaryColor = b.secondaryColor;
+          if (b.accentColor) tplBranding.accentColor = b.accentColor;
+          if (b.backgroundColor) tplBranding.backgroundColor = b.backgroundColor;
+          if (b.textColor) tplBranding.textColor = b.textColor;
+          if (Object.keys(tplBranding).length > 0) {
+            setBranding(prev => ({ ...prev, ...tplBranding }));
+          }
+        }
+        // Pre-select first game from template if available
+        if (tpl.game_ids && Array.isArray(tpl.game_ids) && tpl.game_ids.length > 0) {
+          const firstGame = tpl.game_ids[0];
+          if (GAMES.some(g => g.id === firstGame)) {
+            setActive(firstGame);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading template:", err);
+      }
+    };
+    loadTemplate();
+  }, [templateId]);
+  const [wheelPrizes, setWheelPrizes] = useState<WheelPrize[]>(() => {
+    try {
+      const s = localStorage.getItem("liveWheelPrizes");
+      return s ? JSON.parse(s) : DEFAULT_WHEEL_PRIZES;
+    } catch { return DEFAULT_WHEEL_PRIZES; }
+  });
+  const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>(() => {
+    try {
+      const s = localStorage.getItem("liveLeaderboard");
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
+  const [savedGames, setSavedGames] = useState<SavedWheelGame[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [loadingGames, setLoadingGames] = useState(false);
+
+  // Persist branding to localStorage
+  useEffect(() => {
+    localStorage.setItem("liveBranding", JSON.stringify(branding));
+  }, [branding]);
+
+  // Apply branding to CSS variables
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--theme-primary', branding.primaryColor);
+    root.style.setProperty('--theme-secondary', branding.secondaryColor);
+    root.style.setProperty('--theme-accent', branding.accentColor);
+    root.style.setProperty('--theme-background', branding.backgroundColor);
+    root.style.setProperty('--theme-text', branding.textColor);
+  }, [branding]);
+
+  // Load saved games from database
+  useEffect(() => {
+    if (!user) return;
+
+    const loadSavedGames = async () => {
+      setLoadingGames(true);
+      try {
+        const { data, error } = await supabase
+          .from("spin_wheel_games")
+          .select("*")
+          .eq("created_by", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        setSavedGames(data || []);
+      } catch (error) {
+        console.error("Error loading saved games:", error);
+        toast.error(t("livehub.errorLoading"));
+      } finally {
+        setLoadingGames(false);
+      }
+    };
+
+    loadSavedGames();
+  }, [user]);
+
+  // Live session lifecycle
+  const [isLive, setIsLive] = useState<boolean>(() => {
+    try { return localStorage.getItem("liveActive") === "1"; } catch { return false; }
+  });
+  const [liveCode, setLiveCode] = useState<string>(() => {
+    try { return localStorage.getItem("liveCurrentCode") || ""; } catch { return ""; }
+  });
+  const [startedAt, setStartedAt] = useState<number>(() => {
+    try { return Number(localStorage.getItem("liveStartedAt") || 0); } catch { return 0; }
+  });
+  const winnersRef = useRef<{ name: string; meta?: string; at: number }[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Session timer
+  useEffect(() => {
+    if (!isLive || !startedAt) return;
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [isLive, startedAt]);
+
+  // Persist & broadcast
+  useEffect(() => {
+    try { localStorage.setItem("liveGameConfig", JSON.stringify(config)); } catch {}
+    publish({ type: "config", payload: config });
+  }, [config]);
+  useEffect(() => {
+    try { localStorage.setItem("liveWheelPrizes", JSON.stringify(wheelPrizes)); } catch {}
+    publish({ type: "wheelPrizes", payload: wheelPrizes });
+  }, [wheelPrizes]);
+  useEffect(() => {
+    try { localStorage.setItem("liveLeaderboard", JSON.stringify(leaderboard)); } catch {}
+    publish({ type: "leaderboard", payload: leaderboard });
+    if (isLive) {
+      const myScore = leaderboard.filter((e) => e.game === active).reduce((a, b) => a + b.score, 0);
+      publish({
+        type: "roundState",
+        payload: { game: active, phase: "running", timeLeft: 0, score: myScore, at: Date.now() },
+      });
+    }
+  }, [leaderboard, isLive, active]);
+  useEffect(() => {
+    try { localStorage.setItem("liveActiveGame", active); } catch {}
+    publish({ type: "activeGame", payload: active });
+    if (isLive) publish({ type: "roundState", payload: { game: active, phase: "running", timeLeft: 0, at: Date.now() } });
+  }, [active, isLive]);
+
+  // Listen for active-game changes from the dashboard tab
+  useEffect(() => {
+    const unsub = subscribe((evt) => {
+      if (evt.type === "activeGame" && (evt.payload as GameId) !== active) {
+        setActive(evt.payload as GameId);
+      }
+    });
+    // Hydrate latest from bus — but URL param takes priority
+    const latest = readLatest<string>("activeGame");
+    if (latest && latest !== active && !gameFromUrl) setActive(latest as GameId);
+    return unsub;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync active game when URL ?game= param changes (e.g. from AllGames page)
+  useEffect(() => {
+    if (gameFromUrl && GAMES.some(g => g.id === gameFromUrl) && gameFromUrl !== active) {
+      setActive(gameFromUrl);
+    }
+  }, [gameFromUrl]);
+
+  // Auto-scroll to game content on mobile when game changes
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setTimeout(() => {
+        document.getElementById('game-content-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+    }
+  }, [active]);
+
+  const recordScore = useCallback((game: string) => (name: string, score: number) => {
+    if (!name) return;
+    setLeaderboard((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, name, score, game, at: Date.now() },
+    ]);
+  }, []);
+
+  const broadcastWinner = (name: string, meta?: string) => {
+    const w = { name, meta, at: Date.now() };
+    winnersRef.current = [...winnersRef.current, w];
+    if (isLive) publish({ type: "winner", payload: w });
+  };
+
+  const resetConfig = () => { setConfig(DEFAULT_CONFIG); setWheelPrizes(DEFAULT_WHEEL_PRIZES); };
+
+  const startLive = () => {
+    const code = genCode();
+    const now = Date.now();
+    setLiveCode(code);
+    setStartedAt(now);
+    setIsLive(true);
+    setLeaderboard([]);
+    winnersRef.current = [];
+    try {
+      localStorage.setItem("liveCurrentCode", code);
+      localStorage.setItem("liveStartedAt", String(now));
+      localStorage.setItem("liveActive", "1");
+    } catch {}
+    publish({ type: "liveCode", payload: code });
+    publish({ type: "liveStarted", payload: { code, at: now } });
+    publish({ type: "roundState", payload: { game: active, phase: "running", timeLeft: 0, at: now } });
+    uiToast({ title: "Live iniciada", description: `Código gerado: ${code}` });
+  };
+
+  const [endOpen, setEndOpen] = useState(false);
+  const [endCountdown, setEndCountdown] = useState(3);
+  const [ending, setEnding] = useState(false);
+
+  // Countdown timer for end-live confirmation
+  useEffect(() => {
+    if (!endOpen) return;
+    setEndCountdown(3);
+    const t = setInterval(() => {
+      setEndCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [endOpen]);
+
+  const requestEndLive = () => {
+    if (!isLive || !liveCode || ending) return;
+    setEndOpen(true);
+  };
+
+  const confirmEndLive = () => {
+    if (ending || endCountdown > 0) return;
+    setEnding(true);
+    const endedAt = Date.now();
+    appendHistory({
+      code: liveCode,
+      startedAt: startedAt || endedAt,
+      endedAt,
+      durationSec: Math.max(1, Math.floor((endedAt - (startedAt || endedAt)) / 1000)),
+      activeGame: active,
+      winners: winnersRef.current,
+      leaderboard,
+    });
+    publish({ type: "liveEnded", payload: { code: liveCode, at: endedAt } });
+    publish({ type: "roundState", payload: { game: active, phase: "ended", timeLeft: 0, at: endedAt } });
+    publish({ type: "liveCode", payload: "" });
+    setIsLive(false);
+    setLiveCode("");
+    setStartedAt(0);
+    setElapsed(0);
+    try {
+      localStorage.removeItem("liveCurrentCode");
+      localStorage.removeItem("liveStartedAt");
+      localStorage.setItem("liveActive", "0");
+    } catch {}
+    uiToast({ title: "Live encerrada", description: "Vencedores e ranking guardados no histórico." });
+    setEndOpen(false);
+    setEnding(false);
+  };
+
+  const copyCode = async () => {
+    if (!liveCode) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/lives?code=${liveCode}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const fmtTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const activeMeta = GAMES.find((g) => g.id === active);
+
+  return (
+    <div className="min-h-screen bg-background pb-20 lg:pb-0">
+      <Navbar />
+
+      <section className="relative overflow-hidden border-b border-border">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-accent/10" />
+        <ParticleBackground preset="stars" count={25} className="absolute inset-0 pointer-events-none" />
+        <div className="relative container mx-auto px-4 py-6 md:py-12">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3">
+              <Gamepad2 className="h-3.5 w-3.5" />
+              {GAMES.length} {t("livehub.title")}
+            </div>
+            <h1 className="font-display text-3xl md:text-5xl font-bold mb-2">
+              Jogos <ShimmerText colors={['#00d4ff', '#7b2ff7', '#fbbf24', '#00d4ff']} speed={3} className="text-primary">Online</ShimmerText>
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base mb-4">
+              {t("livehub.title")}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {isLive ? (
+                <>
+                  <div className="flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse pulse-dot" />
+                    <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold">AO VIVO · {fmtTime(elapsed)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full bg-card border border-border px-3 py-2">
+                    <span className="text-[11px] text-muted-foreground">Código:</span>
+                    <span className="font-mono text-sm font-bold text-primary">{liveCode}</span>
+                    <button onClick={copyCode} className="p-1 rounded hover:bg-secondary" aria-label="Copiar">
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  <ButtonRipple soundEffect={() => sfx.click()}>
+                    <button onClick={requestEndLive} disabled={ending} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50">
+                      <Square className="h-3.5 w-3.5 fill-current" /> Encerrar Live
+                    </button>
+                  </ButtonRipple>
+                </>
+              ) : (
+                <>
+                  {templateName && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary/10 border border-primary/20">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      <span className="text-[11px] text-primary font-bold">{templateName}</span>
+                    </div>
+                  )}
+                  <ButtonRipple soundEffect={() => sfx.success()}>
+                    <button onClick={startLive} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-bold shadow-lg hover:shadow-xl transition-shadow">
+                      <Play className="h-4 w-4 fill-current" /> Iniciar Live
+                    </button>
+                  </ButtonRipple>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-muted/50 text-muted-foreground text-[11px] font-medium">
+                    <Gamepad2 className="h-3 w-3" /> Modo jogo livre
+                  </div>
+                </>
+              )}
+              <LiveGameSettings 
+                config={config} 
+                onChange={setConfig} 
+                branding={branding}
+                onBrandingChange={setBranding}
+              />
+              <ButtonRipple soundEffect={() => sfx.click()}>
+                <Link
+                  to="/dashboard/raffles/create"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Criar Sorteio Vinculado
+                </Link>
+              </ButtonRipple>
+            </div>
+
+            {activeMeta && (
+              <NeonBorder colors={['#00d4ff', '#7b2ff7']} speed={3} borderRadius="1rem" glowIntensity={0.4}>
+              <div className="mt-4 inline-flex items-center gap-3 rounded-2xl bg-card border border-border px-4 py-2.5">
+                <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${activeMeta.grad} flex items-center justify-center text-lg`}>{activeMeta.emoji}</div>
+                <div className="text-left">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">A jogar agora</p>
+                  <p className="text-sm font-bold leading-tight">{activeMeta.label}</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isLive ? "bg-emerald-500/15 text-emerald-600" : "bg-primary/15 text-primary"}`}>
+                  {isLive ? "ao vivo" : "pronto a jogar"}
+                </span>
+              </div>
+              </NeonBorder>
+            )}
+          </motion.div>
+        </div>
+      </section>
+
+      {!user && (
+        <div className="container mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+            🔒 <strong>Entra na tua conta</strong> para guardar as tuas pontuações e aceder a todas as funcionalidades. <Link to="/register" className="underline font-bold">Criar conta</Link> ou <Link to="/login" className="underline font-bold">Entrar</Link>
+          </div>
+        </div>
+      )}
+
+      <section className="container mx-auto px-3 sm:px-4 pt-2 md:py-8 pb-4 sm:pb-8">
+        <MobileDiscoveryHeader
+          title={t("livehub.all")}
+          searchValue=""
+          onSearchChange={() => {}}
+          searchPlaceholder={t("livehub.search")}
+          categories={GAMES.map((g) => ({ id: g.id, label: g.label, icon: g.emoji }))}
+          activeCategory={active}
+          onCategoryChange={(id) => setActive(id as GameId)}
+        />
+
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 mt-4">
+          {GAMES.map((g) => {
+            const isActive = active === g.id;
+            return (
+              <button
+                key={g.id}
+                onClick={() => setActive(g.id)}
+                className={`text-left rounded-2xl border-2 p-4 transition-all ${
+                  isActive ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+                }`}
+              >
+                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2`}>
+                  <g.icon className="h-5 w-5 text-white" />
+                </div>
+                <p className="font-display text-sm font-bold mb-1">{g.label}</p>
+                <p className="text-[11px] text-muted-foreground line-clamp-2">{g.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div id="game-content-area" className="grid lg:grid-cols-[1fr_320px] gap-6 mt-4 lg:mt-0">
+          <div>
+            <GameFullscreenWrapper gameName={activeMeta?.label ?? ""}>
+            <AnimatePresence mode="wait">
+              <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              {active === "wheel" && (
+                <motion.div key="wheel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Gamepad2 className="w-5 h-5" />
+                        {selectedGameId ? "Jogo Selecionado" : "Escolha um Jogo Salvo"}
+                      </h3>
+                      <Link
+                        to={spinWheelManagerPath}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Criar/Editar Jogo
+                      </Link>
+                    </div>
+                    
+                    {loadingGames ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : savedGames.length === 0 ? (
+                      <div className="text-center py-8 bg-card border border-dashed border-border rounded-2xl">
+                        <p className="text-muted-foreground mb-4">Ainda não tens nenhum jogo salvo!</p>
+                        <Link
+                          to={spinWheelManagerPath}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Criar Primeiro Jogo
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <button
+                          onClick={() => setSelectedGameId(null)}
+                          className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                            !selectedGameId ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+                          }`}
+                        >
+                          <p className="font-bold">Modo Rápido</p>
+                          <p className="text-xs text-muted-foreground">Edita prêmios diretamente aqui</p>
+                        </button>
+
+                        {savedGames.map(game => (
+                          <button
+                            key={game.id}
+                            onClick={() => setSelectedGameId(game.id)}
+                            className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                              selectedGameId === game.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <p className="font-bold">{game.name}</p>
+                              {game.is_published ? (
+                                <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-xs font-bold">
+                                  Publicado
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">
+                                  Rascunho
+                                </span>
+                              )}
+                            </div>
+                            {game.company_slogan && <p className="text-xs text-muted-foreground mt-1">{game.company_slogan}</p>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <GameErrorBoundary gameName="Roda de Prémios">
+                  <PrizeWheel 
+                    prizes={wheelPrizes} 
+                    onChange={setWheelPrizes} 
+                    gameId={selectedGameId || undefined}
+                    branding={branding}
+                  />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "tap" && (
+                <motion.div key="tap" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Tap Battle">
+                  <TapBattle duration={config.tapDuration} onScore={recordScore("Tap Battle")} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "quiz" && (
+                <motion.div key="quiz" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Quiz Battle">
+                  <QuizBattle totalQuestions={config.quizQuestions} timePerQ={config.quizTimePerQ} onScore={recordScore("Quiz Battle")} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "mystery" && (
+                <motion.div key="mystery" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Caixa Misteriosa">
+                  <MysteryBox
+                    highChance={config.mysteryHigh}
+                    lowChance={config.mysteryLow}
+                    noneChance={config.mysteryNone}
+                    onScore={recordScore("Caixa Misteriosa")}
+                  />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "keyword" && (
+                <motion.div key="keyword" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Caça à Palavra">
+                  <KeywordHunt
+                    liveCode={liveCode}
+                    onScore={recordScore("Caça à Palavra")}
+                    onWinner={(name, kw) => broadcastWinner(name, `Caça à Palavra · "${kw}"`)}
+                  />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "emoji" && (
+                <motion.div key="emoji" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batalha de Emojis">
+                  <EmojiBattle
+                    onScore={recordScore("Batalha de Emojis")}
+                    onWinner={(label, votes) => broadcastWinner(label, `Batalha de Emojis · ${votes} votos`)}
+                  />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "millionaire" && (
+                <motion.div key="millionaire" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Quem Quer Ser Milionário?">
+                  <EnhancedMillionaireGame />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "kahoot" && (
+                <motion.div key="kahoot" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Quiz ao Vivo">
+                  <KahootMultiplayerQuiz scheduledLiveId={undefined} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "bingo" && (
+                <motion.div key="bingo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Bingo ao Vivo">
+                  <LiveBingo liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "challenge" && (
+                <motion.div key="challenge" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Roleta de Desafios">
+                  <ChallengeRoulette />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "vsduel" && (
+                <motion.div key="vsduel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Arena de Duelo VS">
+                  <VSDuelArena onScore={recordScore("Arena de Duelo VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "speed" && (
+                <motion.div key="speed" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Duelo de Velocidade">
+                  <SpeedReaction onScore={recordScore("Duelo de Velocidade")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "truthordare" && (
+                <motion.div key="truthordare" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Verdade ou Desafio">
+                  <TruthOrDare onScore={recordScore("Verdade ou Desafio")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "memory" && (
+                <motion.div key="memory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Jogo da Memória VS">
+                  <MemoryChallenge onScore={recordScore("Jogo da Memória VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "punishment" && (
+                <motion.div key="punishment" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Roleta de Castigos">
+                  <PunishmentWheel />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "boknowledge" && (
+                <motion.div key="boknowledge" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batalha de Conhecimentos">
+                  <BattleOfKnowledge onScore={recordScore("Batalha de Conhecimentos")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "guessEmoji" && (
+                <motion.div key="guessEmoji" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Adivinhe o Emoji">
+                  <GuessTheEmoji onScore={recordScore("Adivinhe o Emoji")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "quickdraw" && (
+                <motion.div key="quickdraw" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Desenho Rápido">
+                  <QuickDrawChallenge onScore={recordScore("Desenho Rápido")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "hotpotato" && (
+                <motion.div key="hotpotato" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batata Quente">
+                  <HotPotatoGame onScore={recordScore("Batata Quente")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "numguess" && (
+                <motion.div key="numguess" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Adivinha o Número VS">
+                  <NumberGuessBattle onScore={recordScore("Adivinha o Número VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "chaos" && (
+                <motion.div key="chaos" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Desafio Caótico">
+                  <ChaosChallenge onScore={recordScore("Desafio Caótico")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "checkers" && (
+                <motion.div key="checkers" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Damas">
+                  <CheckersGame onScore={recordScore("Damas")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "ludo" && (
+                <motion.div key="ludo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Ludo">
+                  <LudoGame onScore={recordScore("Ludo")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "connect4" && (
+                <motion.div key="connect4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Ligar 4">
+                  <ConnectFourGame onScore={recordScore("Ligar 4")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "battleship" && (
+                <motion.div key="battleship" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batalha Naval">
+                  <BattleshipGame onScore={recordScore("Batalha Naval")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "tictactoe" && (
+                <motion.div key="tictactoe" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Galo VS">
+                  <TicTacToeVS onScore={recordScore("Galo VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "uno" && (
+                <motion.div key="uno" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="UNO Cartas">
+                  <UnoCardGame onScore={recordScore("UNO Cartas")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "snakebattle" && (
+                <motion.div key="snakebattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batalha de Cobras">
+                  <SnakeBattle onScore={recordScore("Batalha de Cobras")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "rps" && (
+                <motion.div key="rps" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Pedra Papel Tesoura">
+                  <RockPaperScissors onScore={recordScore("Pedra Papel Tesoura")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "colorsequence" && (
+                <motion.div key="colorsequence" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Sequência de Cores">
+                  <ColorSequence onScore={recordScore("Sequência de Cores")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "spaceshooter" && (
+                <motion.div key="spaceshooter" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Nave Espacial VS">
+                  <SpaceShooter onScore={recordScore("Nave Espacial VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "ballbreaker" && (
+                <motion.div key="ballbreaker" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Quebra-Bloco VS">
+                  <BallBreaker onScore={recordScore("Quebra-Bloco VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "reactionrace" && (
+                <motion.div key="reactionrace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Corrida de Reação">
+                  <ReactionRace onScore={recordScore("Corrida de Reação")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "quickmath" && (
+                <motion.div key="quickmath" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Duelo de Matemática">
+                  <QuickMath onScore={recordScore("Duelo de Matemática")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "memorycards" && (
+                <motion.div key="memorycards" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Memória VS Cartas">
+                  <MemoryCardsVS onScore={recordScore("Memória VS Cartas")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "wordscramble" && (
+                <motion.div key="wordscramble" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Palavras Embaralhadas">
+                  <WordScramble onScore={recordScore("Palavras Embaralhadas")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "tictactoepro" && (
+                <motion.div key="tictactoepro" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Galo PRO">
+                  <TicTacToePro onScore={recordScore("Galo PRO")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "guessnumber100" && (
+                <motion.div key="guessnumber100" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Adivinha 1 a 100">
+                  <GuessNumber100 onScore={recordScore("Adivinha 1 a 100")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "colormatch" && (
+                <motion.div key="colormatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Cor versus Palavra">
+                  <ColorMatch onScore={recordScore("Cor versus Palavra")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "targettap" && (
+                <motion.div key="targettap" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Alvo Rápido">
+                  <TargetTap onScore={recordScore("Alvo Rápido")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "diceluel" && (
+                <motion.div key="diceluel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Duelo de Dados">
+                  <DiceDuel onScore={recordScore("Duelo de Dados")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "patternmemory" && (
+                <motion.div key="patternmemory" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Memória de Padrões">
+                  <PatternMemory onScore={recordScore("Memória de Padrões")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "triviaflash" && (
+                <motion.div key="triviaflash" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Trivia Flash">
+                  <TriviaFlash onScore={recordScore("Trivia Flash")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "dominoes" && (
+                <motion.div key="dominoes" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Dominó">
+                  <Dominoes onScore={recordScore("Dominó")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "mazerace" && (
+                <motion.div key="mazerace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Corrida no Labirinto">
+                  <MazeRace onScore={recordScore("Corrida no Labirinto")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "slotsvs" && (
+                <motion.div key="slotsvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Caça-Níqueis VS">
+                  <SlotsVS onScore={recordScore("Caça-Níqueis VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "match4" && (
+                <motion.div key="match4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Combina 4">
+                  <Match4Grid onScore={recordScore("Combina 4")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "towerstack" && (
+                <motion.div key="towerstack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Torre VS">
+                  <TowerStack onScore={recordScore("Torre VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "cannonbattle" && (
+                <motion.div key="cannonbattle" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Batalha de Canhões">
+                  <CannonBattle onScore={recordScore("Batalha de Canhões")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "spotdifference" && (
+                <motion.div key="spotdifference" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Encontre Diferenças">
+                  <SpotDifference onScore={recordScore("Encontre Diferenças")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "wordchain" && (
+                <motion.div key="wordchain" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Corrente de Palavras">
+                  <WordChain onScore={recordScore("Corrente de Palavras")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "numbertetris" && (
+                <motion.div key="numbertetris" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Números Caindo">
+                  <NumberTetris onScore={recordScore("Números Caindo")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "pongvs" && (
+                <motion.div key="pongvs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Pong VS">
+                  <PongVS onScore={recordScore("Pong VS")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "whackamole" && (
+                <motion.div key="whackamole" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Bate o Alvo">
+                  <WhackAMole onScore={recordScore("Bate o Alvo")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "colorcatch" && (
+                <motion.div key="colorcatch" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Pesca Cores">
+                  <ColorCatch onScore={recordScore("Pesca Cores")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "mexerica" && (
+                <motion.div key="mexerica" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Mexerica">
+                  <MexericaGame onScore={recordScore("Mexerica")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "chigogo" && (
+                <motion.div key="chigogo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Chigogo">
+                  <ChigogoGame onScore={recordScore("Chigogo")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "urusse" && (
+                <motion.div key="urusse" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Urusse">
+                  <UrusseGame onScore={recordScore("Urusse")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "capulanaquiz" && (
+                <motion.div key="capulanaquiz" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Capulana Quiz">
+                  <CapulanaQuiz onScore={recordScore("Capulana Quiz")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "carromboard" && (
+                <motion.div key="carromboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Carrom">
+                  <CarromBoard onScore={recordScore("Carrom")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "teenpatti" && (
+                <motion.div key="teenpatti" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Teen Patti">
+                  <TeenPatti onScore={recordScore("Teen Patti")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>
+              )}
+              {active === "kabaddiraid" && (
+                <motion.div key="kabaddiraid" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Kabaddi Raid">
+                  <KabaddiRaid onScore={recordScore("Kabaddi Raid")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "rpgarena" && (
+                <motion.div key="rpgarena" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="RPG Arena Battle">
+                  <RpgArenaBattle onScore={recordScore("RPG Arena Battle")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "battleroyale" && (
+                <motion.div key="battleroyale" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Battle Royale">
+                  <BattleRoyaleGame onScore={recordScore("Battle Royale")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "chess" && (
+                <motion.div key="chess" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Xadrez">
+                  <ChessGame onScore={recordScore("Xadrez")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "flappybird" && (
+                <motion.div key="flappybird" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Flappy Bird">
+                  <FlappyBirdGame onScore={recordScore("Flappy Bird")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "fruitninja" && (
+                <motion.div key="fruitninja" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Fruta Ninja">
+                  <FruitNinjaGame onScore={recordScore("Fruta Ninja")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "typingracer" && (
+                <motion.div key="typingracer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Corrida de Digitacao">
+                  <TypingRacer onScore={recordScore("Corrida de Digitacao")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "campaignrpg" && (
+                <motion.div key="campaignrpg" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Campanha RPG">
+                  <CampaignRPGGame onScore={recordScore("Campanha RPG")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "mmorpg" && (
+                <motion.div key="mmorpg" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="MMORPG Bateu">
+                  <MMORPGGame onScore={recordScore("MMORPG Bateu")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "p2pbet" && (
+                <motion.div key="p2pbet" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Arena de Apostas P2P">
+                  <P2PBetArena onScore={recordScore("Arena de Apostas P2P")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "ntchuva" && (
+                <motion.div key="ntchuva" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Ntchuva">
+                  <NtchuvaGame onScore={recordScore("Ntchuva")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "djikota" && (
+                <motion.div key="djikota" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Djikota">
+                  <DjikotaGame onScore={recordScore("Djikota")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "bicho" && (
+                <motion.div key="bicho" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Jogo do Bicho">
+                  <BichoGame onScore={recordScore("Jogo do Bicho")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "uri" && (
+                <motion.div key="uri" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Uri">
+                  <UriGame onScore={recordScore("Uri")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              </Suspense>
+            </AnimatePresence>
+            </GameFullscreenWrapper>
+          </div>
+
+          <aside className="space-y-4">
+            <LevelProgressWidget />
+            <LiveControlPanel
+              liveCode={liveCode}
+              entries={leaderboard}
+              onClear={() => setLeaderboard([])}
+              onResetConfig={resetConfig}
+              isLive={isLive}
+              elapsedSec={elapsed}
+              activeGameLabel={activeMeta?.label}
+              onStartLive={startLive}
+              onEndLive={requestEndLive}
+              onBroadcastWinner={broadcastWinner}
+            />
+            <LiveLeaderboard entries={leaderboard} onClear={() => setLeaderboard([])} />
+            {user && (
+              <AmbassadorPanel
+                businessUserId={user.id}
+                businessName={user.email?.split("@")[0] || "esta empresa"}
+                liveCode={liveCode}
+                compact
+              />
+            )}
+
+            <GlowPulse glowColor="#fbbf24" intensity={0.3} speed={4} borderRadius="1rem">
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h3 className="font-display text-sm font-bold"><ShimmerText colors={['#00d4ff', '#fbbf24']} speed={4} className="font-display text-sm font-bold">Dicas</ShimmerText></h3>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+                <li>Escolhe qualquer jogo da lista e joga imediatamente.</li>
+                <li>Empresas podem iniciar uma live para envolver a audiência.</li>
+                <li>O teu ranking local é guardado automaticamente.</li>
+                <li>Desafia os teus amigos e supera o teu recorde!</li>
+              </ul>
+            </div>
+            </GlowPulse>
+
+            <GlowPulse glowColor="#7b2ff7" intensity={0.3} speed={5} borderRadius="1rem">
+            <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-4 w-4 text-primary" />
+                <h3 className="font-display text-sm font-bold"><ShimmerText colors={['#7b2ff7', '#a855f7']} speed={4} className="font-display text-sm font-bold">Modo Multi-jogador</ShimmerText></h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Vários jogos suportam 1v1 ou contra bot IA — perfeito para desafiar amigos. Inicia uma live para partilhar com a audiência!
+              </p>
+            </div>
+            </GlowPulse>
+          </aside>
+        </div>
+      </section>
+
+      <Footer />
+      <EngagementBar />
+
+      <AnimatePresence>
+        {endOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => !ending && setEndOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="w-full max-w-md rounded-3xl bg-card border border-border p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-12 w-12 rounded-2xl bg-destructive/15 text-destructive flex items-center justify-center">
+                  <Square className="h-5 w-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="font-display text-lg font-bold">Encerrar a Live?</h3>
+                  <p className="text-xs text-muted-foreground">O código <span className="font-mono font-bold text-foreground">{liveCode}</span> será invalidado e o ranking será arquivado no histórico.</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-muted/40 border border-border p-4 mb-4 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Confirmação disponível em</p>
+                <p className={`font-mono text-3xl font-bold ${endCountdown === 0 ? "text-destructive" : "text-primary"}`}>
+                  {endCountdown > 0 ? `${endCountdown}s` : "Pronto"}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => !ending && setEndOpen(false)}
+                  disabled={ending}
+                  className="flex-1 px-4 py-2.5 rounded-full bg-secondary text-foreground text-sm font-bold disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmEndLive}
+                  disabled={endCountdown > 0 || ending}
+                  className="flex-1 px-4 py-2.5 rounded-full bg-destructive text-destructive-foreground text-sm font-bold hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {ending ? "A encerrar…" : "Encerrar Live"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default LiveHub;

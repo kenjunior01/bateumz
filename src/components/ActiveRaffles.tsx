@@ -1,0 +1,297 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Clock, Users, Ticket, Flame, Sparkles, Star, ChevronDown, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { formatMZN } from "@/lib/currency";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { getRegions } from "@/lib/regions";
+import OptimizedImage from "@/components/OptimizedImage";
+
+interface Raffle {
+  id: string;
+  title: string;
+  slug: string | null;
+  prize_title: string;
+  prize_value: number;
+  ticket_price: number;
+  total_tickets: number;
+  sold_tickets: number;
+  end_date: string | null;
+  image_url: string | null;
+  status: string;
+  raffle_type: string;
+  points_cost: number;
+  province: string | null;
+  hide_prize_value: boolean;
+  category: string | null;
+  created_at: string;
+}
+
+const INITIAL_ROWS = 2;
+const COLS = 2;
+
+const getRaffleUrl = (r: Raffle) => `/raffle/${r.slug || r.id}`;
+
+const timeLeft = (date: string | null) => {
+  if (!date) return null;
+  const diff = new Date(date).getTime() - Date.now();
+  if (diff <= 0) return "Encerrado";
+  const days = Math.floor(diff / 86400000);
+  if (days > 0) return `${days}d`;
+  const hours = Math.floor(diff / 3600000);
+  return `${hours}h`;
+};
+
+const RaffleCard = ({ raffle, index }: { raffle: Raffle; index: number }) => {
+  const pct = (raffle.sold_tickets / raffle.total_tickets) * 100;
+  const isHot = pct > 80;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <Link to={getRaffleUrl(raffle)} className="block group">
+        <div className="rounded-2xl border border-border bg-card transition-all hover:border-primary/40 hover-lift hover-glow overflow-hidden">
+          <div className="relative aspect-[4/3] overflow-hidden">
+            {raffle.image_url ? (
+              <OptimizedImage
+                src={raffle.image_url}
+                alt={raffle.title}
+                optimizeWidth={640}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-secondary">
+                <Ticket className="h-10 w-10 text-muted-foreground/20" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+            {isHot && (
+              <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-destructive/20 text-destructive px-2 py-0.5 text-[10px] font-semibold">
+                <Flame className="h-2.5 w-2.5" /> A esgotar
+              </span>
+            )}
+            <span className="absolute right-2 top-2 rounded-full bg-card/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-bold text-foreground">
+              {raffle.raffle_type === "free" ? "Grátis" : raffle.raffle_type === "points" ? `${raffle.points_cost} pts` : formatMZN(raffle.ticket_price)}
+            </span>
+          </div>
+          <div className="p-3">
+            <h3 className="mb-1 font-display text-sm font-bold text-foreground leading-tight line-clamp-1">{raffle.title}</h3>
+            <p className="text-[11px] text-primary mb-2 line-clamp-1">{raffle.prize_title}</p>
+            <div className="mb-1.5">
+              <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: `${pct}%` }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1, delay: 0.1 }}
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-accent progress-glow"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-0.5"><Users className="h-2.5 w-2.5" /> {raffle.sold_tickets}/{raffle.total_tickets}</span>
+              {timeLeft(raffle.end_date) && (
+                <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {timeLeft(raffle.end_date)}</span>
+              )}
+            </div>
+            <Badge className="mt-2 w-full justify-center bg-primary text-primary-foreground text-[10px] py-1">
+              {raffle.hide_prize_value ? "🎁 Surpresa" : formatMZN(raffle.prize_value)}
+            </Badge>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+};
+
+interface SectionProps {
+  title: string;
+  icon: React.ReactNode;
+  raffles: Raffle[];
+  emptyText?: string;
+}
+
+const RaffleSection = ({ title, icon, raffles, emptyText = "Nenhum sorteio" }: SectionProps) => {
+  const [showAll, setShowAll] = useState(false);
+  const visibleCount = showAll ? raffles.length : INITIAL_ROWS * COLS;
+  const visible = raffles.slice(0, visibleCount);
+  const hasMore = raffles.length > INITIAL_ROWS * COLS;
+
+  if (raffles.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="font-display text-lg font-bold text-foreground">{title}</h3>
+          <Badge variant="secondary" className="text-[10px]">{raffles.length}</Badge>
+        </div>
+        {hasMore && (
+          <Button variant="ghost" size="sm" onClick={() => setShowAll(!showAll)} className="text-xs text-primary gap-1">
+            {showAll ? "Ver menos" : "Ver todos"}
+            <ChevronDown className={`h-3 w-3 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          </Button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {visible.map((r, i) => (
+          <RaffleCard key={r.id} raffle={r} index={i} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface ActiveRafflesProps {
+  categoryFilter?: string;
+  country?: string;
+  region?: string;
+}
+
+const ActiveRaffles = ({ categoryFilter, country, region }: ActiveRafflesProps) => {
+  const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        let query = supabase
+          .from("raffles")
+          .select("*")
+          .eq("status", "active")
+          .order("created_at", { ascending: false });
+
+        if (categoryFilter && categoryFilter !== "todos") {
+          query = query.eq("category", categoryFilter);
+        }
+
+        // Server-side region filtering
+        if (region) {
+          query = query.eq("province", region);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        if (data) setRaffles(data as unknown as Raffle[]);
+      } catch (err) {
+        console.error("Error fetching raffles:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, [categoryFilter, region]);
+
+  if (loading) {
+    return (
+      <section className="py-8">
+        <div className="flex flex-col items-center justify-center py-12">
+          <motion.div
+            className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/15 to-accent/10 flex items-center justify-center mb-3"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+          >
+            <Ticket className="h-6 w-6 text-primary" />
+          </motion.div>
+          <motion.div
+            className="flex gap-1 mt-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {[0, 1, 2].map(i => (
+              <motion.div
+                key={i}
+                className="h-1.5 w-1.5 rounded-full bg-primary"
+                animate={{ y: [0, -8, 0], opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+              />
+            ))}
+          </motion.div>
+        </div>
+      </section>
+    );
+  }
+
+  // Region/country filter (client-side)
+  let visible = raffles;
+  if (region) {
+    visible = visible.filter((r) => (r as any).province === region);
+  } else if (country) {
+    const regs = getRegions(country).map((x) => x.value);
+    if (regs.length) visible = visible.filter((r) => !(r as any).province || regs.includes((r as any).province));
+  }
+
+  // Split into sections
+  const now = Date.now();
+  const featured = visible.filter((r) => {
+    const pct = (r.sold_tickets / r.total_tickets) * 100;
+    return pct > 50 || (r.end_date && new Date(r.end_date).getTime() - now < 3 * 86400000);
+  });
+  const featuredIds = new Set(featured.map((r) => r.id));
+  const recent = visible.filter((r) => !featuredIds.has(r.id));
+
+  const hasResults = visible.length > 0;
+
+  return (
+    <section id="sorteios" className="relative py-6 md:py-12">
+      <div className="absolute left-0 top-0 h-64 w-64 rounded-full bg-primary/5 blur-[100px]" />
+
+      {!hasResults ? (
+        <div className="text-center py-16">
+          <div className="relative inline-block mb-4">
+            <motion.div
+              className="h-20 w-20 rounded-3xl bg-gradient-to-br from-primary/10 to-accent/5 flex items-center justify-center mx-auto"
+              animate={{ rotate: [0, 5, -5, 0], y: [0, -6, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Ticket className="h-10 w-10 text-primary/30" />
+            </motion.div>
+            <motion.div
+              className="absolute inset-0 rounded-3xl"
+              animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0, 0.15] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              style={{ border: "1.5px solid", borderColor: "color-mix(in srgb, var(--region-primary, hsl(var(--primary))) 15%, transparent)" }}
+            />
+          </div>
+          <p className="text-muted-foreground font-medium">
+            {categoryFilter && categoryFilter !== "todos"
+              ? "Nenhum sorteio nesta categoria"
+              : "Nenhum sorteio ativo de momento"}
+          </p>
+          <p className="text-xs text-muted-foreground/50 mt-2">Novos sorteios sao adicionados regularmente</p>
+        </div>
+      ) : (
+        <>
+          <RaffleSection
+            title="🔥 Destaques"
+            icon={<Flame className="h-5 w-5 text-destructive" />}
+            raffles={featured}
+          />
+          <RaffleSection
+            title="✨ Recentes"
+            icon={<Sparkles className="h-5 w-5 text-primary" />}
+            raffles={recent}
+          />
+          {featured.length === 0 && recent.length === 0 && (
+            <RaffleSection
+              title="Raffles"
+              icon={<Ticket className="h-5 w-5 text-primary" />}
+              raffles={raffles}
+            />
+          )}
+        </>
+      )}
+    </section>
+  );
+};
+
+export default ActiveRaffles;

@@ -1,0 +1,158 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { validateImageFile, ACCEPT_IMAGES, DEFAULT_MAX_UPLOAD_MB } from '@/lib/upload-utils';
+
+interface ImageUploadProps {
+  value?: string;
+  onChange: (url: string) => void;
+  label?: string;
+  placeholder?: string;
+  bucketName?: string;
+}
+
+export const ImageUpload: React.FC<ImageUploadProps> = ({ 
+  value, 
+  onChange, 
+  label, 
+  placeholder = "Image URL",
+  bucketName = "game-images"
+}) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(value || null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const err = validateImageFile(file, DEFAULT_MAX_UPLOAD_MB);
+    if (err) {
+      toast.error(err);
+      setIsUploading(false);
+      return;
+    }
+
+    setIsUploading(true);
+    
+    try {
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        toast.error("Please sign in to upload images.");
+        setIsUploading(false);
+        return;
+      }
+      // Scope every upload to the owner's folder so storage policies can enforce ownership
+      const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      
+      // Upload to Supabase Storage
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Get the public URL
+      const { data } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+      const url = data.publicUrl;
+      setPreview(url);
+      onChange(url);
+      toast.success("Image uploaded successfully!");
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error(error?.message || "Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setPreview(url);
+    onChange(url);
+  };
+
+  const handleClear = () => {
+    setPreview(null);
+    onChange("");
+  };
+
+  return (
+    <motion.div
+      className="space-y-3"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {label && <Label>{label}</Label>}
+      
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          placeholder={placeholder}
+          value={value || ""}
+          onChange={handleUrlChange}
+          className="flex-1"
+        />
+        <Label className="cursor-pointer">
+          <Button 
+            variant="secondary" 
+            disabled={isUploading}
+            type="button"
+            className="relative overflow-hidden"
+          >
+            {isUploading ? (
+              <Upload className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            {isUploading ? "Uploading..." : "Upload"}
+            <input
+              type="file"
+              accept={ACCEPT_IMAGES}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              onChange={handleFileUpload}
+              disabled={isUploading}
+            />
+          </Button>
+        </Label>
+        {value && (
+          <Button 
+            variant="destructive" 
+            size="icon" 
+            type="button" 
+            onClick={handleClear}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {preview && (
+        <div className="mt-3 relative rounded-lg overflow-hidden border border-border shadow-[0_0_10px_hsl(var(--primary)/0.1)]">
+          <img 
+            src={preview} 
+            alt="Preview" 
+            className="w-full h-40 object-cover"
+            onError={() => setPreview(null)}
+          />
+        </div>
+      )}
+    </motion.div>
+  );
+};

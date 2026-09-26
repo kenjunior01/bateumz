@@ -1,0 +1,1361 @@
+"use client";
+
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { RotateCcw, Coins, Bot } from "lucide-react";
+
+interface Props {
+  onScore?: (name: string, score: number) => void;
+  liveCode?: string;
+}
+
+type GameState = "waiting" | "playing" | "gameOver";
+type SpeedLevel = "slow" | "normal" | "fast";
+type Direction = "up" | "down" | "left" | "right";
+type GameMode = "jogador" | "computador";
+type Difficulty = "facil" | "medio" | "dificil";
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Snake {
+  body: Point[];
+  direction: Direction;
+  nextDirection: Direction;
+  growing: boolean;
+}
+
+const GRID_SIZE = 20;
+
+const SPEED_MAP: Record<SpeedLevel, number> = {
+  slow: 200,
+  normal: 130,
+  fast: 75,
+};
+
+const AI_CONFIG: Record<Difficulty, { randomChance: number; reactionDelay: number; label: string }> = {
+  facil: { randomChance: 0.4, reactionDelay: 3, label: "Fácil" },
+  medio: { randomChance: 0.15, reactionDelay: 1, label: "Médio" },
+  dificil: { randomChance: 0.05, reactionDelay: 0, label: "Difícil" },
+};
+
+const INITIAL_SNAKE_1: Snake = {
+  body: [
+    { x: 3, y: 10 },
+    { x: 2, y: 10 },
+    { x: 1, y: 10 },
+  ],
+  direction: "right",
+  nextDirection: "right",
+  growing: false,
+};
+
+const INITIAL_SNAKE_2: Snake = {
+  body: [
+    { x: 16, y: 10 },
+    { x: 17, y: 10 },
+    { x: 18, y: 10 },
+  ],
+  direction: "left",
+  nextDirection: "left",
+  growing: false,
+};
+
+const OPPOSITE: Record<Direction, Direction> = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
+};
+
+const DIRECTION_DELTA: Record<Direction, Point> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+};
+
+const ALL_DIRECTIONS: Direction[] = ["up", "down", "left", "right"];
+
+// ─── Particle System ──────────────────────────────────────────────
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+}
+
+function spawnParticles(
+  particles: Particle[],
+  gx: number,
+  gy: number,
+  cell: number,
+  color: string,
+  count: number = 8
+) {
+  const cx = gx * cell + cell / 2;
+  const cy = gy * cell + cell / 2;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      maxLife: 1,
+      color,
+      size: 2 + Math.random() * 3,
+    });
+  }
+}
+
+function updateAndDrawParticles(
+  ctx: CanvasRenderingContext2D,
+  particles: Particle[],
+  dt: number
+) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    p.life -= dt * 2.5;
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+    const alpha = p.life;
+    const size = p.size * p.life;
+    // Glow
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, size * 3);
+    glow.addColorStop(0, p.color.replace('1)', `${alpha * 0.4})`).replace('rgb', 'rgba'));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, size * 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Core
+    ctx.fillStyle = p.color.replace('1)', `${alpha})`).replace('rgb', 'rgba');
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function randomFood(snake1: Snake, snake2: Snake): Point {
+  const occupied = new Set<string>();
+  for (const p of snake1.body) occupied.add(`${p.x},${p.y}`);
+  for (const p of snake2.body) occupied.add(`${p.x},${p.y}`);
+  const totalCells = GRID_SIZE * GRID_SIZE;
+  if (occupied.size >= totalCells) {
+    // Board is full — return a fallback position (will cause game over naturally)
+    return { x: 0, y: 0 };
+  }
+  let pt: Point;
+  let attempts = 0;
+  const maxAttempts = totalCells * 2;
+  do {
+    pt = {
+      x: Math.floor(Math.random() * GRID_SIZE),
+      y: Math.floor(Math.random() * GRID_SIZE),
+    };
+    attempts++;
+  } while (occupied.has(`${pt.x},${pt.y}`) && attempts < maxAttempts);
+  return pt;
+}
+
+function cloneSnake(s: Snake): Snake {
+  return {
+    body: s.body.map((p) => ({ ...p })),
+    direction: s.direction,
+    nextDirection: s.nextDirection,
+    growing: s.growing,
+  };
+}
+
+function pointsEqual(a: Point, b: Point): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
+function key(p: Point): string {
+  return `${p.x},${p.y}`;
+}
+
+// ─── AI Pathfinding ──────────────────────────────────────────────
+
+/** BFS from start to target, returning the first step direction (or null). */
+function bfsDirection(
+  start: Point,
+  target: Point,
+  obstacles: Set<string>
+): Direction | null {
+  const queue: { pos: Point; firstDir: Direction | null }[] = [
+    { pos: start, firstDir: null },
+  ];
+  const visited = new Set<string>();
+  visited.add(key(start));
+
+  while (queue.length > 0) {
+    const { pos, firstDir } = queue.shift()!;
+
+    for (const dir of ALL_DIRECTIONS) {
+      const delta = DIRECTION_DELTA[dir];
+      const next: Point = { x: pos.x + delta.x, y: pos.y + delta.y };
+
+      if (next.x < 0 || next.x >= GRID_SIZE || next.y < 0 || next.y >= GRID_SIZE) continue;
+      if (obstacles.has(key(next))) continue;
+      if (visited.has(key(next))) continue;
+
+      const newFirstDir = firstDir ?? dir;
+
+      if (pointsEqual(next, target)) {
+        return newFirstDir;
+      }
+
+      visited.add(key(next));
+      queue.push({ pos: next, firstDir: newFirstDir });
+    }
+  }
+  return null;
+}
+
+/** BFS that avoids obstacles but also avoids cells adjacent to the player snake's head (cut-off avoidance). */
+function bfsSmartDirection(
+  aiSnake: Snake,
+  target: Point,
+  obstacles: Set<string>,
+  playerSnake: Snake
+): Direction | null {
+  const playerHead = playerSnake.body[0];
+  const dangerZone = new Set<string>();
+  // Mark cells adjacent to player head as dangerous (avoid getting cut off)
+  for (const dir of ALL_DIRECTIONS) {
+    const delta = DIRECTION_DELTA[dir];
+    dangerZone.add(`${playerHead.x + delta.x},${playerHead.y + delta.y}`);
+  }
+
+  const queue: { pos: Point; firstDir: Direction | null }[] = [
+    { pos: aiSnake.body[0], firstDir: null },
+  ];
+  const visited = new Set<string>();
+  visited.add(key(aiSnake.body[0]));
+
+  while (queue.length > 0) {
+    const { pos, firstDir } = queue.shift()!;
+
+    for (const dir of ALL_DIRECTIONS) {
+      const delta = DIRECTION_DELTA[dir];
+      const next: Point = { x: pos.x + delta.x, y: pos.y + delta.y };
+
+      if (next.x < 0 || next.x >= GRID_SIZE || next.y < 0 || next.y >= GRID_SIZE) continue;
+      if (obstacles.has(key(next))) continue;
+      if (visited.has(key(next))) continue;
+
+      // For smart difficulty, deprioritize but don't completely block danger zones
+      // We handle this by preferring non-dangerous paths through ordering
+
+      const newFirstDir = firstDir ?? dir;
+
+      if (pointsEqual(next, target)) {
+        return newFirstDir;
+      }
+
+      visited.add(key(next));
+
+      // Prioritize safe cells (push dangerous ones to back of queue)
+      const entry = { pos: next, firstDir: newFirstDir };
+      if (dangerZone.has(key(next))) {
+        queue.push(entry); // lower priority
+      } else {
+        queue.unshift(entry); // higher priority
+      }
+    }
+  }
+
+  // Fallback: try to find any safe direction (survival mode)
+  return bfsSurvivalDirection(aiSnake, obstacles);
+}
+
+/** Fallback: find any direction that doesn't immediately kill the snake. */
+function bfsSurvivalDirection(
+  snake: Snake,
+  obstacles: Set<string>
+): Direction | null {
+  const head = snake.body[0];
+  for (const dir of ALL_DIRECTIONS) {
+    if (dir === OPPOSITE[snake.direction]) continue;
+    const delta = DIRECTION_DELTA[dir];
+    const next: Point = { x: head.x + delta.x, y: head.y + delta.y };
+    if (
+      next.x >= 0 && next.x < GRID_SIZE &&
+      next.y >= 0 && next.y < GRID_SIZE &&
+      !obstacles.has(key(next))
+    ) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+/** Compute the best AI direction based on difficulty. */
+function getAIDirection(
+  aiSnake: Snake,
+  playerSnake: Snake,
+  food: Point,
+  difficulty: Difficulty,
+  tickCount: number
+): Direction {
+  const config = AI_CONFIG[difficulty];
+
+  // Reaction delay: AI doesn't react for the first N ticks
+  if (tickCount > 0 && tickCount <= config.reactionDelay) {
+    return aiSnake.direction;
+  }
+
+  // Build obstacle set (all snake bodies)
+  const obstacles = new Set<string>();
+  for (const p of aiSnake.body) obstacles.add(key(p));
+  for (const p of playerSnake.body) obstacles.add(key(p));
+  // Remove tail tip since it will move (unless growing)
+  // Simple: keep full body as obstacle for safety
+
+  // Random chance to make a random move
+  if (Math.random() < config.randomChance) {
+    const safeDirs = ALL_DIRECTIONS.filter((dir) => {
+      if (dir === OPPOSITE[aiSnake.direction]) return false;
+      const delta = DIRECTION_DELTA[dir];
+      const next: Point = { x: aiSnake.body[0].x + delta.x, y: aiSnake.body[0].y + delta.y };
+      return (
+        next.x >= 0 && next.x < GRID_SIZE &&
+        next.y >= 0 && next.y < GRID_SIZE &&
+        !obstacles.has(key(next))
+      );
+    });
+    if (safeDirs.length > 0) {
+      return safeDirs[Math.floor(Math.random() * safeDirs.length)];
+    }
+  }
+
+  let chosenDir: Direction | null;
+
+  if (difficulty === "facil") {
+    // Easy: simple greedy — just move towards food if possible
+    chosenDir = bfsDirection(aiSnake.body[0], food, obstacles);
+  } else if (difficulty === "medio") {
+    // Medium: BFS to food
+    chosenDir = bfsDirection(aiSnake.body[0], food, obstacles);
+  } else {
+    // Hard: smart BFS with avoidance and cut-off potential
+    chosenDir = bfsSmartDirection(aiSnake, food, obstacles, playerSnake);
+  }
+
+  if (chosenDir && chosenDir !== OPPOSITE[aiSnake.direction]) {
+    return chosenDir;
+  }
+
+  // Fallback survival
+  return bfsSurvivalDirection(aiSnake, obstacles) ?? aiSnake.direction;
+}
+
+// ─── Component ────────────────────────────────────────────────────
+
+export default function SnakeBattle({ onScore, liveCode }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const gameLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastTickRef = useRef<number>(0);
+  const rafRef = useRef<number>(0);
+  const particlesRef = useRef<Particle[]>([]);
+  const lastFrameTimeRef = useRef<number>(performance.now());
+  const foodPulseRef = useRef<number>(0);
+
+  const [gameState, setGameState] = useState<GameState>("waiting");
+  const [speed, setSpeed] = useState<SpeedLevel>("normal");
+  const [round, setRound] = useState(1);
+  const [score1, setScore1] = useState(0);
+  const [score2, setScore2] = useState(0);
+  const [length1, setLength1] = useState(3);
+  const [length2, setLength2] = useState(3);
+  const [winner, setWinner] = useState<"Jogador 1" | "Jogador 2" | "Computador" | "empate" | null>(null);
+  const [canvasSize, setCanvasSize] = useState(500);
+  const [flashScore, setFlashScore] = useState<1 | 2 | null>(null);
+  const [score1Display, setScore1Display] = useState(0);
+  const [score2Display, setScore2Display] = useState(0);
+  const [gameMode, setGameMode] = useState<GameMode>("jogador");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medio");
+
+  const snake1Ref = useRef<Snake>(cloneSnake(INITIAL_SNAKE_1));
+  const snake2Ref = useRef<Snake>(cloneSnake(INITIAL_SNAKE_2));
+  const foodRef = useRef<Point>({ x: 10, y: 5 });
+  const gameStateRef = useRef<GameState>("waiting");
+  const speedRef = useRef<SpeedLevel>("normal");
+  const gameModeRef = useRef<GameMode>("jogador");
+  const difficultyRef = useRef<Difficulty>("medio");
+  const aiTickCountRef = useRef<number>(0);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
+
+  useEffect(() => {
+    gameModeRef.current = gameMode;
+  }, [gameMode]);
+
+  useEffect(() => {
+    difficultyRef.current = difficulty;
+  }, [difficulty]);
+
+  const resizeCanvas = useCallback(() => {
+    if (!containerRef.current) return;
+    const w = containerRef.current.clientWidth;
+    const size = Math.min(w, 500);
+    setCanvasSize(size);
+    if (canvasRef.current) {
+      canvasRef.current.width = size;
+      canvasRef.current.height = size;
+    }
+  }, []);
+
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, [resizeCanvas]);
+
+  const resetRound = useCallback(() => {
+    snake1Ref.current = cloneSnake(INITIAL_SNAKE_1);
+    snake2Ref.current = cloneSnake(INITIAL_SNAKE_2);
+    foodRef.current = randomFood(snake1Ref.current, snake2Ref.current);
+    setLength1(3);
+    setLength2(3);
+    setWinner(null);
+    setGameState("waiting");
+    aiTickCountRef.current = 0;
+  }, []);
+
+  const resetAll = useCallback(() => {
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    setRound(1);
+    setScore1(0);
+    setScore2(0);
+    resetRound();
+  }, [resetRound]);
+
+  const isAI = gameMode === "computador";
+
+  const endRound = useCallback(
+    (w: "Jogador 1" | "Jogador 2" | "Computador" | "empate") => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+      setWinner(w);
+      setGameState("gameOver");
+
+      if (w === "Jogador 1") {
+        const newScore = score1 + 10 + length1;
+        setScore1(newScore);
+        onScore?.("Jogador 1", newScore);
+      } else if (w === "Jogador 2" || w === "Computador") {
+        const newScore = score2 + 10 + length2;
+        setScore2(newScore);
+        onScore?.(w, newScore);
+      }
+    },
+    [onScore, score1, score2, length1, length2]
+  );
+
+  const tick = useCallback(() => {
+    const s1 = snake1Ref.current;
+    const s2 = snake2Ref.current;
+    const food = foodRef.current;
+
+    // AI decision
+    if (gameModeRef.current === "computador") {
+      aiTickCountRef.current++;
+      const aiDir = getAIDirection(
+        s2,
+        s1,
+        food,
+        difficultyRef.current,
+        aiTickCountRef.current
+      );
+      if (OPPOSITE[aiDir] !== s2.direction) {
+        s2.nextDirection = aiDir;
+      }
+    }
+
+    s1.direction = s1.nextDirection;
+    s2.direction = s2.nextDirection;
+
+    const d1 = DIRECTION_DELTA[s1.direction];
+    const d2 = DIRECTION_DELTA[s2.direction];
+
+    const newHead1: Point = {
+      x: s1.body[0].x + d1.x,
+      y: s1.body[0].y + d1.y,
+    };
+    const newHead2: Point = {
+      x: s2.body[0].x + d2.x,
+      y: s2.body[0].y + d2.y,
+    };
+
+    const hitWall1 =
+      newHead1.x < 0 || newHead1.x >= GRID_SIZE || newHead1.y < 0 || newHead1.y >= GRID_SIZE;
+    const hitWall2 =
+      newHead2.x < 0 || newHead2.x >= GRID_SIZE || newHead2.y < 0 || newHead2.y >= GRID_SIZE;
+
+    const hitSelf1 = s1.body.some((p) => pointsEqual(p, newHead1));
+    const hitSelf2 = s2.body.some((p) => pointsEqual(p, newHead2));
+
+    const hitOther1 = s2.body.some((p) => pointsEqual(p, newHead1));
+    const hitOther2 = s1.body.some((p) => pointsEqual(p, newHead2));
+
+    const headCollision = pointsEqual(newHead1, newHead2);
+
+    const dead1 = hitWall1 || hitSelf1 || hitOther1;
+    const dead2 = hitWall2 || hitSelf2 || hitOther2;
+
+    if (dead1 && dead2) {
+      endRound("empate");
+      return;
+    }
+    if (dead1) {
+      endRound(gameModeRef.current === "computador" ? "Computador" : "Jogador 2");
+      return;
+    }
+    if (dead2) {
+      endRound("Jogador 1");
+      return;
+    }
+    if (headCollision) {
+      endRound("empate");
+      return;
+    }
+
+    s1.body.unshift(newHead1);
+    s2.body.unshift(newHead2);
+
+    const ate1 = pointsEqual(newHead1, food);
+    const ate2 = pointsEqual(newHead2, food);
+
+    if (ate1) {
+      setLength1((l) => l + 1);
+      setFlashScore(1);
+      setTimeout(() => setFlashScore(null), 400);
+      spawnParticles(particlesRef.current, food.x, food.y, 500 / GRID_SIZE, 'rgba(34, 211, 238, 1)', 12);
+      foodRef.current = randomFood(s1, s2);
+    } else {
+      s1.body.pop();
+    }
+
+    if (ate2) {
+      setLength2((l) => l + 1);
+      setFlashScore(2);
+      setTimeout(() => setFlashScore(null), 400);
+      const p2Color = gameModeRef.current === "computador" ? 'rgba(52, 211, 153, 1)' : 'rgba(244, 114, 182, 1)';
+      spawnParticles(particlesRef.current, food.x, food.y, 500 / GRID_SIZE, p2Color, 12);
+      foodRef.current = randomFood(s1, s2);
+    } else {
+      s2.body.pop();
+    }
+  }, [endRound]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const cell = w / GRID_SIZE;
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTimeRef.current) / 1000, 0.1);
+    lastFrameTimeRef.current = now;
+    foodPulseRef.current += dt * 3;
+
+    // ── Background with radial gradient ──
+    const bgGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.75);
+    bgGrad.addColorStop(0, "#1e293b");
+    bgGrad.addColorStop(1, "#0f172a");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // ── Grid with glow ──
+    for (let i = 0; i <= GRID_SIZE; i++) {
+      const pos = i * cell;
+      const distFromCenter = Math.abs(i - GRID_SIZE / 2) / (GRID_SIZE / 2);
+      const alpha = 0.04 + 0.04 * (1 - distFromCenter);
+      ctx.strokeStyle = `rgba(148, 163, 184, ${alpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(pos, 0);
+      ctx.lineTo(pos, h);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, pos);
+      ctx.lineTo(w, pos);
+      ctx.stroke();
+    }
+
+    // Subtle glow dots at grid intersections near center
+    for (let x = 0; x < GRID_SIZE; x += 5) {
+      for (let y = 0; y < GRID_SIZE; y += 5) {
+        const gx = x * cell + cell / 2;
+        const gy = y * cell + cell / 2;
+        const dist = Math.hypot(gx - w / 2, gy - h / 2) / (w / 2);
+        if (dist < 0.7) {
+          const dotAlpha = 0.08 * (1 - dist);
+          ctx.fillStyle = `rgba(99, 102, 241, ${dotAlpha})`;
+          ctx.beginPath();
+          ctx.arc(gx, gy, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // ── Food with pulsing glow ──
+    const food = foodRef.current;
+    const fx = food.x * cell + cell / 2;
+    const fy = food.y * cell + cell / 2;
+    const foodRadius = cell * 0.35;
+    const pulse = Math.sin(foodPulseRef.current) * 0.15 + 1;
+
+    // Outer animated glow ring
+    const ringRadius = cell * (1.0 + Math.sin(foodPulseRef.current * 1.3) * 0.3);
+    const ringAlpha = 0.08 + Math.sin(foodPulseRef.current) * 0.04;
+    const ringGlow = ctx.createRadialGradient(fx, fy, ringRadius * 0.5, fx, fy, ringRadius);
+    ringGlow.addColorStop(0, `rgba(251, 191, 36, ${ringAlpha})`);
+    ringGlow.addColorStop(1, "rgba(251, 191, 36, 0)");
+    ctx.fillStyle = ringGlow;
+    ctx.beginPath();
+    ctx.arc(fx, fy, ringRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner glow
+    const glowRadius = cell * 0.9 * pulse;
+    const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, glowRadius);
+    glow.addColorStop(0, "rgba(251, 191, 36, 0.4)");
+    glow.addColorStop(0.5, "rgba(251, 191, 36, 0.15)");
+    glow.addColorStop(1, "rgba(251, 191, 36, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(fx, fy, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Food body with highlight
+    const foodGrad = ctx.createRadialGradient(
+      fx - foodRadius * 0.3,
+      fy - foodRadius * 0.3,
+      0,
+      fx,
+      fy,
+      foodRadius * pulse
+    );
+    foodGrad.addColorStop(0, "#fef3c7");
+    foodGrad.addColorStop(0.4, "#fde68a");
+    foodGrad.addColorStop(0.7, "#fbbf24");
+    foodGrad.addColorStop(1, "#d97706");
+    ctx.fillStyle = foodGrad;
+    ctx.beginPath();
+    ctx.arc(fx, fy, foodRadius * pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Specular highlight on food
+    const specGrad = ctx.createRadialGradient(
+      fx - foodRadius * 0.25,
+      fy - foodRadius * 0.25,
+      0,
+      fx - foodRadius * 0.25,
+      fy - foodRadius * 0.25,
+      foodRadius * 0.5
+    );
+    specGrad.addColorStop(0, "rgba(255, 255, 255, 0.6)");
+    specGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = specGrad;
+    ctx.beginPath();
+    ctx.arc(fx - foodRadius * 0.2, fy - foodRadius * 0.2, foodRadius * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ── Draw Snakes ──
+    const drawSnake = (
+      snake: Snake,
+      color1: string,
+      color2: string,
+      glowColor: string,
+      trailColor: string
+    ) => {
+      const body = snake.body;
+
+      // Draw connecting trail/glow between segments
+      if (body.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = trailColor;
+        ctx.lineWidth = cell * 0.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.globalAlpha = 0.15;
+        ctx.shadowColor = trailColor;
+        ctx.shadowBlur = cell * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(body[0].x * cell + cell / 2, body[0].y * cell + cell / 2);
+        for (let i = 1; i < body.length; i++) {
+          ctx.lineTo(body[i].x * cell + cell / 2, body[i].y * cell + cell / 2);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      for (let i = body.length - 1; i >= 0; i--) {
+        const seg = body[i];
+        const t = i / Math.max(body.length - 1, 1);
+        const cx = seg.x * cell + cell / 2;
+        const cy = seg.y * cell + cell / 2;
+
+        const isHead = i === 0;
+        const segSize = isHead ? cell * 0.45 : cell * 0.38 - t * cell * 0.08;
+
+        if (isHead) {
+          // Large head glow
+          const headGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 1.0);
+          headGlow.addColorStop(0, glowColor);
+          headGlow.addColorStop(0.5, glowColor.replace(/[\d.]+\)$/, "0.08)"));
+          headGlow.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = headGlow;
+          ctx.beginPath();
+          ctx.arc(cx, cy, cell * 1.0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Segment body with inner highlight
+        const segGrad = ctx.createRadialGradient(
+          cx - segSize * 0.3,
+          cy - segSize * 0.3,
+          0,
+          cx,
+          cy,
+          segSize
+        );
+        segGrad.addColorStop(0, color1);
+        segGrad.addColorStop(0.7, color2);
+        segGrad.addColorStop(1, color2);
+        ctx.fillStyle = segGrad;
+
+        ctx.beginPath();
+        ctx.roundRect(
+          seg.x * cell + (cell - segSize * 2) / 2,
+          seg.y * cell + (cell - segSize * 2) / 2,
+          segSize * 2,
+          segSize * 2,
+          isHead ? segSize * 0.4 : segSize * 0.35
+        );
+        ctx.fill();
+
+        // Inner specular on each segment
+        if (isHead || i % 2 === 0) {
+          const spec = ctx.createRadialGradient(
+            cx - segSize * 0.2,
+            cy - segSize * 0.2,
+            0,
+            cx,
+            cy,
+            segSize * 0.6
+          );
+          spec.addColorStop(0, "rgba(255,255,255,0.15)");
+          spec.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = spec;
+          ctx.beginPath();
+          ctx.roundRect(
+            seg.x * cell + (cell - segSize * 2) / 2,
+            seg.y * cell + (cell - segSize * 2) / 2,
+            segSize * 2,
+            segSize * 2,
+            isHead ? segSize * 0.4 : segSize * 0.35
+          );
+          ctx.fill();
+        }
+
+        if (isHead) {
+          const dir = snake.direction;
+          const eyeOffset = cell * 0.14;
+          const eyeRadius = cell * 0.07;
+          const pupilRadius = cell * 0.04;
+
+          let e1: Point, e2: Point;
+          if (dir === "right") {
+            e1 = { x: cx + eyeOffset * 0.5, y: cy - eyeOffset };
+            e2 = { x: cx + eyeOffset * 0.5, y: cy + eyeOffset };
+          } else if (dir === "left") {
+            e1 = { x: cx - eyeOffset * 0.5, y: cy - eyeOffset };
+            e2 = { x: cx - eyeOffset * 0.5, y: cy + eyeOffset };
+          } else if (dir === "up") {
+            e1 = { x: cx - eyeOffset, y: cy - eyeOffset * 0.5 };
+            e2 = { x: cx + eyeOffset, y: cy - eyeOffset * 0.5 };
+          } else {
+            e1 = { x: cx - eyeOffset, y: cy + eyeOffset * 0.5 };
+            e2 = { x: cx + eyeOffset, y: cy + eyeOffset * 0.5 };
+          }
+
+          // Eye whites with glow
+          ctx.save();
+          ctx.shadowColor = "rgba(255,255,255,0.3)";
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(e1.x, e1.y, eyeRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(e2.x, e2.y, eyeRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          const pupilShift = cell * 0.03;
+          const pd = DIRECTION_DELTA[dir];
+          ctx.fillStyle = "#0f172a";
+          ctx.beginPath();
+          ctx.arc(e1.x + pd.x * pupilShift, e1.y + pd.y * pupilShift, pupilRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(e2.x + pd.x * pupilShift, e2.y + pd.y * pupilShift, pupilRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    };
+
+    // Player 1 — cyan
+    drawSnake(
+      snake1Ref.current,
+      "#22d3ee",
+      "#0891b2",
+      "rgba(34, 211, 238, 0.25)",
+      "rgba(34, 211, 238, 0.5)"
+    );
+
+    // Player 2 / AI Bot — different color based on mode
+    if (gameModeRef.current === "computador") {
+      drawSnake(
+        snake2Ref.current,
+        "#34d399",
+        "#059669",
+        "rgba(52, 211, 153, 0.25)",
+        "rgba(52, 211, 153, 0.5)"
+      );
+    } else {
+      drawSnake(
+        snake2Ref.current,
+        "#f472b6",
+        "#c026d3",
+        "rgba(244, 114, 182, 0.25)",
+        "rgba(244, 114, 182, 0.5)"
+      );
+    }
+
+    // ── Particles ──
+    updateAndDrawParticles(ctx, particlesRef.current, dt);
+
+    // ── Vignette overlay ──
+    const vigGrad = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.72);
+    vigGrad.addColorStop(0, "rgba(0,0,0,0)");
+    vigGrad.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = vigGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // ── Subtle border glow ──
+    ctx.save();
+    ctx.strokeStyle = "rgba(99, 102, 241, 0.12)";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "rgba(99, 102, 241, 0.15)";
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(1, 1, w - 2, h - 2);
+    ctx.restore();
+  }, []);
+
+  const gameLoop = useCallback(() => {
+    const now = performance.now();
+    const interval = SPEED_MAP[speedRef.current];
+    if (now - lastTickRef.current >= interval) {
+      lastTickRef.current = now;
+      if (gameStateRef.current === "playing") {
+        tick();
+      }
+    }
+    draw();
+    rafRef.current = requestAnimationFrame(gameLoop);
+  }, [tick, draw]);
+
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(gameLoop);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [gameLoop]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (gameStateRef.current !== "playing") return;
+
+      const s1 = snake1Ref.current;
+      const s2 = snake2Ref.current;
+
+      switch (e.key.toLowerCase()) {
+        case "w":
+          if (s1.direction !== "down") s1.nextDirection = "up";
+          e.preventDefault();
+          break;
+        case "s":
+          if (s1.direction !== "up") s1.nextDirection = "down";
+          e.preventDefault();
+          break;
+        case "a":
+          if (s1.direction !== "right") s1.nextDirection = "left";
+          e.preventDefault();
+          break;
+        case "d":
+          if (s1.direction !== "left") s1.nextDirection = "right";
+          e.preventDefault();
+          break;
+        // Only allow P2 keyboard controls in jogador mode
+        case "arrowup":
+          if (gameModeRef.current === "jogador" && s2.direction !== "down") s2.nextDirection = "up";
+          e.preventDefault();
+          break;
+        case "arrowdown":
+          if (gameModeRef.current === "jogador" && s2.direction !== "up") s2.nextDirection = "down";
+          e.preventDefault();
+          break;
+        case "arrowleft":
+          if (gameModeRef.current === "jogador" && s2.direction !== "right") s2.nextDirection = "left";
+          e.preventDefault();
+          break;
+        case "arrowright":
+          if (gameModeRef.current === "jogador" && s2.direction !== "left") s2.nextDirection = "right";
+          e.preventDefault();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
+  const startGame = useCallback(() => {
+    resetRound();
+    setGameState("playing");
+    lastTickRef.current = performance.now();
+  }, [resetRound]);
+
+  const nextRound = useCallback(() => {
+    const nextR = round + 1;
+    setRound(nextR);
+    resetRound();
+    setGameState("playing");
+    lastTickRef.current = performance.now();
+  }, [round, resetRound]);
+
+  const setDirection = useCallback((player: 1 | 2, dir: Direction) => {
+    if (gameStateRef.current !== "playing") return;
+    if (gameModeRef.current === "computador" && player === 2) return; // AI controls itself
+    const snake = player === 1 ? snake1Ref.current : snake2Ref.current;
+    if (OPPOSITE[dir] !== snake.direction) {
+      snake.nextDirection = dir;
+    }
+  }, []);
+
+  const speedLabel: Record<SpeedLevel, string> = {
+    slow: "Lento",
+    normal: "Normal",
+    fast: "Rápido",
+  };
+
+  const player2Label = isAI ? "Computador" : "Jogador 2";
+  const player2ColorClass = isAI ? "text-emerald-300" : "text-pink-300";
+  const player2AccentColor = isAI ? "#34d399" : "#f472b6";
+
+  return (
+    <div className="flex flex-col items-center gap-3 w-full max-w-[520px] mx-auto select-none">
+      <div className={cn(
+        "border rounded-xl p-3 w-full",
+        isAI
+          ? "bg-gradient-to-r from-cyan-900/30 to-emerald-900/30 border-cyan-500/20"
+          : "bg-gradient-to-r from-cyan-900/30 to-pink-900/30 border-cyan-500/20"
+      )}>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center gap-1 min-w-[80px]">
+            <span className="text-xs text-cyan-300 font-semibold tracking-wide uppercase">
+              Jogador 1
+            </span>
+            <motion.div
+              key={length1}
+              initial={{ scale: 1.4, color: "#22d3ee" }}
+              animate={{ scale: 1, color: "#94a3b8" }}
+              transition={{ duration: 0.3 }}
+              className="text-xl font-bold"
+            >
+              {length1}
+            </motion.div>
+            <motion.span
+              key={`cum1-${score1}`}
+              initial={{ scale: flashScore === 1 ? 1.5 : 1 }}
+              animate={{ scale: 1 }}
+              className="text-[10px] text-slate-400"
+            >
+              Total: {score1}
+            </motion.span>
+          </div>
+
+          <div className="flex flex-col items-center gap-1">
+            <Badge
+              variant="outline"
+              className="border-amber-500/30 text-amber-400 text-[10px] bg-amber-500/5"
+            >
+              <Coins className="w-3 h-3 mr-1" />
+              Round {round}
+            </Badge>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] text-slate-500">Velocidade:</span>
+              <div className="flex gap-1">
+                {(Object.keys(SPEED_MAP) as SpeedLevel[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => gameState === "waiting" && setSpeed(s)}
+                    disabled={gameState !== "waiting"}
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded transition-colors",
+                      speed === s
+                        ? "bg-slate-600 text-white"
+                        : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    {speedLabel[s]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-1 min-w-[80px]">
+            <div className="flex items-center gap-1">
+              {isAI && <Bot className="w-3 h-3 text-emerald-400" />}
+              <span className={cn("text-xs font-semibold tracking-wide uppercase", player2ColorClass)}>
+                {player2Label}
+              </span>
+            </div>
+            <motion.div
+              key={length2}
+              initial={{ scale: 1.4, color: player2AccentColor }}
+              animate={{ scale: 1, color: "#94a3b8" }}
+              transition={{ duration: 0.3 }}
+              className="text-xl font-bold"
+            >
+              {length2}
+            </motion.div>
+            <motion.span
+              key={`cum2-${score2}`}
+              initial={{ scale: flashScore === 2 ? 1.5 : 1 }}
+              animate={{ scale: 1 }}
+              className="text-[10px] text-slate-400"
+            >
+              Total: {score2}
+            </motion.span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="relative w-full rounded-xl overflow-hidden border border-slate-700/50 shadow-lg shadow-black/30"
+      >
+        <canvas
+          ref={canvasRef}
+          width={canvasSize}
+          height={canvasSize}
+          className="w-full h-auto block"
+          style={{ aspectRatio: "1/1" }}
+        />
+
+        <AnimatePresence>
+          {gameState === "waiting" && (
+            <motion.div
+              key="waiting"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 px-4"
+            >
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-white mb-3">
+                  Cobra Batalha
+                </h2>
+
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <span className="text-[10px] text-slate-400">Modo:</span>
+                  <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+                    <button
+                      onClick={() => setGameMode("jogador")}
+                      className={cn(
+                        "text-xs px-3 py-1.5 rounded-md transition-all font-medium",
+                        gameMode === "jogador"
+                          ? "bg-gradient-to-r from-cyan-600 to-pink-600 text-white shadow-md"
+                          : "text-slate-400 hover:text-slate-200"
+                      )}
+                    >
+                      vs Jogador
+                    </button>
+                    <button
+                      onClick={() => setGameMode("computador")}
+                      className={cn(
+                        "text-xs px-3 py-1.5 rounded-md transition-all font-medium flex items-center gap-1",
+                        gameMode === "computador"
+                          ? "bg-gradient-to-r from-cyan-600 to-emerald-600 text-white shadow-md"
+                          : "text-slate-400 hover:text-slate-200"
+                      )}
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      vs Computador
+                    </button>
+                  </div>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {isAI && (
+                    <motion.div
+                      key="difficulty"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden mb-3"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-[10px] text-emerald-400">Dificuldade:</span>
+                        <div className="flex bg-slate-800 rounded-lg p-0.5 border border-emerald-500/20">
+                          {(Object.keys(AI_CONFIG) as Difficulty[]).map((d) => (
+                            <button
+                              key={d}
+                              onClick={() => setDifficulty(d)}
+                              className={cn(
+                                "text-[10px] px-2.5 py-1 rounded-md transition-all font-medium",
+                                difficulty === d
+                                  ? "bg-emerald-600 text-white shadow-sm"
+                                  : "text-slate-400 hover:text-slate-200"
+                              )}
+                            >
+                              {AI_CONFIG[d].label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-slate-500 mt-1">
+                        {difficulty === "facil" && "IA movimenta-se aleatoriamente — bom para iniciantes"}
+                        {difficulty === "medio" && "IA busca comida com caminho inteligente — desafio moderado"}
+                        {difficulty === "dificil" && "IA avançada com corte de caminho — prepare-se!"}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <p className="text-sm text-slate-400">
+                  Jogador 1: W A S D
+                </p>
+                {!isAI && (
+                  <p className="text-sm text-slate-400">
+                    Jogador 2: ← ↑ ↓ →
+                  </p>
+                )}
+                {isAI && (
+                  <p className="text-xs text-emerald-400/70 flex items-center justify-center gap-1 mt-0.5">
+                    <Bot className="w-3 h-3" />
+                    A IA controla a segunda cobra automaticamente
+                  </p>
+                )}
+              </div>
+              <Button
+                onClick={startGame}
+                className={cn(
+                  "text-white font-semibold px-6",
+                  isAI
+                    ? "bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500"
+                    : "bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500"
+                )}
+              >
+                Iniciar Jogo
+              </Button>
+            </motion.div>
+          )}
+
+          {gameState === "gameOver" && winner && (
+            <motion.div
+              key="gameover"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.4, type: "spring" }}
+              className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm flex flex-col items-center justify-center gap-4"
+            >
+              <motion.div
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                className="text-center"
+              >
+                <motion.h2
+                  className={cn(
+                    "text-3xl font-extrabold mb-1",
+                    winner === "Jogador 1"
+                      ? "text-cyan-400"
+                      : winner === "Jogador 2"
+                        ? "text-pink-400"
+                        : winner === "Computador"
+                          ? "text-emerald-400"
+                          : "text-amber-400"
+                  )}
+                  animate={{
+                    scale: [1, 1.1, 1],
+                    rotate: winner === "empate" ? [0, 5, -5, 0] : 0,
+                  }}
+                  transition={{
+                    duration: 0.6,
+                    repeat: winner === "empate" ? 2 : 1,
+                    repeatDelay: 0.3,
+                  }}
+                >
+                  {winner === "empate"
+                    ? "Empate!"
+                    : `${winner} Venceu!`}
+                </motion.h2>
+                <p className="text-sm text-slate-400">Round {round}</p>
+              </motion.div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={nextRound}
+                  className={cn(
+                    "text-white font-semibold",
+                    isAI
+                      ? "bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500"
+                      : "bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500"
+                  )}
+                >
+                  Próximo Round
+                </Button>
+                <Button
+                  onClick={resetAll}
+                  variant="outline"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                >
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Reiniciar Tudo
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className={cn("flex w-full", isAI ? "justify-center" : "gap-6")}>
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[10px] text-cyan-400 font-medium">P1</span>
+          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-[120px] h-[120px]">
+            <div />
+            <button
+              onTouchStart={() => setDirection(1, "up")}
+              onMouseDown={() => setDirection(1, "up")}
+              className="bg-slate-800 border border-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 active:bg-cyan-900/40 transition-colors text-lg font-bold"
+            >
+              W
+            </button>
+            <div />
+            <button
+              onTouchStart={() => setDirection(1, "left")}
+              onMouseDown={() => setDirection(1, "left")}
+              className="bg-slate-800 border border-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 active:bg-cyan-900/40 transition-colors text-lg font-bold"
+            >
+              A
+            </button>
+            <button
+              onTouchStart={() => setDirection(1, "down")}
+              onMouseDown={() => setDirection(1, "down")}
+              className="bg-slate-800 border border-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 active:bg-cyan-900/40 transition-colors text-lg font-bold"
+            >
+              S
+            </button>
+            <button
+              onTouchStart={() => setDirection(1, "right")}
+              onMouseDown={() => setDirection(1, "right")}
+              className="bg-slate-800 border border-cyan-500/20 rounded-lg flex items-center justify-center text-cyan-400 active:bg-cyan-900/40 transition-colors text-lg font-bold"
+            >
+              D
+            </button>
+          </div>
+        </div>
+
+        {!isAI && (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] text-pink-400 font-medium">P2</span>
+            <div className="grid grid-cols-3 grid-rows-3 gap-1 w-[120px] h-[120px]">
+              <div />
+              <button
+                onTouchStart={() => setDirection(2, "up")}
+                onMouseDown={() => setDirection(2, "up")}
+                className="bg-slate-800 border border-pink-500/20 rounded-lg flex items-center justify-center text-pink-400 active:bg-pink-900/40 transition-colors text-lg font-bold"
+              >
+                ↑
+              </button>
+              <div />
+              <button
+                onTouchStart={() => setDirection(2, "left")}
+                onMouseDown={() => setDirection(2, "left")}
+                className="bg-slate-800 border border-pink-500/20 rounded-lg flex items-center justify-center text-pink-400 active:bg-pink-900/40 transition-colors text-lg font-bold"
+              >
+                ←
+              </button>
+              <button
+                onTouchStart={() => setDirection(2, "down")}
+                onMouseDown={() => setDirection(2, "down")}
+                className="bg-slate-800 border border-pink-500/20 rounded-lg flex items-center justify-center text-pink-400 active:bg-pink-900/40 transition-colors text-lg font-bold"
+              >
+                ↓
+              </button>
+              <button
+                onTouchStart={() => setDirection(2, "right")}
+                onMouseDown={() => setDirection(2, "right")}
+                className="bg-slate-800 border border-pink-500/20 rounded-lg flex items-center justify-center text-pink-400 active:bg-pink-900/40 transition-colors text-lg font-bold"
+              >
+                →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
