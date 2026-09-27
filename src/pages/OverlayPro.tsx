@@ -605,7 +605,7 @@ const OverlayPro = () => {
         <div className="absolute top-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5">
           {branding.companyLogoUrl && (
             <motion.div initial={{ scale: 0, opacity: 0, rotate: -180 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className={`relative ${isNeon ? 'neon-pulse' : ''}`} style={{ borderRadius: 12 }}>
-              <img src={branding.companyLogoUrl} alt="" className="h-12 w-12 rounded-xl object-cover shadow-lg" style={{ border: `2px solid ${pc}50` }} />
+              <img src={branding.companyLogoUrl} alt={branding.companyName || "Company logo"} className="h-12 w-12 rounded-xl object-cover shadow-lg" style={{ border: `2px solid ${pc}50` }} />
             </motion.div>
           )}
           {branding.companyName && (

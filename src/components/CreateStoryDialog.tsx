@@ -120,7 +120,7 @@ const CreateStoryDialog = ({ open, onOpenChange, onCreated }: Props) => {
             transition={{ duration: 0.3 }}
           >
             {imagePreview && (
-              <img src={imagePreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <img src={imagePreview} alt="Story preview" className="absolute inset-0 w-full h-full object-cover" />
             )}
             {imagePreview && <div className="absolute inset-0 bg-black/30" />}
             <p className="relative z-10 text-white font-display text-lg font-bold whitespace-pre-wrap drop-shadow">

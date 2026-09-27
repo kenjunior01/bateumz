@@ -34,4 +34,6 @@ const Root = () => {
   );
 };
 
-createRoot(document.getElementById("root")!).render(<Root />);
+const rootEl = document.getElementById("root");
+if (!rootEl) throw new Error("Root element not found – cannot mount app");
+createRoot(rootEl).render(<Root />);

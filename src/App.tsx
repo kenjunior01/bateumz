@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import BackgroundDecorations from "@/components/BackgroundDecorations";
 import CountryLanguageSync from "@/components/CountryLanguageSync";
-import { BrowserRouter, Route, Routes, useLocation, Navigate, useParams, useNavigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, Navigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -24,6 +24,7 @@ import WorldSwitcher from "@/components/WorldSwitcher";
 import RegionalCEODashboard from "@/components/RegionalCEODashboard";
 import PayPalProvider from "@/components/payments/PayPalProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import DashboardLayout from "./layouts/DashboardLayout.tsx";
 import AdminLayout from "./layouts/AdminLayout.tsx";
 import LoadingScreen from "./components/LoadingScreen.tsx";
@@ -196,6 +197,7 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <PageTransition key={location.pathname}>
         <Suspense fallback={<MinimalPageLoader />}>
+          <ErrorBoundary>
           <Routes location={location}>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -361,6 +363,7 @@ function AnimatedRoutes() {
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ErrorBoundary>
         </Suspense>
       </PageTransition>
     </AnimatePresence>

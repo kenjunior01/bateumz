@@ -520,7 +520,7 @@ export default function DashboardContests() {
                     <CardContent className="flex items-center justify-between p-4 gap-3">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
                         {c.image_url ? (
-                          <img src={c.image_url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
+                          <img src={c.image_url} alt={c.title || "Contest image"} className="h-14 w-14 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className={`h-14 w-14 rounded-lg flex items-center justify-center bg-gradient-to-br ${cat.gradient} shrink-0`}>
                             <Icon className={`h-6 w-6 ${cat.iconColor}`} />

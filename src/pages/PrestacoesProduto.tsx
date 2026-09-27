@@ -281,7 +281,7 @@ export default function PrestacoesProduto() {
                         activeImage === i ? "border-primary" : "border-transparent"
                       }`}
                     >
-                      <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
+                      <img loading="lazy" src={img} alt={product.title || "Product image"} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

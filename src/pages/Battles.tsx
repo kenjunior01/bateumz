@@ -450,7 +450,7 @@ export default function Battles() {
                     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                       {fakeRecentResults.map((r, i) => (
                         <motion.div
-                          key={i}
+                          key={r.winner + "-" + r.game}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.2 + i * 0.08 }}

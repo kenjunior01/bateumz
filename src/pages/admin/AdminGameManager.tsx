@@ -82,7 +82,7 @@ export default function AdminGameManager() {
                   style={{ backgroundColor: game.background_color }}
                 >
                   {game.background_image_url ? (
-                    <img src={game.background_image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                    <img src={game.background_image_url} alt={game.name || "Game background"} className="absolute inset-0 w-full h-full object-cover opacity-50" />
                   ) : (
                     <ImageIcon className="w-12 h-12 opacity-20" />
                   )}

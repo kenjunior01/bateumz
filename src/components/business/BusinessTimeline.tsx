@@ -154,7 +154,7 @@ export default function BusinessTimeline({ businessUserId, reloadKey = 0 }: Prop
                   whileHover={{ x: 4 }}
                 >
                   {it.image ? (
-                    <img src={it.image} alt="" className="biz-tl-thumb" loading="lazy" />
+                    <img src={it.image} alt={it.title || "Timeline image"} className="biz-tl-thumb" loading="lazy" />
                   ) : (
                     <div className="biz-tl-icon-wrap" style={{ backgroundColor: meta.bg }}>
                       <Icon className="h-4 w-4" style={{ color: meta.color }} />

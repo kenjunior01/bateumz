@@ -633,7 +633,7 @@ export default function DashboardEsportsAdvanced() {
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       {t.team_logo && (
-                                        <img src={t.team_logo} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                        <img src={t.team_logo} alt={t.team_name || "Team logo"} className="h-6 w-6 rounded-full object-cover" />
                                       )}
                                       {t.team_name}
                                     </div>
@@ -968,7 +968,7 @@ export default function DashboardEsportsAdvanced() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {sp.logo_url && (
-                                  <img src={sp.logo_url} alt="" className="h-8 w-8 rounded object-cover" />
+                                  <img src={sp.logo_url} alt={sp.company_name || "Sponsor logo"} className="h-8 w-8 rounded object-cover" />
                                 )}
                                 <span className="font-medium">{sp.company_name}</span>
                               </div>

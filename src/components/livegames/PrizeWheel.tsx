@@ -841,7 +841,7 @@ const PrizeWheel = ({
                     {p.rewardValue && <p className="text-xs opacity-50">{p.rewardValue}</p>}
                   </div>
                   {p.rewardImageUrl && (
-                    <img src={p.rewardImageUrl} alt="" className="w-8 h-8 rounded object-cover" />
+                    <img src={p.rewardImageUrl} alt={p.rewardLabel || "Prize"} className="w-8 h-8 rounded object-cover" />
                   )}
                 </div>
               ))}

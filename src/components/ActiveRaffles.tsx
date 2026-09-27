@@ -46,7 +46,7 @@ const timeLeft = (date: string | null) => {
 };
 
 const RaffleCard = ({ raffle, index }: { raffle: Raffle; index: number }) => {
-  const pct = (raffle.sold_tickets / raffle.total_tickets) * 100;
+  const pct = raffle.total_tickets > 0 ? (raffle.sold_tickets / raffle.total_tickets) * 100 : 0;
   const isHot = pct > 80;
 
   return (
@@ -233,7 +233,7 @@ const ActiveRaffles = ({ categoryFilter, country, region }: ActiveRafflesProps) 
   // Split into sections
   const now = Date.now();
   const featured = visible.filter((r) => {
-    const pct = (r.sold_tickets / r.total_tickets) * 100;
+    const pct = r.total_tickets > 0 ? (r.sold_tickets / r.total_tickets) * 100 : 0;
     return pct > 50 || (r.end_date && new Date(r.end_date).getTime() - now < 3 * 86400000);
   });
   const featuredIds = new Set(featured.map((r) => r.id));

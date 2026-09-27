@@ -345,7 +345,7 @@ const TestimonialCard = ({ t, index, primary, accent: accentColor }: { t: typeof
               className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
               style={{ background: `linear-gradient(135deg, ${primary}, ${accentColor || primary}cc)` }}
               whileHover={{ scale: 1.1 }}
-            >{t.name.charAt(0)}</motion.div>
+            >{(t.name || "?").charAt(0)}</motion.div>
             <div>
               <p className="font-bold text-sm">{t.name}</p>
               <p className="text-[11px] text-muted-foreground">{t.role}</p>
@@ -661,7 +661,7 @@ const CompanyPublicProfile = () => {
                       <img src={branding?.company_logo_url || company.avatar_url || ""} alt={companyName} className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-white">
-                        <span className="text-5xl md:text-6xl font-black">{companyName.charAt(0).toUpperCase()}</span>
+                        <span className="text-5xl md:text-6xl font-black">{(companyName || "?").charAt(0).toUpperCase()}</span>
                       </div>
                     )}
                   </div>
@@ -832,7 +832,7 @@ const CompanyPublicProfile = () => {
             <div className="flex -space-x-2">
               {TESTIMONIALS.map((t, i) => (
                 <div key={i} className="h-8 w-8 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${primary}, ${accent})`, zIndex: 3 - i }}>
-                  {t.name.charAt(0)}
+                  {(t.name || "?").charAt(0)}
                 </div>
               ))}
             </div>
@@ -1008,7 +1008,7 @@ const CompanyPublicProfile = () => {
                             className="h-full rounded-full"
                             style={{ background: `linear-gradient(90deg, ${primary}, ${secondary})` }}
                             initial={{ width: 0 }}
-                            whileInView={{ width: `${Math.min((r.sold_tickets / r.total_tickets) * 100, 100)}%` }}
+                            whileInView={{ width: `${Math.min(r.total_tickets > 0 ? (r.sold_tickets / r.total_tickets) * 100 : 0, 100)}%` }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.8, delay: 0.2 }}
                           />

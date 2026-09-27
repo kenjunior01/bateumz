@@ -86,7 +86,7 @@ export default function ImageUploadField({
 
       {value ? (
         <div className="relative rounded-lg overflow-hidden border border-border/60 bg-muted shadow-[0_0_10px_hsl(var(--primary)/0.1)]">
-          <img src={value} alt="" className="w-full h-40 object-cover" />
+          <img src={value} alt="Uploaded image" className="w-full h-40 object-cover" />
           <button
             type="button"
             onClick={() => onChange("")}

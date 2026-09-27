@@ -365,7 +365,7 @@ export default function DashboardPrestacoes() {
                     >
                       <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-md bg-muted overflow-hidden flex items-center justify-center shrink-0">
                         {p.images[0] ? (
-                          <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
+                          <img src={p.images[0]} alt={p.title || "Product image"} className="w-full h-full object-cover" />
                         ) : (
                           <Package className="h-5 w-5 text-muted-foreground" />
                         )}

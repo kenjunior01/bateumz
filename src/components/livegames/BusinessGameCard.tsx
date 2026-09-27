@@ -35,7 +35,11 @@ export default function BusinessGameCard({ game, index, onClick }: { game: Game;
       whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       className="cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-label={`Play ${game.title}`}
     >
       <Card className="h-full overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3),0_0_30px_rgba(251,191,36,0.1)] hover:-translate-y-1 game-card-3d game-shimmer border-morph">
         <div className={`h-1.5 bg-gradient-to-r ${meta.grad}`} />

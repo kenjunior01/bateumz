@@ -21,7 +21,7 @@ const fmtDur = (s: number) => {
 
 const fmtDate = (d: number) => new Date(d).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-const StatCard = ({ icon: Icon, label, value, sub, trend, color }: { icon: any; label: string; value: string | number; sub?: string; trend?: "up" | "down" | "neutral"; color: string }) => (
+const StatCard = ({ icon: Icon, label, value, sub, trend, color }: { icon: React.ElementType; label: string; value: string | number; sub?: string; trend?: "up" | "down" | "neutral"; color: string }) => (
   <Card className="border-border/50 shadow-[0_0_15px_hsl(var(--primary)/0.15)]">
     <CardContent className="p-4">
       <div className="flex items-start justify-between">
@@ -54,7 +54,7 @@ const MiniBar = ({ data, color, maxVal }: { data: number[]; color: string; maxVa
 const DashboardLiveStats = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
-  const [dbStats, setDbStats] = useState<any>(null);
+  const [dbStats, setDbStats] = useState<Record<string, unknown> | null>(null);
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "all">("all");
 
   useEffect(() => {
@@ -96,7 +96,7 @@ const DashboardLiveStats = () => {
     const totalScore = allEntries.reduce((a, e) => a + e.score, 0);
     const avgDuration = totalLives > 0 ? Math.round(totalDuration / totalLives) : 0;
     const avgPlayersPerLive = totalLives > 0 ? Math.round(allEntries.length / totalLives) : 0;
-    const topPlayer = aggregates.flatMap(g => g.topPlayers).sort((a, b) => b.score - a.score)[0];
+    const topPlayer = aggregates.flatMap(g => g.topPlayers).sort((a, b) => b.score - a.score)[0] ?? null;
     const mostPlayedGame = aggregates.length > 0 ? aggregates[0] : null;
     const avgScore = allEntries.length > 0 ? Math.round(totalScore / allEntries.length) : 0;
     const dailyActivity = new Map<string, number>();

@@ -1096,7 +1096,7 @@ export default function GameBrandingConfig() {
                         color: "#ffffff",
                       }}
                     >
-                      {entry.name.charAt(0)}
+                      {(entry.name || "?").charAt(0)}
                     </div>
 
                     <span

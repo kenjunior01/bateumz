@@ -236,7 +236,7 @@ const RaffleDetail = () => {
     );
   }
 
-  const soldPercent = (raffle.sold_tickets / raffle.total_tickets) * 100;
+  const soldPercent = raffle.total_tickets > 0 ? (raffle.sold_tickets / raffle.total_tickets) * 100 : 0;
   const isHot = soldPercent > 70;
   const availableCount = raffle.total_tickets - raffle.sold_tickets;
 
@@ -390,7 +390,7 @@ const RaffleDetail = () => {
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
                         <div className="rd-selected-bar">
                           <div className="flex flex-wrap gap-1.5 mb-3">
-                            {selectedNumbers.sort((a, b) => a - b).map((n) => (
+                            {[...selectedNumbers].sort((a, b) => a - b).map((n) => (
                               <motion.span key={n} className="rd-selected-chip" onClick={() => toggleNumber(n)} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING_BOUNCE }}>
                                 {n} <X className="h-2.5 w-2.5" />
                               </motion.span>
@@ -447,7 +447,7 @@ const RaffleDetail = () => {
                     <motion.div key="review" custom={slideDirection} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25, ease: "easeOut" }}>
                       <div className="rd-order-summary">
                         <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sorteio</span><span className="text-foreground font-medium text-right max-w-[60%] truncate">{raffle.title}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bilhetes</span><span className="text-foreground font-medium">{selectedNumbers.sort((a, b) => a - b).join(", ")}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bilhetes</span><span className="text-foreground font-medium">{[...selectedNumbers].sort((a, b) => a - b).join(", ")}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-muted-foreground">Preco unitario</span><span className="text-foreground">{fmt(raffle.ticket_price)}</span></div>
                         <div className="rd-order-total">
                           <span className="font-semibold">Total</span>

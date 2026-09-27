@@ -246,12 +246,12 @@ export default function AdminRegionalBranding() {
 
               <div className="space-y-2">
                 <Label>Logo</Label>
-                {selected.logo_url && <img src={selected.logo_url} alt="logo" className="h-12 object-contain bg-muted rounded p-1" />}
+                {selected.logo_url && <img src={selected.logo_url} alt="Regional logo" className="h-12 object-contain bg-muted rounded p-1" />}
                 <Input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadAsset("logo", e.target.files[0])} />
               </div>
               <div className="space-y-2">
                 <Label>Banner</Label>
-                {selected.banner_url && <img src={selected.banner_url} alt="banner" className="h-24 w-full object-cover rounded" />}
+                {selected.banner_url && <img src={selected.banner_url} alt="Regional banner" className="h-24 w-full object-cover rounded" />}
                 <Input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadAsset("banner", e.target.files[0])} />
               </div>
 

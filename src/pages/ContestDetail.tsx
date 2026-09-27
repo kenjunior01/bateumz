@@ -78,7 +78,7 @@ export default function ContestDetail() {
       supabase.from("contests").select("*").eq("id", id).single(),
       supabase.from("contest_submissions").select("*").eq("contest_id", id).eq("status", "approved").order("votes_count", { ascending: false }),
     ]);
-    setContest(c);
+    setContest(c as Contest | null);
     setSubmissions(subs || []);
 
     if (user) {
@@ -234,7 +234,7 @@ export default function ContestDetail() {
     contest.evaluation_type === "views" ? b.views_count - a.views_count : b.votes_count - a.votes_count
   );
   const winners = sorted.filter((s) => s.is_winner);
-  const topScore = sorted.length > 0 ? (contest.evaluation_type === "views" ? sorted[0].views_count : sorted[0].votes_count) : 1;
+  const topScore = sorted.length > 0 ? (contest.evaluation_type === "views" ? sorted[0].views_count : sorted[0].votes_count) : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -363,7 +363,7 @@ export default function ContestDetail() {
 
           {(contest as any).sponsor_name && (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-accent/30 bg-accent/5">
-              {(contest as any).sponsor_logo_url && <img src={(contest as any).sponsor_logo_url} alt="" className="h-5 w-5 rounded-full object-cover" />}
+              {(contest as any).sponsor_logo_url && <img src={(contest as any).sponsor_logo_url} alt="Sponsor logo" className="h-5 w-5 rounded-full object-cover" />}
               <span className="text-xs text-muted-foreground">Patrocinado por</span>
               <span className="text-xs font-semibold text-foreground">{(contest as any).sponsor_name}</span>
             </motion.div>
