@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "bateu-platform",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,9 +10,18 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "apk:init": "npm run build && npx cap add android",
+    "apk:sync": "npm run build && npx cap sync android",
+    "apk:open": "npx cap open android",
+    "apk": "npm run apk:sync && npx cap open android",
+    "apk:ci": "npm run apk:sync && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@easepick/bundle": "^1.2.1",
     "@easepick/core": "^1.2.1",
     "@hookform/resolvers": "^3.10.0",
@@ -87,6 +96,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.16",
@@ -110,5 +121,6 @@
     "vite": "^5.3.4",
     "vite-plugin-compression2": "^2.5.3",
     "vitest": "^3.2.4"
-  }
+  },
+  "description": "Bateu — Sorteios, Jogos ao Vivo, Alienação de Bens, Stories Sociais e APK Android"
 }

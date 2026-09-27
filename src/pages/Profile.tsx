@@ -17,6 +17,7 @@ import { formatMZN } from "@/lib/currency";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import ResponsibleGaming from "@/components/ResponsibleGaming";
+import StoryHighlights from "@/components/stories/StoryHighlights";
 import { Progress } from "@/components/ui/progress";
 
 interface Participation {
@@ -207,6 +208,19 @@ const Profile = () => {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Destaques de Stories */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-6"
+        >
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+            <Star className="h-4 w-4 text-amber-500" /> Destaques dos Stories
+          </h3>
+          <StoryHighlights userId={user?.id || ""} isOwner />
         </motion.div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">

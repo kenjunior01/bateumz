@@ -48,15 +48,29 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: "Bateu — Plataforma de Jogos, Sorteios ao Vivo e Apostas",
+        name: "Bateu — Jogos, Sorteios ao Vivo, Alienação e Stories",
         short_name: "Bateu",
-        description: "Plataforma líder em jogos online, sorteios ao vivo com prémios reais, apostas P2P e torneios de esports. 12 países, 100% transparente.",
+        description: "Plataforma líder em jogos online, sorteios ao vivo com prémios reais, alienação de bens (leasing, leilões, rent-to-own), stories sociais e torneios de esports. 12 países, 100% transparente.",
         theme_color: "#0a0a0f",
         background_color: "#0a0a0f",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
         scope: "/",
+        shortcuts: [
+          {
+            name: "Alienação de Bens",
+            short_name: "Alienação",
+            description: "Viaturas, imóveis e equipamentos em leasing, leilão e rent-to-own",
+            url: "/alienacao",
+          },
+          {
+            name: "Stories",
+            short_name: "Stories",
+            description: "Veja os stories mais recentes da comunidade",
+            url: "/",
+          },
+        ],
         icons: [
           { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },

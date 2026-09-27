@@ -165,6 +165,9 @@ const MillionairePage = lazy(() => import("./pages/games/MillionairePage.tsx"));
 const CompanyGamesHub = lazy(() => import("./pages/dashboard/CompanyGamesHub.tsx"));
 const Wallet = lazy(() => import("./pages/Wallet.tsx"));
 const RegionalManagerPanel = lazy(() => import("./pages/RegionalManagerPanel.tsx"));
+const AlienacaoCatalogo = lazy(() => import("./pages/AlienacaoCatalogo.tsx"));
+const AlienacaoDetalhe = lazy(() => import("./pages/AlienacaoDetalhe.tsx"));
+const DashboardAlienacao = lazy(() => import("./pages/dashboard/DashboardAlienacao.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -241,6 +244,8 @@ function AnimatedRoutes() {
             <Route path="/prestacoes" element={<Prestacoes />} />
             <Route path="/prestacoes/catalogo" element={<PrestacoesCatalogo />} />
             <Route path="/prestacoes/:id" element={<PrestacoesProduto />} />
+            <Route path="/alienacao" element={<AlienacaoCatalogo />} />
+            <Route path="/alienacao/:id" element={<AlienacaoDetalhe />} />
             <Route path="/e/:businessId/:refCode" element={<AmbassadorRedirect />} />
             <Route path="/live-evento/:slug" element={<ScheduledLivePage />} />
             <Route path="/lives-agora" element={<LivesAgora />} />
@@ -312,6 +317,7 @@ function AnimatedRoutes() {
               <Route path="game-branding" element={<GameBrandingConfig />} />
               <Route path="contests" element={<DashboardContests />} />
               <Route path="prestacoes" element={<DashboardPrestacoes />} />
+              <Route path="alienacao" element={<DashboardAlienacao />} />
               <Route path="live-games" element={<DashboardLiveGames />} />
               <Route path="spin-wheel-manager" element={<AdminSpinWheelManager />} />
               <Route path="millionaire-manager" element={<AdminMillionaireManager />} />

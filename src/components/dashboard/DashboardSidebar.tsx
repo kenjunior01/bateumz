@@ -19,6 +19,7 @@ import {
   CircleDot,
   Swords,
   Building2,
+  KeyRound,
 } from "lucide-react";
 import bateuLogo from "@/assets/bateu-logo.png";
 import { NavLink } from "@/components/NavLink";
@@ -49,6 +50,7 @@ const mainItems = [
   { title: "Identidade de Jogo", url: "/dashboard/game-branding", icon: Brush },
   { title: "Concursos", url: "/dashboard/contests", icon: Trophy },
   { title: "Prestações", url: "/dashboard/prestacoes", icon: Wallet },
+  { title: "Alienação de Bens", url: "/dashboard/alienacao", icon: KeyRound },
 ];
 
 const gameItems = [
