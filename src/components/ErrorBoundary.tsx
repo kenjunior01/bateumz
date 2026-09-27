@@ -1,6 +1,7 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, RotateCcw, RefreshCw } from "lucide-react";
+import { hardReset } from "@/lib/self-heal";
 
 interface Props {
   children: ReactNode;
@@ -15,7 +16,7 @@ interface State {
 const SPRING = { type: "spring" as const, stiffness: 300, damping: 20 };
 
 /* Motion-enhanced error UI as a separate functional component */
-function ErrorFallback({ error, onReset, onReload }: { error: Error | null; onReset: () => void; onReload: () => void }) {
+function ErrorFallback({ error }: { error: Error | null }) {
   return (
     <motion.div
       className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center relative overflow-hidden"
@@ -81,7 +82,7 @@ function ErrorFallback({ error, onReset, onReload }: { error: Error | null; onRe
         transition={{ delay: 0.45, duration: 0.5 }}
       >
         <motion.button
-          onClick={onReset}
+          onClick={() => hardReset("boundary-retry")}
           whileHover={{ scale: 1.05, boxShadow: "0 0 20px hsl(var(--primary) / 0.2)" }}
           whileTap={{ scale: 0.97 }}
           transition={SPRING}
@@ -91,7 +92,7 @@ function ErrorFallback({ error, onReset, onReload }: { error: Error | null; onRe
           Try again
         </motion.button>
         <motion.button
-          onClick={onReload}
+          onClick={() => hardReset("boundary-reload")}
           whileHover={{ scale: 1.05, borderColor: "hsl(var(--border))" }}
           whileTap={{ scale: 0.97 }}
           transition={SPRING}
@@ -132,8 +133,6 @@ class ErrorBoundary extends Component<Props, State> {
       return (
         <ErrorFallback
           error={this.state.error}
-          onReset={this.handleReset}
-          onReload={() => window.location.reload()}
         />
       );
     }

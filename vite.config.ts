@@ -8,6 +8,10 @@ import { compression } from "vite-plugin-compression2";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Build id injectado no bundle — usado pelo self-heal para detectar deploys
+  define: {
+    __BUILD_ID__: JSON.stringify(new Date().toISOString()),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -25,6 +29,11 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.png", "robots.txt", "sitemap.xml"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
+        // Self-heal: SW novo assume o controlo imediatamente e caches
+        // desactualadas são removidas automaticamente
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,webp}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [

@@ -26,6 +26,7 @@ import RegionalCEODashboard from "@/components/RegionalCEODashboard";
 import PayPalProvider from "@/components/payments/PayPalProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { hardReset } from "@/lib/self-heal";
 import DashboardLayout from "./layouts/DashboardLayout.tsx";
 import AdminLayout from "./layouts/AdminLayout.tsx";
 import LoadingScreen from "./components/LoadingScreen.tsx";
@@ -410,10 +411,10 @@ class AppErrorBoundary extends Component<{children: ReactNode}, {hasError: boole
           <h2 className="text-2xl font-display font-bold">Something went wrong</h2>
           <p className="text-muted-foreground text-sm">An unexpected error occurred. Try reloading the page.</p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => this.setState({ hasError: false, error: null })} variant="outline" className="gap-2 rounded-full px-6">
+            <Button onClick={() => hardReset("try-again")} variant="outline" className="gap-2 rounded-full px-6">
               Try again
             </Button>
-            <Button onClick={() => window.location.reload()} className="gap-2 rounded-full px-6">
+            <Button onClick={() => hardReset("reload-button")} className="gap-2 rounded-full px-6">
               Reload page
           </Button>
           </div>
