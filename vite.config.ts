@@ -99,42 +99,14 @@ export default defineConfig(({ mode }) => ({
     cssMinify: true,
     rollupOptions: {
       output: {
+        // SAFETY: keep ALL node_modules in ONE vendor chunk.
+        // Splitting react/react-dom/scheduler into separate chunks caused
+        // TDZ crashes ("Cannot access 'p' before initialization") due to
+        // module init order across chunk boundaries. One vendor chunk is
+        // immune to cross-chunk cycles and still caches well.
         manualChunks(id) {
-          // Core React ecosystem
-          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/scheduler/")) {
-            return "vendor-react";
-          }
-          // React Router
-          if (id.includes("node_modules/react-router-dom/") || id.includes("node_modules/react-router/")) {
-            return "vendor-router";
-          }
-          // Framer Motion (large animation lib)
-          if (id.includes("node_modules/framer-motion/")) {
-            return "vendor-motion";
-          }
-          // Supabase
-          if (id.includes("node_modules/@supabase/")) {
-            return "vendor-supabase";
-          }
-          // TanStack Query
-          if (id.includes("node_modules/@tanstack/")) {
-            return "vendor-tanstack";
-          }
-          // Chart libs (heavy)
-          if (id.includes("node_modules/recharts/") || id.includes("node_modules/d3-") || id.includes("node_modules/victory-")) {
-            return "vendor-charts";
-          }
-          // Canvas / tsparticles
-          if (id.includes("node_modules/@tsparticles/") || id.includes("node_modules/tsparticles-") || id.includes("node_modules/canvas-confetti/")) {
-            return "vendor-particles";
-          }
-          // UI component libs
-          if (id.includes("node_modules/@radix-ui/") || id.includes("node_modules/class-variance-authority/") || id.includes("node_modules/tailwind-merge/")) {
-            return "vendor-ui";
-          }
-          // Other large node_modules
           if (id.includes("node_modules/")) {
-            return "vendor-misc";
+            return "vendor";
           }
         },
       },

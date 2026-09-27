@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import BackgroundDecorations from "@/components/BackgroundDecorations";
@@ -44,7 +45,6 @@ import LivePulseBar from "./components/LivePulseBar.tsx";
 const KahootMultiplayerQuiz = lazy(() => import("./components/livegames/KahootMultiplayerQuiz.tsx"));
 const LiveBingo = lazy(() => import("./components/livegames/LiveBingo.tsx"));
 const ChallengeRoulette = lazy(() => import("./components/livegames/ChallengeRoulette.tsx"));
-import { useState, useEffect, useRef, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 
 // Layout components (used as route wrappers, NOT lazy-loaded)

@@ -51,7 +51,7 @@ const WORLDS = [
   },
 ];
 
-const HIDDEN_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/dashboard', '/admin'];
+const HIDDEN_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/dashboard', '/admin', '/empresa', '/overlay'];
 
 export default function WorldSwitcher() {
   const [open, setOpen] = useState(false);
@@ -63,8 +63,6 @@ export default function WorldSwitcher() {
 
   // Hide on auth/admin pages
   const isHidden = HIDDEN_PATHS.some(p => location.pathname.startsWith(p));
-
-  const HIDDEN_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/dashboard', '/admin', '/empresa', '/overlay'];
 
   useEffect(() => {
     const path = location.pathname;
