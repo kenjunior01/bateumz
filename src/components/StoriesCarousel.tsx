@@ -168,8 +168,8 @@ const StoriesCarousel = () => {
     scrollRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
   };
 
-  if (allGroups.length === 0 && !user) return null;
-
+  // Sempre visível: anónimos veem o atalho "O teu story" (→ /login),
+  // autenticados veem tudo. Maximiza a descoberta dos stories.
   return (
     <>
       <section className="sticky top-14 lg:top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border/50 lg:static lg:bg-transparent lg:backdrop-blur-none lg:border-0 px-4 py-2 sm:py-3">

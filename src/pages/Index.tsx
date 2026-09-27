@@ -5,6 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import StatsBar from "@/components/StatsBar";
+import StoriesCarousel from "@/components/StoriesCarousel";
 import CategoryNav from "@/components/CategoryNav";
 import Footer from "@/components/Footer";
 const ActiveRaffles = lazy(() => import("@/components/ActiveRaffles").then(m => ({ default: m.default })));
@@ -260,6 +261,11 @@ export default function Index() {
     <div className="min-h-screen bg-background flex flex-col" style={{ background: "#050508" }}>
       <Navbar />
       <StatsBar />
+
+      {/* ═══════════ STORIES (Social) ═══════════ */}
+      <div className="w-full max-w-6xl mx-auto px-4 pt-4">
+        <StoriesCarousel />
+      </div>
 
       {/* ═══════════ HERO ═══════════ */}
       <motion.section
