@@ -129,3 +129,32 @@ Work Log:
 Stage Summary:
 - All dashboard pages now have consistent glow visual quality
 - 31 files enhanced with 41 total glow effects added
+
+---
+Task ID: 14
+Agent: Main Agent (Super Z)
+Task: v2.0 — Sistema de Alienação de Bens + Stories Sociais 2.0 + APK Android
+
+Work Log:
+- Clonado repo kenjunjunior01/bateumz-cb2c44d1 e analisada versão atual (Vite+React+Supabase+PWA)
+- ALIENAÇÃO: criado src/lib/alienacao.ts (categorias, modalidades, math de leasing com valor residual/balloon, schemas zod)
+- ALIENAÇÃO: migração SQL 20260928_alienacao_system.sql (4 tabelas + RLS + RPCs + bucket storage + triggers)
+- ALIENAÇÃO: página AlienacaoCatalogo.tsx (/alienacao) com hero, stats, filtros, destaques e cards animados
+- ALIENAÇÃO: página AlienacaoDetalhe.tsx (/alienacao/:id) com galeria, specs, simulador interativo (entrada/prazo/residual), cronograma de pagamentos, formulário de proposta e WhatsApp
+- ALIENAÇÃO: DashboardAlienacao.tsx (/dashboard/alienacao) com CRUD de bens, upload multi-imagem, gestão de propostas (aceitar/recusar) e geração de contratos via RPC
+- STORIES 2.0: migração SQL 20260928_stories_v2.sql (5 tabelas novas + 20 colunas novas + RPCs story_mark_viewed/story_react/story_vote/story_results + triggers + bucket vídeo)
+- STORIES 2.0: src/lib/stories.ts (tipos completos, carregamento agrupado por autor, helpers de interação)
+- STORIES 2.0: StoryViewer.tsx profissional (segmentos por autor, pausa, teclado, vídeo, reações flutuantes animadas, respostas DM, enquetes com %, quiz com prémio, ofertas relâmpago com cupão, links CTA, visualizadores)
+- STORIES 2.0: StoryStudio.tsx (mídia texto/imagem/vídeo, 8 filtros CSS, 8 gradientes, 4 fontes, 32 stickers em 4 packs, enquete builder, quiz builder com recompensa, oferta relâmpago, música visual, links, duração 3-30s, preview live)
+- STORIES 2.0: StoriesCarousel.tsx reescrito (grupos por autor, rings não vistos, badge N stories, Bateu Oficial com hot/new/winner/anúncio)
+- STORIES 2.0: StoryHighlights.tsx (destaques permanentes) integrado no Profile.tsx
+- APK: Capacitor instalado (core+cli+android+app+status-bar+splash-screen), capacitor.config.ts otimizado, 5 scripts npm apk:*, guia completo docs/APK-GUIDE.md
+- NAVEGAÇÃO: Navbar (menu empresas + quick actions), Footer, DashboardSidebar, manifest PWA com atalhos
+- package.json: bateu-platform v2.0.0, descrição atualizada
+- Typecheck 0 erros + build de produção OK (274 entradas PWA precache)
+- Commit local feito; push falhou (sem credenciais no ambiente) — patch + zip disponíveis em /home/z/my-project/download/
+
+Stage Summary:
+- 21 ficheiros alterados, 5911 inserções
+- 2 novos módulos completos (Alienação + Stories 2.0) com 9 novas tabelas SQL
+- Versão web + APK Android via Capacitor prontos para gerar
