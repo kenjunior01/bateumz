@@ -352,8 +352,8 @@ function ClaimedOverlay({ reward, onDone }: { reward: number; onDone: () => void
     });
     const timer = setTimeout(onDone, 2200);
     return () => {
-      timer && clearTimeout(timer);
-      void sideA; void sideB;
+      if (timer) clearTimeout(timer);
+      /* sideA and sideB are confetti instances kept alive for the animation duration */
     };
   }, [onDone]);
 

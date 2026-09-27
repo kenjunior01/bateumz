@@ -191,7 +191,7 @@ const ConnectFourGame = ({ onScore, liveCode }: Props) => {
   const checkWin = (b: Board, row: number, col: number, player: 1 | 2): [number, number][] | null => {
     const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
     for (const [dr, dc] of directions) {
-      let cells: [number, number][] = [[row, col]];
+      const cells: [number, number][] = [[row, col]];
       for (let dir = -1; dir <= 1; dir += 2) {
         for (let i = 1; i < 4; i++) {
           const r = row + dr * i * dir, c = col + dc * i * dir;

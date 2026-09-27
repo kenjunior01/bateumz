@@ -97,7 +97,7 @@ export default function BattleOfKnowledge({ onScore, liveCode }: BattleOfKnowled
 
   const nextQuestion = () => {
     const q = questions[qIdx];
-    let s = [...scores], st = [...streaks];
+    const s = [...scores], st = [...streaks];
     if (p1Answer === q.correct) { s[0] += 10 + st[0] * 2; st[0]++; }
     else { st[0] = 0; }
     if (p2Answer === q.correct) { s[1] += 10 + st[1] * 2; st[1]++; }

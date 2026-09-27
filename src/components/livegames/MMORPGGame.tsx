@@ -260,7 +260,7 @@ function loadLocalChar(): CharacterData | null {
 }
 
 function saveLocalChar(c: CharacterData) {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(c)); } catch {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
 }
 
 function calcStats(char: CharacterData): CharStats {
@@ -317,7 +317,7 @@ async function dbUpsertChar(char: CharacterData, guestId?: string) {
 }
 
 async function dbSetOffline(guestId: string) {
-  try { await (supabase as any).from("rpg_characters").update({ is_online: false }).eq("guest_id", guestId); } catch {}
+  try { await (supabase as any).from("rpg_characters").update({ is_online: false }).eq("guest_id", guestId); } catch { /* ignore */ }
 }
 
 async function dbSendChat(guestId: string, charName: string, classId: number, message: string, zone: number) {
@@ -398,6 +398,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   const floatIdRef = useRef(0);
   const [levelUpEffect, setLevelUpEffect] = useState(false);
   const [criticalHit, setCriticalHit] = useState(false);
+  const [hoveredClass, setHoveredClass] = useState<number | null>(null);
 
   // Combo system
   const [combo, setCombo] = useState(0);
@@ -439,7 +440,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   useEffect(() => {
     if (!char) return;
     const saved = localStorage.getItem("bateu_mmorpg_quests");
-    if (saved) { try { setQuests(JSON.parse(saved)); } catch {} }
+    if (saved) { try { setQuests(JSON.parse(saved)); } catch { /* ignore */ } }
     else {
       setQuests(DAILY_QUESTS.map((q, i) => ({ ...q, id: `q_${i}`, progress: 0, completed: false })));
     }
@@ -465,7 +466,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   // ---- Achievement System ----
   useEffect(() => {
     const saved = localStorage.getItem("bateu_mmorpg_achievements");
-    if (saved) { try { setAchievements(JSON.parse(saved)); } catch {} }
+    if (saved) { try { setAchievements(JSON.parse(saved)); } catch { /* ignore */ } }
     else { setAchievements(ACHIEVEMENT_DEFS.map((a, i) => ({ ...a, id: `ach_${i}`, unlocked: false }))); }
   }, []);
 
@@ -592,7 +593,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
         if (bossData) {
           setWorldBoss({ name: bossData.boss_name, emoji: bossData.boss_emoji, hp: bossData.boss_hp, maxHp: bossData.boss_max_hp, rewardsPool: bossData.rewards_pool || 0, isActive: true });
         }
-      } catch {}
+      } catch { /* ignore */ }
     })();
 
     // Set online
@@ -651,7 +652,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
         } else {
           localStorage.removeItem("bateu_mmorpg_boss");
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Spawn boss every 30 min if none active
@@ -752,7 +753,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
           if (eventBonus?.type === "gold") goldG = Math.round(goldG * eventBonus.multiplier);
           if (eventBonus?.type === "xp") xpG = Math.round(xpG * eventBonus.multiplier);
 
-          let nc = { ...prev, xp: prev.xp + xpG, gold: prev.gold + goldG, totalKills: prev.totalKills + 1, totalEarned: prev.totalEarned + goldG };
+          const nc = { ...prev, xp: prev.xp + xpG, gold: prev.gold + goldG, totalKills: prev.totalKills + 1, totalEarned: prev.totalEarned + goldG };
           while (nc.xp >= xpForLevel(nc.level)) {
             nc.xp -= xpForLevel(nc.level);
             nc.level++;
@@ -1102,7 +1103,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     setWorldBoss(prev => prev ? { ...prev, hp: newBossHp } : null);
 
     (async () => {
-      try { await (supabase as any).from("rpg_world_boss").update({ boss_hp: newBossHp }).eq("is_active", true); } catch {}
+      try { await (supabase as any).from("rpg_world_boss").update({ boss_hp: newBossHp }).eq("is_active", true); } catch { /* ignore */ }
     })();
 
     if (newBossHp <= 0) {
@@ -1132,7 +1133,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     localStorage.removeItem("bateu_mmorpg_guestid");
     localStorage.removeItem("bateu_mmorpg_daily");
     localStorage.removeItem("bateu_mmorpg_boss");
-    (async () => { try { await (supabase as any).from("rpg_characters").delete().eq("guest_id", guestId); } catch {} })();
+    (async () => { try { await (supabase as any).from("rpg_characters").delete().eq("guest_id", guestId); } catch { /* ignore */ } })();
     setChar(null); setScreen("create");
   }, [guestId]);
 
@@ -1141,7 +1142,6 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   // ============================================================
 
   if (screen === "create") {
-    const [hoveredClass, setHoveredClass] = useState<number | null>(null);
     const hc = hoveredClass !== null ? CLASSES[hoveredClass] : null;
     const sc = selectedClass !== null ? CLASSES[selectedClass] : null;
     const activePreview = sc || hc;

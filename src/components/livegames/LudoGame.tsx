@@ -174,7 +174,7 @@ const LudoGame = ({ onScore, liveCode }: Props) => {
   const piecePosMap = useMemo(() => {
     const m = new Map<string, {player:number;idx:number}[]>();
     pieces.forEach((pp,p) => pp.forEach((pos,i) => {
-      let c: [number,number]|null = pos===-1 ? BP[p][i] : cellCoord(p,pos);
+      const c: [number,number]|null = pos===-1 ? BP[p][i] : cellCoord(p,pos);
       if (c && pos !== 58) { const k=`${c[0]},${c[1]}`; if(!m.has(k)) m.set(k,[]); m.get(k)!.push({player:p,idx:i}); }
     })); return m;
   }, [pieces, animKey]);
@@ -441,7 +441,7 @@ const LudoGame = ({ onScore, liveCode }: Props) => {
 
           {/* Enhanced pieces/tokens */}
           {pieces.flatMap((pp,p)=>pp.map((pos,i)=>{
-            let coord: [number,number]|null = pos===-1?BP[p][i]:pos>=0&&pos<=57?cellCoord(p,pos):null;
+            const coord: [number,number]|null = pos===-1?BP[p][i]:pos>=0&&pos<=57?cellCoord(p,pos):null;
             if(!coord||pos===58) return null;
             const [r,c]=coord; const sibs=piecePosMap.get(`${r},${c}`)||[];
             const mi=sibs.findIndex(s=>s.player===p&&s.idx===i); const tot=sibs.length;

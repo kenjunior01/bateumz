@@ -27,6 +27,25 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,webp}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/ngxrdpplyghlugoowjqj\.supabase\.co\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api",
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 5 },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          {
+            urlPattern: /^https:\/\/.*\.(png|jpg|jpeg|svg|webp|gif)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images",
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+        ],
       },
       manifest: {
         name: "Bateu — Plataforma de Jogos, Sorteios ao Vivo e Apostas",
@@ -58,6 +77,67 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    target: "es2020",
+    minify: "esbuild",
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Core React ecosystem
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/scheduler/")) {
+            return "vendor-react";
+          }
+          // React Router
+          if (id.includes("node_modules/react-router-dom/") || id.includes("node_modules/react-router/")) {
+            return "vendor-router";
+          }
+          // Framer Motion (large animation lib)
+          if (id.includes("node_modules/framer-motion/")) {
+            return "vendor-motion";
+          }
+          // Supabase
+          if (id.includes("node_modules/@supabase/")) {
+            return "vendor-supabase";
+          }
+          // TanStack Query
+          if (id.includes("node_modules/@tanstack/")) {
+            return "vendor-tanstack";
+          }
+          // Chart libs (heavy)
+          if (id.includes("node_modules/recharts/") || id.includes("node_modules/d3-") || id.includes("node_modules/victory-")) {
+            return "vendor-charts";
+          }
+          // Canvas / tsparticles
+          if (id.includes("node_modules/@tsparticles/") || id.includes("node_modules/tsparticles-") || id.includes("node_modules/canvas-confetti/")) {
+            return "vendor-particles";
+          }
+          // UI component libs
+          if (id.includes("node_modules/@radix-ui/") || id.includes("node_modules/class-variance-authority/") || id.includes("node_modules/tailwind-merge/")) {
+            return "vendor-ui";
+          }
+          // Other large node_modules
+          if (id.includes("node_modules/")) {
+            return "vendor-misc";
+          }
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "framer-motion",
+      "@supabase/supabase-js",
+      "@tanstack/react-query",
+      "recharts",
+    ],
+    esbuildOptions: {
+      target: "es2020",
     },
   },
 }));

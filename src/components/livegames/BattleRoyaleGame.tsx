@@ -421,7 +421,7 @@ const BattleRoyaleGame = ({ onScore, liveCode }: Props) => {
         if (!e.alive || i === b.ownerIdx) continue;
         if (dist(b, e) < e.radius + 3) {
           let dmg = b.damage;
-          let actualDmg = dmg;
+          const actualDmg = dmg;
           if (e.shield > 0) { const absorbed = Math.min(e.shield, dmg); e.shield -= absorbed; dmg -= absorbed; }
           e.hp -= dmg;
           e.lastDamageFrame = g.frame;

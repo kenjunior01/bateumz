@@ -1095,13 +1095,13 @@ const LiveControlPanel = ({
 
   // Persist host prefs
   useEffect(() => {
-    try { localStorage.setItem("lcp.soundOn", soundOn ? "1" : "0"); } catch {}
+    try { localStorage.setItem("lcp.soundOn", soundOn ? "1" : "0"); } catch { /* ignore */ }
   }, [soundOn]);
   useEffect(() => {
-    try { localStorage.setItem("lcp.compact", compact ? "1" : "0"); } catch {}
+    try { localStorage.setItem("lcp.compact", compact ? "1" : "0"); } catch { /* ignore */ }
   }, [compact]);
   useEffect(() => {
-    try { localStorage.setItem("lcp.playsGoal", String(playsGoal)); } catch {}
+    try { localStorage.setItem("lcp.playsGoal", String(playsGoal)); } catch { /* ignore */ }
   }, [playsGoal]);
 
   /* ───── Sound on new entry ───── */

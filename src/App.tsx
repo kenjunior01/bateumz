@@ -16,9 +16,9 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { RegionalThemeProvider } from "@/contexts/RegionalThemeContext";
 import { RegionalConfigProvider, useRegionalContext } from "@/hooks/useRegionalConfig.tsx";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
-import EnhancedMillionaireGame from "./components/livegames/EnhancedMillionaireGame.tsx";
-import PrizeWheel from "./components/livegames/PrizeWheel.tsx";
-import { DEFAULT_WHEEL_PRIZES } from "./components/livegames/PrizeWheel.tsx";
+// Lazy-loaded game components (heavy, only needed on specific routes)
+const EnhancedMillionaireGame = lazy(() => import("./components/livegames/EnhancedMillionaireGame.tsx"));
+const PrizeWheel = lazy(() => import("./components/livegames/PrizeWheel.tsx"));
 import RegionalPreviewBar from "@/components/admin/RegionalPreviewBar";
 import WorldSwitcher from "@/components/WorldSwitcher";
 import RegionalCEODashboard from "@/components/RegionalCEODashboard";
@@ -39,10 +39,10 @@ import RecentPagesTracker from "./components/mobile/RecentPagesTracker.tsx";
 import PushNotificationBanner from "./components/notifications/PushNotificationBanner.tsx";
 import LivePulseBar from "./components/LivePulseBar.tsx";
 
-// New live entertainment pages
-import KahootMultiplayerQuiz from "./components/livegames/KahootMultiplayerQuiz.tsx";
-import LiveBingo from "./components/livegames/LiveBingo.tsx";
-import ChallengeRoulette from "./components/livegames/ChallengeRoulette.tsx";
+// New live entertainment pages (lazy-loaded for performance)
+const KahootMultiplayerQuiz = lazy(() => import("./components/livegames/KahootMultiplayerQuiz.tsx"));
+const LiveBingo = lazy(() => import("./components/livegames/LiveBingo.tsx"));
+const ChallengeRoulette = lazy(() => import("./components/livegames/ChallengeRoulette.tsx"));
 import { useState, useEffect, useRef, Component, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -175,7 +175,17 @@ const MinimalPageLoader = () => (
 
 function PrizeWheelWrapper() {
   const { gameId } = useParams<{ gameId: string }>();
-  return <PrizeWheel prizes={DEFAULT_WHEEL_PRIZES} gameId={gameId} />;
+  // Import DEFAULT_WHEEL_PRIZES dynamically to avoid eager loading
+  const [prizes, setPrizes] = useState<unknown[]>([]);
+  useEffect(() => {
+    import("./components/livegames/PrizeWheel.tsx").then((m) => setPrizes(m.DEFAULT_WHEEL_PRIZES));
+  }, []);
+  if (prizes.length === 0) return <MinimalPageLoader />;
+  return (
+    <Suspense fallback={<MinimalPageLoader />}>
+      <PrizeWheel prizes={prizes as any[]} gameId={gameId} />
+    </Suspense>
+  );
 }
 
 function AnimatedRoutes() {

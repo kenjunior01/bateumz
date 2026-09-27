@@ -24,7 +24,7 @@ function ErrorFallback({ error, onReset, onReload }: { error: Error | null; onRe
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Gradient background accents */
+      {/* Gradient background accents */}
       <div className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-destructive/5 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 h-64 w-64 rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
 
@@ -37,7 +37,7 @@ function ErrorFallback({ error, onReset, onReload }: { error: Error | null; onRe
         <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-destructive/20 to-destructive/5 border border-destructive/20 shadow-[0_0_15px_hsl(var(--primary)/0.1)]">
           <AlertTriangle className="h-10 w-10 text-destructive" />
         </div>
-        {/* Pulsing ring */
+        {/* Pulsing ring */}
         <motion.div
           className="absolute inset-0 rounded-2xl border-2 border-destructive/20"
           animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}

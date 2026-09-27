@@ -120,6 +120,7 @@ function useCountUp(end: number, duration: number = 2000, enabled: boolean = tru
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate, enabled]);
 
   return count;

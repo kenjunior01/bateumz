@@ -293,7 +293,7 @@ const CrazyTimSpinWheel: React.FC<CrazyTimSpinWheelProps> = ({
                 {isSpinning ? '...' : 'GIRAR'}
               </span>
             </div>
-          </button>
+          </motion.button>
         </motion.div>
       </div>
 

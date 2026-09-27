@@ -560,13 +560,13 @@ export default function PatternMemory({ onScore, liveCode }: Props) {
       if (phase === "recall_p1") {
         setP1Taps((prev) => {
           const next = new Set(prev);
-          next.has(idx) ? next.delete(idx) : next.add(idx);
+          if (next.has(idx)) { next.delete(idx); } else { next.add(idx); }
           return next;
         });
       } else if (phase === "recall_p2") {
         setP2Taps((prev) => {
           const next = new Set(prev);
-          next.has(idx) ? next.delete(idx) : next.add(idx);
+          if (next.has(idx)) { next.delete(idx); } else { next.add(idx); }
           return next;
         });
       }

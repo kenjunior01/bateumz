@@ -22,9 +22,9 @@ export const getOneClick = (): OneClickPrefs | null => {
 export const saveOneClick = (prefs: Omit<OneClickPrefs, "updatedAt">) => {
   try {
     localStorage.setItem(KEY, JSON.stringify({ ...prefs, updatedAt: new Date().toISOString() }));
-  } catch {}
+  } catch { /* ignore */ }
 };
 
 export const clearOneClick = () => {
-  try { localStorage.removeItem(KEY); } catch {}
+  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
 };

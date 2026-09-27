@@ -89,9 +89,9 @@ const USER_KEY = 'bateu_p2p_user';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const getLocalBets = (): P2PBet[] => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } };
-const setLocalBets = (b: P2PBet[]) => { try { localStorage.setItem(LS_KEY, JSON.stringify(b)); } catch {} };
+const setLocalBets = (b: P2PBet[]) => { try { localStorage.setItem(LS_KEY, JSON.stringify(b)); } catch { /* ignore */ } };
 const getStats = (): PlayerStats => { try { return JSON.parse(localStorage.getItem(STATS_KEY) || '{}'); } catch { return { total_wins: 0, total_losses: 0, total_draws: 0, total_wagered: 0, total_won: 0, current_streak: 0, best_streak: 0 }; } };
-const setStats = (s: PlayerStats) => { try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {} };
+const setStats = (s: PlayerStats) => { try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch { /* ignore */ } };
 const getUserName = () => localStorage.getItem(USER_KEY) || 'Jogador_' + uid().slice(0, 4);
 const setUser = (n: string) => localStorage.setItem(USER_KEY, n);
 
@@ -413,7 +413,7 @@ export default function P2PBetArena({ onScore, liveCode }: Props) {
     try {
       const { data, error } = await sb.from('p2p_bets').select('*').order('created_at', { ascending: false });
       if (!error && data?.length) { setBets(data); return; }
-    } catch {}
+    } catch { /* ignore */ }
     setBets(getLocalBets());
   }, []);
 
@@ -423,13 +423,13 @@ export default function P2PBetArena({ onScore, liveCode }: Props) {
     setBets(newBets);
     try {
       sb.from('p2p_bets').upsert(newBets, { onConflict: 'id' });
-    } catch {}
+    } catch { /* ignore */ }
     setLocalBets(newBets);
   }, []);
 
   const saveStats = useCallback((s: PlayerStats) => {
     setLocalPlayerStats(s); setStats(s);
-    try { sb.from('p2p_player_stats').upsert({ user_id: userName, ...s }); } catch {}
+    try { sb.from('p2p_player_stats').upsert({ user_id: userName, ...s }); } catch { /* ignore */ }
   }, [userName]);
 
   /* ---- Create Challenge ---- */

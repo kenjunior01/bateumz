@@ -54,7 +54,7 @@ const StoriesCarousel = () => {
         localStorage.setItem(VIEWED_KEY, JSON.stringify(fresh));
         setViewedIds(new Set(Object.keys(fresh)));
       }
-    } catch {}
+    } catch { /* ignore */ }
     loadStories();
   }, []);
 
@@ -160,7 +160,7 @@ const StoriesCarousel = () => {
       .order("created_at", { ascending: false })
       .limit(30);
 
-    let profilesById: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+    const profilesById: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
     if (userStories && userStories.length > 0) {
       const ids = Array.from(new Set(userStories.map((s) => s.user_id)));
       const { data: profs } = await supabase
@@ -217,7 +217,7 @@ const StoriesCarousel = () => {
         const parsed = raw ? JSON.parse(raw) : {};
         parsed[id] = Date.now();
         localStorage.setItem(VIEWED_KEY, JSON.stringify(parsed));
-      } catch {}
+      } catch { /* ignore */ }
       return next;
     });
   };
@@ -254,6 +254,7 @@ const StoriesCarousel = () => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStory?.id]);
 
   const scrollBy = (dir: number) => {

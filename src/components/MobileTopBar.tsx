@@ -70,6 +70,7 @@ const MobileTopBar = () => {
       )
       .subscribe();
     return () => { mounted = false; supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   if (location.pathname.startsWith("/overlay")) return null;

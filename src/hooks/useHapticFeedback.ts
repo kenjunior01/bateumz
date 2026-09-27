@@ -48,14 +48,14 @@ export function useHapticFeedback() {
       try {
         const p = typeof pattern === 'string' ? PATTERNS[pattern] : pattern;
         navigator.vibrate(p);
-      } catch {}
+      } catch { /* ignore */ }
     },
     [isSupported]
   );
 
   const cancel = useCallback(() => {
     if (!isSupported) return;
-    try { navigator.vibrate(0); } catch {}
+    try { navigator.vibrate(0); } catch { /* ignore */ }
   }, [isSupported]);
 
   return { haptic, cancel, isSupported };

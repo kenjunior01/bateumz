@@ -52,6 +52,7 @@ export default function LiveLeaderboard({ contestId, evaluationType }: Props) {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contestId, evaluationType]);
 
   if (leaders.length === 0) return null;

@@ -2731,7 +2731,7 @@ export async function getGlobalLeaderboard(filters?: {
   region?: string;
   limit?: number;
 }): Promise<GlobalLeaderboardEntry[]> {
-  let query = sb
+  const query = sb
     .from('esport_teams')
     .select('id, name, logo_url, rating, total_wins, total_tournaments')
     .order('rating', { ascending: false })

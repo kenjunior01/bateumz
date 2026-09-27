@@ -87,6 +87,7 @@ const Navbar = () => {
   // Check if announcement was dismissed in this session
   useEffect(() => {
     setAnnouncementDismissed(sessionStorage.getItem(ANNOUNCEMENT_KEY) === currentAnnouncement?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Notification count for desktop bell
@@ -660,7 +661,7 @@ const Navbar = () => {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 className="relative flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary/50"
-                onClick={() => { setOpen(!open); open ? sfx.modalClose() : sfx.modalOpen(); }}
+                onClick={() => { setOpen(!open); if (open) { sfx.modalClose(); } else { sfx.modalOpen(); } }}
                 aria-label="Menu"
               >
                 <AnimatePresence mode="wait" initial={false}>

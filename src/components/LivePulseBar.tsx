@@ -34,7 +34,7 @@ export default function LivePulseBar() {
     try {
       const until = localStorage.getItem(DISMISS_KEY);
       if (until && Date.now() < Number(until)) return true;
-    } catch {}
+    } catch { /* ignore */ }
     return false;
   }, []);
 
@@ -58,7 +58,7 @@ export default function LivePulseBar() {
 
   const handleDismiss = () => {
     setVisible(null);
-    try { localStorage.setItem(DISMISS_KEY, String(Date.now() + 30000)); } catch {}
+    try { localStorage.setItem(DISMISS_KEY, String(Date.now() + 30000)); } catch { /* ignore */ }
     setDismissed(true);
   };
 

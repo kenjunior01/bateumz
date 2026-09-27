@@ -278,8 +278,8 @@ export default function GuessNumber100({ onScore, liveCode }: Props) {
       }
 
       // Binary search with difficulty offset
-      let low = botLowRef.current;
-      let high = botHighRef.current;
+      const low = botLowRef.current;
+      const high = botHighRef.current;
       let guess: number;
 
       if (low > high) {

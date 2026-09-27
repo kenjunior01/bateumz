@@ -92,7 +92,7 @@ function ParticleCanvas() {
         const pColor = primary.startsWith("#") ? hexToRgb(primary) : hslToRgbStr(primary);
         const aColor = accent.startsWith("#") ? hexToRgb(accent) : hslToRgbStr(accent);
         colorsRef.current = [pColor, aColor];
-      } catch {}
+      } catch { /* ignore */ }
     };
     updateColors();
 

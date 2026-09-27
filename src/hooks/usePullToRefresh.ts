@@ -39,7 +39,7 @@ export function usePullToRefresh(
   const isGestureActive = useRef(false);
   const indicatorEl = useRef<HTMLDivElement | null>(null);
   const spinnerEl = useRef<SVGSVGElement | null>(null);
-  let rotation = 0; // Tracks spinner rotation angle
+  const rotation = 0; // Tracks spinner rotation angle
 
   /**
    * Creates the pull indicator DOM element and prepends it to the container.

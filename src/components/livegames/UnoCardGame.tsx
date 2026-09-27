@@ -101,7 +101,7 @@ const UnoCardGame = ({ onScore, liveCode }: Props) => {
   };
 
   const dealCards = () => {
-    let d = shuffle(createDeck());
+    const d = shuffle(createDeck());
     const h: Card[][] = [[], [], [], []];
     for (let i = 0; i < 7; i++) {
       for (let p = 0; p < PLAYER_COUNT; p++) {

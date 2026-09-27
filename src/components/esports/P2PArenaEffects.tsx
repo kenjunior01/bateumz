@@ -307,8 +307,6 @@ export function ArenaParticles() {
 // ============================================================
 
 export function StreakFire({ streak, active = true }: { streak: number; active?: boolean }) {
-  if (!active || streak < 2) return null;
-
   const intensity = Math.min(streak, 10);
   const particles = useMemo(() => {
     const arr = [];
@@ -324,6 +322,8 @@ export function StreakFire({ streak, active = true }: { streak: number; active?:
     }
     return arr;
   }, [intensity]);
+
+  if (!active || streak < 2) return null;
 
   return (
     <div className="relative inline-flex">

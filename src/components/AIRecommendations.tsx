@@ -26,11 +26,12 @@ const AIRecommendations = () => {
 
   useEffect(() => {
     loadRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadRecommendations = async () => {
     // Get user's interests and past categories
-    let preferredCategories: string[] = [];
+    const preferredCategories: string[] = [];
 
     if (user) {
       const { data: profile } = await supabase

@@ -131,33 +131,8 @@ export default function EnhancedMillionaireGame({ gameId: propGameId, onComplete
       }
 
 
-      // Check if we should use Open Trivia DB
-      if (game?.use_trivia_db || true) { // Default to true for demo purposes
-        await loadTriviaQuestions(game?.total_questions || 15);
-      } else {
-        const { data: qData, error: qError } = await supabase
-          .from("millionaire_questions")
-          .select("*")
-          .eq("game_id", gameId)
-          .order("question_number", { ascending: true });
-
-        if (qError || !qData || qData.length === 0) {
-          console.warn("Falling back to default questions:", qError);
-          setQuestions(defaultQuestions);
-          if (!game) {
-            setGame({
-              id: gameId,
-              name: "Quem Quer Ser Milionário?",
-              total_questions: 3,
-              time_per_question: 30,
-              background_color: "#0a0e17",
-              primary_color: "#fbbf24",
-            });
-          }
-        } else {
-          setQuestions(qData);
-        }
-      }
+      // Always use Open Trivia DB (default for demo purposes)
+      await loadTriviaQuestions(game?.total_questions || 15);
     } catch (err) {
       console.error("Error loading millionaire game:", err);
       // Fallback to defaults

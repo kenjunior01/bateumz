@@ -468,7 +468,7 @@ export default function CannonBattle({ onScore, liveCode }: Props) {
 
       let px = playerX;
       let py = startY;
-      let pvx = vx;
+      const pvx = vx;
       let pvy = vy;
 
       const isP1 = gs.currentPlayer === 1;

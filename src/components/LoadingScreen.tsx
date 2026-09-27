@@ -215,7 +215,7 @@ const LoadingScreen = () => {
   const triggerBurst = useCallback(() => {
     if (burstActiveRef.current) return;
     burstActiveRef.current = true;
-    try { sfx.levelUp(); } catch {}
+    try { sfx.levelUp(); } catch { /* ignore */ }
 
     const canvas = burstCanvasRef.current;
     if (!canvas) return;

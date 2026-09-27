@@ -157,7 +157,7 @@ const WhackAMole = ({ onScore, liveCode }: Props) => {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
       osc.start();
       osc.stop(ctx.currentTime + 0.1);
-    } catch {}
+    } catch { /* ignore */ }
   }, []);
 
   const hideMole = useCallback((index: number) => {

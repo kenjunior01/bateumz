@@ -36,11 +36,15 @@ const NotificationBell = () => {
     setUnread(u);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   useEffect(() => {
     if (!user) return () => {};
     const unsub = subscribeNotifications(() => load(), user?.id);
     return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleMarkRead = async (id: string) => {

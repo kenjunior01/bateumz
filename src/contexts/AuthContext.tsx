@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (Object.keys(updates).length > 0) {
           await supabase.from("profiles").update(updates).eq("user_id", userId);
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Process pending referral
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }),
           ]);
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
   };
 
@@ -185,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signUp = async (email: string, password: string, meta?: { display_name?: string; role?: string; company_name?: string }) => {

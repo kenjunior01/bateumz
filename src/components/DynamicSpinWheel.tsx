@@ -181,6 +181,7 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
 
   useEffect(() => {
     if (canvasRef.current && segments.length > 0) drawWheel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segments, wheelConfig]);
 
   const drawWheel = () => {

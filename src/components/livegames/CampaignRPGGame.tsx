@@ -169,7 +169,7 @@ function loadSave(): PlayerState | null {
 }
 
 function persistSave(s: PlayerState) {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch {}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 }
 
 function calcStats(p: PlayerState): Stats {
@@ -614,7 +614,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
     setTimeout(() => enemyTurn(player, targetIdx), 800);
   }, [player, isPlayerTurn, battleOver, battleEnemies, atkBuff, comboCount, spawnParticles, addLog, addFloatingDamage, incrementCombo, triggerShake]);
 
-  const useSkill = useCallback((skillIdx: number) => {
+  const activateSkill = useCallback((skillIdx: number) => {
     if (!player || !isPlayerTurn || battleOver) return;
     const skills = SKILLS[player.classId];
     if (!skills || !skills[skillIdx]) return;
@@ -809,7 +809,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
   }, [player, recalcStats]);
 
   const resetGame = useCallback(() => {
-    try { localStorage.removeItem(SAVE_KEY); } catch {}
+    try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
     setPlayer(null);
     setScreen("classSelect");
   }, []);
@@ -1266,7 +1266,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
                     whileHover={canUse ? { scale: 1.05, y: -1 } : undefined}
                     whileTap={canUse ? { scale: 0.92 } : undefined}
                     disabled={!canUse}
-                    onClick={() => useSkill(i)}
+                    onClick={() => activateSkill(i)}
                     className="relative flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium disabled:opacity-30 overflow-hidden border transition-all group"
                     style={{
                       background: canUse

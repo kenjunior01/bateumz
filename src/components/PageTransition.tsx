@@ -76,10 +76,10 @@ export default function PageTransition({ children, variant = 'default', classNam
   useEffect(() => {
     if (!hasPlayedSound.current) {
       hasPlayedSound.current = true;
-      try { sfx.transition(); } catch {}
+      try { sfx.transition(); } catch { /* ignore */ }
       // Slightly louder pageLoad for hero-type transitions
       if (variant === 'hero') {
-        setTimeout(() => { try { sfx.pageLoad(); } catch {} }, 150);
+        setTimeout(() => { try { sfx.pageLoad(); } catch { /* ignore */ } }, 150);
       }
     }
     return () => { hasPlayedSound.current = false; };
@@ -94,7 +94,7 @@ export default function PageTransition({ children, variant = 'default', classNam
       className={combinedClassName}
       style={{ animationDelay: `${delay}s`, boxShadow: '0 0 30px hsl(var(--primary) / 0.06)' }}
       onAnimationStart={() => {
-        try { sfx.sectionReveal(); } catch {}
+        try { sfx.sectionReveal(); } catch { /* ignore */ }
       }}
       {...(isGlitch ? { 'data-text': glitchLabel } : {})}
     >

@@ -29,7 +29,7 @@ export default function BlogNewsWidget() {
 
   const loadLatestPosts = async () => {
     try {
-      let query = (supabase as any)
+      const query = (supabase as any)
         .from('blog_posts')
         .select(`id, title, slug, summary, image_url, published_at, is_trending, view_count, category:blog_categories(name, slug, color)`)
         .eq('published', true)

@@ -76,6 +76,7 @@ export default function WorldSwitcher() {
     else if (path.startsWith('/marketplace') || path.startsWith('/concursos') || path.startsWith('/instant-win') || path.startsWith('/historico')) setCurrentWorld('sorteios');
     else if (path.startsWith('/jogos') || path.startsWith('/lives') || path.startsWith('/batalhas') || path.startsWith('/participar') || path.startsWith('/tournaments')) setCurrentWorld('jogos');
     else setCurrentWorld(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   // Show after scrolling down a bit on homepage, or always show inside areas

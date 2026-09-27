@@ -43,11 +43,13 @@ export const DynamicThemeProvider = ({ children }: { children: ReactNode }) => {
   // Apply theme whenever it changes
   useEffect(() => {
     applyTheme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);
 
   // Initialize on mount
   useEffect(() => {
     applyTheme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
