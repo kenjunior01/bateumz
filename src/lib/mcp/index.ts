@@ -7,7 +7,7 @@ import listMyNotifications from "./tools/list-my-notifications";
 import markNotificationRead from "./tools/mark-notification-read";
 import listBusinesses from "./tools/list-businesses";
 
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "ngxrdpplyghlugoowjqj";
 
 export default defineMcp({
   name: "bateu",
