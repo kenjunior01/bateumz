@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, Component, lazy, Suspense, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Zap, Brain, Package, RotateCcw, Sparkles, Trophy, Users, Plus, Copy, Check, Search, Vote, Play, Square, Lock, Loader2, Gamepad2, Skull, Swords, Pencil, Bomb, Hash, SmilePlus, Shuffle, Flame, Heart, Grid3X3, Anchor, Dices, CircleDot, LayoutGrid, Target, Palette, Map, Crosshair, Layers, Globe, Coins, HandCoins } from "lucide-react";
+import { Radio, Zap, Brain, Package, RotateCcw, Sparkles, Trophy, Users, Plus, Copy, Check, Search, Vote, Play, Square, Lock, Loader2, Gamepad2, Skull, Swords, Pencil, Bomb, Hash, SmilePlus, Shuffle, Flame, Heart, Grid3X3, Anchor, Dices, CircleDot, LayoutGrid, Target, Palette, Map, Crosshair, Layers, Globe, Coins, HandCoins, Rocket, Spade, Ticket, Gauge } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -86,6 +86,13 @@ const NtchuvaGame = lazy(() => import("@/components/livegames/NtchuvaGame"));
 const DjikotaGame = lazy(() => import("@/components/livegames/DjikotaGame"));
 const BichoGame = lazy(() => import("@/components/livegames/BichoGame"));
 const UriGame = lazy(() => import("@/components/livegames/UriGame"));
+const MinesGame = lazy(() => import("@/components/livegames/MinesGame"));
+const PlinkoGame = lazy(() => import("@/components/livegames/PlinkoGame"));
+const CrashGame = lazy(() => import("@/components/livegames/CrashGame"));
+const HiLoGame = lazy(() => import("@/components/livegames/HiLoGame"));
+const RaspadinhaGame = lazy(() => import("@/components/livegames/RaspadinhaGame"));
+const KenoGame = lazy(() => import("@/components/livegames/KenoGame"));
+const LimboGame = lazy(() => import("@/components/livegames/LimboGame"));
 import LiveLeaderboard, { type LeaderEntry } from "@/components/livegames/LiveLeaderboard";
 import LiveControlPanel from "@/components/livegames/LiveControlPanel";
 import LiveGameSettings, { DEFAULT_CONFIG, type LiveGameConfig, type CompanyBranding, DEFAULT_BRANDING } from "@/components/livegames/LiveGameSettings";
@@ -133,7 +140,7 @@ class GameErrorBoundary extends Component<{children: ReactNode; gameName: string
     return <div key={this.state.resetKey}>{this.props.children}</div>;
   }
 }
-type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "chigogo" | "urusse" | "capulanaquiz" | "carromboard" | "teenpatti" | "kabaddiraid" | "rpgarena" | "battleroyale" | "chess" | "flappybird" | "fruitninja" | "typingracer" | "campaignrpg" | "mmorpg" | "p2pbet" | "ntchuva" | "djikota" | "bicho" | "uri";
+type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "chigogo" | "urusse" | "capulanaquiz" | "carromboard" | "teenpatti" | "kabaddiraid" | "rpgarena" | "battleroyale" | "chess" | "flappybird" | "fruitninja" | "typingracer" | "campaignrpg" | "mmorpg" | "p2pbet" | "ntchuva" | "djikota" | "bicho" | "uri" | "mines" | "plinko" | "crash" | "hilo" | "raspadinha" | "keno" | "limbo";
 
 interface SavedWheelGame {
   id: string;
@@ -229,6 +236,13 @@ const GAME_DEFS: { id: GameId; icon: any; emoji: string; grad: string }[] = [
   { id: "djikota", icon: Target, emoji: "🎯", grad: "from-green-600 to-teal-700" },
   { id: "bicho", icon: Dices, emoji: "🦎", grad: "from-emerald-500 to-green-600" },
   { id: "uri", icon: Zap, emoji: "👆", grad: "from-orange-500 to-red-600" },
+  { id: "mines", icon: Bomb, emoji: "💣", grad: "from-orange-500 to-red-600" },
+  { id: "plinko", icon: CircleDot, emoji: "🔮", grad: "from-fuchsia-500 to-purple-600" },
+  { id: "crash", icon: Rocket, emoji: "🚀", grad: "from-rose-500 to-red-600" },
+  { id: "hilo", icon: Spade, emoji: "🃏", grad: "from-sky-500 to-indigo-600" },
+  { id: "raspadinha", icon: Ticket, emoji: "🎟️", grad: "from-amber-500 to-yellow-500" },
+  { id: "keno", icon: Hash, emoji: "🔢", grad: "from-cyan-500 to-blue-600" },
+  { id: "limbo", icon: Gauge, emoji: "📈", grad: "from-purple-500 to-fuchsia-600" },
 ];
 
 const genCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -1265,6 +1279,48 @@ const LiveHub = () => {
                 <motion.div key="uri" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <GameErrorBoundary gameName="Uri">
                   <UriGame onScore={recordScore("Uri")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "mines" && (
+                <motion.div key="mines" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Mines">
+                  <MinesGame onScore={recordScore("Mines")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "plinko" && (
+                <motion.div key="plinko" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Plinko">
+                  <PlinkoGame onScore={recordScore("Plinko")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "crash" && (
+                <motion.div key="crash" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Crash">
+                  <CrashGame onScore={recordScore("Crash")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "hilo" && (
+                <motion.div key="hilo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Hi-Lo">
+                  <HiLoGame onScore={recordScore("Hi-Lo")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "raspadinha" && (
+                <motion.div key="raspadinha" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Raspadinha">
+                  <RaspadinhaGame onScore={recordScore("Raspadinha")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "keno" && (
+                <motion.div key="keno" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Keno">
+                  <KenoGame onScore={recordScore("Keno")} liveCode={liveCode} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "limbo" && (
+                <motion.div key="limbo" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Limbo">
+                  <LimboGame onScore={recordScore("Limbo")} liveCode={liveCode} />
                   </GameErrorBoundary>
                 </motion.div>              )}
               </Suspense>

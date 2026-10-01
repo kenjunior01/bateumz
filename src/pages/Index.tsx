@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import StatsBar from "@/components/StatsBar";
 import StoriesCarousel from "@/components/StoriesCarousel";
+import DailyMissions from "@/components/engagement/DailyMissions";
 import CategoryNav from "@/components/CategoryNav";
 import Footer from "@/components/Footer";
 const ActiveRaffles = lazy(() => import("@/components/ActiveRaffles").then(m => ({ default: m.default })));
@@ -874,6 +875,13 @@ export default function Index() {
           {/* Background decorations for CTA */}
           <motion.div className="absolute -left-20 top-1/2 -translate-y-1/2 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${CYAN}08` }} animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 8, repeat: Infinity }} />
           <motion.div className="absolute -right-20 top-1/3 h-60 w-60 rounded-full blur-[100px] pointer-events-none" style={{ background: `${PURPLE}08` }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 10, repeat: Infinity, delay: 2 }} />
+        </AnimatedSection>
+
+        {/* ─── MISSÕES DIÁRIAS ─── */}
+        <AnimatedSection className="relative py-10" style={{ background: "#050508" }}>
+          <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            <DailyMissions />
+          </div>
         </AnimatedSection>
       </main>
 

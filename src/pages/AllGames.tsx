@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet-async";
-import { Search, Gamepad2, Users, Brain, Zap, Swords, Grid3X3, Target, Sparkles, Dices, LayoutGrid, Hash, Shuffle, Palette, Map, Crosshair, Layers, Radio, Trophy, Pencil, Bomb, SmilePlus, Anchor, CircleDot, Package, RotateCcw, Vote, Skull, Heart, Lock, ChevronRight, Spade, Globe, Crown, Swords as SwordsIcon, Cherry, Keyboard, Shield, Coins } from "lucide-react";
+import { Search, Gamepad2, Users, Brain, Zap, Swords, Grid3X3, Target, Sparkles, Dices, LayoutGrid, Hash, Shuffle, Palette, Map, Crosshair, Layers, Radio, Trophy, Pencil, Bomb, SmilePlus, Anchor, CircleDot, Package, RotateCcw, Vote, Skull, Heart, Lock, ChevronRight, Spade, Globe, Crown, Swords as SwordsIcon, Cherry, Keyboard, Shield, Coins, Rocket, Ticket, Gauge } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { COUNTRIES } from "@/lib/regions";
@@ -100,6 +100,13 @@ const ALL_GAMES: GameDef[] = [
   { id: "djikota", label: "Djikota", emoji: "\uD83C\uDFAF", desc: "Jogo de estrategia tradicional! Desafia os teus amigos.", grad: "from-green-600 to-teal-700", category: "Mocambicano", players: "1v1 / Bot", icon: Target, hasBot: true },
   { id: "bicho", label: "Jogo do Bicho", emoji: "\uD83E\uDD8E", desc: "Classico jogo de apostas brasileiro! Adivinha o animal!", grad: "from-emerald-500 to-green-600", category: "Apostas", players: "1v1 / Bot", icon: Dices, hasBot: true },
   { id: "uri", label: "Uri", emoji: "\uD83D\uDC46", desc: "Desafio rapido de reacao! Sera o mais veloz?", grad: "from-orange-500 to-red-600", category: "Mocambicano", players: "1v1 / Bot", icon: Zap, hasBot: true },
+  { id: "mines", label: "Mines", emoji: "\uD83D\uDEA8", desc: "Encontra as gemas e evita as bombas! Levanta o multiplicador antes de explodir!", grad: "from-orange-500 to-red-600", category: "Instantaneo", players: "Solo", icon: Bomb, hasBot: false },
+  { id: "plinko", label: "Plinko", emoji: "\uD83D\uDD2E", desc: "Larga a bola e mira os multiplicadores das pontas! 8x nas pontas!", grad: "from-fuchsia-500 to-purple-600", category: "Instantaneo", players: "Solo", icon: CircleDot, hasBot: false },
+  { id: "crash", label: "Crash", emoji: "\uD83D\uDE80", desc: "O foguetao sobe sem parar! Levanta antes de explodir para multiplicar!", grad: "from-rose-500 to-red-600", category: "Instantaneo", players: "Solo", icon: Rocket, hasBot: false },
+  { id: "hilo", label: "Hi-Lo", emoji: "\uD83C\uDCCF", desc: "A carta seguinte e maior ou menor? Sequencias multiplicam as moedas!", grad: "from-sky-500 to-indigo-600", category: "Instantaneo", players: "Solo", icon: Spade, hasBot: false },
+  { id: "raspadinha", label: "Raspadinha", emoji: "\uD83C\uDF9F\uFE0F", desc: "Compra e raspa! 3 simbolos iguais e ganhas o premio na hora!", grad: "from-amber-500 to-yellow-500", category: "Instantaneo", players: "Solo", icon: Ticket, hasBot: false },
+  { id: "keno", label: "Keno", emoji: "\uD83D\uDD22", desc: "Escolhe ate 8 numeros e reza pelos 10 sorteados! Ate 100x!", grad: "from-cyan-500 to-blue-600", category: "Instantaneo", players: "Solo", icon: Hash, hasBot: false },
+  { id: "limbo", label: "Limbo", emoji: "\uD83D\uDCC8", desc: "Define o alvo e rola! Resultado igual ou acima do alvo multiplicar-te-a!", grad: "from-purple-500 to-fuchsia-600", category: "Instantaneo", players: "Solo", icon: Gauge, hasBot: false },
 ];
 
 const CATEGORIES = [
@@ -123,6 +130,7 @@ const CATEGORIES = [
   { id: "Digitacao", label: "Digitacao", emoji: "\u2328\uFE0F" },
   { id: "Campanha", label: "Campanha", emoji: "\uD83C\uDFD5\uFE0F" },
   { id: "MMORPG", label: "MMORPG", emoji: "\uD83C\uDF0D" },
+  { id: "Instantaneo", label: "Instantaneos", emoji: "\u26A1" },
 ];
 
 const SPRING = { type: "spring" as const, stiffness: 300, damping: 25 };
