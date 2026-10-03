@@ -18,10 +18,10 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('../keystore/bateu-release.keystore')
-            storePassword 'Bateu2026Secure'
-            keyAlias 'bateu'
-            keyPassword 'Bateu2026Secure'
+            storeFile file(System.getenv("BATEU_KEYSTORE") ?: '../keystore/bateu-release.keystore')
+            storePassword System.getenv("BATEU_KEYSTORE_PASS") ?: 'Bateu2026Secure'
+            keyAlias System.getenv("BATEU_KEY_ALIAS") ?: 'bateu'
+            keyPassword System.getenv("BATEU_KEY_PASS") ?: 'Bateu2026Secure'
         }
     }
     buildTypes {
