@@ -14,8 +14,6 @@ const WinnersSection = lazy(() => import("@/components/WinnersSection").then(m =
 const TrustSignals = lazy(() => import("@/components/TrustSignals").then(m => ({ default: m.default })));
 const LiveFeed = lazy(() => import("@/components/LiveFeed").then(m => ({ default: m.default })));
 const PopularLeaderboard = lazy(() => import("@/components/PopularLeaderboard").then(m => ({ default: m.default })));
-const WhyDifferent = lazy(() => import("@/components/WhyDifferent").then(m => ({ default: m.default })));
-const ProvablyFair = lazy(() => import("@/components/ProvablyFair").then(m => ({ default: m.default })));
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,8 +40,7 @@ import ConfettiBurst from '@/components/ui/ConfettiBurst';
 import { fadeInUp, staggerContainer, cardHover, microShake } from '@/lib/animation-utilities';
 
 /* ─── color tokens ─── */
-const CYAN = "#00d4ff";
-const PURPLE = "#a855f7";
+const CYAN = "#00d4ff";const PURPLE = "#a855f7";
 const GREEN = "#2ea043";
 const BLUE = "#58a6ff";
 const GOLD = "#fbbf24";
@@ -253,6 +250,28 @@ export default function Index() {
     };
     fetchLiveCount();
     const interval = setInterval(fetchLiveCount, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /* stats REAIS da plataforma — sem números inventados */
+  const [realStats, setRealStats] = useState({ users: 0, raffles: 0, regions: 0 });
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [usersRes, rafflesRes, regionsRes] = await Promise.all([
+          (supabase as any).from("profiles_public").select("user_id", { count: "exact", head: true }),
+          (supabase as any).from("raffles").select("id", { count: "exact", head: true }).eq("status", "active"),
+          (supabase as any).from("regions").select("id", { count: "exact", head: true }),
+        ]);
+        setRealStats({
+          users: typeof usersRes.count === "number" ? usersRes.count : 0,
+          raffles: typeof rafflesRes.count === "number" ? rafflesRes.count : 0,
+          regions: typeof regionsRes.count === "number" ? regionsRes.count : 0,
+        });
+      } catch { /* silent */ }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 120_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -789,11 +808,11 @@ export default function Index() {
             <ScrollReveal direction='up' blur={4} scale={0.98}>
             <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-4 mb-12`}>
               {[
-                { icon: Users, value: 48500, suffix: "+", label: "Utilizadores Registados", color: CYAN },
-                { icon: Trophy, value: 12500, suffix: "+", label: "Prémios Entregues", color: GOLD },
-                { icon: Globe, value: 12, suffix: "", label: "Países", color: GREEN },
+                { icon: Users, value: realStats.users, suffix: "", label: "Utilizadores Registados", color: CYAN },
+                { icon: Trophy, value: realStats.raffles, suffix: "", label: "Sorteios Ativos Agora", color: GOLD },
+                { icon: Globe, value: realStats.regions, suffix: "", label: "Países", color: GREEN },
                 { icon: Monitor, value: 69, suffix: "+", label: "Jogos Disponíveis", color: PURPLE },
-              ].map((stat, i) => {
+              ].filter(stat => stat.value > 0).map((stat, i) => {
                 const Icon = stat.icon;
                 return (
                   <motion.div key={stat.label} custom={i} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} className="rounded-2xl p-5 text-center" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${stat.color}10` }}>
@@ -814,20 +833,6 @@ export default function Index() {
           </div>
         </AnimatedSection>
 
-        {/* ═══════════ WHY DIFFERENT ═══════════ */}
-        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #060610, #050508)` }}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <Suspense fallback={<div className="h-40" />}><WhyDifferent /></Suspense>
-          </div>
-        </AnimatedSection>
-
-        {/* ═══════════ PROVABLY FAIR ═══════════ */}
-        <AnimatedSection className="py-12 sm:py-20" style={{ background: `linear-gradient(180deg, #050508, #08060f, #050508)` }}>
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <Suspense fallback={<div className="h-40" />}><ProvablyFair /></Suspense>
-          </div>
-        </AnimatedSection>
-
         {/* ═══════════ CTA SECTION ═══════════ */}
         <AnimatedSection className="relative py-16 sm:py-24 overflow-hidden" style={{
           background: `radial-gradient(ellipse 70% 50% at 50% 50%, ${CYAN}08, transparent),
@@ -843,7 +848,7 @@ export default function Index() {
               <p className="text-base sm:text-lg text-zinc-400 mb-8 max-w-xl mx-auto">
                 Milhares de jogadores já estão a competir, prever e conquistar prémios.
                 <br className="hidden sm:block" />
-                Regista-te gratuitamente e recebe <span className="font-bold" style={{ color: GOLD }}>500 Luck Coins</span> de boas-vindas.
+                Regista-te gratuitamente e recebe <span className="font-bold" style={{ color: GOLD }}>20 MZN de bónus</span> + <span className="font-bold" style={{ color: CYAN }}>50 pontos da sorte</span> de boas-vindas.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
                 <Button size="lg" onClick={() => { sfx.buttonClick(); navigate("/register"); }} className="text-base font-bold px-10 py-6 rounded-xl h-auto transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 40px ${CYAN}25, 0 8px 32px rgba(0,0,0,0.4)` }}>
@@ -857,8 +862,9 @@ export default function Index() {
               <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
                 {[
                   { icon: ShieldCheck, label: "Plataforma Segura", color: CYAN },
-                  { icon: Users, label: "48.500+ Utilizadores", color: GREEN },
+                  { icon: Users, label: realStats.users > 0 ? `${realStats.users.toLocaleString("pt-PT")}+ Utilizadores` : "Comunidade a Crescer", color: GREEN },
                   { icon: Zap, label: "Registo em 30s", color: GOLD },
+                  { icon: Gift, label: "Bónus de Boas-vindas", color: CYAN },
                 ].map((badge) => {
                   const BIcon = badge.icon;
                   return (

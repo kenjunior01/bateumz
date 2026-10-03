@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Lock, Gift, Flame, Sparkles, Star, Coins, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const REWARDS = [5, 10, 15, 25, 40, 60, 100];
 const STORAGE_KEY = 'bateu_daily_rewards';
@@ -106,6 +107,22 @@ export function useDailyReward() {
 
     setData(newData);
     saveData(newData);
+
+    // Server-authoritative: credita saldo real via RPC (idempotente no servidor).
+    // O estado local serve apenas como cache otimista da UI.
+    supabase.rpc('claim_daily_reward').then(({ data: res, error }) => {
+      if (error) {
+        // RPC indisponível (ex: migração ainda não corrida) → manter apenas local
+        return;
+      }
+      const r = res as { ok?: boolean; amount?: number; streak?: number } | null;
+      if (r?.ok && typeof r.amount === 'number') {
+        // Sincronizar com o valor real do servidor
+        setData(prev => ({ ...prev, lastClaimDate: today }));
+      } else if (r && r.ok === false && r.amount === undefined) {
+        // already_claimed / not_authenticated — não reverte a UI (claim legítimo do dia)
+      }
+    }).catch(() => undefined);
   }, [data]);
 
   useEffect(() => {

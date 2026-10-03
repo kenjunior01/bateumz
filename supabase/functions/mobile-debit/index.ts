@@ -1,18 +1,56 @@
 // ============================================================
 // Bateu — mobile-debit (MPesa / e-Mola Débito Direto — C2B Push)
 // ------------------------------------------------------------
-// Suporta dois modos (configuráveis via segredos do Supabase):
+// Suporta dois modos, configuráveis em DUPLA origem:
+//   1. Painel Admin → Configurações → APIs (platform_settings key "debit_api")
+//   2. Segredos do Supabase via Deno.env (fallback)
+// A config do painel tem PRIORIDADE sobre os segredos.
 //
 // MODO 1 — Gateway agregador genérico (recomendado p/ "debito pay"):
-//   segredos: DEBIT_GATEWAY_URL, DEBIT_GATEWAY_KEY (opcional)
 //   O gateway recebe: { provider, phone, amount, reference, currency }
 //   e responde: { success: boolean, transaction_id?, status?, message? }
 //
 // MODO 2 — API oficial Vodacom MZ (MPesa C2B):
-//   segredos: MPESA_SP_CODE, MPESA_API_PORTAL_KEY, MPESA_BASE_URL (opcional)
+//   sp_code + portal key + base url
 //
 // e-Mola sem API pública documentada usa sempre o MODO 1.
 // ============================================================
+
+interface DebitApiConfig {
+  mode: string;
+  gateway_url: string;
+  gateway_key: string;
+  mpesa_sp_code: string;
+  mpesa_portal_key: string;
+  mpesa_public_key: string;
+  mpesa_base_url: string;
+  providers_enabled: Record<string, boolean>;
+}
+
+/** Lê a config da API do painel Admin (platform_settings) com fallback aos segredos env. */
+async function getDebitConfig(): Promise<DebitApiConfig> {
+  let db: Partial<DebitApiConfig> = {};
+  try {
+    const { data } = await sbAdmin()
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "debit_api")
+      .maybeSingle();
+    if (data?.value && typeof data.value === "object") db = data.value as Partial<DebitApiConfig>;
+  } catch {
+    // tabela/linha ausente → usar apenas env
+  }
+  return {
+    mode: db.mode ?? "gateway",
+    gateway_url: db.gateway_url || Deno.env.get("DEBIT_GATEWAY_URL") || "",
+    gateway_key: db.gateway_key || Deno.env.get("DEBIT_GATEWAY_KEY") || "",
+    mpesa_sp_code: db.mpesa_sp_code || Deno.env.get("MPESA_SP_CODE") || "",
+    mpesa_portal_key: db.mpesa_portal_key || Deno.env.get("MPESA_API_PORTAL_KEY") || "",
+    mpesa_public_key: db.mpesa_public_key || Deno.env.get("MPESA_API_PUBLIC_KEY") || "",
+    mpesa_base_url: db.mpesa_base_url || Deno.env.get("MPESA_BASE_URL") || "https://api.sandbox.vm.co.mz:18352",
+    providers_enabled: db.providers_enabled ?? { mpesa: true, emola: true },
+  };
+}
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
 
 const corsHeaders = {
@@ -74,10 +112,10 @@ async function getUserId(req: Request): Promise<string | null> {
 }
 
 // ---------- MODO 1: gateway agregador genérico ----------
-async function gatewayDebit(provider: string, phone: string, amount: number, reference: string) {
-  const url = Deno.env.get("DEBIT_GATEWAY_URL");
+async function gatewayDebit(provider: string, phone: string, amount: number, reference: string, cfg: DebitApiConfig) {
+  const url = cfg.gateway_url;
   if (!url) throw new Error("gateway_not_configured");
-  const key = Deno.env.get("DEBIT_GATEWAY_KEY");
+  const key = cfg.gateway_key;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -97,17 +135,17 @@ async function gatewayDebit(provider: string, phone: string, amount: number, ref
 }
 
 // ---------- MODO 2: API oficial Vodacom MZ (MPesa) ----------
-async function mpesaOfficialDebit(phone: string, amount: number, reference: string) {
-  const baseUrl = Deno.env.get("MPESA_BASE_URL") ?? "https://api.sandbox.vm.co.mz:18352";
-  const spCode = Deno.env.get("MPESA_SP_CODE");
-  const portalKey = Deno.env.get("MPESA_API_PORTAL_KEY");
+async function mpesaOfficialDebit(phone: string, amount: number, reference: string, cfg: DebitApiConfig) {
+  const baseUrl = cfg.mpesa_base_url || "https://api.sandbox.vm.co.mz:18352";
+  const spCode = cfg.mpesa_sp_code;
+  const portalKey = cfg.mpesa_portal_key;
   if (!spCode || !portalKey) throw new Error("mpesa_not_configured");
 
   // OAuth2 token
   const tokenRes = await fetch(`${baseUrl}/ipg/v1x/token/`, {
     method: "GET",
     headers: {
-      Authorization: `Basic ${btoa(`${portalKey}:${Deno.env.get("MPESA_API_PUBLIC_KEY") ?? portalKey}`)}`,
+      Authorization: `Basic ${btoa(`${portalKey}:${cfg.mpesa_public_key || portalKey}`)}`,
       Origin: "developer.mpesa.vm.co.mz",
     },
   });
@@ -168,12 +206,17 @@ Deno.serve(async (req) => {
 
     const reference = `BATEU-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
+    const cfg = await getDebitConfig();
+    if (cfg.providers_enabled && cfg.providers_enabled[provider] === false) {
+      return fail("este método de pagamento está temporariamente indisponível", 503);
+    }
+
     try {
       let result: { ok: boolean; txnId: string; status: string; detail: string | null; raw: unknown };
-      if (provider === "mpesa" && Deno.env.get("MPESA_SP_CODE")) {
-        result = await mpesaOfficialDebit(phone, amount, reference);
+      if (provider === "mpesa" && cfg.mpesa_sp_code) {
+        result = await mpesaOfficialDebit(phone, amount, reference, cfg);
       } else {
-        result = await gatewayDebit(provider, phone, amount, reference);
+        result = await gatewayDebit(provider, phone, amount, reference, cfg);
       }
 
       const status = result.status === "confirmed" ? "confirmed" : result.ok ? "processing" : "failed";
@@ -188,7 +231,7 @@ Deno.serve(async (req) => {
           provider_txn_id: result.txnId,
           status,
           status_detail: result.detail,
-          gateway_mode: provider === "mpesa" && Deno.env.get("MPESA_SP_CODE") ? "mpesa_official" : "gateway",
+          gateway_mode: provider === "mpesa" && cfg.mpesa_sp_code ? "mpesa_official" : "gateway",
           raw_response: result.raw ?? null,
         })
         .select()
@@ -214,7 +257,7 @@ Deno.serve(async (req) => {
     } catch (e) {
       const msg = String(e?.message ?? e);
       if (msg.includes("not_configured")) {
-        return fail("gateway indisponível — use o método manual ou configure DEBIT_GATEWAY_URL", 503);
+        return fail("gateway indisponível — configure a API no painel Admin (Configurações → APIs) ou defina DEBIT_GATEWAY_URL", 503);
       }
       return fail("gateway_error: " + msg, 502);
     }

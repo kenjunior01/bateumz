@@ -4,6 +4,21 @@ O débito direto (push C2B) já está **implementado e pronto no app**. Faltam a
 as tuas credenciais de API, que ficam seguras no servidor (Supabase Edge Function).
 O cliente NUNCA vê as chaves.
 
+## ✅ NOVO — Ativação pelo Painel Admin (sem terminal)
+
+1. Entra no app com uma conta **admin** → `/admin/settings`
+2. Abre o separador **"APIs Débito"**
+3. Escolhe o modo (Gateway agregador ou API oficial MPesa) e preenche:
+   - Gateway: **URL** + **API Key**
+   - MPesa oficial (opcional): **SP Code**, **Portal Key**, **Public Key**, **Base URL**
+4. Ativa/desativa cada método (MPesa, e-Mola, Conta Móvel, TkaX)
+5. Clica **Guardar Credenciais** e depois **Testar Ligação** (diagnóstico instantâneo)
+
+As credenciais do painel têm **prioridade** sobre os segredos do servidor
+(`platform_settings` key `debit_api`, leitura restrita a admins por RLS).
+A edge function `mobile-debit` lê primeiro do painel e cai para os segredos
+`DEBIT_GATEWAY_URL` / `DEBIT_GATEWAY_KEY` / `MPESA_*` se o campo estiver vazio.
+
 ## Como funciona (fluxo no app)
 
 1. Utilizador escolhe **M-Pesa** ou **e-Mola** no Depósito

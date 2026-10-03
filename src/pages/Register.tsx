@@ -219,22 +219,28 @@ export default function Register() {
             animate={{ y: [0, -15, 0], rotate: [0, 10, -10, 0] }}
             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} />
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}>
-            <h2 className="font-display text-2xl font-bold text-foreground">Welcome to Bateu! 🎊</h2>
+            <h2 className="font-display text-2xl font-bold text-foreground">Bem-vindo ao Bateu! 🎊</h2>
           </motion.div>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
             className="text-sm text-muted-foreground mt-3">
             {autoSignedIn
-              ? <>Your account <strong className="text-foreground">{email}</strong> is ready.</>
-              : <>We sent a confirmation link to <strong className="text-foreground">{email}</strong></>}
+              ? <>A tua conta <strong className="text-foreground">{email}</strong> está pronta.</>
+              : <>Enviámos um link de confirmação para <strong className="text-foreground">{email}</strong></>}
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
             className="mt-6 space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-xs text-foreground">
+              <Gift className="h-5 w-5 text-amber-500 shrink-0" />
+              <span>
+                <strong className="text-amber-500">Bónus de boas-vindas ativo:</strong> 20 MZN de saldo + 50 pontos da sorte já creditados na tua carteira!
+              </span>
+            </div>
             <div className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-foreground">
               <Mail className="h-5 w-5 text-primary shrink-0" />
               <span>
                 {autoSignedIn
-                  ? "You're signed in — start joining raffles and winning prizes!"
-                  : "Check your email to activate your account and start winning prizes!"}
+                  ? "Estás dentro — participa nos sorteios e começa a ganhar já!"
+                  : "Confirma o email para ativar a conta e receber o teu bónus!"}
               </span>
             </div>
             <Link
