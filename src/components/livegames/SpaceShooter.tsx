@@ -986,7 +986,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
               </motion.span>
             </div>
             <div className="flex gap-1.5 mt-0.5">{renderLives(lives.p1, "cyan")}</div>
-            <span className="text-[10px] text-zinc-500 font-mono">A/D mover \u00B7 W atirar</span>
+            <span className="text-[10px] text-zinc-500 font-mono">A/D mover · W atirar</span>
           </div>
 
           {/* Wave Center */}
@@ -1045,7 +1045,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
             </div>
             <div className="flex gap-1.5 mt-0.5">{renderLives(lives.p2, "pink")}</div>
             <span className="text-[10px] text-zinc-500 font-mono">
-              {"\u2190"}{"\u2192"} mover \u00B7 {"\u2191"} atirar
+              {"←"}{"→"} mover · {"↑"} atirar
             </span>
           </div>
         </div>
@@ -1094,7 +1094,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                   transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
                   className="mb-4 text-center"
                 >
-                  <span className="text-6xl">{"\uD83D\uDE80"}</span>
+                  <span className="text-6xl">{"🚀"}</span>
                 </motion.div>
               </motion.div>
               <motion.h2
@@ -1148,7 +1148,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 15 }}
                 className="mb-3"
               >
-                <span className="text-5xl">{"\uD83C\uDFC6"}</span>
+                <span className="text-5xl">{"🏆"}</span>
               </motion.div>
 
               {/* Title */}
@@ -1240,7 +1240,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                   variant="outline"
                   className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 rounded-xl px-5 transition-all duration-200"
                 >
-                  Pr\u00f3ximo Round
+                  Próximo Round
                 </Button>
                 <Button
                   onClick={resetAll}
@@ -1275,7 +1275,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("a", false)}
                 className="w-14 h-14 rounded-2xl bg-cyan-950/50 border border-cyan-500/20 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 active:border-cyan-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\u25C0"}
+                {"◀"}
               </button>
               <button
                 onTouchStart={(e) => { e.preventDefault(); handleTouch("p1shoot", true); }}
@@ -1285,7 +1285,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("p1shoot", false)}
                 className="w-14 h-14 rounded-2xl bg-cyan-950/50 border border-cyan-500/20 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 active:border-cyan-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\uD83D\uDD2B"}
+                {"🔫"}
               </button>
               <button
                 onTouchStart={(e) => { e.preventDefault(); handleTouch("d", true); }}
@@ -1295,7 +1295,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("d", false)}
                 className="w-14 h-14 rounded-2xl bg-cyan-950/50 border border-cyan-500/20 text-cyan-400 text-xl font-bold active:bg-cyan-800/50 active:border-cyan-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\u25B6"}
+                {"▶"}
               </button>
             </div>
 
@@ -1308,7 +1308,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("ArrowLeft", false)}
                 className="w-14 h-14 rounded-2xl bg-pink-950/50 border border-pink-500/20 text-pink-400 text-xl font-bold active:bg-pink-800/50 active:border-pink-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\u25C0"}
+                {"◀"}
               </button>
               <button
                 onTouchStart={(e) => { e.preventDefault(); handleTouch("p2shoot", true); }}
@@ -1318,7 +1318,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("p2shoot", false)}
                 className="w-14 h-14 rounded-2xl bg-pink-950/50 border border-pink-500/20 text-pink-400 text-xl font-bold active:bg-pink-800/50 active:border-pink-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\uD83D\uDD2B"}
+                {"🔫"}
               </button>
               <button
                 onTouchStart={(e) => { e.preventDefault(); handleTouch("ArrowRight", true); }}
@@ -1328,7 +1328,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
                 onMouseLeave={() => handleTouch("ArrowRight", false)}
                 className="w-14 h-14 rounded-2xl bg-pink-950/50 border border-pink-500/20 text-pink-400 text-xl font-bold active:bg-pink-800/50 active:border-pink-500/40 active:scale-95 select-none touch-none transition-all duration-100"
               >
-                {"\u25B6"}
+                {"▶"}
               </button>
             </div>
           </motion.div>
@@ -1347,7 +1347,7 @@ const SpaceShooter = ({ onScore, liveCode }: Props) => {
           >
             <p>
               <span className="inline-block w-2.5 h-2.5 bg-cyan-400 rounded-sm mr-1.5 opacity-70" />
-              Tri\u00e2ngulos / Diamantes = {POINTS_NORMAL} pts
+              Triângulos / Diamantes = {POINTS_NORMAL} pts
             </p>
             <p>
               <span className="inline-block w-2.5 h-2.5 bg-amber-400 rounded-sm mr-1.5 opacity-70" />

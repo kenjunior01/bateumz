@@ -325,7 +325,7 @@ export default function DuelosPage() {
       challengeType === 'duel'
         ? `Duelo lancado! A espera de ${opponentUsername || 'oponente'}...`
         : 'Desafio de grupo criado!',
-      challengeType === 'duel' ? '\u2694\uFE0F' : '\uD83C\uDFB2',
+      challengeType === 'duel' ? '⚔️' : '🎲',
       challengeType === 'duel' ? '#00d4ff' : '#7b2ff7',
     );
     toast({

@@ -17,7 +17,7 @@ interface Game {
 
 const GAME_META: Record<string, { emoji: string; label: string; grad: string; route: string }> = {
   spin: { emoji: "\u{1F3B2}", label: "Roleta", grad: "from-amber-500 to-orange-600", route: "spin-wheel" },
-  millionaire: { emoji: "\u{1F4B0}", label: "Million\u00E1rio", grad: "from-violet-500 to-purple-600", route: "millionaire" },
+  millionaire: { emoji: "\u{1F4B0}", label: "Millionário", grad: "from-violet-500 to-purple-600", route: "millionaire" },
   roulette: { emoji: "\u{1F3AF}", label: "Desafios", grad: "from-pink-500 to-rose-600", route: "roulette" },
   bingo: { emoji: "\u{1F3B0}", label: "Bingo", grad: "from-emerald-500 to-teal-600", route: "bingo" },
   quiz: { emoji: "\u{1F9E0}", label: "Quiz", grad: "from-blue-500 to-indigo-600", route: "quiz" },

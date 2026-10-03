@@ -33,20 +33,20 @@ export interface BattleInvitation {
 }
 
 export const BATTLE_GAMES = [
-  { id: "tictactoe", label: "Galo VS", emoji: "\u2715", minBet: 10, grad: "from-violet-500 to-pink-500" },
-  { id: "rps", label: "Pedra Papel Tesoura", emoji: "\u270a", minBet: 10, grad: "from-amber-500 to-orange-600" },
-  { id: "reactionrace", label: "Corrida de Reacao", emoji: "\u26a1", minBet: 10, grad: "from-yellow-500 to-red-600" },
-  { id: "quickmath", label: "Duelo de Matematica", emoji: "\ud83e\uddee", minBet: 15, grad: "from-cyan-500 to-blue-700" },
-  { id: "wordscramble", label: "Palavras Embaralhadas", emoji: "\ud83d\udcdd", minBet: 10, grad: "from-rose-500 to-pink-600" },
-  { id: "memorycards", label: "Memoria VS Cartas", emoji: "\ud83c\udccf", minBet: 15, grad: "from-indigo-500 to-violet-600" },
-  { id: "connect4", label: "Ligar 4", emoji: "\ud83d\udd34", minBet: 15, grad: "from-blue-500 to-yellow-500" },
-  { id: "checkers", label: "Damas", emoji: "\u265f", minBet: 20, grad: "from-amber-700 to-red-800" },
-  { id: "chess", label: "Xadrez", emoji: "\u265a", minBet: 25, grad: "from-slate-700 to-zinc-900" },
-  { id: "pongvs", label: "Pong VS", emoji: "\ud83c\udfbd", minBet: 15, grad: "from-blue-600 to-indigo-700" },
-  { id: "snakebattle", label: "Batalha de Cobras", emoji: "\ud83d\udc0d", minBet: 15, grad: "from-emerald-500 to-teal-600" },
-  { id: "colorcatch", label: "Pesca Cores", emoji: "\ud83c\udfa8", minBet: 10, grad: "from-pink-500 to-rose-600" },
-  { id: "vsduel", label: "Arena de Duelo VS", emoji: "\u2694\ufe0f", minBet: 20, grad: "from-red-500 to-orange-600" },
-  { id: "towerstack", label: "Torre VS", emoji: "\ud83c\udfd7\ufe0f", minBet: 10, grad: "from-sky-500 to-blue-600" },
+  { id: "tictactoe", label: "Galo VS", emoji: "✕", minBet: 10, grad: "from-violet-500 to-pink-500" },
+  { id: "rps", label: "Pedra Papel Tesoura", emoji: "✊", minBet: 10, grad: "from-amber-500 to-orange-600" },
+  { id: "reactionrace", label: "Corrida de Reacao", emoji: "⚡", minBet: 10, grad: "from-yellow-500 to-red-600" },
+  { id: "quickmath", label: "Duelo de Matematica", emoji: "🧮", minBet: 15, grad: "from-cyan-500 to-blue-700" },
+  { id: "wordscramble", label: "Palavras Embaralhadas", emoji: "📝", minBet: 10, grad: "from-rose-500 to-pink-600" },
+  { id: "memorycards", label: "Memoria VS Cartas", emoji: "🃏", minBet: 15, grad: "from-indigo-500 to-violet-600" },
+  { id: "connect4", label: "Ligar 4", emoji: "🔴", minBet: 15, grad: "from-blue-500 to-yellow-500" },
+  { id: "checkers", label: "Damas", emoji: "♟", minBet: 20, grad: "from-amber-700 to-red-800" },
+  { id: "chess", label: "Xadrez", emoji: "♚", minBet: 25, grad: "from-slate-700 to-zinc-900" },
+  { id: "pongvs", label: "Pong VS", emoji: "🎽", minBet: 15, grad: "from-blue-600 to-indigo-700" },
+  { id: "snakebattle", label: "Batalha de Cobras", emoji: "🐍", minBet: 15, grad: "from-emerald-500 to-teal-600" },
+  { id: "colorcatch", label: "Pesca Cores", emoji: "🎨", minBet: 10, grad: "from-pink-500 to-rose-600" },
+  { id: "vsduel", label: "Arena de Duelo VS", emoji: "⚔️", minBet: 20, grad: "from-red-500 to-orange-600" },
+  { id: "towerstack", label: "Torre VS", emoji: "🏗️", minBet: 10, grad: "from-sky-500 to-blue-600" },
 ] as const;
 
 export async function createBattle(userId: string, gameId: string, gameLabel: string, wagerAmount: number, bestOf = 1): Promise<UserBattle | null> {

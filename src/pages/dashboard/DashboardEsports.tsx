@@ -588,7 +588,7 @@ export default function DashboardEsports() {
                 <SelectContent>
                   {games.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
-                      {GAME_EMOJIS[g.slug] || "\uD83C\uDFAE"} {g.name} {g.genre ? `(${g.genre})` : ""}
+                      {GAME_EMOJIS[g.slug] || "🎮"} {g.name} {g.genre ? `(${g.genre})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1133,7 +1133,7 @@ export default function DashboardEsports() {
               >
                 {champs.map((champ) => {
                   const game = gameMap.get(champ.game_id);
-                  const emoji = game ? (GAME_EMOJIS[game.slug] || "\uD83C\uDFAE") : "\uD83C\uDFAE";
+                  const emoji = game ? (GAME_EMOJIS[game.slug] || "🎮") : "🎮";
                   return (
                     <motion.div
                       key={champ.id}

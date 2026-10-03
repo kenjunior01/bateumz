@@ -676,7 +676,7 @@ const BattleRoyaleGame = ({ onScore, liveCode }: Props) => {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 10px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("\u2605", sx, baseY + 4);
+      ctx.fillText("★", sx, baseY + 4);
       if (!sd.landed) {
         ctx.strokeStyle = "rgba(251,191,36,0.5)";
         ctx.lineWidth = 1;
@@ -1287,7 +1287,7 @@ const BattleRoyaleGame = ({ onScore, liveCode }: Props) => {
                 transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.1 }}
                 className="mb-2"
               >
-                <span className="text-6xl">\uD83C\uDFC6</span>
+                <span className="text-6xl">🏆</span>
               </motion.div>
               <motion.h2
                 initial={{ y: 20, opacity: 0 }}
@@ -1382,7 +1382,7 @@ const BattleRoyaleGame = ({ onScore, liveCode }: Props) => {
                     transition={{ type: "spring", damping: 10, stiffness: 200, delay: 0.2 }}
                     className="mb-3"
                   >
-                    <span className="text-6xl">\uD83C\uDFC6</span>
+                    <span className="text-6xl">🏆</span>
                   </motion.div>
                   <motion.h2
                     initial={{ y: 30, opacity: 0 }}
@@ -1410,7 +1410,7 @@ const BattleRoyaleGame = ({ onScore, liveCode }: Props) => {
                     transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.2 }}
                     className="mb-3"
                   >
-                    <span className="text-6xl">\u2620\uFE0F</span>
+                    <span className="text-6xl">☠️</span>
                   </motion.div>
                   <motion.h2
                     initial={{ y: 30, opacity: 0 }}

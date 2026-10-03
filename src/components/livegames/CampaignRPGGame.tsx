@@ -67,37 +67,37 @@ interface FloatingDamage {
 // ============================================================
 
 const CLASSES = [
-  { name: "Guerreiro", emoji: "\u2694\uFE0F", desc: "Alto ataque e defesa", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
-  { name: "Mago", emoji: "\uD83D\uDD2E", desc: "Poder mag devastador", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
-  { name: "Arqueiro", emoji: "\uD83C\uDFF9", desc: "Ataques rapidos e precisos", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
-  { name: "Ladino", emoji: "\uD83D\uDDE1\uFE0F", desc: "Criticos mortais", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
-  { name: "Clerigo", emoji: "\u2728", desc: "Curandeiro e suporte", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
-  { name: "Barbaro", emoji: "\uD83E\uDE9A", desc: "Furia bruta", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
+  { name: "Guerreiro", emoji: "⚔️", desc: "Alto ataque e defesa", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
+  { name: "Mago", emoji: "🔮", desc: "Poder mag devastador", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
+  { name: "Arqueiro", emoji: "🏹", desc: "Ataques rapidos e precisos", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
+  { name: "Ladino", emoji: "🗡️", desc: "Criticos mortais", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
+  { name: "Clerigo", emoji: "✨", desc: "Curandeiro e suporte", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
+  { name: "Barbaro", emoji: "🪚", desc: "Furia bruta", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
 ];
 
 const SKILLS: Record<number, { name: string; emoji: string; mpCost: number; type: "damage" | "heal" | "buff"; power: number; desc: string }[]> = {
-  0: [{ name: "Golpe Heroico", emoji: "\u2694\uFE0F", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }],
-  1: [{ name: "Bola de Fogo", emoji: "\uD83D\uDD25", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "\u2744\uFE0F", mpCost: 12, type: "damage", power: 1.6, desc: "Congela" }],
-  2: [{ name: "Tiro Preciso", emoji: "\uD83C\uDFAF", mpCost: 8, type: "damage", power: 2.0, desc: "Critico" }],
-  3: [{ name: "Golpe Sombrio", emoji: "\uD83C\uDF11", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }],
-  4: [{ name: "Cura Divina", emoji: "\uD83D\uDC9A", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "\uD83D\uDEE1\uFE0F", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
-  5: [{ name: "Furia", emoji: "\uD83D\uDEA2", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "\uD83C\uDF0B", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
+  0: [{ name: "Golpe Heroico", emoji: "⚔️", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }],
+  1: [{ name: "Bola de Fogo", emoji: "🔥", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "❄️", mpCost: 12, type: "damage", power: 1.6, desc: "Congela" }],
+  2: [{ name: "Tiro Preciso", emoji: "🎯", mpCost: 8, type: "damage", power: 2.0, desc: "Critico" }],
+  3: [{ name: "Golpe Sombrio", emoji: "🌑", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }],
+  4: [{ name: "Cura Divina", emoji: "💚", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "🛡️", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
+  5: [{ name: "Furia", emoji: "🚢", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "🌋", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
 };
 
 const SHOP_ITEMS: Equipment[] = [
-  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "\uD83D\uDDE1\uFE0F" },
-  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "\u2694\uFE0F" },
-  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "\uD83D\uDD2E" },
-  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "\uD83C\uDFF9" },
-  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "\uD83D\uDDE1\uFE0F" },
-  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "\uD83E\uDDE5" },
-  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "\uD83D\uDC09" },
-  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "\uD83D\uDC8D" },
-  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "\uD83D\uDCFF" },
-  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "\uD83D\uDC62" },
-  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "\uD83D\uDC51" },
+  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "🗡️" },
+  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "⚔️" },
+  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "🔮" },
+  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "🏹" },
+  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "🗡️" },
+  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "🛡️" },
+  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "🛡️" },
+  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "🧥" },
+  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "🐉" },
+  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "💍" },
+  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "📿" },
+  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "👢" },
+  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "👑" },
 ];
 
 function makeEnemy(name: string, emoji: string, hp: number, atk: number, def: number, spd: number, xp: number, gold: number, color: string): Enemy {
@@ -106,53 +106,53 @@ function makeEnemy(name: string, emoji: string, hp: number, atk: number, def: nu
 
 const WORLDS: World[] = [
   {
-    name: "Floresta Escura", emoji: "\uD83C\uDF32", color: "#22c55e",
+    name: "Floresta Escura", emoji: "🌲", color: "#22c55e",
     levels: [
-      { id: 1, name: "Encontro Inicial", enemies: [makeEnemy("Goblin", "\uD83D\uDC7A", 40, 8, 3, 5, 15, 20, "#4ade80")], stars: [30, 15, 0] },
-      { id: 2, name: "A Emboscada", enemies: [makeEnemy("Goblin", "\uD83D\uDC7A", 45, 9, 3, 5, 18, 22, "#4ade80"), makeEnemy("Lobo", "\uD83D\uDC3A", 35, 10, 2, 8, 20, 25, "#94a3b8")], stars: [30, 15, 0] },
-      { id: 3, name: "Cova dos Lobos", enemies: [makeEnemy("Lobo", "\uD83D\uDC3A", 40, 11, 3, 8, 22, 28, "#94a3b8"), makeEnemy("Lobo Alfa", "\uD83D\uDC3A", 60, 13, 4, 7, 30, 35, "#64748b")], stars: [25, 12, 0] },
-      { id: 4, name: "O Sentinela", enemies: [makeEnemy("Goblin Guerreiro", "\uD83D\uDC7A", 55, 12, 5, 6, 25, 30, "#166534"), makeEnemy("Lobo", "\uD83D\uDC3A", 40, 10, 2, 8, 18, 22, "#94a3b8")], stars: [25, 12, 0] },
-      { id: 5, name: "Chefe: Aranha Rainha", enemies: [makeEnemy("Aranha", "\uD83D\uDD77\uFE0F", 30, 8, 2, 10, 12, 15, "#a855f7")], boss: makeEnemy("Aranha Rainha", "\uD83D\uDD77\uFE0F", 120, 15, 6, 8, 60, 100, "#7c3aed"), stars: [25, 10, 0] },
+      { id: 1, name: "Encontro Inicial", enemies: [makeEnemy("Goblin", "👺", 40, 8, 3, 5, 15, 20, "#4ade80")], stars: [30, 15, 0] },
+      { id: 2, name: "A Emboscada", enemies: [makeEnemy("Goblin", "👺", 45, 9, 3, 5, 18, 22, "#4ade80"), makeEnemy("Lobo", "🐺", 35, 10, 2, 8, 20, 25, "#94a3b8")], stars: [30, 15, 0] },
+      { id: 3, name: "Cova dos Lobos", enemies: [makeEnemy("Lobo", "🐺", 40, 11, 3, 8, 22, 28, "#94a3b8"), makeEnemy("Lobo Alfa", "🐺", 60, 13, 4, 7, 30, 35, "#64748b")], stars: [25, 12, 0] },
+      { id: 4, name: "O Sentinela", enemies: [makeEnemy("Goblin Guerreiro", "👺", 55, 12, 5, 6, 25, 30, "#166534"), makeEnemy("Lobo", "🐺", 40, 10, 2, 8, 18, 22, "#94a3b8")], stars: [25, 12, 0] },
+      { id: 5, name: "Chefe: Aranha Rainha", enemies: [makeEnemy("Aranha", "🕷️", 30, 8, 2, 10, 12, 15, "#a855f7")], boss: makeEnemy("Aranha Rainha", "🕷️", 120, 15, 6, 8, 60, 100, "#7c3aed"), stars: [25, 10, 0] },
     ],
   },
   {
-    name: "Catacumbas", emoji: "\uD83D\uDC80", color: "#a855f7",
+    name: "Catacumbas", emoji: "💀", color: "#a855f7",
     levels: [
-      { id: 6, name: "Corredor Sombrio", enemies: [makeEnemy("Esqueleto", "\uD83D\uDC80", 60, 12, 6, 7, 25, 30, "#c084fc")], stars: [30, 15, 0] },
-      { id: 7, name: "Armadilha Mortal", enemies: [makeEnemy("Esqueleto", "\uD83D\uDC80", 65, 13, 6, 7, 28, 32, "#c084fc"), makeEnemy("Zumbi", "\uD83E\uDDDF", 80, 10, 8, 4, 30, 35, "#65a30d")], stars: [25, 12, 0] },
-      { id: 8, name: "Sala dos Mortos", enemies: [makeEnemy("Zumbi", "\uD83E\uDDDF", 85, 11, 8, 4, 32, 38, "#65a30d"), makeEnemy("Fantasma", "\uD83D\uDC7B", 50, 16, 3, 12, 35, 40, "#e2e8f0")], stars: [25, 12, 0] },
-      { id: 9, name: "O Necromante", enemies: [makeEnemy("Esqueleto Mago", "\uD83D\uDC80", 55, 18, 4, 9, 38, 42, "#9333ea"), makeEnemy("Fantasma", "\uD83D\uDC7B", 50, 14, 3, 12, 30, 35, "#e2e8f0")], stars: [20, 10, 0] },
-      { id: 10, name: "Chefe: Lorde Morto", enemies: [makeEnemy("Esqueleto", "\uD83D\uDC80", 50, 12, 5, 7, 22, 28, "#c084fc")], boss: makeEnemy("Lorde Morto", "\u2620\uFE0F", 200, 20, 10, 10, 100, 200, "#581c87"), stars: [25, 10, 0] },
+      { id: 6, name: "Corredor Sombrio", enemies: [makeEnemy("Esqueleto", "💀", 60, 12, 6, 7, 25, 30, "#c084fc")], stars: [30, 15, 0] },
+      { id: 7, name: "Armadilha Mortal", enemies: [makeEnemy("Esqueleto", "💀", 65, 13, 6, 7, 28, 32, "#c084fc"), makeEnemy("Zumbi", "🧟", 80, 10, 8, 4, 30, 35, "#65a30d")], stars: [25, 12, 0] },
+      { id: 8, name: "Sala dos Mortos", enemies: [makeEnemy("Zumbi", "🧟", 85, 11, 8, 4, 32, 38, "#65a30d"), makeEnemy("Fantasma", "👻", 50, 16, 3, 12, 35, 40, "#e2e8f0")], stars: [25, 12, 0] },
+      { id: 9, name: "O Necromante", enemies: [makeEnemy("Esqueleto Mago", "💀", 55, 18, 4, 9, 38, 42, "#9333ea"), makeEnemy("Fantasma", "👻", 50, 14, 3, 12, 30, 35, "#e2e8f0")], stars: [20, 10, 0] },
+      { id: 10, name: "Chefe: Lorde Morto", enemies: [makeEnemy("Esqueleto", "💀", 50, 12, 5, 7, 22, 28, "#c084fc")], boss: makeEnemy("Lorde Morto", "☠️", 200, 20, 10, 10, 100, 200, "#581c87"), stars: [25, 10, 0] },
     ],
   },
   {
-    name: "Vulcao Ardente", emoji: "\uD83C\uDF0B", color: "#ef4444",
+    name: "Vulcao Ardente", emoji: "🌋", color: "#ef4444",
     levels: [
-      { id: 11, name: "Rio de Lava", enemies: [makeEnemy("Salamandra", "\uD83E\uDD8E", 90, 16, 8, 10, 40, 45, "#f97316")], stars: [30, 15, 0] },
-      { id: 12, name: "Ponte de Pedra", enemies: [makeEnemy("Salamandra", "\uD83E\uDD8E", 95, 17, 8, 10, 42, 48, "#f97316"), makeEnemy("Golem de Fogo", "\uD83D\uDD25", 110, 14, 12, 5, 45, 50, "#dc2626")], stars: [25, 12, 0] },
-      { id: 13, name: "Caverna de Magma", enemies: [makeEnemy("Golem de Fogo", "\uD83D\uDD25", 120, 15, 12, 5, 48, 52, "#dc2626"), makeEnemy("Magma Slime", "\uD83D\uDD34", 80, 20, 4, 8, 42, 46, "#b91c1c")], stars: [25, 12, 0] },
-      { id: 14, name: "A Forja", enemies: [makeEnemy("Ferreiro Demonio", "\uD83D\uDC7F", 130, 18, 10, 9, 52, 58, "#991b1b"), makeEnemy("Golem", "\uD83D\uDD25", 100, 14, 14, 5, 45, 50, "#dc2626")], stars: [20, 10, 0] },
-      { id: 15, name: "Chefe: Dragao de Fogo", enemies: [makeEnemy("Golem", "\uD83D\uDD25", 80, 14, 10, 5, 35, 40, "#dc2626")], boss: makeEnemy("Dragao de Fogo", "\uD83D\uDC09", 300, 25, 14, 12, 150, 350, "#7f1d1d"), stars: [25, 10, 0] },
+      { id: 11, name: "Rio de Lava", enemies: [makeEnemy("Salamandra", "🦎", 90, 16, 8, 10, 40, 45, "#f97316")], stars: [30, 15, 0] },
+      { id: 12, name: "Ponte de Pedra", enemies: [makeEnemy("Salamandra", "🦎", 95, 17, 8, 10, 42, 48, "#f97316"), makeEnemy("Golem de Fogo", "🔥", 110, 14, 12, 5, 45, 50, "#dc2626")], stars: [25, 12, 0] },
+      { id: 13, name: "Caverna de Magma", enemies: [makeEnemy("Golem de Fogo", "🔥", 120, 15, 12, 5, 48, 52, "#dc2626"), makeEnemy("Magma Slime", "🔴", 80, 20, 4, 8, 42, 46, "#b91c1c")], stars: [25, 12, 0] },
+      { id: 14, name: "A Forja", enemies: [makeEnemy("Ferreiro Demonio", "👿", 130, 18, 10, 9, 52, 58, "#991b1b"), makeEnemy("Golem", "🔥", 100, 14, 14, 5, 45, 50, "#dc2626")], stars: [20, 10, 0] },
+      { id: 15, name: "Chefe: Dragao de Fogo", enemies: [makeEnemy("Golem", "🔥", 80, 14, 10, 5, 35, 40, "#dc2626")], boss: makeEnemy("Dragao de Fogo", "🐉", 300, 25, 14, 12, 150, 350, "#7f1d1d"), stars: [25, 10, 0] },
     ],
   },
   {
-    name: "Oceano Profundo", emoji: "\uD83C\uDF0A", color: "#3b82f6",
+    name: "Oceano Profundo", emoji: "🌊", color: "#3b82f6",
     levels: [
-      { id: 16, name: "Recifes de Corais", enemies: [makeEnemy("Piranha", "\uD83D\uDC1F", 100, 18, 8, 12, 50, 55, "#38bdf8")], stars: [30, 15, 0] },
-      { id: 17, name: "Caverna Submersa", enemies: [makeEnemy("Piranha", "\uD83D\uDC1F", 105, 19, 8, 12, 52, 58, "#38bdf8"), makeEnemy("Medusa", "\uD83E\uDEBC", 90, 22, 5, 10, 55, 60, "#c084fc")], stars: [25, 12, 0] },
-      { id: 18, name: "Cidade Subaquatica", enemies: [makeEnemy("Tritao", "\uD83E\uDDDC", 120, 20, 10, 11, 58, 65, "#0ea5e9"), makeEnemy("Medusa", "\uD83E\uDEBC", 95, 22, 5, 10, 52, 58, "#c084fc")], stars: [25, 12, 0] },
-      { id: 19, name: "Abismo", enemies: [makeEnemy("Anguia Gigante", "\uD83D\uDC0D", 140, 22, 12, 13, 62, 70, "#1d4ed8"), makeEnemy("Tritao", "\uD83E\uDDDC", 110, 20, 10, 11, 52, 58, "#0ea5e9")], stars: [20, 10, 0] },
-      { id: 20, name: "Chefe: Kraken", enemies: [makeEnemy("Tritao", "\uD83E\uDDDC", 90, 18, 8, 10, 45, 50, "#0ea5e9")], boss: makeEnemy("Kraken", "\uD83D\uDC19", 400, 28, 16, 14, 200, 500, "#1e3a5f"), stars: [25, 10, 0] },
+      { id: 16, name: "Recifes de Corais", enemies: [makeEnemy("Piranha", "🐟", 100, 18, 8, 12, 50, 55, "#38bdf8")], stars: [30, 15, 0] },
+      { id: 17, name: "Caverna Submersa", enemies: [makeEnemy("Piranha", "🐟", 105, 19, 8, 12, 52, 58, "#38bdf8"), makeEnemy("Medusa", "🪼", 90, 22, 5, 10, 55, 60, "#c084fc")], stars: [25, 12, 0] },
+      { id: 18, name: "Cidade Subaquatica", enemies: [makeEnemy("Tritao", "🧜", 120, 20, 10, 11, 58, 65, "#0ea5e9"), makeEnemy("Medusa", "🪼", 95, 22, 5, 10, 52, 58, "#c084fc")], stars: [25, 12, 0] },
+      { id: 19, name: "Abismo", enemies: [makeEnemy("Anguia Gigante", "🐍", 140, 22, 12, 13, 62, 70, "#1d4ed8"), makeEnemy("Tritao", "🧜", 110, 20, 10, 11, 52, 58, "#0ea5e9")], stars: [20, 10, 0] },
+      { id: 20, name: "Chefe: Kraken", enemies: [makeEnemy("Tritao", "🧜", 90, 18, 8, 10, 45, 50, "#0ea5e9")], boss: makeEnemy("Kraken", "🐙", 400, 28, 16, 14, 200, 500, "#1e3a5f"), stars: [25, 10, 0] },
     ],
   },
   {
-    name: "Castelo do Demonio", emoji: "\uD83C\uDFF0", color: "#dc2626",
+    name: "Castelo do Demonio", emoji: "🏰", color: "#dc2626",
     levels: [
-      { id: 21, name: "Portoes do Castelo", enemies: [makeEnemy("Demone Menor", "\uD83D\uDC7F", 150, 24, 12, 12, 70, 75, "#f43f5e")], stars: [30, 15, 0] },
-      { id: 22, name: "Salao do Trono", enemies: [makeEnemy("Demone Menor", "\uD83D\uDC7F", 155, 25, 12, 12, 72, 78, "#f43f5e"), makeEnemy("Cavaleiro Negro", "\uD83D\uDEE1\uFE0F", 180, 22, 18, 8, 78, 85, "#1e293b")], stars: [25, 12, 0] },
-      { id: 23, name: "Torre Negra", enemies: [makeEnemy("Cavaleiro Negro", "\uD83D\uDEE1\uFE0F", 190, 24, 18, 8, 82, 90, "#1e293b"), makeEnemy("Necromante", "\uD83E\uDDD9", 130, 30, 8, 14, 85, 95, "#6b21a8")], stars: [25, 12, 0] },
-      { id: 24, name: "Camera do Senhor", enemies: [makeEnemy("Demone Elite", "\uD83D\uDC79", 200, 28, 15, 13, 90, 100, "#be123c"), makeEnemy("Cavaleiro Negro", "\uD83D\uDEE1\uFE0F", 170, 24, 18, 8, 78, 85, "#1e293b")], stars: [20, 10, 0] },
-      { id: 25, name: "Chefe: Senhor Demoniaco", enemies: [makeEnemy("Demone Elite", "\uD83D\uDC79", 150, 26, 14, 12, 70, 80, "#be123c")], boss: makeEnemy("Senhor Demoniaco", "\uD83D\uDC7E", 550, 35, 20, 15, 300, 800, "#450a0a"), stars: [25, 10, 0] },
+      { id: 21, name: "Portoes do Castelo", enemies: [makeEnemy("Demone Menor", "👿", 150, 24, 12, 12, 70, 75, "#f43f5e")], stars: [30, 15, 0] },
+      { id: 22, name: "Salao do Trono", enemies: [makeEnemy("Demone Menor", "👿", 155, 25, 12, 12, 72, 78, "#f43f5e"), makeEnemy("Cavaleiro Negro", "🛡️", 180, 22, 18, 8, 78, 85, "#1e293b")], stars: [25, 12, 0] },
+      { id: 23, name: "Torre Negra", enemies: [makeEnemy("Cavaleiro Negro", "🛡️", 190, 24, 18, 8, 82, 90, "#1e293b"), makeEnemy("Necromante", "🧙", 130, 30, 8, 14, 85, 95, "#6b21a8")], stars: [25, 12, 0] },
+      { id: 24, name: "Camera do Senhor", enemies: [makeEnemy("Demone Elite", "👹", 200, 28, 15, 13, 90, 100, "#be123c"), makeEnemy("Cavaleiro Negro", "🛡️", 170, 24, 18, 8, 78, 85, "#1e293b")], stars: [20, 10, 0] },
+      { id: 25, name: "Chefe: Senhor Demoniaco", enemies: [makeEnemy("Demone Elite", "👹", 150, 26, 14, 12, 70, 80, "#be123c")], boss: makeEnemy("Senhor Demoniaco", "👾", 550, 35, 20, 15, 300, 800, "#450a0a"), stars: [25, 10, 0] },
     ],
   },
 ];
@@ -735,7 +735,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
           newP.xp -= newP.level * 50 + 50;
           newP.level++;
           didLevelUp = true;
-          addLog(`\u2B06\uFE0F Nivel ${newP.level}!`);
+          addLog(`⬆️ Nivel ${newP.level}!`);
         }
         if (didLevelUp) {
           setLevelUpThisBattle(true);
@@ -883,7 +883,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
         <motion.div {...fadeSlideUp} className="text-center mb-6 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-purple-500/20 via-indigo-500/10 to-transparent rounded-2xl blur-sm" />
           <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0], scale: [1, 1.08, 1] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
-            <span className="text-8xl block mb-2 filter drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">\u2694\uFE0F</span>
+            <span className="text-8xl block mb-2 filter drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">⚔️</span>
           </motion.div>
           <motion.h3 className="font-display text-3xl sm:text-4xl font-black bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-500 bg-clip-text text-transparent relative drop-shadow-sm">
             Campanha RPG
@@ -958,7 +958,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
             {[
               { icon: <ShoppingBag className="h-4 w-4 text-yellow-500" />, action: () => setScreen("shop"), label: "Loja" },
               { icon: <Shield className="h-4 w-4 text-blue-400" />, action: () => setScreen("inventory"), label: "Inventario" },
-              { icon: <Swords className="h-4 w-4 text-red-400" />, action: () => { const r = simulatePVP(); if (r) alert(r.won ? `Venceste ${r.enemy.emoji} ${r.enemy.name} Nv.${r.enemyLvl}! +${r.reward}\uD83D\uDCB0` : `Perdeste para ${r.enemy.emoji} ${r.enemy.name} Nv.${r.enemyLvl}`); }, label: "PVP" },
+              { icon: <Swords className="h-4 w-4 text-red-400" />, action: () => { const r = simulatePVP(); if (r) alert(r.won ? `Venceste ${r.enemy.emoji} ${r.enemy.name} Nv.${r.enemyLvl}! +${r.reward}💰` : `Perdeste para ${r.enemy.emoji} ${r.enemy.name} Nv.${r.enemyLvl}`); }, label: "PVP" },
               { icon: <RotateCcw className="h-4 w-4 text-muted-foreground" />, action: resetGame, label: "Reset" },
             ].map((btn, i) => (
               <motion.button key={i} whileTap={{ scale: 0.88 }} whileHover={{ scale: 1.08 }}
@@ -1513,7 +1513,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
         <motion.div initial={{ opacity: 0, scale: 0.3, rotate: -20 }} animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200, damping: 12 }}>
           <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-            <span className="text-8xl block filter drop-shadow-[0_0_25px_rgba(251,191,36,0.5)]">\uD83C\uDFC6</span>
+            <span className="text-8xl block filter drop-shadow-[0_0_25px_rgba(251,191,36,0.5)]">🏆</span>
           </motion.div>
         </motion.div>
 
@@ -1623,7 +1623,7 @@ export default function CampaignRPGGame({ onScore, liveCode }: Props) {
 
         <motion.div initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 150, damping: 10 }}>
           <motion.span className="text-8xl block" animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }} transition={{ duration: 3, repeat: Infinity }}>
-            \uD83D\uDC80
+            💀
           </motion.span>
         </motion.div>
 

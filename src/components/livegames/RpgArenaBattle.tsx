@@ -105,7 +105,7 @@ const CLASS_DEFS: CharacterClass[] = [
   {
     id: "guerreiro",
     name: "Guerreiro",
-    emoji: "\u2694\uFE0F",
+    emoji: "⚔️",
     hp: 120,
     atk: 18,
     def: 14,
@@ -114,16 +114,16 @@ const CLASS_DEFS: CharacterClass[] = [
     color: "text-red-500",
     gradient: "from-red-600 to-orange-600",
     abilities: [
-      { name: "Golpe Poderoso", icon: "\uD83D\uDC4A", type: "ataque", power: 100, manaCost: 10, desc: "Um golpe devastador" },
-      { name: "Escudo de Ferro", icon: "\uD83D\uDEE1\uFE0F", type: "buff", power: 8, manaCost: 15, desc: "Aumenta DEF tempor\u00E1rio" },
-      { name: "Grito de Guerra", icon: "\uD83C\uDF0A", type: "buff", power: 6, manaCost: 12, desc: "Aumenta ATK" },
-      { name: "Investida", icon: "\uD83D\uDCA5", type: "especial", power: 140, manaCost: 25, desc: "Carga devastadora" },
+      { name: "Golpe Poderoso", icon: "👊", type: "ataque", power: 100, manaCost: 10, desc: "Um golpe devastador" },
+      { name: "Escudo de Ferro", icon: "🛡️", type: "buff", power: 8, manaCost: 15, desc: "Aumenta DEF temporário" },
+      { name: "Grito de Guerra", icon: "🌊", type: "buff", power: 6, manaCost: 12, desc: "Aumenta ATK" },
+      { name: "Investida", icon: "💥", type: "especial", power: 140, manaCost: 25, desc: "Carga devastadora" },
     ],
   },
   {
     id: "mago",
     name: "Mago",
-    emoji: "\uD83E\uDDD9",
+    emoji: "🧙",
     hp: 80,
     atk: 22,
     def: 6,
@@ -132,16 +132,16 @@ const CLASS_DEFS: CharacterClass[] = [
     color: "text-purple-500",
     gradient: "from-purple-600 to-blue-600",
     abilities: [
-      { name: "Bola de Fogo", icon: "\uD83D\uDD25", type: "ataque", power: 110, manaCost: 15, desc: "Bola ardente" },
-      { name: "Raio de Gelo", icon: "\u2744\uFE0F", type: "ataque", power: 85, manaCost: 12, desc: "Congela o inimigo" },
-      { name: "Cura Arcana", icon: "\u2728", type: "cura", power: 40, manaCost: 20, desc: "Restaura vida" },
-      { name: "Meteoro", icon: "\uD83C\uDF0D", type: "especial", power: 170, manaCost: 35, desc: "Destrui\u00E7\u00E3o celestial" },
+      { name: "Bola de Fogo", icon: "🔥", type: "ataque", power: 110, manaCost: 15, desc: "Bola ardente" },
+      { name: "Raio de Gelo", icon: "❄️", type: "ataque", power: 85, manaCost: 12, desc: "Congela o inimigo" },
+      { name: "Cura Arcana", icon: "✨", type: "cura", power: 40, manaCost: 20, desc: "Restaura vida" },
+      { name: "Meteoro", icon: "🌍", type: "especial", power: 170, manaCost: 35, desc: "Destruição celestial" },
     ],
   },
   {
     id: "arqueiro",
     name: "Arqueiro",
-    emoji: "\uD83C\uDFF9",
+    emoji: "🏹",
     hp: 95,
     atk: 16,
     def: 8,
@@ -150,16 +150,16 @@ const CLASS_DEFS: CharacterClass[] = [
     color: "text-green-500",
     gradient: "from-green-600 to-emerald-600",
     abilities: [
-      { name: "Tiro Preciso", icon: "\uD83C\uDFAF", type: "ataque", power: 95, manaCost: 10, desc: "Alvo certeiro" },
-      { name: "Chuva de Flechas", icon: "\uD83C\uDF27\uFE0F", type: "especial", power: 130, manaCost: 25, desc: "Flechas por toda parte" },
-      { name: "Flecha Venenosa", icon: "\uD83D\uDC0D", type: "ataque", power: 80, manaCost: 12, desc: "Veneno lento" },
-      { name: "Tiro Cr\u00EDtico", icon: "\uD83D\uDCB0", type: "ataque", power: 120, manaCost: 18, desc: "Alta chance de cr\u00EDtico" },
+      { name: "Tiro Preciso", icon: "🎯", type: "ataque", power: 95, manaCost: 10, desc: "Alvo certeiro" },
+      { name: "Chuva de Flechas", icon: "🌧️", type: "especial", power: 130, manaCost: 25, desc: "Flechas por toda parte" },
+      { name: "Flecha Venenosa", icon: "🐍", type: "ataque", power: 80, manaCost: 12, desc: "Veneno lento" },
+      { name: "Tiro Crítico", icon: "💰", type: "ataque", power: 120, manaCost: 18, desc: "Alta chance de crítico" },
     ],
   },
   {
     id: "ladino",
     name: "Ladino",
-    emoji: "\uD83D\uDD77\uFE0F",
+    emoji: "🕷️",
     hp: 85,
     atk: 15,
     def: 10,
@@ -168,15 +168,15 @@ const CLASS_DEFS: CharacterClass[] = [
     color: "text-amber-500",
     gradient: "from-amber-600 to-yellow-600",
     abilities: [
-      { name: "Punhalada", icon: "\uD83D\uDD2E", type: "ataque", power: 90, manaCost: 8, desc: "R\u00E1pida e letal" },
-      { name: "Ataque Furtivo", icon: "\uD83D\uDC7E", type: "ataque", power: 130, manaCost: 20, desc: "Golpe nas costas" },
-      { name: "Evas\u00E3o", icon: "\uD83D\uDD39", type: "buff", power: 0, manaCost: 10, desc: "Aumenta esquiva" },
-      { name: "Golpe Sombrio", icon: "\uD83D\uDD34", type: "especial", power: 155, manaCost: 30, desc: "Trevas devoradoras" },
+      { name: "Punhalada", icon: "🔮", type: "ataque", power: 90, manaCost: 8, desc: "Rápida e letal" },
+      { name: "Ataque Furtivo", icon: "👾", type: "ataque", power: 130, manaCost: 20, desc: "Golpe nas costas" },
+      { name: "Evasão", icon: "🔹", type: "buff", power: 0, manaCost: 10, desc: "Aumenta esquiva" },
+      { name: "Golpe Sombrio", icon: "🔴", type: "especial", power: 155, manaCost: 30, desc: "Trevas devoradoras" },
     ],
   },
 ];
 
-const BOT_NAMES = ["Drakthar", "Morgana", "Sombra", "Valqu\u00EDria", "Necromante", "F\u00EAnix"];
+const BOT_NAMES = ["Drakthar", "Morgana", "Sombra", "Valquíria", "Necromante", "Fênix"];
 
 const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
   facil: 0.8,
@@ -185,9 +185,9 @@ const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
 };
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  facil: "F\u00E1cil",
-  medio: "M\u00E9dio",
-  dificil: "Dif\u00EDcil",
+  facil: "Fácil",
+  medio: "Médio",
+  dificil: "Difícil",
 };
 
 const DIFFICULTY_COLORS: Record<Difficulty, string> = {
@@ -256,7 +256,7 @@ function calcDamage(
   const isDodge = Math.random() < dodgeChance;
   if (isDodge) return { damage: 0, isCrit: false, isDodge: true };
 
-  const critChance = (attacker.spd * 0.6) / 100 + (ability.name.includes("Cr\u00EDtic") ? 0.25 : 0);
+  const critChance = (attacker.spd * 0.6) / 100 + (ability.name.includes("Crític") ? 0.25 : 0);
   const isCrit = Math.random() < critChance;
 
   const baseDmg = (attacker.atk * (ability.power / 100)) - (defender.def * 0.3);
@@ -415,7 +415,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
       setBotName(bName);
       setPlayer(createFighter(pDef, pLevel, "Jogador"));
       setBot(createFighter(bDef, bLevel, bName));
-      setBattleLog([{ text: `\u2694\uFE0F ${bName} (${bDef.name} Nv.${bLevel}) apareceu!`, type: "system" }]);
+      setBattleLog([{ text: `⚔️ ${bName} (${bDef.name} Nv.${bLevel}) apareceu!`, type: "system" }]);
       setPlayerTurn(true);
       setRound(1);
       setPlayerRounds(0);
@@ -476,7 +476,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
           setPlayerBuff({ atk: 0, def: 0 });
           setBotBuff({ atk: 0, def: 0 });
           setBattleLog([
-            { text: `\uD83D\uDCAA Rodada ${round + 1} come\u00E7ou!`, type: "system" },
+            { text: `💪 Rodada ${round + 1} começou!`, type: "system" },
           ]);
           setRound((r) => r + 1);
           setPlayerTurn(true);
@@ -562,7 +562,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
           // Hit flash on the target
           triggerHitFlash(isPlayer ? "bot" : "player");
 
-          const critText = isCrit ? " \u2B50 CR\u00CDTICO!" : "";
+          const critText = isCrit ? " ⭐ CRÍTICO!" : "";
           if (isPlayer) {
             setBot((b) => (b ? { ...b, hp: Math.max(0, b.hp - damage) } : b));
             setStats((s) => ({ ...s, damageDealt: s.damageDealt + damage, critsLanded: s.critsLanded + (isCrit ? 1 : 0) }));
@@ -690,7 +690,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
             animate={{ scale: 1, opacity: 1 }}
             className="text-5xl mb-3"
           >
-            \u2694\uFE0F
+            ⚔️
           </motion.div>
           <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">
             RPG Arena Battle
@@ -749,10 +749,10 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
                 <div className="text-3xl mb-1">{cls.emoji}</div>
                 <h3 className={cn("font-bold text-sm", cls.color)}>{cls.name}</h3>
                 <div className="grid grid-cols-2 gap-1 mt-2 text-[10px] text-muted-foreground">
-                  <span>\u2764\uFE0F {cls.hp}</span>
-                  <span>\u2694\uFE0F {cls.atk}</span>
-                  <span>\uD83D\uDEE1\uFE0F {cls.def}</span>
-                  <span>\u26A1 {cls.spd}</span>
+                  <span>❤️ {cls.hp}</span>
+                  <span>⚔️ {cls.atk}</span>
+                  <span>🛡️ {cls.def}</span>
+                  <span>⚡ {cls.spd}</span>
                 </div>
               </div>
             </motion.div>
@@ -762,7 +762,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
         {playerLevel > 1 && (
           <div className="mt-4 text-center">
             <Badge variant="outline" className="gap-1">
-              <Star className="h-3 w-3" /> N\u00EDvel {playerLevel}
+              <Star className="h-3 w-3" /> Nível {playerLevel}
             </Badge>
           </div>
         )}
@@ -807,7 +807,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
         {/* Round indicator */}
         <div className="flex items-center justify-between mb-3">
           <Badge variant="outline" className="text-xs">
-            Rodada {round} \u2022 Melhor de 3
+            Rodada {round} • Melhor de 3
           </Badge>
           <div className="flex gap-1">
             {Array.from({ length: ROUNDS_TO_WIN }).map((_, i) => (
@@ -1149,7 +1149,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
             animate={playerTurn ? { opacity: [0.6, 1, 0.6] } : {}}
             transition={{ duration: 1.5, repeat: Infinity }}
           >
-            {playerTurn ? "\u2705 Sua vez!" : "\u23F3 Aguarde..."}
+            {playerTurn ? "✅ Sua vez!" : "⏳ Aguarde..."}
           </motion.p>
           <div className="grid grid-cols-2 gap-2">
             {pClass.abilities.map((ab, idx) => {
@@ -1225,7 +1225,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
                       )}>
                         {ab.type === "ataque" ? "ATK" : ab.type === "cura" ? "HEAL" : ab.type === "buff" ? "BUFF" : "SPEC"}
                       </span>
-                      <span className="text-muted-foreground">\uD83D\uDD36 {ab.manaCost}</span>
+                      <span className="text-muted-foreground">🔶 {ab.manaCost}</span>
                       <span className="text-muted-foreground/60 ml-auto">PWR {ab.power}</span>
                     </div>
                   </div>
@@ -1303,7 +1303,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
               transition={{ duration: 1, repeat: Infinity }}
               className="text-6xl mb-2"
             >
-              {roundWinner ? "\uD83C\uDFC6" : "\uD83D\uDE1E"}
+              {roundWinner ? "🏆" : "😞"}
             </motion.div>
             {/* Glow behind icon */}
             <motion.div
@@ -1321,7 +1321,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            {roundWinner ? "Vit\u00F3ria na Rodada!" : "Derrota na Rodada!"}
+            {roundWinner ? "Vitória na Rodada!" : "Derrota na Rodada!"}
           </motion.h3>
           <motion.p
             className="text-sm text-muted-foreground mb-6"
@@ -1353,7 +1353,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
             animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            \u00D7
+            ×
           </motion.div>
           <motion.div
             className={cn("text-center p-3 rounded-xl", !roundWinner && "bg-red-500/10 border border-red-500/20")}
@@ -1371,7 +1371,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
           animate={{ opacity: [0.3, 0.8, 0.3] }}
           transition={{ duration: 1.5, repeat: Infinity, delay: 0.8 }}
         >
-          Pr\u00F3xima rodada em breve...
+          Próxima rodada em breve...
         </motion.p>
       </div>
     );
@@ -1426,7 +1426,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
               transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
               className="relative inline-block"
             >
-              <div className="text-7xl mb-3">{won ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</div>
+              <div className="text-7xl mb-3">{won ? "🏆" : "💀"}</div>
               {/* Glow behind trophy/skull */}
               <motion.div
                 className={cn(
@@ -1448,7 +1448,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              {won ? "VIT\u00D3RIA!" : "DERROTA"}
+              {won ? "VITÓRIA!" : "DERROTA"}
             </motion.h2>
             <motion.p
               className="text-sm text-muted-foreground"
@@ -1456,7 +1456,7 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
             >
-              {won ? "Voc\u00EA dominou a arena!" : "O inimigo foi mais forte..."}
+              {won ? "Você dominou a arena!" : "O inimigo foi mais forte..."}
             </motion.p>
           </motion.div>
 
@@ -1496,11 +1496,11 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
                   animate={{ scale: 1 }}
                   transition={{ delay: 1.2 }}
                 >
-                  N\u00EDvel {playerLevel - 1} \u2192{" "}
+                  Nível {playerLevel - 1} →{" "}
                   <span className="font-black text-2xl text-amber-100">{playerLevel}</span>
                 </motion.p>
                 <p className="text-[10px] text-amber-300/70 mt-2 tracking-wide">
-                  HP +5 \u2022 ATK +2 \u2022 DEF +1 \u2022 SPD +1
+                  HP +5 • ATK +2 • DEF +1 • SPD +1
                 </p>
               </div>
             </motion.div>
@@ -1515,19 +1515,19 @@ const RpgArenaBattle = ({ onScore, liveCode }: Props) => {
           >
             <h3 className="text-sm font-bold text-center mb-3 text-muted-foreground uppercase tracking-wider flex items-center justify-center gap-2">
               <Trophy className="h-4 w-4" />
-              Estat\u00EDsticas da Partida
+              Estatísticas da Partida
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <StatCard icon={<Flame className="h-4 w-4 text-red-500" />} label="Dano Causado" value={stats.damageDealt.toString()} />
               <StatCard icon={<Shield className="h-4 w-4 text-blue-500" />} label="Dano Recebido" value={stats.damageTaken.toString()} />
-              <StatCard icon={<Star className="h-4 w-4 text-amber-500" />} label="Cr\u00EDticos" value={`${stats.critsLanded} landed / ${stats.critsReceived} recv`} />
+              <StatCard icon={<Star className="h-4 w-4 text-amber-500" />} label="Críticos" value={`${stats.critsLanded} landed / ${stats.critsReceived} recv`} />
               <StatCard icon={<Target className="h-4 w-4 text-purple-500" />} label="Habilidades" value={stats.abilitiesUsed.toString()} />
               <StatCard icon={<Ghost className="h-4 w-4 text-blue-400" />} label="Esquivas" value={stats.dodges.toString()} />
               <StatCard icon={<Heart className="h-4 w-4 text-green-500" />} label="Curas" value={stats.heals.toString()} />
             </div>
             <div className="mt-3 pt-3 border-t border-border/50 flex justify-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> XP: +{xpGained}</span>
-              <span>\u2022</span>
+              <span>•</span>
               <span>Rodadas: {playerRounds}/{round}</span>
             </div>
           </motion.div>

@@ -29,11 +29,11 @@ import { useSEO } from "@/hooks/useSEO";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 
-const EMOJI_QUICK = ["\u2764\uFE0F", "\u{1F525}", "\u{1F389}", "\u{1F4AF}", "\u{1F602}", "\u{1F44F}", "\u{1F618}", "\u{1F4A5}"];
+const EMOJI_QUICK = ["❤️", "\u{1F525}", "\u{1F389}", "\u{1F4AF}", "\u{1F602}", "\u{1F44F}", "\u{1F618}", "\u{1F4A5}"];
 
 const QUICK_GAMES = [
   { emoji: "\u{1F3B2}", label: "Roleta", id: "roulette" },
-  { emoji: "\u26BD", label: "P\u00EAnaltis", id: "penalties" },
+  { emoji: "⚽", label: "Pênaltis", id: "penalties" },
   { emoji: "\u{1F381}", label: "Caixa", id: "mystery" },
   { emoji: "\u{1F3AF}", label: "Quiz", id: "quiz" },
   { emoji: "\u{1F3B0}", label: "Bingo", id: "bingo" },
@@ -55,7 +55,7 @@ const SpectatorBingo = ({ scheduledLiveId, liveCode }: { scheduledLiveId?: strin
     const { data, error } = await joinBingo(game.id);
     if (error) { toast.error("Erro ao entrar no bingo"); return; }
     setCard(data as BingoCard);
-    toast.success("Cart\u00F3ria gerada! Boa sorte!");
+    toast.success("Cartória gerada! Boa sorte!");
   };
 
   const handleMark = async (num: number) => {
@@ -71,9 +71,9 @@ const SpectatorBingo = ({ scheduledLiveId, liveCode }: { scheduledLiveId?: strin
     if (!card || !game) return;
     const won = checkBingo(card, game.drawn_numbers || [], game.pattern_type);
     if (won) {
-      toast.success("\u{1F389} BINGO! Voc\u00EA ganhou!");
+      toast.success("\u{1F389} BINGO! Você ganhou!");
     } else {
-      toast.error("Ainda n\u00E3o completou o padr\u00E3o!");
+      toast.error("Ainda não completou o padrão!");
     }
   };
 
@@ -96,12 +96,12 @@ const SpectatorBingo = ({ scheduledLiveId, liveCode }: { scheduledLiveId?: strin
           <div className="text-4xl mb-3">🃏</div>
           <p className="text-sm text-muted-foreground mb-4">
             {game
-              ? "Gere sua cart\u00F3ria e jogue em tempo real!"
-              : "Aguardando o in\u00EDcio do bingo..."}
+              ? "Gere sua cartória e jogue em tempo real!"
+              : "Aguardando o início do bingo..."}
           </p>
           {game ? (
             <Button onClick={handleJoin} className="bg-emerald-500 hover:bg-emerald-600">
-              Gerar Cart\u00F3ria
+              Gerar Cartória
             </Button>
           ) : null}
         </div>
@@ -142,7 +142,7 @@ const SpectatorBingo = ({ scheduledLiveId, liveCode }: { scheduledLiveId?: strin
                           : "bg-muted/50 text-muted-foreground"
                   )}
                 >
-                  {num === 0 ? "\u2605" : num}
+                  {num === 0 ? "★" : num}
                 </button>
               );
             })}
@@ -270,7 +270,7 @@ const SpectatorTapBattle = ({ liveCode }: { liveCode?: string }) => {
         )}
       >
         {active && taps >= 50 && <div className="absolute inset-0 celebration-rays" />}
-        {active ? "\u{1F4AA} TOQUE! (" + timeLeft + "s)" : "\u{1F3C3} Come\u00E7ar"}
+        {active ? "\u{1F4AA} TOQUE! (" + timeLeft + "s)" : "\u{1F3C3} Começar"}
       </button>
       {gameEnded && taps >= 50 && (
         <motion.div
@@ -589,7 +589,7 @@ const LiveParticipar = () => {
                 <SpectatorTapBattle liveCode={liveCode || undefined} />
 
                 <div className="border-t border-border/40 pt-4">
-                  <p className="text-xs text-muted-foreground mb-3 font-medium">Jogos dispon\u00EDveis na live:</p>
+                  <p className="text-xs text-muted-foreground mb-3 font-medium">Jogos disponíveis na live:</p>
                   <div className="grid grid-cols-3 gap-2">
                     {QUICK_GAMES.map((g) => (
                       <div

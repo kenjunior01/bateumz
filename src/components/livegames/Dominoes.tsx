@@ -368,7 +368,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
       h[currentPlayer] = [...h[currentPlayer], drawn];
       return h;
     });
-    setMessage('Comprou uma pe\u00e7a');
+    setMessage('Comprou uma peça');
   }, [boneyard, hasValidMove, currentPlayer]);
 
   const passTurn = useCallback(() => {
@@ -405,13 +405,13 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
   useEffect(() => {
     if (phase !== 'playing') return;
     if (vsBot && currentPlayer === 1) {
-      setMessage(`${PLAYER_NAMES[1]} est\u00e1 pensando...`);
+      setMessage(`${PLAYER_NAMES[1]} está pensando...`);
     } else if (chain.length === 0) {
-      setMessage('Coloque a primeira pe\u00e7a');
+      setMessage('Coloque a primeira peça');
     } else if (hasValidMove) {
-      setMessage(`Sua vez \u2014 ${PLAYER_NAMES[currentPlayer]}`);
+      setMessage(`Sua vez — ${PLAYER_NAMES[currentPlayer]}`);
     } else if (canDraw) {
-      setMessage('Sem pe\u00e7as v\u00e1lidas \u2014 compre do osso');
+      setMessage('Sem peças válidas — compre do osso');
     } else {
       setMessage('Bloqueado!');
     }
@@ -497,7 +497,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
         </div>
 
         <div className="text-center">
-          <h2 className="text-white font-bold text-base sm:text-2xl tracking-widest">DOMIN\u00d3</h2>
+          <h2 className="text-white font-bold text-base sm:text-2xl tracking-widest">DOMINÓ</h2>
           <span className="text-slate-500 text-[10px]">Rodada {roundNum}</span>
         </div>
 
@@ -548,7 +548,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
               transition={{ repeat: Infinity, duration: 1.2 }}
               className="text-amber-400 ml-1"
             >
-              \u25c6 pensando...
+              ◆ pensando...
             </motion.span>
           )}
         </span>
@@ -578,7 +578,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
             exit={{ opacity: 0 }}
             className="text-center text-xs sm:text-sm text-slate-300 h-5"
           >
-            {phase === 'dealing' ? 'Distribuindo pe\u00e7as...' : message}
+            {phase === 'dealing' ? 'Distribuindo peças...' : message}
           </motion.p>
         </AnimatePresence>
 
@@ -593,14 +593,14 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
                   onClick={() => handleEndClick('left')}
                   className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-400/20 border-2 border-amber-400 cursor-pointer shrink-0 mr-1.5"
                 >
-                  <span className="text-amber-400 text-[10px] font-bold leading-none">\u25c0</span>
+                  <span className="text-amber-400 text-[10px] font-bold leading-none">◀</span>
                   <span className="text-amber-400 text-base sm:text-lg font-bold leading-none mt-0.5">{leftEnd}</span>
                 </motion.div>
               )}
             </AnimatePresence>
 
             {chain.length === 0 && phase === 'playing' && (
-              <div className="text-slate-500 text-xs sm:text-sm italic">Coloque a primeira pe\u00e7a</div>
+              <div className="text-slate-500 text-xs sm:text-sm italic">Coloque a primeira peça</div>
             )}
 
             <AnimatePresence>
@@ -625,7 +625,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
                   onClick={() => handleEndClick('right')}
                   className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-400/20 border-2 border-amber-400 cursor-pointer shrink-0 ml-1.5"
                 >
-                  <span className="text-amber-400 text-[10px] font-bold leading-none">\u25b6</span>
+                  <span className="text-amber-400 text-[10px] font-bold leading-none">▶</span>
                   <span className="text-amber-400 text-base sm:text-lg font-bold leading-none mt-0.5">{rightEnd}</span>
                 </motion.div>
               )}
@@ -635,8 +635,8 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
 
         {chain.length > 0 && (
           <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 px-1">
-            <span>\u25c4 Esquerda: {leftEnd}</span>
-            <span>Direita: {rightEnd} \u25ba</span>
+            <span>◄ Esquerda: {leftEnd}</span>
+            <span>Direita: {rightEnd} ►</span>
           </div>
         )}
       </div>
@@ -646,7 +646,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
           <div className={cn('w-2 h-2 rounded-full', dotColor(bottomIdx as 0 | 1))} />
           {PLAYER_NAMES[bottomIdx]} — {hands[bottomIdx].length} peça{hands[bottomIdx].length !== 1 ? 's' : ''}
           {phase === 'playing' && currentPlayer === bottomIdx && (
-            <span className="text-amber-400 ml-1">\u25c6 Sua vez</span>
+            <span className="text-amber-400 ml-1">◆ Sua vez</span>
           )}
           {phase === 'playing' && currentPlayer !== bottomIdx && (
             <span className="text-slate-500 ml-1">Aguardando...</span>
@@ -749,7 +749,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
             >
               {roundResult && !roundResult.includes('Empate') && (
                 <div className="relative h-14 mb-3 overflow-hidden">
-                  {['\ud83c\udf89', '\ud83c\udfc6', '\u2728', '\ud83c\udf8a', '\u2b50'].map((emoji, i) => (
+                  {['🎉', '🏆', '✨', '🎊', '⭐'].map((emoji, i) => (
                     <motion.span
                       key={i}
                       initial={{ y: 40, opacity: 0, scale: 0, x: (i - 2) * 16 }}
@@ -798,7 +798,7 @@ export default function Dominoes({ onScore, liveCode: _liveCode }: Props) {
               <div className="flex gap-2 justify-center flex-wrap">
                 <motion.div whileHover={{ scale: 1.03 }}>
                   <Button size="sm" onClick={nextRound} className="text-xs gap-1" style={{ boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}>
-                    Pr\u00f3xima Rodada
+                    Próxima Rodada
                   </Button>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.03 }}>

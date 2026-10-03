@@ -6,10 +6,11 @@ import {
   Shield, Swords, Heart, Zap, Crown, RotateCcw, Star, Lock,
   ShoppingBag, Send, Trophy, Users, Map as MapIcon, LogOut,
   ArrowLeft, Sparkles, MessageCircle, Coins, Target, Skull,
-  ChevronRight, Gift, Swords as SwordsIcon, Globe, TrendingUp, Eye
+  ChevronRight, Gift, Swords as SwordsIcon, Globe, TrendingUp, Eye, Box
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
+import VoxelWorld from "./VoxelWorld";
 
 // ============================================================
 // TYPES
@@ -65,99 +66,99 @@ interface CharacterData {
 // ============================================================
 
 const CLASSES = [
-  { name: "Guerreiro", emoji: "\u2694\uFE0F", desc: "Alto ataque e defesa. Tanque do grupo.", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
-  { name: "Mago", emoji: "\uD83D\uDD2E", desc: "Poder magico devastador e controle.", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
-  { name: "Arqueiro", emoji: "\uD83C\uDFF9\uFE0F", desc: "Ataques rapidos, precisos e letais.", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
-  { name: "Ladino", emoji: "\uD83D\uDDE1\uFE0F", desc: "Criticos mortais, invisibilidade.", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
-  { name: "Clerigo", emoji: "\u2728", desc: "Curandeiro divino, suporte essencial.", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
-  { name: "Barbaro", emoji: "\uD83E\uDD8A", desc: "Furia bruta, dano insano.", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
+  { name: "Guerreiro", emoji: "⚔️", desc: "Alto ataque e defesa. Tanque do grupo.", baseHp: 120, baseAtk: 18, baseDef: 14, baseSpd: 8, baseMp: 30, color: "#ef4444" },
+  { name: "Mago", emoji: "🔮", desc: "Poder magico devastador e controle.", baseHp: 80, baseAtk: 22, baseDef: 6, baseSpd: 10, baseMp: 80, color: "#8b5cf6" },
+  { name: "Arqueiro", emoji: "🏹️", desc: "Ataques rapidos, precisos e letais.", baseHp: 90, baseAtk: 16, baseDef: 8, baseSpd: 18, baseMp: 40, color: "#22c55e" },
+  { name: "Ladino", emoji: "🗡️", desc: "Criticos mortais, invisibilidade.", baseHp: 85, baseAtk: 14, baseDef: 7, baseSpd: 20, baseMp: 50, color: "#f59e0b" },
+  { name: "Clerigo", emoji: "✨", desc: "Curandeiro divino, suporte essencial.", baseHp: 100, baseAtk: 10, baseDef: 10, baseSpd: 9, baseMp: 90, color: "#06b6d4" },
+  { name: "Barbaro", emoji: "🦊", desc: "Furia bruta, dano insano.", baseHp: 150, baseAtk: 20, baseDef: 12, baseSpd: 6, baseMp: 20, color: "#dc2626" },
 ];
 
 const SKILLS: Record<number, { name: string; emoji: string; mpCost: number; type: "damage" | "heal" | "buff"; power: number; desc: string }[]> = {
-  0: [{ name: "Golpe Heroico", emoji: "\u2694\uFE0F", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }, { name: "Grito de Guerra", emoji: "\uD83C\uDFAF", mpCost: 8, type: "buff", power: 1.5, desc: "Aumenta ataque" }],
-  1: [{ name: "Bola de Fogo", emoji: "\uD83D\uDD25", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "\u2744\uFE0F", mpCost: 12, type: "damage", power: 1.6, desc: "Congela inimigo" }],
-  2: [{ name: "Tiro Preciso", emoji: "\uD83C\uDFAF", mpCost: 8, type: "damage", power: 2.0, desc: "Critico garantido" }, { name: "Chuva de Flechas", emoji: "\uD83C\uDF0D", mpCost: 14, type: "damage", power: 1.5, desc: "Dano em area" }],
-  3: [{ name: "Golpe Sombrio", emoji: "\uD83C\uDF11", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }, { name: "Evasao", emoji: "\uD83D\uDD38", mpCost: 8, type: "buff", power: 1.4, desc: "Aumenta defesa" }],
-  4: [{ name: "Cura Divina", emoji: "\uD83D\uDC9A", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "\uD83D\uDEE1\uFE0F", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
-  5: [{ name: "Furia", emoji: "\uD83D\uDCA2", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "\uD83C\uDF0B", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
+  0: [{ name: "Golpe Heroico", emoji: "⚔️", mpCost: 10, type: "damage", power: 1.8, desc: "Dano forte" }, { name: "Grito de Guerra", emoji: "🎯", mpCost: 8, type: "buff", power: 1.5, desc: "Aumenta ataque" }],
+  1: [{ name: "Bola de Fogo", emoji: "🔥", mpCost: 15, type: "damage", power: 2.2, desc: "Dano magico" }, { name: "Gelo", emoji: "❄️", mpCost: 12, type: "damage", power: 1.6, desc: "Congela inimigo" }],
+  2: [{ name: "Tiro Preciso", emoji: "🎯", mpCost: 8, type: "damage", power: 2.0, desc: "Critico garantido" }, { name: "Chuva de Flechas", emoji: "🌍", mpCost: 14, type: "damage", power: 1.5, desc: "Dano em area" }],
+  3: [{ name: "Golpe Sombrio", emoji: "🌑", mpCost: 12, type: "damage", power: 2.5, desc: "Critico mortal" }, { name: "Evasao", emoji: "🔸", mpCost: 8, type: "buff", power: 1.4, desc: "Aumenta defesa" }],
+  4: [{ name: "Cura Divina", emoji: "💚", mpCost: 15, type: "heal", power: 0.4, desc: "Restaura HP" }, { name: "Escudo Santo", emoji: "🛡️", mpCost: 10, type: "buff", power: 1.5, desc: "Aumenta defesa" }],
+  5: [{ name: "Furia", emoji: "💢", mpCost: 12, type: "buff", power: 1.8, desc: "Aumenta ataque" }, { name: "Terremoto", emoji: "🌋", mpCost: 18, type: "damage", power: 2.0, desc: "Dano em area" }],
 };
 
 const SHOP_ITEMS: Equipment[] = [
-  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "\uD83D\uDDE1\uFE0F" },
-  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "\u2694\uFE0F" },
-  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "\uD83D\uDD2E" },
-  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "\uD83C\uDFF9\uFE0F" },
-  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "\uD83D\uDDE1\uFE0F" },
-  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "\uD83E\uDDE5" },
-  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "\uD83D\uDC09" },
-  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "\uD83D\uDC8D" },
-  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "\uD83D\uDCFF" },
-  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "\uD83D\uDC62" },
-  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "\uD83D\uDC51" },
-  { id: "w6", name: "Espada Lendária", type: "weapon", atk: 25, spd: 3, price: 2000, icon: "\u2694\uFE0F" },
-  { id: "w7", name: "Cajado do Caos", type: "weapon", atk: 20, mp: 40, price: 1800, icon: "\uD83D\uDD2E" },
-  { id: "a5", name: "Armadura Abissal", type: "armor", def: 25, hp: 120, price: 1500, icon: "\uD83D\uDC7E" },
-  { id: "a6", name: "Manto Celestial", type: "armor", def: 15, mp: 50, hp: 60, price: 2200, icon: "\u2728" },
-  { id: "ac5", name: "Anel do Vazio", type: "accessory", atk: 10, spd: 10, mp: 20, price: 1500, icon: "\uD83D\uDC8D" },
-  { id: "ac6", name: "Pendente do Dragao", type: "accessory", atk: 8, def: 10, hp: 60, price: 2500, icon: "\uD83D\uDC9C" },
+  { id: "w1", name: "Espada de Ferro", type: "weapon", atk: 5, price: 100, icon: "🗡️" },
+  { id: "w2", name: "Espada de Aco", type: "weapon", atk: 10, price: 300, icon: "⚔️" },
+  { id: "w3", name: "Cajado Arcano", type: "weapon", atk: 15, mp: 20, price: 500, icon: "🔮" },
+  { id: "w4", name: "Arco Longo", type: "weapon", atk: 12, spd: 5, price: 400, icon: "🏹️" },
+  { id: "w5", name: "Adaga Fantasma", type: "weapon", atk: 8, spd: 10, price: 450, icon: "🗡️" },
+  { id: "a1", name: "Armadura de Couro", type: "armor", def: 5, hp: 20, price: 120, icon: "🛡️" },
+  { id: "a2", name: "Armadura de Ferro", type: "armor", def: 10, hp: 50, price: 350, icon: "🛡️" },
+  { id: "a3", name: "Manto Magico", type: "armor", def: 4, mp: 30, price: 400, icon: "🧥" },
+  { id: "a4", name: "Armadura do Dragao", type: "armor", def: 18, hp: 80, price: 800, icon: "🐉" },
+  { id: "ac1", name: "Anel de Vida", type: "accessory", hp: 40, price: 200, icon: "💍" },
+  { id: "ac2", name: "Amuleto de Mana", type: "accessory", mp: 40, price: 200, icon: "📿" },
+  { id: "ac3", name: "Botas de Velocidade", type: "accessory", spd: 8, price: 250, icon: "👢" },
+  { id: "ac4", name: "Coroa do Heroi", type: "accessory", atk: 5, def: 5, hp: 30, mp: 30, price: 1000, icon: "👑" },
+  { id: "w6", name: "Espada Lendária", type: "weapon", atk: 25, spd: 3, price: 2000, icon: "⚔️" },
+  { id: "w7", name: "Cajado do Caos", type: "weapon", atk: 20, mp: 40, price: 1800, icon: "🔮" },
+  { id: "a5", name: "Armadura Abissal", type: "armor", def: 25, hp: 120, price: 1500, icon: "👾" },
+  { id: "a6", name: "Manto Celestial", type: "armor", def: 15, mp: 50, hp: 60, price: 2200, icon: "✨" },
+  { id: "ac5", name: "Anel do Vazio", type: "accessory", atk: 10, spd: 10, mp: 20, price: 1500, icon: "💍" },
+  { id: "ac6", name: "Pendente do Dragao", type: "accessory", atk: 8, def: 10, hp: 60, price: 2500, icon: "💜" },
 ];
 
 const ZONES = [
-  { name: "Planicie Verde", emoji: "\uD83C\uDF3F", color: "#22c55e", minLevel: 1, enemies: [
-    { name: "Goblin", emoji: "\uD83D\uDC7A", hp: 40, atk: 8, def: 3, spd: 5, xp: 15, gold: 20, color: "#4ade80" },
-    { name: "Lobo", emoji: "\uD83D\uDC3A", hp: 35, atk: 10, def: 2, spd: 8, xp: 20, gold: 25, color: "#94a3b8" },
-    { name: "Slime", emoji: "\uD83D\uDFE2", hp: 25, atk: 6, def: 1, spd: 4, xp: 10, gold: 12, color: "#22d3ee" },
+  { name: "Planicie Verde", emoji: "🌿", color: "#22c55e", minLevel: 1, enemies: [
+    { name: "Goblin", emoji: "👺", hp: 40, atk: 8, def: 3, spd: 5, xp: 15, gold: 20, color: "#4ade80" },
+    { name: "Lobo", emoji: "🐺", hp: 35, atk: 10, def: 2, spd: 8, xp: 20, gold: 25, color: "#94a3b8" },
+    { name: "Slime", emoji: "🟢", hp: 25, atk: 6, def: 1, spd: 4, xp: 10, gold: 12, color: "#22d3ee" },
   ]},
-  { name: "Floresta Sombria", emoji: "\uD83C\uDF32", color: "#16a34a", minLevel: 3, enemies: [
-    { name: "Aranha", emoji: "\uD83D\uDD77\uFE0F", hp: 55, atk: 12, def: 5, spd: 10, xp: 30, gold: 35, color: "#a855f7" },
-    { name: "Bandido", emoji: "\uD83D\uDC63", hp: 60, atk: 14, def: 6, spd: 9, xp: 35, gold: 45, color: "#78716c" },
-    { name: "Lobo Alfa", emoji: "\uD83D\uDC3A", hp: 70, atk: 15, def: 7, spd: 11, xp: 40, gold: 50, color: "#64748b" },
+  { name: "Floresta Sombria", emoji: "🌲", color: "#16a34a", minLevel: 3, enemies: [
+    { name: "Aranha", emoji: "🕷️", hp: 55, atk: 12, def: 5, spd: 10, xp: 30, gold: 35, color: "#a855f7" },
+    { name: "Bandido", emoji: "👣", hp: 60, atk: 14, def: 6, spd: 9, xp: 35, gold: 45, color: "#78716c" },
+    { name: "Lobo Alfa", emoji: "🐺", hp: 70, atk: 15, def: 7, spd: 11, xp: 40, gold: 50, color: "#64748b" },
   ]},
-  { name: "Catacumbas", emoji: "\uD83D\uDC80", color: "#a855f7", minLevel: 5, enemies: [
-    { name: "Esqueleto", emoji: "\uD83D\uDC80", hp: 80, atk: 16, def: 10, spd: 7, xp: 50, gold: 55, color: "#c084fc" },
-    { name: "Zumbi", emoji: "\uD83E\uDDDF", hp: 100, atk: 14, def: 12, spd: 4, xp: 55, gold: 60, color: "#65a30d" },
-    { name: "Fantasma", emoji: "\uD83D\uDC7B", hp: 65, atk: 20, def: 5, spd: 14, xp: 60, gold: 65, color: "#e2e8f0" },
+  { name: "Catacumbas", emoji: "💀", color: "#a855f7", minLevel: 5, enemies: [
+    { name: "Esqueleto", emoji: "💀", hp: 80, atk: 16, def: 10, spd: 7, xp: 50, gold: 55, color: "#c084fc" },
+    { name: "Zumbi", emoji: "🧟", hp: 100, atk: 14, def: 12, spd: 4, xp: 55, gold: 60, color: "#65a30d" },
+    { name: "Fantasma", emoji: "👻", hp: 65, atk: 20, def: 5, spd: 14, xp: 60, gold: 65, color: "#e2e8f0" },
   ]},
-  { name: "Vulcao Ardente", emoji: "\uD83C\uDF0B", color: "#ef4444", minLevel: 8, enemies: [
-    { name: "Salamandra", emoji: "\uD83E\uDD8E", hp: 120, atk: 22, def: 12, spd: 10, xp: 80, gold: 85, color: "#f97316" },
-    { name: "Golem de Fogo", emoji: "\uD83D\uDD25", hp: 160, atk: 18, def: 18, spd: 5, xp: 90, gold: 95, color: "#dc2626" },
-    { name: "Demonio Menor", emoji: "\uD83D\uDC7F", hp: 140, atk: 24, def: 14, spd: 12, xp: 100, gold: 110, color: "#f43f5e" },
+  { name: "Vulcao Ardente", emoji: "🌋", color: "#ef4444", minLevel: 8, enemies: [
+    { name: "Salamandra", emoji: "🦎", hp: 120, atk: 22, def: 12, spd: 10, xp: 80, gold: 85, color: "#f97316" },
+    { name: "Golem de Fogo", emoji: "🔥", hp: 160, atk: 18, def: 18, spd: 5, xp: 90, gold: 95, color: "#dc2626" },
+    { name: "Demonio Menor", emoji: "👿", hp: 140, atk: 24, def: 14, spd: 12, xp: 100, gold: 110, color: "#f43f5e" },
   ]},
-  { name: "Oceano Profundo", emoji: "\uD83C\uDF0A", color: "#3b82f6", minLevel: 11, enemies: [
-    { name: "Piranha", emoji: "\uD83D\uDC1F", hp: 150, atk: 26, def: 14, spd: 14, xp: 120, gold: 130, color: "#38bdf8" },
-    { name: "Medusa", emoji: "\uD83E\uDEBC", hp: 130, atk: 30, def: 10, spd: 12, xp: 130, gold: 140, color: "#c084fc" },
-    { name: "Tritao", emoji: "\uD83E\uDDDC", hp: 170, atk: 28, def: 16, spd: 13, xp: 140, gold: 150, color: "#0ea5e9" },
+  { name: "Oceano Profundo", emoji: "🌊", color: "#3b82f6", minLevel: 11, enemies: [
+    { name: "Piranha", emoji: "🐟", hp: 150, atk: 26, def: 14, spd: 14, xp: 120, gold: 130, color: "#38bdf8" },
+    { name: "Medusa", emoji: "🪼", hp: 130, atk: 30, def: 10, spd: 12, xp: 130, gold: 140, color: "#c084fc" },
+    { name: "Tritao", emoji: "🧜", hp: 170, atk: 28, def: 16, spd: 13, xp: 140, gold: 150, color: "#0ea5e9" },
   ]},
-  { name: "Castelo Demonio", emoji: "\uD83D\uDDF0", color: "#dc2626", minLevel: 15, enemies: [
-    { name: "Cavaleiro Negro", emoji: "\uD83D\uDEE1\uFE0F", hp: 200, atk: 32, def: 22, spd: 10, xp: 180, gold: 200, color: "#1e293b" },
-    { name: "Necromante", emoji: "\uD83E\uDDD9", hp: 160, atk: 38, def: 12, spd: 14, xp: 200, gold: 220, color: "#6b21a8" },
-    { name: "Demonio Elite", emoji: "\uD83D\uDC79", hp: 250, atk: 36, def: 20, spd: 15, xp: 250, gold: 280, color: "#be123c" },
+  { name: "Castelo Demonio", emoji: "🗰", color: "#dc2626", minLevel: 15, enemies: [
+    { name: "Cavaleiro Negro", emoji: "🛡️", hp: 200, atk: 32, def: 22, spd: 10, xp: 180, gold: 200, color: "#1e293b" },
+    { name: "Necromante", emoji: "🧙", hp: 160, atk: 38, def: 12, spd: 14, xp: 200, gold: 220, color: "#6b21a8" },
+    { name: "Demonio Elite", emoji: "👹", hp: 250, atk: 36, def: 20, spd: 15, xp: 250, gold: 280, color: "#be123c" },
   ]},
-  { name: "Abismo Vazio", emoji: "\uD83C\uDF0C", color: "#7c3aed", minLevel: 18, enemies: [
-    { name: "Vazio Andarilho", emoji: "\u26AB", hp: 280, atk: 38, def: 25, spd: 16, xp: 300, gold: 320, color: "#7c3aed" },
-    { name: "Sombra Devoradora", emoji: "\uD83D\uDD2E", hp: 320, atk: 42, def: 20, spd: 18, xp: 350, gold: 380, color: "#4c1d95" },
-    { name: "Guardiao Abissal", emoji: "\uD83D\uDC7E", hp: 400, atk: 45, def: 30, spd: 14, xp: 400, gold: 450, color: "#3b0764" },
+  { name: "Abismo Vazio", emoji: "🌌", color: "#7c3aed", minLevel: 18, enemies: [
+    { name: "Vazio Andarilho", emoji: "⚫", hp: 280, atk: 38, def: 25, spd: 16, xp: 300, gold: 320, color: "#7c3aed" },
+    { name: "Sombra Devoradora", emoji: "🔮", hp: 320, atk: 42, def: 20, spd: 18, xp: 350, gold: 380, color: "#4c1d95" },
+    { name: "Guardiao Abissal", emoji: "👾", hp: 400, atk: 45, def: 30, spd: 14, xp: 400, gold: 450, color: "#3b0764" },
   ]},
-  { name: "Celesstia", emoji: "\u2B50", color: "#f59e0b", minLevel: 22, enemies: [
-    { name: "Anjo Caído", emoji: "\uD83D\uDC7A", hp: 400, atk: 48, def: 32, spd: 16, xp: 500, gold: 550, color: "#fbbf24" },
-    { name: "Seraphim", emoji: "\u2728", hp: 350, atk: 55, def: 28, spd: 20, xp: 550, gold: 600, color: "#f59e0b" },
-    { name: "Arquidemónio", emoji: "\u2620\uFE0F", hp: 500, atk: 60, def: 35, spd: 18, xp: 700, gold: 800, color: "#dc2626" },
+  { name: "Celesstia", emoji: "⭐", color: "#f59e0b", minLevel: 22, enemies: [
+    { name: "Anjo Caído", emoji: "👺", hp: 400, atk: 48, def: 32, spd: 16, xp: 500, gold: 550, color: "#fbbf24" },
+    { name: "Seraphim", emoji: "✨", hp: 350, atk: 55, def: 28, spd: 20, xp: 550, gold: 600, color: "#f59e0b" },
+    { name: "Arquidemónio", emoji: "☠️", hp: 500, atk: 60, def: 35, spd: 18, xp: 700, gold: 800, color: "#dc2626" },
   ]},
 ];
 
 const BOSS_POOL = [
-  { name: "Dragao Antigo", emoji: "\uD83D\uDC09", hp: 2000, atk: 40, def: 25, xp: 500, gold: 1000, color: "#7f1d1d" },
-  { name: "Kraken", emoji: "\uD83D\uDC19", hp: 3000, atk: 45, def: 30, xp: 800, gold: 2000, color: "#1e3a5f" },
-  { name: "Senhor Demonio", emoji: "\uD83D\uDC7E", hp: 5000, atk: 55, def: 35, xp: 1500, gold: 5000, color: "#450a0a" },
-  { name: "Fenix Celestial", emoji: "\uD83D\uDD25", hp: 8000, atk: 65, def: 40, xp: 2500, gold: 8000, color: "#f59e0b" },
-  { name: "Serpente Cosmica", emoji: "\uD83D\uDC0D", hp: 12000, atk: 80, def: 50, xp: 5000, gold: 15000, color: "#6366f1" },
+  { name: "Dragao Antigo", emoji: "🐉", hp: 2000, atk: 40, def: 25, xp: 500, gold: 1000, color: "#7f1d1d" },
+  { name: "Kraken", emoji: "🐙", hp: 3000, atk: 45, def: 30, xp: 800, gold: 2000, color: "#1e3a5f" },
+  { name: "Senhor Demonio", emoji: "👾", hp: 5000, atk: 55, def: 35, xp: 1500, gold: 5000, color: "#450a0a" },
+  { name: "Fenix Celestial", emoji: "🔥", hp: 8000, atk: 65, def: 40, xp: 2500, gold: 8000, color: "#f59e0b" },
+  { name: "Serpente Cosmica", emoji: "🐍", hp: 12000, atk: 80, def: 50, xp: 5000, gold: 15000, color: "#6366f1" },
 ];
 
 const RAID_BOSSES = [
-  { name: "Hydra", emoji: "\uD83D\uDC0D", hp: 5000, atk: 50, def: 30, xp: 2000, gold: 5000, color: "#22c55e" },
-  { name: "Golem Celestial", emoji: "\uD83E\uDDD8", hp: 8000, atk: 60, def: 45, xp: 3000, gold: 8000, color: "#f59e0b" },
+  { name: "Hydra", emoji: "🐍", hp: 5000, atk: 50, def: 30, xp: 2000, gold: 5000, color: "#22c55e" },
+  { name: "Golem Celestial", emoji: "🧘", hp: 8000, atk: 60, def: 45, xp: 3000, gold: 8000, color: "#f59e0b" },
 ];
 
 // ============================================================
@@ -172,10 +173,10 @@ interface Quest {
 }
 
 const DAILY_QUESTS: Omit<Quest, "id" | "progress" | "completed">[] = [
-  { name: "Cacador Iniciante", desc: "Derrota 5 inimigos", emoji: "\u2694\uFE0F", target: 5, reward: 100, rewardType: "gold", type: "kill" },
-  { name: "Colecionador de Ouro", desc: "Ganha 300 ouro", emoji: "\uD83D\uDCB0", target: 300, reward: 50, rewardType: "xp", type: "gold_earn" },
-  { name: "Guerreiro do Dia", desc: "Vence 1 duelo PVP", emoji: "\uD83C\uDFC6", target: 1, reward: 200, rewardType: "gold", type: "duel_win" },
-  { name: "Ascensao", desc: "Sobe 1 nivel", emoji: "\u2B50", target: 1, reward: 150, rewardType: "xp", type: "level_up" },
+  { name: "Cacador Iniciante", desc: "Derrota 5 inimigos", emoji: "⚔️", target: 5, reward: 100, rewardType: "gold", type: "kill" },
+  { name: "Colecionador de Ouro", desc: "Ganha 300 ouro", emoji: "💰", target: 300, reward: 50, rewardType: "xp", type: "gold_earn" },
+  { name: "Guerreiro do Dia", desc: "Vence 1 duelo PVP", emoji: "🏆", target: 1, reward: 200, rewardType: "gold", type: "duel_win" },
+  { name: "Ascensao", desc: "Sobe 1 nivel", emoji: "⭐", target: 1, reward: 150, rewardType: "xp", type: "level_up" },
 ];
 
 // ============================================================
@@ -187,14 +188,14 @@ interface Achievement {
 }
 
 const ACHIEVEMENT_DEFS: Omit<Achievement, "id" | "unlocked">[] = [
-  { name: "Primeiro Sangue", desc: "Derrota o teu primeiro inimigo", emoji: "\uD83C\uDFA5" },
-  { name: "Colecionador", desc: "Compra 3 itens na loja", emoji: "\uD83D\uDCE6" },
-  { name: "Duelista", desc: "Vence o teu primeiro duelo PVP", emoji: "\u2694\uFE0F" },
-  { name: "Cacador de Boss", desc: "Contribui para derrotar um Boss Mundial", emoji: "\uD83D\uDC80" },
-  { name: "Rico", desc: "Acumula 5000 ouro", emoji: "\uD83D\uDC51" },
-  { name: "Veterano", desc: "Alcana nivel 10", emoji: "\uD83C\uDF96\uFE0F" },
-  { name: "Lendario", desc: "Alcana nivel 25", emoji: "\uD83D\uDC51" },
-  { name: "Matador de 100", desc: "Derrota 100 inimigos", emoji: "\uD83D\uDCAF" },
+  { name: "Primeiro Sangue", desc: "Derrota o teu primeiro inimigo", emoji: "🎥" },
+  { name: "Colecionador", desc: "Compra 3 itens na loja", emoji: "📦" },
+  { name: "Duelista", desc: "Vence o teu primeiro duelo PVP", emoji: "⚔️" },
+  { name: "Cacador de Boss", desc: "Contribui para derrotar um Boss Mundial", emoji: "💀" },
+  { name: "Rico", desc: "Acumula 5000 ouro", emoji: "👑" },
+  { name: "Veterano", desc: "Alcana nivel 10", emoji: "🎖️" },
+  { name: "Lendario", desc: "Alcana nivel 25", emoji: "👑" },
+  { name: "Matador de 100", desc: "Derrota 100 inimigos", emoji: "💯" },
 ];
 
 // ============================================================
@@ -214,13 +215,13 @@ const LOOT_RARITY: Record<string, { label: string; color: string; glow: string; 
 };
 
 const LOOT_ITEMS: Equipment[] = [
-  { id: "lw1", name: "Lamina Velha", type: "weapon", atk: 3, price: 80, icon: "\uD83D\uDDE1\uFE0F" },
-  { id: "lw2", name: "Espada Encantada", type: "weapon", atk: 8, price: 250, icon: "\u2694\uFE0F" },
-  { id: "lw3", name: "Cajado Sombrio", type: "weapon", atk: 13, mp: 15, price: 450, icon: "\uD83D\uDD2E" },
-  { id: "la1", name: "Tunica de Couro", type: "armor", def: 3, hp: 15, price: 60, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "la2", name: "Armadura de Titio", type: "armor", def: 8, hp: 40, price: 200, icon: "\uD83D\uDEE1\uFE0F" },
-  { id: "lac1", name: "Anel Sorte", type: "accessory", spd: 5, hp: 20, price: 150, icon: "\uD83D\uDC8D" },
-  { id: "lac2", name: "Pendente de Forca", type: "accessory", atk: 7, def: 3, price: 350, icon: "\uD83D\uDCFF" },
+  { id: "lw1", name: "Lamina Velha", type: "weapon", atk: 3, price: 80, icon: "🗡️" },
+  { id: "lw2", name: "Espada Encantada", type: "weapon", atk: 8, price: 250, icon: "⚔️" },
+  { id: "lw3", name: "Cajado Sombrio", type: "weapon", atk: 13, mp: 15, price: 450, icon: "🔮" },
+  { id: "la1", name: "Tunica de Couro", type: "armor", def: 3, hp: 15, price: 60, icon: "🛡️" },
+  { id: "la2", name: "Armadura de Titio", type: "armor", def: 8, hp: 40, price: 200, icon: "🛡️" },
+  { id: "lac1", name: "Anel Sorte", type: "accessory", spd: 5, hp: 20, price: 150, icon: "💍" },
+  { id: "lac2", name: "Pendente de Forca", type: "accessory", atk: 7, def: 3, price: 350, icon: "📿" },
 ];
 
 function rollLoot(): LootDrop | null {
@@ -339,7 +340,7 @@ async function dbSendTransfer(fromId: string, fromName: string, toId: string, to
 // ============================================================
 
 type Screen = "create" | "world" | "battle" | "pvpBattle" | "pvpResult";
-type Tab = "map" | "arena" | "economy" | "shop" | "chat" | "rank" | "profile" | "market" | "quests";
+type Tab = "map" | "voxel" | "arena" | "economy" | "shop" | "chat" | "rank" | "profile" | "market" | "quests";
 
 export default function MMORPGGame({ onScore, liveCode }: Props) {
   // Core
@@ -456,8 +457,8 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       const np = Math.min(q.target, q.progress + amount);
       const nc = np >= q.target;
       if (nc && !q.completed) {
-        const rewardLabel = q.rewardType === "gold" ? `+${q.reward} \uD83D\uDCB0` : `+${q.reward} XP`;
-        setTimeout(() => notify(`\uD83C\uDF89 Quest completa: ${q.name}! ${rewardLabel}`), 500);
+        const rewardLabel = q.rewardType === "gold" ? `+${q.reward} 💰` : `+${q.reward} XP`;
+        setTimeout(() => notify(`🎉 Quest completa: ${q.name}! ${rewardLabel}`), 500);
       }
       return { ...q, progress: np, completed: nc };
     }));
@@ -477,7 +478,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   const unlockAchievement = useCallback((name: string) => {
     setAchievements(prev => prev.map(a => {
       if (a.unlocked || a.name !== name) return a;
-      setTimeout(() => { notify(`\uD83C\uDFC5 Conquista desbloqueada: ${a.emoji} ${a.name}!`); confetti({ particleCount: 80, spread: 60 }); }, 300);
+      setTimeout(() => { notify(`🏅 Conquista desbloqueada: ${a.emoji} ${a.name}!`); confetti({ particleCount: 80, spread: 60 }); }, 300);
       return { ...a, unlocked: true };
     }));
   }, [notify]);
@@ -665,7 +666,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       setWorldBoss(newBoss);
       setBossTimer(3600);
       localStorage.setItem("bateu_mmorpg_boss", JSON.stringify({ ...newBoss, spawnedAt: Date.now() }));
-      notify(`\uD83D\uDC7A ${boss.name} apareceu! Todos podem atacar!`);
+      notify(`👺 ${boss.name} apareceu! Todos podem atacar!`);
       confetti({ particleCount: 50, spread: 40 });
     }, 1800000); // 30 min
 
@@ -693,15 +694,15 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       const hour = now.getHours();
       // Weekend: 2x gold
       if (day === 0 || day === 6) {
-        setEventBonus({ type: "gold", multiplier: 2, label: "\uD83C\uDFB2 Fim de semana: 2x Ouro!" });
+        setEventBonus({ type: "gold", multiplier: 2, label: "🎲 Fim de semana: 2x Ouro!" });
       }
       // Golden hour: 12h-13h = 1.5x XP
       else if (hour >= 12 && hour < 13) {
-        setEventBonus({ type: "xp", multiplier: 1.5, label: "\u2B50 Hora Dourada: 1.5x XP!" });
+        setEventBonus({ type: "xp", multiplier: 1.5, label: "⭐ Hora Dourada: 1.5x XP!" });
       }
       // Happy hour: 18h-20h = 1.5x gold
       else if (hour >= 18 && hour < 20) {
-        setEventBonus({ type: "gold", multiplier: 1.5, label: "\uD83C\uDF89 Happy Hour: 1.5x Ouro!" });
+        setEventBonus({ type: "gold", multiplier: 1.5, label: "🎉 Happy Hour: 1.5x Ouro!" });
       }
       else {
         setEventBonus(null);
@@ -761,11 +762,11 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
           saveLocalChar(nc);
 
           setGrindStats(gs => ({ ...gs, kills: gs.kills + 1, gold: gs.gold + goldG, xp: gs.xp + xpG }));
-          setGrindLog(gl => [...gl.slice(-19), `\u2705 ${freshTemplate.emoji} ${freshTemplate.name}: +${xpG}XP +${goldG}\uD83D\uDCB0`]);
+          setGrindLog(gl => [...gl.slice(-19), `✅ ${freshTemplate.emoji} ${freshTemplate.name}: +${xpG}XP +${goldG}💰`]);
           return nc;
         } else {
           setGrindStats(gs => ({ ...gs, deaths: gs.deaths + 1 }));
-          setGrindLog(gl => [...gl.slice(-19), `\uD83D\uDC80 ${freshTemplate.emoji} ${freshTemplate.name}: Derrotado!`]);
+          setGrindLog(gl => [...gl.slice(-19), `💀 ${freshTemplate.emoji} ${freshTemplate.name}: Derrotado!`]);
           return { ...prev, totalDeaths: prev.totalDeaths + 1 };
         }
       });
@@ -788,6 +789,22 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
   const recalcAndSet = useCallback((c: CharacterData) => {
     setStats(calcStats(c));
   }, []);
+
+  // ---- Recompensas do Mundo Voxel ----
+  const handleVoxelReward = useCallback((r: { gold?: number; xp?: number; kills?: number; msg?: string }) => {
+    if (r.gold || r.xp || r.kills) {
+      updateChar(c => {
+        let level = c.level, xp = c.xp + (r.xp || 0);
+        const gold = Math.max(0, c.gold + (r.gold || 0));
+        while (xp >= xpForLevel(level)) { xp -= xpForLevel(level); level++; }
+        if (level > c.level) setTimeout(() => notify(`⬆ Nivel ${level} alcançado!`), 120);
+        return { ...c, gold, xp, level };
+      });
+      if (r.gold) advanceQuest("gold_earn", Math.round(r.gold));
+      if (r.kills) advanceQuest("kill", r.kills);
+    }
+    if (r.msg) notify(r.msg);
+  }, [updateChar, advanceQuest, notify]);
 
   // Recalculate stats whenever equipment changes (e.g. after equipItem)
   useEffect(() => {
@@ -814,7 +831,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     updateChar(c => ({ ...c, gold: c.gold + reward, totalEarned: c.totalEarned + reward }));
     localStorage.setItem("bateu_mmorpg_daily", Date.now().toString());
     setDailyCollected(true);
-    notify(`\uD83C\uDF81 Recompensa diaria: +${reward} ouro!`);
+    notify(`🎁 Recompensa diaria: +${reward} ouro!`);
     onScore?.("Daily Reward", reward);
   }, [dailyCollected, char, updateChar, notify, onScore]);
 
@@ -830,7 +847,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     enemy.atk = Math.round(enemy.atk * scale); enemy.def = Math.round(enemy.def * scale);
 
     setBattleEnemy(enemy);
-    setBattleLog([`\uD83E\uDD16 Entraste em ${zone.name}!`]);
+    setBattleLog([`🤖 Entraste em ${zone.name}!`]);
     setIsPlayerTurn(true); setBattleOver(false); setBattleWon(false);
     setDefBuff(1); setAtkBuff(1); setCombo(0);
     const s = calcStats(char);
@@ -850,12 +867,12 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     if (isCrit) { setCriticalHit(true); setTimeout(() => setCriticalHit(false), 600); setScreenShake(true); setTimeout(() => setScreenShake(false), 300); }
     const newCombo = newEnemyHp > 0 ? combo + 1 : 0;
     setCombo(newCombo);
-    setBattleLog(prev => [...prev.slice(-6), `${CLASSES[char.classId].emoji} ${isCrit ? "\uD83D\uDC80 CRITICO! " : ""}Atacas ${battleEnemy.emoji} por ${dmg}!${newCombo > 1 ? ` (Combo x${newCombo})` : ""}`]);
+    setBattleLog(prev => [...prev.slice(-6), `${CLASSES[char.classId].emoji} ${isCrit ? "💀 CRITICO! " : ""}Atacas ${battleEnemy.emoji} por ${dmg}!${newCombo > 1 ? ` (Combo x${newCombo})` : ""}`]);
 
     setTimeout(() => {
       if (newEnemyHp <= 0) {
         setBattleOver(true); setBattleWon(true);
-        setBattleLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 ${battleEnemy.emoji} ${battleEnemy.name} derrotado!${newCombo >= 3 ? ` Combo final: x${newCombo}!` : ""}`]);
+        setBattleLog(prev => [...prev.slice(-6), `🏆 ${battleEnemy.emoji} ${battleEnemy.name} derrotado!${newCombo >= 3 ? ` Combo final: x${newCombo}!` : ""}`]);
         confetti({ particleCount: 60 + newCombo * 15, spread: 50 });
         let xpG = battleEnemy.xpReward; let goldG = battleEnemy.goldReward;
         // Combo bonus
@@ -894,7 +911,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
 
       if (newHp <= 0) {
         setBattleOver(true); setBattleWon(false);
-        setBattleLog(prev => [...prev.slice(-6), "\uD83D\uDC80 Foste derrotado!"]);
+        setBattleLog(prev => [...prev.slice(-6), "💀 Foste derrotado!"]);
         setCombo(0);
         updateChar(c => ({ ...c, totalDeaths: c.totalDeaths + 1 }));
         return;
@@ -923,7 +940,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       setTimeout(() => {
         if (newEnemyHp <= 0) {
           setBattleOver(true); setBattleWon(true);
-          setBattleLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 Vitoria!`]);
+          setBattleLog(prev => [...prev.slice(-6), `🏆 Vitoria!`]);
           confetti({ particleCount: 60, spread: 50 });
           let xpG = battleEnemy.xpReward; let goldG = battleEnemy.goldReward;
           if (eventBonus?.type === "gold") goldG = Math.round(goldG * eventBonus.multiplier);
@@ -1004,7 +1021,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     const oppClass = CLASSES[opponent.classId];
     const oppMaxHp = oppClass.baseHp + opponent.level * 12 + 50; // estimate
     setPvpEnemyHp(oppMaxHp);
-    setPvpLog([`\u2694\uFE0F Duelo contra ${opponent.emoji || CLASSES[opponent.classId].emoji} ${opponent.name}!`]);
+    setPvpLog([`⚔️ Duelo contra ${opponent.emoji || CLASSES[opponent.classId].emoji} ${opponent.name}!`]);
     setPvpOver(false); setPvpWon(false); setPvpTurn(true);
     setScreen("pvpBattle");
   }, [char, stats, notify]);
@@ -1023,7 +1040,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       if (newEHp <= 0) {
         setPvpOver(true); setPvpWon(true);
         // TODO: Implement server-side PVP with real stakes via Supabase RPC
-        setPvpLog(prev => [...prev.slice(-6), `\uD83C\uDFC6 Venceste o duelo! +${pvpStake} ouro!`]);
+        setPvpLog(prev => [...prev.slice(-6), `🏆 Venceste o duelo! +${pvpStake} ouro!`]);
         confetti({ particleCount: 100, spread: 70 });
         updateChar(c => ({ ...c, gold: c.gold + pvpStake, duelsWon: c.duelsWon + 1, totalEarned: c.totalEarned + pvpStake }));
         advanceQuest("duel_win", 1);
@@ -1040,7 +1057,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
 
       if (newHp <= 0) {
         setPvpOver(true); setPvpWon(false);
-        setPvpLog(prev => [...prev.slice(-6), `\uD83D\uDC80 Perdeste o duelo! -${pvpStake} ouro`]);
+        setPvpLog(prev => [...prev.slice(-6), `💀 Perdeste o duelo! -${pvpStake} ouro`]);
         updateChar(c => ({ ...c, gold: Math.max(0, c.gold - pvpStake), duelsLost: c.duelsLost + 1 }));
         dbSendTransfer(guestId, char!.name, pvpOpponent!.charId, pvpOpponent!.name, pvpStake, `Duelo PVP - perda`);
         onScore?.("PVP Loss", 0);
@@ -1056,7 +1073,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
     updateChar(c => ({ ...c, gold: c.gold - amount }));
     dbSendTransfer(guestId, char.name, targetId, targetName, amount, "Transferencia P2P");
     // TODO: Add recipient gold via Supabase RPC — currently only logs the transfer
-    notify(`\u2705 Enviaste ${amount} ouro para ${targetName}`);
+    notify(`✅ Enviaste ${amount} ouro para ${targetName}`);
     onScore?.("P2P Transfer", amount);
   }, [char, guestId, updateChar, notify, onScore]);
 
@@ -1111,7 +1128,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       updateChar(c => ({ ...c, gold: c.gold + reward, totalEarned: c.totalEarned + reward, xp: c.xp + 200 }));
       setWorldBoss(null);
       confetti({ particleCount: 200, spread: 100 });
-      notify(`\uD83C\uDFC6 Boss derrotado! +${reward} ouro!`);
+      notify(`🏆 Boss derrotado! +${reward} ouro!`);
     }
   }, [char, worldBoss, stats, onlinePlayers.length, updateChar, notify]);
 
@@ -1171,7 +1188,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }} transition={{ duration: 3, repeat: Infinity }}>
             MMORPG Bateu
           </motion.h3>
-          <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Mundo persistente \u2022 Duelos PVP \u2022 Loot \u2022 Economia P2P</p>
+          <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">Mundo persistente • Duelos PVP • Loot • Economia P2P</p>
           <div className="flex justify-center gap-3 mt-2 text-[10px] text-muted-foreground">
             <motion.span animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }} className="flex items-center gap-1">🌟 8 Zonas</motion.span>
             <span className="flex items-center gap-1">⚔️ PVP</span>
@@ -1296,7 +1313,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
               className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
               <div className="text-center">
                 <p className="text-5xl font-black bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 bg-clip-text text-transparent animate-pulse">LEVEL UP!</p>
-                <p className="text-2xl mt-1">\u2B50 Nivel {char.level + 1} \u2B50</p>
+                <p className="text-2xl mt-1">⭐ Nivel {char.level + 1} ⭐</p>
               </div>
             </motion.div>
           )}
@@ -1342,11 +1359,11 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 </motion.span>
                 <p className="font-bold text-sm" style={{ color: LOOT_RARITY[lootDrop.rarity]?.color }}>{lootDrop.item.name}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {lootDrop.item.atk ? `\u2694\uFE0F+${lootDrop.item.atk} ` : ""}
-                  {lootDrop.item.def ? `\uD83D\uDEE1\uFE0F+${lootDrop.item.def} ` : ""}
-                  {lootDrop.item.hp ? `\u2764\uFE0F+${lootDrop.item.hp} ` : ""}
-                  {lootDrop.item.spd ? `\uD83D\uDCA8+${lootDrop.item.spd} ` : ""}
-                  {lootDrop.item.mp ? `\uD83D\uDD2E+${lootDrop.item.mp}` : ""}
+                  {lootDrop.item.atk ? `⚔️+${lootDrop.item.atk} ` : ""}
+                  {lootDrop.item.def ? `🛡️+${lootDrop.item.def} ` : ""}
+                  {lootDrop.item.hp ? `❤️+${lootDrop.item.hp} ` : ""}
+                  {lootDrop.item.spd ? `💨+${lootDrop.item.spd} ` : ""}
+                  {lootDrop.item.mp ? `🔮+${lootDrop.item.mp}` : ""}
                 </p>
                 <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowLoot(false)}
                   className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold">
@@ -1376,11 +1393,11 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
         {/* Player HP/MP */}
         <div className="flex gap-3 mb-3 text-[11px]">
           <div className="flex-1 p-2 rounded-lg bg-card border border-border">
-            <div className="flex items-center justify-between mb-1"><span>\u2764\uFE0F HP</span><span>{Math.ceil(battleHp)}/{stats.maxHp}</span></div>
+            <div className="flex items-center justify-between mb-1"><span>❤️ HP</span><span>{Math.ceil(battleHp)}/{stats.maxHp}</span></div>
             <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-red-500 transition-all" style={{ width: `${(battleHp / stats.maxHp) * 100}%` }} /></div>
           </div>
           <div className="flex-1 p-2 rounded-lg bg-card border border-border">
-            <div className="flex items-center justify-between mb-1"><span>\uD83D\uDD2E MP</span><span>{Math.ceil(battleMp)}/{stats.maxMp}</span></div>
+            <div className="flex items-center justify-between mb-1"><span>🔮 MP</span><span>{Math.ceil(battleMp)}/{stats.maxMp}</span></div>
             <div className="h-2 rounded-full bg-gray-800 overflow-hidden"><div className="h-full bg-indigo-500 transition-all" style={{ width: `${(battleMp / stats.maxMp) * 100}%` }} /></div>
           </div>
         </div>
@@ -1390,7 +1407,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
           <div className="space-y-2">
             <motion.button whileTap={{ scale: 0.95 }} disabled={!isPlayerTurn} onClick={pveAttack}
               className="w-full py-2.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
-              \u2694\uFE0F Ataque Basico
+              ⚔️ Ataque Basico
             </motion.button>
             <div className="flex gap-2">
               {skills.map((sk, i) => (
@@ -1405,9 +1422,9 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
 
         {battleOver && (
           <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-4xl">{battleWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+            <span className="text-4xl">{battleWon ? "🏆" : "💀"}</span>
             <p className="font-bold mt-2">{battleWon ? "Vitoria!" : "Derrotado!"}</p>
-            {battleWon && <p className="text-xs text-muted-foreground">+{battleEnemy.xpReward} XP  +{battleEnemy.goldReward} \uD83D\uDCB0</p>}
+            {battleWon && <p className="text-xs text-muted-foreground">+{battleEnemy.xpReward} XP  +{battleEnemy.goldReward} 💰</p>}
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
               className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
               Voltar
@@ -1434,8 +1451,8 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
       <div className="max-w-lg mx-auto p-4">
         <div className="flex items-center gap-2 mb-3">
           <button onClick={() => setScreen("world")} className="p-1.5 rounded-lg hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
-          <span className="font-bold text-sm">\u2694\uFE0F Duelo PVP</span>
-          <span className="ml-auto text-xs text-yellow-400 font-bold">Aposta: {pvpStake} \uD83D\uDCB0</span>
+          <span className="font-bold text-sm">⚔️ Duelo PVP</span>
+          <span className="ml-auto text-xs text-yellow-400 font-bold">Aposta: {pvpStake} 💰</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -1464,13 +1481,13 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
         {!pvpOver ? (
           <motion.button whileTap={{ scale: 0.95 }} disabled={!pvpTurn} onClick={pvpAttack}
             className="w-full py-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold disabled:opacity-30">
-            \u2694\uFE0F Atacar!
+            ⚔️ Atacar!
           </motion.button>
         ) : (
           <div className="text-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-5xl">{pvpWon ? "\uD83C\uDFC6" : "\uD83D\uDC80"}</span>
+            <span className="text-5xl">{pvpWon ? "🏆" : "💀"}</span>
             <p className="font-bold text-lg mt-2">{pvpWon ? "Venceste!" : "Perdeste!"}</p>
-            <p className="text-sm text-yellow-400">{pvpWon ? `+${pvpStake} \uD83D\uDCB0` : `-${pvpStake} \uD83D\uDCB0`}</p>
+            <p className="text-sm text-yellow-400">{pvpWon ? `+${pvpStake} 💰` : `-${pvpStake} 💰`}</p>
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => setScreen("world")}
               className="mt-3 px-5 py-2 rounded-full bg-primary text-primary-foreground text-sm font-bold">
               Continuar
@@ -1491,6 +1508,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
 
   const tabs: { id: Tab; label: string; icon: any; badge?: number }[] = [
     { id: "map", label: "Mundo", icon: MapIcon },
+    { id: "voxel", label: "Voxel 3D", icon: Box },
     { id: "arena", label: "Arena", icon: Swords },
     { id: "quests", label: "Quests", icon: Star, badge: quests.filter(q => !q.completed).length },
     { id: "shop", label: "Loja", icon: ShoppingBag },
@@ -1524,13 +1542,13 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
               {onlinePlayers.length > 0 && <span className="flex items-center gap-0.5 text-[10px] text-green-400"><Users className="h-3 w-3" />{onlinePlayers.length}</span>}
             </div>
             <div className="flex gap-3 text-[10px] text-muted-foreground">
-              <span>\u2B50{char.totalKills} abates</span>
-              <span>\uD83C\uDFC6{char.duelsWon}W</span>
-              <span>\uD83D\uDCB5{char.duelsLost}L</span>
+              <span>⭐{char.totalKills} abates</span>
+              <span>🏆{char.duelsWon}W</span>
+              <span>💵{char.duelsLost}L</span>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</p>
+            <p className="text-sm font-bold text-yellow-400">{char.gold} 💰</p>
             <div className="w-20 h-1.5 rounded-full bg-gray-800 overflow-hidden mt-0.5">
               <motion.div className="h-full bg-blue-400 rounded-full" animate={{ width: `${(char.xp / xpForLevel(char.level)) * 100}%` }} transition={{ duration: 0.5 }} />
             </div>
@@ -1542,7 +1560,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
         {!dailyCollected && (
           <motion.button whileTap={{ scale: 0.95 }} onClick={collectDaily}
             className="w-full py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold mb-1.5">
-            \uD83C\uDF81 Recompensa Diaria - Clica para reclamar!
+            🎁 Recompensa Diaria - Clica para reclamar!
           </motion.button>
         )}
 
@@ -1570,15 +1588,41 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
           </motion.div>
         )}
 
+        {/* ---- VOXEL TAB (estilo Minecraft) ---- */}
+        {tab === "voxel" && char && (
+          <VoxelWorld
+            playerName={char.name}
+            classColor={CLASSES[char.classId]?.color || "#22c55e"}
+            level={char.level}
+            atk={stats.atk}
+            onReward={handleVoxelReward}
+            notify={notify}
+            onExit={() => setTab("map")}
+          />
+        )}
+
         {/* ---- MAP TAB ---- */}
         {tab === "map" && (
           <div className="space-y-3">
+            {/* Banner Mundo Voxel */}
+            <motion.button whileTap={{ scale: 0.98 }} onClick={() => setTab("voxel")}
+              className="w-full p-4 rounded-xl bg-gradient-to-r from-emerald-600/25 via-teal-600/20 to-sky-600/25 border border-emerald-400/40 text-left relative overflow-hidden">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-emerald-500/20 border border-emerald-400/40 grid place-items-center text-2xl shrink-0">🧱</div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-sm text-emerald-300">MUNDO VOXEL — estilo Minecraft</p>
+                  <p className="text-[10px] text-muted-foreground">Minera, constrói, abre baús de sorteio, caça zumbis à noite e liga o mundo aos jogos, sorteios e vendas da plataforma</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-emerald-300 shrink-0" />
+              </div>
+            </motion.button>
+
             {/* Auto-Grind Toggle */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
               <div className="flex-1">
-                <p className="text-xs font-bold">\uD83E\uDD16 Auto-Grind {autoGrind && "\u2705"}</p>
+                <p className="text-xs font-bold">🤖 Auto-Grind {autoGrind && "✅"}</p>
                 <p className="text-[10px] text-muted-foreground">Luta automatica na zona actual</p>
-                {autoGrind && <p className="text-[10px] text-green-400 mt-0.5">{grindStats.kills} kills | +{grindStats.gold}\uD83D\uDCB0 | +{grindStats.xp}XP | {grindStats.deaths} mortes</p>}
+                {autoGrind && <p className="text-[10px] text-green-400 mt-0.5">{grindStats.kills} kills | +{grindStats.gold}💰 | +{grindStats.xp}XP | {grindStats.deaths} mortes</p>}
               </div>
               <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setAutoGrind(!autoGrind); if (!autoGrind) { setGrindStats({ kills: 0, gold: 0, xp: 0, deaths: 0 }); setGrindLog([]); } }}
                 className={`px-4 py-2 rounded-lg text-xs font-bold ${autoGrind ? "bg-red-500/15 border border-red-500/30 text-red-400" : "bg-green-500/15 border border-green-500/30 text-green-400"}`}>
@@ -1602,7 +1646,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 <div className="flex items-center gap-2 mb-2">
                   <Skull className="h-4 w-4 text-red-400" />
                   <span className="font-bold text-sm text-red-400">BOSS MUNDIAL</span>
-                  <span className="ml-auto text-[10px] text-yellow-400">Recompensa: {worldBoss.rewardsPool} \uD83D\uDCB0</span>
+                  <span className="ml-auto text-[10px] text-yellow-400">Recompensa: {worldBoss.rewardsPool} 💰</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{worldBoss.emoji}</span>
@@ -1744,11 +1788,11 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                   <span className="text-2xl">{CLASSES[selectedOpponent.classId].emoji}</span>
                   <div>
                     <p className="font-bold text-sm" style={{ color: CLASSES[selectedOpponent.classId].color }}>{selectedOpponent.name}</p>
-                    <p className="text-[10px] text-muted-foreground">Nv.{selectedOpponent.level} | {selectedOpponent.gold} \uD83D\uDCB0</p>
+                    <p className="text-[10px] text-muted-foreground">Nv.{selectedOpponent.level} | {selectedOpponent.gold} 💰</p>
                   </div>
                 </div>
                 <div className="mb-3">
-                  <label className="text-[10px] text-muted-foreground block mb-1">Aposta (\uD83D\uDCB0):</label>
+                  <label className="text-[10px] text-muted-foreground block mb-1">Aposta (💰):</label>
                   <input type="number" value={stakeInput} onChange={e => setStakeInput(e.target.value)}
                     placeholder="100" min="1" max={char.gold}
                     className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" />
@@ -1756,7 +1800,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 <div className="flex gap-2">
                   <motion.button whileTap={{ scale: 0.95 }} onClick={() => { const s = parseInt(stakeInput) || 0; challengePlayer(selectedOpponent, s); setSelectedOpponent(null); }}
                     className="flex-1 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-bold">
-                    \u2694\uFE0F Desafiar!
+                    ⚔️ Desafiar!
                   </motion.button>
                   <button onClick={() => setSelectedOpponent(null)} className="px-4 py-2 rounded-lg bg-muted text-sm">Cancelar</button>
                 </div>
@@ -1778,10 +1822,10 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                       <span className="text-xl">{CLASSES[p.classId].emoji}</span>
                       <div className="flex-1 text-left">
                         <p className="text-sm font-bold" style={{ color: CLASSES[p.classId].color }}>{p.name}</p>
-                        <p className="text-[10px] text-muted-foreground">Nv.{p.level} | {ZONES[p.zone]?.emoji || "\uD83C\uDF0D"} {ZONES[p.zone]?.name || "Desconhecido"}</p>
+                        <p className="text-[10px] text-muted-foreground">Nv.{p.level} | {ZONES[p.zone]?.emoji || "🌍"} {ZONES[p.zone]?.name || "Desconhecido"}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-bold text-yellow-400">{p.gold} \uD83D\uDCB0</p>
+                        <p className="text-xs font-bold text-yellow-400">{p.gold} 💰</p>
                         <div className="w-2 h-2 rounded-full bg-green-400 ml-auto mt-1" />
                       </div>
                     </motion.button>
@@ -1797,7 +1841,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 const stake = Math.min(50, char.gold);
                 if (stake > 0) challengePlayer(random, stake);
               }} className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 text-sm font-bold">
-                \uD83C\uDFB2 Duelo Rapido (50 \uD83D\uDCB0)
+                🎲 Duelo Rapido (50 💰)
               </motion.button>
             )}
           </div>
@@ -1814,13 +1858,13 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             {/* Balance */}
             <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-center">
               <p className="text-[10px] text-muted-foreground">Teu saldo</p>
-              <p className="text-2xl font-bold text-yellow-400">{char.gold} <span className="text-sm">\uD83D\uDCB0</span></p>
-              <p className="text-[10px] text-muted-foreground mt-1">Ganho total: {char.totalEarned} \uD83D\uDCB0</p>
+              <p className="text-2xl font-bold text-yellow-400">{char.gold} <span className="text-sm">💰</span></p>
+              <p className="text-[10px] text-muted-foreground mt-1">Ganho total: {char.totalEarned} 💰</p>
             </div>
 
             {/* P2P Transfer */}
             <div className="p-3 rounded-xl bg-card border border-border">
-              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Enviar Ouro (P2P)</p>
+              <p className="text-xs font-bold mb-2">📨 Enviar Ouro (P2P)</p>
               <div className="space-y-2">
                 <select value={transferTarget} onChange={e => setTransferTarget(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
@@ -1840,20 +1884,20 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                     setTransferTarget(""); setTransferAmount("");
                   }}
                   className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
-                  Enviar \uD83D\uDCE8
+                  Enviar 📨
                 </motion.button>
               </div>
             </div>
 
             {/* Economy info */}
             <div className="p-3 rounded-xl bg-card border border-border">
-              <p className="text-xs font-bold mb-2">\uD83D\uDCCA Como ganhar ouro</p>
+              <p className="text-xs font-bold mb-2">📊 Como ganhar ouro</p>
               <div className="space-y-1.5 text-[11px] text-muted-foreground">
-                <p>\u2694\uFE0F <b>Derrota monstros</b> nos mapas - ganha XP e ouro</p>
-                <p>\uD83C\uDFC6 <b> Duelos PVP</b> - aposta ouro, vence e fica com tudo</p>
-                <p>\uD83D\uDCB0 <b>Recompensa diaria</b> - clica todos os dias</p>
-                <p>\uD83E\uDDD1\u200D\uD83E\uDD1D <b>Transferencias P2P</b> - envia e recebe de outros jogadores</p>
-                <p>\uD83C\uDF81 <b>World Boss</b> - contribui para derrotar e ganha recompensas</p>
+                <p>⚔️ <b>Derrota monstros</b> nos mapas - ganha XP e ouro</p>
+                <p>🏆 <b> Duelos PVP</b> - aposta ouro, vence e fica com tudo</p>
+                <p>💰 <b>Recompensa diaria</b> - clica todos os dias</p>
+                <p>🧑‍🤝 <b>Transferencias P2P</b> - envia e recebe de outros jogadores</p>
+                <p>🎁 <b>World Boss</b> - contribui para derrotar e ganha recompensas</p>
               </div>
             </div>
           </div>
@@ -1867,7 +1911,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 <ShoppingBag className="h-4 w-4 text-yellow-400" />
                 <span className="font-bold text-sm">Loja</span>
               </div>
-              <span className="text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+              <span className="text-sm font-bold text-yellow-400">{char.gold} 💰</span>
             </div>
 
             {/* Current equipment */}
@@ -1889,12 +1933,12 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.spd ? `\uD83D\uDCA8+${item.spd} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp} ` : ""}{item.mp ? `\uD83D\uDD2E+${item.mp}` : ""}
+                      {item.atk ? `⚔️+${item.atk} ` : ""}{item.def ? `🛡️+${item.def} ` : ""}{item.spd ? `💨+${item.spd} ` : ""}{item.hp ? `❤️+${item.hp} ` : ""}{item.mp ? `🔮+${item.mp}` : ""}
                     </p>
                   </div>
                   <motion.button whileTap={{ scale: 0.9 }} disabled={owned || char.gold < item.price} onClick={() => buyItem(item)}
                     className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold disabled:opacity-30">
-                    {owned ? "\u2705" : `${item.price} \uD83D\uDCB0`}
+                    {owned ? "✅" : `${item.price} 💰`}
                   </motion.button>
                 </div>
               );
@@ -1903,14 +1947,14 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             {/* Inventory */}
             {char.inventory.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs font-bold mb-2">\uD83D\uDCBC Mochila ({char.inventory.length})</p>
+                <p className="text-xs font-bold mb-2">💼 Mochila ({char.inventory.length})</p>
                 <div className="space-y-2">
                   {char.inventory.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-card border border-border">
                       <span className="text-xl">{item.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">{item.name}</p>
-                        <p className="text-[9px] text-muted-foreground">{item.atk ? `\u2694\uFE0F+${item.atk} ` : ""}{item.def ? `\uD83D\uDEE1\uFE0F+${item.def} ` : ""}{item.hp ? `\u2764\uFE0F+${item.hp}` : ""}</p>
+                        <p className="text-[9px] text-muted-foreground">{item.atk ? `⚔️+${item.atk} ` : ""}{item.def ? `🛡️+${item.def} ` : ""}{item.hp ? `❤️+${item.hp}` : ""}</p>
                       </div>
                       <button onClick={() => equipItem(i)} className="px-2 py-1 rounded bg-green-500/10 text-green-400 text-[10px] font-bold">Equipar</button>
                       <button onClick={() => sellItem(i)} className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold">Vender</button>
@@ -1937,7 +1981,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 const isMe = msg.charName === char.name;
                 return (
                   <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-                    <span className="text-lg flex-shrink-0">{CLASSES[msg.classId]?.emoji || "\uD83D\uDC64"}</span>
+                    <span className="text-lg flex-shrink-0">{CLASSES[msg.classId]?.emoji || "👤"}</span>
                     <div className={`max-w-[75%] ${isMe ? "text-right" : ""}`}>
                       <p className="text-[10px] font-bold" style={{ color: CLASSES[msg.classId]?.color }}>{msg.charName}</p>
                       <p className="text-xs bg-muted rounded-lg px-2.5 py-1.5 inline-block text-left">{msg.message}</p>
@@ -1978,14 +2022,14 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                 const isMe = entry.charId === guestId || entry.name === char.name;
                 return (
                   <div key={entry.charId + i} className={`flex items-center gap-3 p-2.5 rounded-xl ${isMe ? "bg-primary/5 border border-primary/20" : "bg-card border border-border"}`}>
-                    <span className={`w-6 text-center font-bold text-sm ${i < 3 ? "text-yellow-400" : "text-muted-foreground"}`}>{i < 3 ? ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"][i] : i + 1}</span>
-                    <span className="text-xl">{CLASSES[entry.classId]?.emoji || "\uD83D\uDC64"}</span>
+                    <span className={`w-6 text-center font-bold text-sm ${i < 3 ? "text-yellow-400" : "text-muted-foreground"}`}>{i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+                    <span className="text-xl">{CLASSES[entry.classId]?.emoji || "👤"}</span>
                     <div className="flex-1">
                       <p className="text-sm font-bold" style={{ color: isMe ? cl.color : CLASSES[entry.classId]?.color }}>{entry.name} {isMe && "(tu)"}</p>
                     </div>
                     <div className="text-right text-[10px]">
                       <p className="font-bold">Nv.{entry.level}</p>
-                      <p className="text-muted-foreground">{entry.gold} \uD83D\uDCB0</p>
+                      <p className="text-muted-foreground">{entry.gold} 💰</p>
                     </div>
                   </div>
                 );
@@ -2016,27 +2060,27 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-2">
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\u2764\uFE0F HP</p>
+                <p className="text-[10px] text-muted-foreground">❤️ HP</p>
                 <p className="font-bold text-sm text-red-400">{stats.maxHp}</p>
               </div>
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\u2694\uFE0F ATK</p>
+                <p className="text-[10px] text-muted-foreground">⚔️ ATK</p>
                 <p className="font-bold text-sm text-orange-400">{stats.atk}</p>
               </div>
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\uD83D\uDEE1\uFE0F DEF</p>
+                <p className="text-[10px] text-muted-foreground">🛡️ DEF</p>
                 <p className="font-bold text-sm text-blue-400">{stats.def}</p>
               </div>
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\uD83D\uDCA8 SPD</p>
+                <p className="text-[10px] text-muted-foreground">💨 SPD</p>
                 <p className="font-bold text-sm text-green-400">{stats.spd}</p>
               </div>
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\uD83D\uDD2E MP</p>
+                <p className="text-[10px] text-muted-foreground">🔮 MP</p>
                 <p className="font-bold text-sm text-indigo-400">{stats.maxMp}</p>
               </div>
               <div className="p-2 rounded-lg bg-card border border-border text-center">
-                <p className="text-[10px] text-muted-foreground">\uD83D\uDCB0 Gold</p>
+                <p className="text-[10px] text-muted-foreground">💰 Gold</p>
                 <p className="font-bold text-sm text-yellow-400">{char.gold}</p>
               </div>
             </div>
@@ -2090,12 +2134,12 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-400" />
               <span className="font-bold text-sm">Mercado P2P</span>
-              <span className="ml-auto text-sm font-bold text-yellow-400">{char.gold} \uD83D\uDCB0</span>
+              <span className="ml-auto text-sm font-bold text-yellow-400">{char.gold} 💰</span>
             </div>
 
             {/* Sell item */}
             <div className="p-3 rounded-xl bg-card border border-border">
-              <p className="text-xs font-bold mb-2">\uD83D\uDCE8 Vender Item</p>
+              <p className="text-xs font-bold mb-2">📨 Vender Item</p>
               <div className="space-y-2">
                 <select value={marketSellItem} onChange={e => setMarketSellItem(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm">
@@ -2118,7 +2162,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                     setMarketListings(prev => [...prev, listing]);
                     updateChar(c => { const inv = [...c.inventory]; inv.splice(idx, 1); return { ...c, inventory: inv }; });
                     setMarketSellItem(""); setMarketSellPrice("");
-                    notify(`Item listado por ${price} \uD83D\uDCB0`);
+                    notify(`Item listado por ${price} 💰`);
                   }}
                   className="w-full py-2 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 text-sm font-bold disabled:opacity-30">
                   Listar no Mercado
@@ -2127,7 +2171,7 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
             </div>
 
             {/* Listings */}
-            <p className="text-xs font-bold">\uD83D\uDCCA Itens a Venda ({marketListings.length})</p>
+            <p className="text-xs font-bold">📊 Itens a Venda ({marketListings.length})</p>
             {marketListings.length === 0 && (
               <div className="text-center py-8">
                 <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -2142,19 +2186,19 @@ export default function MMORPGGame({ onScore, liveCode }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{listing.item.name}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {listing.item.atk ? `\u2694\uFE0F+${listing.item.atk} ` : ""}{listing.item.def ? `\uD83D\uDEE1\uFE0F+${listing.item.def} ` : ""}{listing.item.hp ? `\u2764\uFE0F+${listing.item.hp}` : ""}
+                      {listing.item.atk ? `⚔️+${listing.item.atk} ` : ""}{listing.item.def ? `🛡️+${listing.item.def} ` : ""}{listing.item.hp ? `❤️+${listing.item.hp}` : ""}
                     </p>
                     <p className="text-[9px] text-muted-foreground">por {listing.sellerName}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-yellow-400">{listing.price} \uD83D\uDCB0</p>
+                    <p className="text-sm font-bold text-yellow-400">{listing.price} 💰</p>
                     {listing.sellerId !== guestId ? (
                       <motion.button whileTap={{ scale: 0.9 }}
                         disabled={char.gold < listing.price}
                         onClick={() => {
                           updateChar(c => ({ ...c, gold: c.gold - listing.price, inventory: [...c.inventory, { ...listing.item }] }));
                           setMarketListings(prev => prev.filter(l => l.id !== listing.id));
-                          notify(`\u2705 Compraste ${listing.item.name}!`);
+                          notify(`✅ Compraste ${listing.item.name}!`);
                           dbSendTransfer(guestId, char!.name, listing.sellerId, listing.sellerName, listing.price, `Mercado: ${listing.item.name}`);
                         }}
                         className="mt-1 px-3 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-[10px] font-bold disabled:opacity-30">

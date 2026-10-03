@@ -1112,7 +1112,7 @@ export default function MazeRace({ onScore, liveCode }: Props) {
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-flex gap-0.5">
-            {["\u2191", "\u2193", "\u2190", "\u2192"].map((k) => (
+            {["↑", "↓", "←", "→"].map((k) => (
               <kbd key={k} className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-pink-400/70 font-mono">{k}</kbd>
             ))}
           </span>
@@ -1126,13 +1126,13 @@ export default function MazeRace({ onScore, liveCode }: Props) {
           <p className="text-cyan-400/70 text-[10px] text-center mb-1 font-medium uppercase tracking-wider">P1</p>
           <div className="grid grid-cols-3 gap-1">
             <div />
-            {mkDpad("w", "\u25B2", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
+            {mkDpad("w", "▲", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
             <div />
-            {mkDpad("a", "\u25C4", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
+            {mkDpad("a", "◄", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
             <div className="w-12 h-12" />
-            {mkDpad("d", "\u25BA", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
+            {mkDpad("d", "►", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
             <div />
-            {mkDpad("s", "\u25BC", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
+            {mkDpad("s", "▼", "bg-cyan-500/15 border-cyan-500/25", "text-cyan-400")}
             <div />
           </div>
         </div>
@@ -1140,13 +1140,13 @@ export default function MazeRace({ onScore, liveCode }: Props) {
           <p className="text-pink-400/70 text-[10px] text-center mb-1 font-medium uppercase tracking-wider">P2</p>
           <div className="grid grid-cols-3 gap-1">
             <div />
-            {mkDpad("ArrowUp", "\u25B2", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
+            {mkDpad("ArrowUp", "▲", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
             <div />
-            {mkDpad("ArrowLeft", "\u25C4", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
+            {mkDpad("ArrowLeft", "◄", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
             <div className="w-12 h-12" />
-            {mkDpad("ArrowRight", "\u25BA", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
+            {mkDpad("ArrowRight", "►", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
             <div />
-            {mkDpad("ArrowDown", "\u25BC", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
+            {mkDpad("ArrowDown", "▼", "bg-pink-500/15 border-pink-500/25", "text-pink-400")}
             <div />
           </div>
         </div>

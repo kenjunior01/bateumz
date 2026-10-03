@@ -77,8 +77,8 @@ export default function Contests() {
   };
 
   const chips = [
-    { id: "active", label: "Ativos", icon: "\ud83d\udd25", count: active.length },
-    { id: "past", label: "Encerrados", icon: "\ud83c\udfc6", count: past.length },
+    { id: "active", label: "Ativos", icon: "🔥", count: active.length },
+    { id: "past", label: "Encerrados", icon: "🏆", count: past.length },
   ];
 
   const ContestCard = ({ contest, index }: { contest: Contest; index: number }) => {
@@ -157,7 +157,7 @@ export default function Contests() {
                   className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1"
                   style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
                 >
-                  <span>{"\ud83d\udcbc"}</span> <span>{sponsor}</span>
+                  <span>{"💼"}</span> <span>{sponsor}</span>
                 </div>
               )}
             </div>

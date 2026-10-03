@@ -183,7 +183,7 @@ const ContestTypesShowcase = () => {
                         variant="outline"
                         className="text-[9px] px-1.5 py-0 h-4 bg-background/60 backdrop-blur border-border/50"
                       >
-                        {type.evaluation === "views" ? "\u{1F441}\uFE0F" : "\u2764\uFE0F"}
+                        {type.evaluation === "views" ? "\u{1F441}️" : "❤️"}
                       </Badge>
                     </div>
                     <h3 className="font-semibold text-sm text-foreground mb-0.5 line-clamp-1">

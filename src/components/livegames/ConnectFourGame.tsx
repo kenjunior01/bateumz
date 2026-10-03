@@ -330,7 +330,7 @@ const ConnectFourGame = ({ onScore, liveCode }: Props) => {
                 "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                 difficulty === d ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "text-gray-400 hover:text-white"
               )}>
-                {{ easy: "F\u00e1cil", medium: "M\u00e9dio", hard: "Dif\u00edcil" }[d]}
+                {{ easy: "Fácil", medium: "Médio", hard: "Difícil" }[d]}
               </button>
             ))}
           </div>
@@ -705,7 +705,7 @@ const ConnectFourGame = ({ onScore, liveCode }: Props) => {
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ delay: 0.3, type: "spring", stiffness: 500, damping: 12 }}
                   >
-                    {draw ? "\ud83e\udd1d" : (gameMode === "bot" && winner === 2 ? "\ud83e\udd16" : "\ud83c\udfc6")}
+                    {draw ? "🤝" : (gameMode === "bot" && winner === 2 ? "🤖" : "🏆")}
                   </motion.div>
 
                   <motion.h3

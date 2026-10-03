@@ -19,7 +19,7 @@ export type ScheduledLive = {
 };
 
 const SLUG_FALLBACK = (title: string) =>
-  title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  title.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "live";
 
 export const buildScheduledLiveUrl = (slug: string): string =>

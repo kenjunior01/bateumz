@@ -507,7 +507,7 @@ export default function PatternMemory({ onScore, liveCode }: Props) {
       const prevGrid = ROUNDS[round - 1]?.gridSize;
       const currGrid = ROUNDS[round].gridSize;
       if (prevGrid !== undefined && prevGrid !== currGrid) {
-        const txt = `${currGrid}\u00D7${currGrid}`;
+        const txt = `${currGrid}×${currGrid}`;
         setLevelUpText(txt);
         setShowLevelUp(true);
         const t = setTimeout(() => setShowLevelUp(false), 1300);

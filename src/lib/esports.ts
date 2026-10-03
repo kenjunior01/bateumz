@@ -356,20 +356,20 @@ export const DEFAULT_BR_PLACEMENT_POINTS: Record<number, number> = {
 };
 
 export const GAME_EMOJIS: Record<string, string> = {
-  "free-fire": "\uD83D\uDD25",
-  codm: "\uD83C\uDFAF",
-  pubgm: "\uD83C\uDFAF",
-  valorant: "\u26A1",
-  fortnite: "\uD83C\uDFD7\uFE0F",
-  cs2: "\uD83D\uDD2B",
-  league: "\u2694\uFE0F",
-  dota2: "\uD83D\uDC0D",
-  apex: "\uD83D\uDE80",
-  wild_rift: "\uD83C\uDFC6",
-  mlbb: "\uD83D\uDCDC",
-  clash_royale: "\uD83C\uDCCF",
-  fifa: "\u26BD",
-  rocket_league: "\uD83D\uDE80",
+  "free-fire": "🔥",
+  codm: "🎯",
+  pubgm: "🎯",
+  valorant: "⚡",
+  fortnite: "🏗️",
+  cs2: "🔫",
+  league: "⚔️",
+  dota2: "🐍",
+  apex: "🚀",
+  wild_rift: "🏆",
+  mlbb: "📜",
+  clash_royale: "🃏",
+  fifa: "⚽",
+  rocket_league: "🚀",
 };
 
 // ============================================================
@@ -380,7 +380,7 @@ function slugify(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }

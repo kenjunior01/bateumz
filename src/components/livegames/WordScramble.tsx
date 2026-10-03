@@ -403,7 +403,7 @@ const WordScramble = ({ onScore, liveCode }: Props) => {
       .trim()
       .toUpperCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+      .replace(/[̀-ͯ]/g, "");
   };
 
   const normalizeWord = (word: string): string => {
@@ -411,7 +411,7 @@ const WordScramble = ({ onScore, liveCode }: Props) => {
       .trim()
       .toUpperCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+      .replace(/[̀-ͯ]/g, "");
   };
 
   const submitAnswer = useCallback(

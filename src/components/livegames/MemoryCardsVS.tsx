@@ -19,7 +19,7 @@ type TimerOption = 0 | 60 | 90 | 120;
 type GameState = 'idle' | 'playing' | 'ended';
 type CardStatus = 'hidden' | 'flipping' | 'matched' | 'shaking';
 type GameMode = 'player' | 'bot';
-type BotDifficulty = 'F\u00e1cil' | 'M\u00e9dio' | 'Dif\u00edcil';
+type BotDifficulty = 'Fácil' | 'Médio' | 'Difícil';
 
 interface CardData {
   id: number;
@@ -49,7 +49,7 @@ interface Confetto {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Shape definitions \u2013 SVG path-based geometric patterns              */
+/*  Shape definitions – SVG path-based geometric patterns              */
 /* ------------------------------------------------------------------ */
 
 type ShapeName =
@@ -65,13 +65,13 @@ type ShapeName =
   | 'lightning';
 
 const SHAPE_DEFS: Record<ShapeName, { color: string; label: string }> = {
-  circle:    { color: '#06b6d4', label: 'C\u00edrculo' },
+  circle:    { color: '#06b6d4', label: 'Círculo' },
   star:      { color: '#eab308', label: 'Estrela' },
   diamond:   { color: '#ec4899', label: 'Diamante' },
-  heart:     { color: '#ef4444', label: 'Cora\u00e7\u00e3o' },
-  triangle:  { color: '#22c55e', label: 'Tri\u00e2ngulo' },
+  heart:     { color: '#ef4444', label: 'Coração' },
+  triangle:  { color: '#22c55e', label: 'Triângulo' },
   square:    { color: '#3b82f6', label: 'Quadrado' },
-  hexagon:   { color: '#a855f7', label: 'Hex\u00e1gono' },
+  hexagon:   { color: '#a855f7', label: 'Hexágono' },
   cross:     { color: '#f97316', label: 'Cruz' },
   moon:      { color: '#6366f1', label: 'Lua' },
   lightning: { color: '#f59e0b', label: 'Raio' },
@@ -287,7 +287,7 @@ function FeedbackToast({ message, color }: { message: string; color: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Single Card component \u2013 Enhanced 3D flip, shake, glow             */
+/*  Single Card component – Enhanced 3D flip, shake, glow             */
 /* ------------------------------------------------------------------ */
 
 interface CardProps {
@@ -649,7 +649,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
   /* ---- State ---- */
   const [gameState, setGameState] = useState<GameState>('idle');
   const [mode, setMode] = useState<GameMode>('player');
-  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('M\u00e9dio');
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('Médio');
   const [gridSize, setGridSize] = useState<GridSize>('4x4');
   const [timerOption, setTimerOption] = useState<TimerOption>(90);
   const [cards, setCards] = useState<CardData[]>([]);
@@ -850,7 +850,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
         return true;
       } else {
         updateCombo(player, false);
-        showFeedback('N\u00e3o \u00e9 par', 'bg-red-600 text-white');
+        showFeedback('Não é par', 'bg-red-600 text-white');
         setTimeout(() => {
           setCards(prev =>
             prev.map((c, i) =>
@@ -917,9 +917,9 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
     setBotThinking(true);
 
     const botMemoryPct: Record<BotDifficulty, number> = {
-      'F\u00e1cil': 0.3,
-      'M\u00e9dio': 0.6,
-      'Dif\u00edcil': 0.9,
+      'Fácil': 0.3,
+      'Médio': 0.6,
+      'Difícil': 0.9,
     };
     const memoryChance = botMemoryPct[botDifficulty];
     const memory = botMemoryRef.current;
@@ -1061,7 +1061,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
           }, 500);
         } else {
           updateCombo(2, false);
-          showFeedback('N\u00e3o \u00e9 par', 'bg-red-600 text-white');
+          showFeedback('Não é par', 'bg-red-600 text-white');
           setTimeout(() => {
             setCards(prev =>
               prev.map((c, i) =>
@@ -1130,7 +1130,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto select-none">
       <h2 className="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight">
-        MEM\u00d3RIA VS CARTAS
+        MEMÓRIA VS CARTAS
       </h2>
 
       {/* ---- Score / Turn Bar ---- */}
@@ -1342,7 +1342,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
         {mode === 'bot' && (
           <div className="flex items-center gap-1">
             <span className="text-xs text-slate-400 mr-1">IA:</span>
-            {(['F\u00e1cil', 'M\u00e9dio', 'Dif\u00edcil'] as BotDifficulty[]).map(d => (
+            {(['Fácil', 'Médio', 'Difícil'] as BotDifficulty[]).map(d => (
               <Button
                 key={d}
                 size="sm"
@@ -1444,7 +1444,7 @@ export default function MemoryCardsVS({ onScore, liveCode: _liveCode }: Props) {
       {gameState === 'idle' && (
         <div className="flex flex-col items-center gap-4 py-8">
           <div className="text-slate-400 text-sm text-center max-w-xs">
-            Jogo de mem\u00f3ria competitivo. {mode === 'bot' ? 'Desafie o computador!' : 'Dois jogadores revezam turnos no mesmo tabuleiro.'}
+            Jogo de memória competitivo. {mode === 'bot' ? 'Desafie o computador!' : 'Dois jogadores revezam turnos no mesmo tabuleiro.'}
             Encontre os pares para marcar pontos!
           </div>
           <Button

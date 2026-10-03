@@ -14,12 +14,12 @@ interface Props {
   onWinner?: (label: string, votes: number) => void;
 }
 
-const SIM_USERS = ["Zito", "In\u00eas", "Mauro", "Carla", "Bento", "J\u00falia", "T\u00f3", "Nina", "Rico", "Sami", "Edu", "L\u00eda"];
+const SIM_USERS = ["Zito", "Inês", "Mauro", "Carla", "Bento", "Júlia", "Tó", "Nina", "Rico", "Sami", "Edu", "Lía"];
 
 const DEFAULTS: Option[] = [
-  { id: "a", emoji: "\ud83d\udd25", label: "Op\u00e7\u00e3o A", votes: 0 },
-  { id: "b", emoji: "\u2764\ufe0f", label: "Op\u00e7\u00e3o B", votes: 0 },
-  { id: "c", emoji: "\u2b50", label: "Op\u00e7\u00e3o C", votes: 0 },
+  { id: "a", emoji: "🔥", label: "Opção A", votes: 0 },
+  { id: "b", emoji: "❤️", label: "Opção B", votes: 0 },
+  { id: "c", emoji: "⭐", label: "Opção C", votes: 0 },
 ];
 
 const SPARKLE_ANGLES = Array.from({ length: 6 }, (_, i) => (i * Math.PI * 2) / 6);
@@ -106,7 +106,7 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
 
   const addOption = () => {
     if (options.length >= 6) return;
-    setOptions((prev) => [...prev, { id: Math.random().toString(36).slice(2, 6), emoji: "\u2728", label: `Op\u00e7\u00e3o ${String.fromCharCode(65 + prev.length)}`, votes: 0 }]);
+    setOptions((prev) => [...prev, { id: Math.random().toString(36).slice(2, 6), emoji: "✨", label: `Opção ${String.fromCharCode(65 + prev.length)}`, votes: 0 }]);
   };
   const removeOption = (id: string) => setOptions((prev) => prev.filter((o) => o.id !== id));
   const update = (id: string, patch: Partial<Option>) => setOptions((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
@@ -145,11 +145,11 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
             <SheetHeader className="mb-3"><SheetTitle>{"Configurar Batalha"}</SheetTitle></SheetHeader>
             <div className="space-y-4 pb-6">
               <div>
-                <Label className="text-xs">{`Dura\u00e7\u00e3o: ${duration}s`}</Label>
+                <Label className="text-xs">{`Duração: ${duration}s`}</Label>
                 <Slider min={5} max={60} step={5} value={[duration]} onValueChange={([v]) => setDuration(v)} className="mt-2" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">{"Op\u00e7\u00f5es"}</Label>
+                <Label className="text-xs">{"Opções"}</Label>
                 {options.map((o) => (
                   <div key={o.id} className="flex items-center gap-2">
                     <Input value={o.emoji} onChange={(e) => update(o.id, { emoji: e.target.value })} className="w-14 text-center" />
@@ -160,7 +160,7 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
                   </div>
                 ))}
                 <button onClick={addOption} className="inline-flex items-center gap-1.5 text-xs text-primary font-medium">
-                  <Plus className="h-3.5 w-3.5" /> {"Adicionar op\u00e7\u00e3o"}
+                  <Plus className="h-3.5 w-3.5" /> {"Adicionar opção"}
                 </button>
               </div>
             </div>
@@ -183,7 +183,7 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
               {total}
             </motion.span>
           </span>
-          {running && <span className="font-bold text-pink-500">{"\u23f1 "}{timeLeft}s</span>}
+          {running && <span className="font-bold text-pink-500">{"⏱ "}{timeLeft}s</span>}
         </div>
 
         <div className="space-y-2">
@@ -214,7 +214,7 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
                   <span className="text-2xl">{o.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{o.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{o.votes} votos {"\u00b7"} {pct.toFixed(0)}%</p>
+                    <p className="text-[10px] text-muted-foreground">{o.votes} votos {"·"} {pct.toFixed(0)}%</p>
                   </div>
                   {isWin && <Trophy className="h-4 w-4 text-emerald-500" />}
                 </div>
@@ -270,7 +270,7 @@ const EmojiBattle = ({ onScore, onWinner }: Props) => {
               whileTap={{ scale: 0.97 }}
               className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold"
             >
-              <Play className="h-4 w-4" /> {"Abrir vota\u00e7\u00e3o"}
+              <Play className="h-4 w-4" /> {"Abrir votação"}
             </motion.button>
           ) : (
             <motion.button

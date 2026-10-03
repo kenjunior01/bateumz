@@ -72,11 +72,11 @@ const FLOATING_ICONS = [
 ];
 
 const GAMING_STICKERS = [
-  { emoji: "\uD83C\uDFB0", x: "4%", y: "35%", size: 36, duration: 5, delay: 0, label: "JACKPOT" },
-  { emoji: "\uD83D\uDD25", x: "92%", y: "60%", size: 32, duration: 4.5, delay: 1.2, label: "HOT" },
-  { emoji: "\u2B50", x: "85%", y: "8%", size: 30, duration: 5.5, delay: 0.6, label: "TOP" },
-  { emoji: "\uD83C\uDFC6", x: "2%", y: "88%", size: 34, duration: 6, delay: 2, label: "WIN" },
-  { emoji: "\uD83D\uDC8E", x: "50%", y: "4%", size: 28, duration: 4, delay: 0.3, label: "RICH" },
+  { emoji: "🎰", x: "4%", y: "35%", size: 36, duration: 5, delay: 0, label: "JACKPOT" },
+  { emoji: "🔥", x: "92%", y: "60%", size: 32, duration: 4.5, delay: 1.2, label: "HOT" },
+  { emoji: "⭐", x: "85%", y: "8%", size: 30, duration: 5.5, delay: 0.6, label: "TOP" },
+  { emoji: "🏆", x: "2%", y: "88%", size: 34, duration: 6, delay: 2, label: "WIN" },
+  { emoji: "💎", x: "50%", y: "4%", size: 28, duration: 4, delay: 0.3, label: "RICH" },
 ];
 
 const PARTICLE_COUNT = 40;

@@ -42,34 +42,34 @@ const CA_PROVINCES: ReadonlyArray<readonly [string, string]> = [
 const MZ_PROVINCES: ReadonlyArray<readonly [string, string]> = [
   ["maputo-cidade","Maputo City"],["maputo","Maputo Province"],["gaza","Gaza"],
   ["inhambane","Inhambane"],["sofala","Sofala"],["manica","Manica"],["tete","Tete"],
-  ["zambezia","Zamb\u00e9zia"],["nampula","Nampula"],["niassa","Niassa"],["cabo-delgado","Cabo Delgado"],
+  ["zambezia","Zambézia"],["nampula","Nampula"],["niassa","Niassa"],["cabo-delgado","Cabo Delgado"],
 ];
 
 const AO_PROVINCES: ReadonlyArray<readonly [string, string]> = [
-  ["luanda","Luanda"],["bengo","Bengo"],["benguela","Benguela"],["bie","Bi\u00e9"],
+  ["luanda","Luanda"],["bengo","Bengo"],["benguela","Benguela"],["bie","Bié"],
   ["cabinda","Cabinda"],["cuando-cubango","Cuando Cubango"],["cuanza-norte","Cuanza Norte"],
   ["cuanza-sul","Cuanza Sul"],["cunene","Cunene"],["huambo","Huambo"],["huila","Huíla"],
   ["lunda-norte","Lunda Norte"],["lunda-sul","Lunda Sul"],["malanje","Malanje"],
-  ["moxico","Moxico"],["namibe","Namibe"],["uige","U\u00edge"],["zaire","Zaire"],
+  ["moxico","Moxico"],["namibe","Namibe"],["uige","Uíge"],["zaire","Zaire"],
 ];
 
 const BR_STATES: ReadonlyArray<readonly [string, string]> = [
-  ["AC","Acre"],["AL","Alagoas"],["AP","Amap\u00e1"],["AM","Amazonas"],["BA","Bahia"],
-  ["CE","Cear\u00e1"],["DF","Distrito Federal"],["ES","Esp\u00edrito Santo"],["GO","Goi\u00e1s"],
-  ["MA","Maranh\u00e3o"],["MT","Mato Grosso"],["MS","Mato Grosso do Sul"],["MG","Minas Gerais"],
-  ["PA","Par\u00e1"],["PB","Para\u00edba"],["PR","Paran\u00e1"],["PE","Pernambuco"],["PI","Piau\u00ed"],
+  ["AC","Acre"],["AL","Alagoas"],["AP","Amapá"],["AM","Amazonas"],["BA","Bahia"],
+  ["CE","Ceará"],["DF","Distrito Federal"],["ES","Espírito Santo"],["GO","Goiás"],
+  ["MA","Maranhão"],["MT","Mato Grosso"],["MS","Mato Grosso do Sul"],["MG","Minas Gerais"],
+  ["PA","Pará"],["PB","Paraíba"],["PR","Paraná"],["PE","Pernambuco"],["PI","Piauí"],
   ["RJ","Rio de Janeiro"],["RN","Rio Grande do Norte"],["RS","Rio Grande do Sul"],
-  ["RO","Rond\u00f4nia"],["RR","Roraima"],["SC","Santa Catarina"],["SP","S\u00e3o Paulo"],
+  ["RO","Rondônia"],["RR","Roraima"],["SC","Santa Catarina"],["SP","São Paulo"],
   ["SE","Sergipe"],["TO","Tocantins"],
 ];
 
 const PT_DISTRICTS: ReadonlyArray<readonly [string, string]> = [
-  ["aveiro","Aveiro"],["beja","Beja"],["braga","Braga"],["braganca","Bragan\u00e7a"],
-  ["castelo-branco","Castelo Branco"],["coimbra","Coimbra"],["evora","\u00c9vora"],
+  ["aveiro","Aveiro"],["beja","Beja"],["braga","Braga"],["braganca","Bragança"],
+  ["castelo-branco","Castelo Branco"],["coimbra","Coimbra"],["evora","Évora"],
   ["faro","Faro"],["guarda","Guarda"],["leiria","Leiria"],["lisboa","Lisboa"],
-  ["portalegre","Portalegre"],["porto","Porto"],["santarem","Santar\u00e9m"],
-  ["setubal","Set\u00fabal"],["viana-do-castelo","Viana do Castelo"],["vila-real","Vila Real"],
-  ["viseu","Viseu"],["acores","A\u00e7ores"],["madeira","Madeira"],
+  ["portalegre","Portalegre"],["porto","Porto"],["santarem","Santarém"],
+  ["setubal","Setúbal"],["viana-do-castelo","Viana do Castelo"],["vila-real","Vila Real"],
+  ["viseu","Viseu"],["acores","Açores"],["madeira","Madeira"],
 ];
 
 const IN_STATES: ReadonlyArray<readonly [string, string]> = [

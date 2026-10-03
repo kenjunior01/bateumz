@@ -165,7 +165,7 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg font-bold">
             <Zap className="h-5 w-5 text-yellow-400" />
-            <span className="bg-gradient-to-r from-cyan-300 to-fuchsia-400 bg-clip-text text-transparent">Velocidade de Reac\u00e7\u00e3o VS</span>
+            <span className="bg-gradient-to-r from-cyan-300 to-fuchsia-400 bg-clip-text text-transparent">Velocidade de Reacção VS</span>
           </CardTitle>
           {phase !== 'setup' && (
             <Badge variant="outline" className="border-cyan-500/50 text-cyan-300 text-xs">
@@ -187,7 +187,7 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
         <AnimatePresence mode="wait">
           {phase === 'setup' && (
             <motion.div key="setup" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="p-6 space-y-4">
-              <p className="text-center text-sm text-muted-foreground">Digite os nomes e inicie a batalha de reac\u00e7\u00e3o!</p>
+              <p className="text-center text-sm text-muted-foreground">Digite os nomes e inicie a batalha de reacção!</p>
               <div className="flex gap-3">
                 <div className="flex-1 space-y-1.5">
                   <label className="text-xs font-medium text-cyan-400 flex items-center gap-1"><User className="h-3 w-3" /> Jogador 1</label>
@@ -343,10 +343,10 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
                     </div>
                   )}
                   {p1Time !== null && p2Time === null && (
-                    <p className="text-sm text-muted-foreground">Tempo de reac\u00e7\u00e3o: {p1Time}ms</p>
+                    <p className="text-sm text-muted-foreground">Tempo de reacção: {p1Time}ms</p>
                   )}
                   {p2Time !== null && p1Time === null && (
-                    <p className="text-sm text-muted-foreground">Tempo de reac\u00e7\u00e3o: {p2Time}ms</p>
+                    <p className="text-sm text-muted-foreground">Tempo de reacção: {p2Time}ms</p>
                   )}
 
                   {/* Running average display */}
@@ -355,13 +355,13 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
                       {p1Avg !== null && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <TrendingUp className="h-3 w-3 text-cyan-400" />
-                          <span>{p1Name} m\u00e9dia: <span className="text-cyan-300 font-semibold">{p1Avg}ms</span></span>
+                          <span>{p1Name} média: <span className="text-cyan-300 font-semibold">{p1Avg}ms</span></span>
                         </div>
                       )}
                       {p2Avg !== null && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <TrendingUp className="h-3 w-3 text-fuchsia-400" />
-                          <span>{p2Name} m\u00e9dia: <span className="text-fuchsia-300 font-semibold">{p2Avg}ms</span></span>
+                          <span>{p2Name} média: <span className="text-fuchsia-300 font-semibold">{p2Avg}ms</span></span>
                         </div>
                       )}
                     </div>
@@ -369,7 +369,7 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
                 </>
               ) : null}
               <motion.div whileHover={{ scale: 1.03 }}><Button onClick={nextRound} className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-5 shadow-[0_0_20px_rgba(34,211,238,0.25)]">
-                <Zap className="h-4 w-4 mr-2" /> Pr\u00f3xima Rodada
+                <Zap className="h-4 w-4 mr-2" /> Próxima Rodada
               </Button>
             </motion.div>
             </motion.div>
@@ -394,7 +394,7 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
                 className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
                 <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white/80">
-                  <BarChart3 className="h-4 w-4" /> Estat\u00edsticas da Partida
+                  <BarChart3 className="h-4 w-4" /> Estatísticas da Partida
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -412,13 +412,13 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
                           <span className="font-mono font-bold text-red-400">{p1Worst}ms</span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-1 text-cyan-300"><Timer className="h-3 w-3" /> M\u00e9dia</span>
+                          <span className="flex items-center gap-1 text-cyan-300"><Timer className="h-3 w-3" /> Média</span>
                           <span className="font-mono font-bold text-cyan-300">{p1Avg}ms</span>
                         </div>
                         {/* Average time bar */}
                         <div className="space-y-1 pt-1">
                           <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>Reac\u00e7\u00f5es</span>
+                            <span>Reacções</span>
                             <span>{p1History.length}x</span>
                           </div>
                           {p1History.map((t, i) => (
@@ -456,12 +456,12 @@ export default function SpeedReaction({ onScore, liveCode }: SpeedReactionProps)
                           <span className="font-mono font-bold text-red-400">{p2Worst}ms</span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-1 text-fuchsia-300"><Timer className="h-3 w-3" /> M\u00e9dia</span>
+                          <span className="flex items-center gap-1 text-fuchsia-300"><Timer className="h-3 w-3" /> Média</span>
                           <span className="font-mono font-bold text-fuchsia-300">{p2Avg}ms</span>
                         </div>
                         <div className="space-y-1 pt-1">
                           <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>Reac\u00e7\u00f5es</span>
+                            <span>Reacções</span>
                             <span>{p2History.length}x</span>
                           </div>
                           {p2History.map((t, i) => (

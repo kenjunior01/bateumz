@@ -17,9 +17,9 @@ type GamePhase = "choosing" | "reveal" | "roundResult" | "gameOver";
 type BetAmount = 0 | 10 | 25 | 50 | 100;
 
 const CHOICES: { id: Choice; emoji: string; label: string }[] = [
-  { id: "rock", emoji: "\u270a", label: "Pedra" },
-  { id: "paper", emoji: "\u270b", label: "Papel" },
-  { id: "scissors", emoji: "\u270c\ufe0f", label: "Tesoura" },
+  { id: "rock", emoji: "✊", label: "Pedra" },
+  { id: "paper", emoji: "✋", label: "Papel" },
+  { id: "scissors", emoji: "✌️", label: "Tesoura" },
 ];
 
 const BET_OPTIONS: BetAmount[] = [0, 10, 25, 50, 100];
@@ -235,14 +235,14 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
             </motion.p>
             {p1Streak >= 2 && (
               <Badge className="mt-1 bg-orange-600/80 text-white text-xs border-0">
-                \ud83d\udd25 {p1Streak}
+                🔥 {p1Streak}
               </Badge>
             )}
           </motion.div>
 
           <div className="flex flex-col items-center px-2">
             <span className="text-slate-400 text-xs">Round {round}</span>
-            <span className="text-slate-300 font-bold text-lg">\u2694\ufe0f</span>
+            <span className="text-slate-300 font-bold text-lg">⚔️</span>
             <span className="text-slate-500 text-xs">
               Melhor de {bestOf}
             </span>
@@ -273,7 +273,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
             </motion.p>
             {p2Streak >= 2 && (
               <Badge className="mt-1 bg-orange-600/80 text-white text-xs border-0">
-                \ud83d\udd25 {p2Streak}
+                🔥 {p2Streak}
               </Badge>
             )}
           </motion.div>
@@ -351,7 +351,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
                 : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"
             )}
           >
-            {amount === 0 ? "\u2014" : amount}
+            {amount === 0 ? "—" : amount}
           </button>
         ))}
       </div>
@@ -397,7 +397,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
                     }}
                     className="text-4xl sm:text-5xl"
                   >
-                    \u2753
+                    ❓
                   </motion.div>
                 </motion.div>
               ) : (
@@ -519,7 +519,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
                   size="sm"
                   className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
                 >
-                  Pr\u00f3ximo Round
+                  Próximo Round
                 </Button>
                 </motion.div>
               </motion.div>
@@ -540,7 +540,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
                     gameWinner === "p1" ? "text-cyan-400" : "text-pink-400"
                   )}
                 >
-                  \ud83c\udfc6
+                  🏆
                 </motion.p>
                 <p
                   className={cn(
@@ -604,7 +604,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
                     }}
                     className="text-4xl sm:text-5xl"
                   >
-                    \u2753
+                    ❓
                   </motion.div>
                 </motion.div>
               ) : (
@@ -696,7 +696,7 @@ export default function RockPaperScissors({ onScore, liveCode }: Props) {
           animate={{ opacity: 1 }}
           className="text-center text-cyan-500/60 text-sm"
         >
-          Jogador 1: fa\u00e7a sua escolha
+          Jogador 1: faça sua escolha
         </motion.p>
       )}
 

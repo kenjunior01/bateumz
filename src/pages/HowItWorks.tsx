@@ -7,12 +7,12 @@ import { useSEO } from "@/hooks/useSEO";
 import { Link } from "react-router-dom";
 
 const steps = [
-  { icon: UserPlus, title: "Cria a tua conta", desc: "Regista-te gratuitamente em menos de 1 minuto com o teu e-mail e n\u00famero de telefone." },
-  { icon: Search, title: "Explora sorteios", desc: "Navega pelo marketplace e descobre sorteios de empresas verificadas com pr\u00e9mios incr\u00edveis." },
+  { icon: UserPlus, title: "Cria a tua conta", desc: "Regista-te gratuitamente em menos de 1 minuto com o teu e-mail e número de telefone." },
+  { icon: Search, title: "Explora sorteios", desc: "Navega pelo marketplace e descobre sorteios de empresas verificadas com prémios incríveis." },
   { icon: Ticket, title: "Compra bilhetes", desc: "Escolhe o sorteio, seleciona os teus bilhetes e paga via M-Pesa ou e-Mola de forma segura." },
-  { icon: CreditCard, title: "Confirma\u00e7\u00e3o de pagamento", desc: "Envia o comprovativo e aguarda a confirma\u00e7\u00e3o. O teu bilhete fica registado automaticamente." },
-  { icon: Trophy, title: "Sorteio transparente", desc: "Quando todos os bilhetes forem vendidos, o sorteio \u00e9 realizado ao vivo com verifica\u00e7\u00e3o blockchain." },
-  { icon: ShieldCheck, title: "Recebe o pr\u00e9mio", desc: "Se ganhares, a empresa entrega o pr\u00e9mio e tu confirmas a rece\u00e7\u00e3o na plataforma." },
+  { icon: CreditCard, title: "Confirmação de pagamento", desc: "Envia o comprovativo e aguarda a confirmação. O teu bilhete fica registado automaticamente." },
+  { icon: Trophy, title: "Sorteio transparente", desc: "Quando todos os bilhetes forem vendidos, o sorteio é realizado ao vivo com verificação blockchain." },
+  { icon: ShieldCheck, title: "Recebe o prémio", desc: "Se ganhares, a empresa entrega o prémio e tu confirmas a receção na plataforma." },
 ];
 
 const containerVariants = {
@@ -32,7 +32,7 @@ const itemVariants = {
 };
 
 export default function HowItWorks() {
-  useSEO({ title: 'Como Funciona', description: 'Descubra como funciona a plataforma Bateu: crie conta, carregue a carteira, participe em sorteios ao vivo, jogue jogos exclusivos e levante pr\u00e9mios reais.', canonicalPath: '/como-funciona' });
+  useSEO({ title: 'Como Funciona', description: 'Descubra como funciona a plataforma Bateu: crie conta, carregue a carteira, participe em sorteios ao vivo, jogue jogos exclusivos e levante prémios reais.', canonicalPath: '/como-funciona' });
 
   return (
     <div className="min-h-screen bg-background bg-mesh-soft bg-noise relative overflow-hidden">
@@ -86,7 +86,7 @@ export default function HowItWorks() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.5 }}
           >
-            Participar num sorteio \u00e9 simples, r\u00e1pido e totalmente transparente. Segue estes passos:
+            Participar num sorteio é simples, rápido e totalmente transparente. Segue estes passos:
           </motion.p>
         </motion.div>
 
@@ -166,7 +166,7 @@ export default function HowItWorks() {
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 20 }}
           >
-            Come\u00e7ar Agora
+            Começar Agora
             <motion.div
               animate={{ x: [0, 4, 0] }}
               transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}

@@ -36,15 +36,15 @@ import { getEsportGames } from '@/lib/esports';
 import type { EsportGame } from '@/lib/esports';
 
 const GAME_EMOJIS: Record<string, string> = {
-  free_fire: '\uD83C\uDFAD',
-  mobile_legends: '\u2694\uFE0F',
-  pubg_mobile: '\uD83C\uDFAF',
-  call_of_duty: '\uD83D\uDD2B',
-  fifa: '\u26BD',
-  valorant: '\uD83C\uDFAF',
-  league_of_legends: '\uD83C\uDFAE',
-  fortnite: '\uD83C\uDFF9\uFE0F',
-  cs2: '\uD83D\uDD2B',
+  free_fire: '🎭',
+  mobile_legends: '⚔️',
+  pubg_mobile: '🎯',
+  call_of_duty: '🔫',
+  fifa: '⚽',
+  valorant: '🎯',
+  league_of_legends: '🎮',
+  fortnite: '🏹️',
+  cs2: '🔫',
 };
 
 type Tab = 'temporadas' | 'anticheat' | 'patrocinadores' | 'overlay' | 'matches';

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import bateuLogo from "@/assets/bateu-logo.png";
 import { sfx } from "@/lib/sound-engine";
 
-const SHAPES = ["\u25C6", "\u25C7", "\u25B2", "\u25B3", "\u25CF", "\u25CB", "\u25A0", "\u25A1"] as const;
+const SHAPES = ["◆", "◇", "▲", "△", "●", "○", "■", "□"] as const;
 const COLORS = ["#009140", "#FFD700", "#D7263D", "#6366f1", "#06b6d4", "#f59e0b"];
 
 function hexToRgb(hex: string) {
@@ -533,7 +533,7 @@ const LoadingScreen = () => {
                     ease: "easeInOut",
                   }}
                 >
-                  {["\uD83C\uDFAE", "\u26BD", "\uD83C\uDFB2"][i]}
+                  {["🎮", "⚽", "🎲"][i]}
                 </motion.span>
               </div>
               <motion.div

@@ -51,11 +51,11 @@ function tempoAgo(dateStr: string): string {
   const diff = agora - data;
   const minutos = Math.floor(diff / 60000);
   if (minutos < 1) return 'Agora mesmo';
-  if (minutos < 60) return `${minutos}min atr\u00e1s`;
+  if (minutos < 60) return `${minutos}min atrás`;
   const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `${horas}h atr\u00e1s`;
+  if (horas < 24) return `${horas}h atrás`;
   const dias = Math.floor(horas / 24);
-  if (dias < 7) return `${dias}d atr\u00e1s`;
+  if (dias < 7) return `${dias}d atrás`;
   return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
@@ -72,7 +72,7 @@ function formatarHorario(dateStr: string | null): string {
 }
 
 function getGameEmoji(slug: string): string {
-  return GAME_EMOJIS[slug] ?? '\uD83C\uDFAE';
+  return GAME_EMOJIS[slug] ?? '🎮';
 }
 
 function getGameById(jogos: EsportGame[], id: string): EsportGame | undefined {

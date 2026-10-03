@@ -46,7 +46,7 @@ const MOLE_INTERVAL_MAX = 900;
 const HIT_POINTS = 1;
 
 const MOLE_EMOJIS = ["\u{1F439}", "\u{1F981}", "\u{1F43E}", "\u{1F987}", "\u{1F42F}", "\u{1F430}"];
-const HIT_EMOJIS = ["\u{1F4A5}", "\u{1F4A5}", "\u{1F4A5}", "\u26A1", "\u{1F525}", "\u2728"];
+const HIT_EMOJIS = ["\u{1F4A5}", "\u{1F4A5}", "\u{1F4A5}", "⚡", "\u{1F525}", "✨"];
 
 const HAMMER_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='14' y='16' width='5' height='14' rx='2' fill='%23a16207'/%3E%3Crect x='4' y='2' width='24' height='15' rx='4' fill='%2371717a'/%3E%3Crect x='6' y='4' width='20' height='11' rx='3' fill='%23a1a1aa'/%3E%3C/svg%3E") 16 2, crosshair`;
 
@@ -453,7 +453,7 @@ const WhackAMole = ({ onScore, liveCode }: Props) => {
             onClick={startGame}
             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 hover:shadow-xl hover:shadow-emerald-500/30 transition-all"
           >
-            <Play className="h-4 w-4 fill-current" /> Come\u00e7ar Jogo
+            <Play className="h-4 w-4 fill-current" /> Começar Jogo
           </motion.button>
 
           <motion.div
@@ -463,9 +463,9 @@ const WhackAMole = ({ onScore, liveCode }: Props) => {
             className="rounded-xl bg-muted/40 border border-border p-3 text-center"
           >
             <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Como Jogar</p>
-            <p className="text-xs text-muted-foreground">Toque nas criaturas que aparecem o mais r\u00e1pido poss\u00edvel!</p>
+            <p className="text-xs text-muted-foreground">Toque nas criaturas que aparecem o mais rápido possível!</p>
             <p className="text-xs text-muted-foreground mt-1"><Flame className="h-3 w-3 inline text-orange-400" /> Acertos seguidos = combo com bonus de pontos!</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{mode === "vs" ? "Cada jogador toca no seu lado" : "Toque r\u00e1pido antes que o bot alcance!"} | {GAME_DURATION}s</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{mode === "vs" ? "Cada jogador toca no seu lado" : "Toque rápido antes que o bot alcance!"} | {GAME_DURATION}s</p>
           </motion.div>
         </motion.div>
       )}
@@ -805,7 +805,7 @@ const WhackAMole = ({ onScore, liveCode }: Props) => {
                           transition={{ duration: 0.4, ease: "easeIn" }}
                           className="absolute inset-0 flex items-center justify-center"
                         >
-                          <span className="text-xl opacity-60">{"\u274C"}</span>
+                          <span className="text-xl opacity-60">{"❌"}</span>
                         </motion.div>
                       )}
                     </AnimatePresence>

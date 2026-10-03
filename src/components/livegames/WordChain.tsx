@@ -51,7 +51,7 @@ const WORDS: string[] = [
   "ARCOIRIS","CACHOEIRA","LAGO","DESERTO","GELO","NEVE","FOGUEIRA","ACAMPAMENTO",
 ];
 
-const normalize = (w: string) => w.trim().toUpperCase().replace(/[^A-Z\u00C0-\u00FF]/g, "");
+const normalize = (w: string) => w.trim().toUpperCase().replace(/[^A-ZÀ-ÿ]/g, "");
 
 const getRandomWord = () => WORDS[Math.floor(Math.random() * WORDS.length)];
 
@@ -303,17 +303,17 @@ const WordChain = ({ onScore, liveCode }: Props) => {
   const submitWord = useCallback(() => {
     const word = normalize(input);
     if (!word || word.length < 3) {
-      setMessage("M\u00ednimo 3 letras!");
+      setMessage("Mínimo 3 letras!");
       triggerShake();
       return;
     }
     if (requiredLetter && word[0] !== requiredLetter) {
-      setMessage(`Deve come\u00e7ar com "${requiredLetter}"!`);
+      setMessage(`Deve começar com "${requiredLetter}"!`);
       triggerShake();
       return;
     }
     if (used.has(word)) {
-      setMessage("Palavra j\u00e1 usada!");
+      setMessage("Palavra já usada!");
       triggerShake();
       return;
     }
@@ -501,7 +501,7 @@ const WordChain = ({ onScore, liveCode }: Props) => {
             exit={{ opacity: 0 }}
             className={cn(
               "text-center text-sm font-medium",
-              message.includes("usada") || message.includes("come") || message.includes("M\u00ednimo")
+              message.includes("usada") || message.includes("come") || message.includes("Mínimo")
                 ? "text-red-400"
                 : "text-amber-400"
             )}

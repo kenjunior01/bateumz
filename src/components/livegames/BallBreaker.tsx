@@ -940,13 +940,13 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
       ctx.shadowColor = playerColor;
       ctx.shadowBlur = 8;
       ctx.textAlign = "center";
-      ctx.fillText("Pressione ESPA\u00C7O", cx, CH - 55);
+      ctx.fillText("Pressione ESPAÇO", cx, CH - 55);
 
       // Arrow indicator bouncing
       const arrowY = CH - 42 + 3 * Math.sin(t * 5);
       ctx.globalAlpha = hintPulse * 0.6;
       ctx.font = "14px system-ui";
-      ctx.fillText("\u25B2", cx, arrowY);
+      ctx.fillText("▲", cx, arrowY);
       ctx.restore();
     }
 
@@ -1033,7 +1033,7 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
       ctx.save();
       ctx.translate(cx, CH / 2 - 14);
       ctx.scale(winScale, winScale);
-      ctx.fillText("VIT\u00D3RIA!", 0, 0);
+      ctx.fillText("VITÓRIA!", 0, 0);
       ctx.restore();
       ctx.shadowBlur = 0;
       ctx.font = "bold 13px system-ui, sans-serif";
@@ -1267,7 +1267,7 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
           className="text-center"
         >
           <h2 className="text-lg font-bold text-white tracking-tight">
-            {"\u26A1"} Quebra-Tijolos
+            {"⚡"} Quebra-Tijolos
           </h2>
           <p className="text-[10px] text-zinc-500">Destrua todos os tijolos!</p>
         </motion.div>
@@ -1321,7 +1321,7 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
           transition={{ duration: 0.3 }}
           className="flex items-center gap-2"
         >
-          <span className="text-[10px] text-zinc-500 mr-1">{"\u2190"} {"\u2192"}</span>
+          <span className="text-[10px] text-zinc-500 mr-1">{"←"} {"→"}</span>
           <div className="flex gap-0.5">
             {Array.from({ length: p2Ref.current.lives }).map((_, i) => (
               <motion.div
@@ -1403,11 +1403,11 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
               >
                 <div className="text-center">
                   <div className="text-cyan-400 text-[11px] font-bold">{P1_NAME}</div>
-                  <div className="text-zinc-500 text-[10px]">A / D + Espa\u00E7o</div>
+                  <div className="text-zinc-500 text-[10px]">A / D + Espaço</div>
                 </div>
                 <div className="text-center">
                   <div className="text-pink-400 text-[11px] font-bold">{P2_NAME}</div>
-                  <div className="text-zinc-500 text-[10px]">{"\u2190"} / {"\u2192"} + Espa\u00E7o</div>
+                  <div className="text-zinc-500 text-[10px]">{"←"} / {"→"} + Espaço</div>
                 </div>
               </motion.div>
 
@@ -1554,8 +1554,8 @@ export default function BallBreaker({ onScore, liveCode }: Props) {
         transition={{ delay: 0.5 }}
         className="text-center text-[10px] text-zinc-600 space-y-0.5"
       >
-        <p>{"\u{1F9F1}"} Vermelho 50 {"\u00B7"} {"\u{1F7E7}"} Laranja 40 {"\u00B7"} {"\u{1F7E8}"} Amarelo 30 {"\u00B7"} {"\u{1F7E9}"} Verde 20 {"\u00B7"} {"\u{1F7E6}"} Ciano 10</p>
-        <p>{"\u2764\uFE0F"} 3 vidas cada {"\u00B7"} +100 pts por vida restante ao vencer</p>
+        <p>{"\u{1F9F1}"} Vermelho 50 {"·"} {"\u{1F7E7}"} Laranja 40 {"·"} {"\u{1F7E8}"} Amarelo 30 {"·"} {"\u{1F7E9}"} Verde 20 {"·"} {"\u{1F7E6}"} Ciano 10</p>
+        <p>{"❤️"} 3 vidas cada {"·"} +100 pts por vida restante ao vencer</p>
       </motion.div>
     </div>
   );

@@ -24,7 +24,7 @@ interface GameHistoryPanelProps {
 
 const TYPE_META: Record<string, { emoji: string; label: string; color: string }> = {
   spin: { emoji: "\u{1F3B2}", label: "Roleta", color: "text-amber-500" },
-  millionaire: { emoji: "\u{1F4B0}", label: "Million\u00E1rio", color: "text-violet-500" },
+  millionaire: { emoji: "\u{1F4B0}", label: "Millionário", color: "text-violet-500" },
   roulette: { emoji: "\u{1F3AF}", label: "Desafio", color: "text-pink-500" },
   bingo: { emoji: "\u{1F3B0}", label: "Bingo", color: "text-emerald-500" },
   quiz: { emoji: "\u{1F9E0}", label: "Quiz", color: "text-blue-500" },
@@ -64,7 +64,7 @@ export default function GameHistoryPanel({ businessId }: GameHistoryPanelProps) 
           game_type: "spin",
           game_title: "Roleta Premiada",
           played_at: p.created_at,
-          player_name: p.player_name || "An\u00F3nimo",
+          player_name: p.player_name || "Anónimo",
           result: p.result_segment_label || "Sem resultado",
           score: undefined,
           details: p.result_segment_label,
@@ -77,12 +77,12 @@ export default function GameHistoryPanel({ businessId }: GameHistoryPanelProps) 
         entries.push({
           id: p.id,
           game_type: "millionaire",
-          game_title: "Million\u00E1rio",
+          game_title: "Millionário",
           played_at: p.created_at,
-          player_name: p.player_name || "An\u00F3nimo",
+          player_name: p.player_name || "Anónimo",
           result: p.prize_won ? "Ganhou!" : "Perdeu",
           score: p.final_prize_level || 0,
-          details: p.prize_won ? `N\u00EDvel ${p.final_prize_level || 0}` : undefined,
+          details: p.prize_won ? `Nível ${p.final_prize_level || 0}` : undefined,
         });
       }
     }
@@ -115,7 +115,7 @@ export default function GameHistoryPanel({ businessId }: GameHistoryPanelProps) 
             <RotateCcw className="h-5 w-5 text-primary" />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-bold">Hist\u00F3rico de Jogos</h3>
+            <h3 className="text-sm font-bold">Histórico de Jogos</h3>
             <p className="text-[11px] text-muted-foreground">Todas as jogadas e resultados</p>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function GameHistoryPanel({ businessId }: GameHistoryPanelProps) 
                   </div>
                   <div className="text-center p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
                     <p className="text-lg font-black text-emerald-500">{stats.wins}</p>
-                    <p className="text-[10px] text-muted-foreground">Vit\u00F3rias</p>
+                    <p className="text-[10px] text-muted-foreground">Vitórias</p>
                   </div>
                   <div className="text-center p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/10">
                     <p className="text-lg font-black text-blue-500">{stats.uniquePlayers}</p>

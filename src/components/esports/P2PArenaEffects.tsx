@@ -426,7 +426,7 @@ export function EscrowLockAnimation({ locked }: { locked: boolean }) {
         animate={locked ? { color: '#fbbf24' } : { color: '#71717a' }}
         className="text-lg"
       >
-        {locked ? '\uD83D\uDD12' : '\uD83D\uDD13'}
+        {locked ? '🔒' : '🔓'}
       </motion.div>
     </motion.div>
   );

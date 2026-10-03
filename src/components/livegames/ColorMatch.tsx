@@ -746,8 +746,8 @@ export default function ColorMatch({ onScore, liveCode }: Props) {
                   {lastWinner === "timeout" && <Timer className="h-4 w-4" />}
                   {(lastWinner === 1 || lastWinner === 2) && <CheckCircle className="h-4 w-4" />}
                   {lastWinner === "timeout" && "Tempo esgotado!"}
-                  {lastWinner === 1 && "Jogador 1 \u2014 Correto!"}
-                  {lastWinner === 2 && (botMode ? "Computador \u2014 Correto!" : "Jogador 2 \u2014 Correto!")}
+                  {lastWinner === 1 && "Jogador 1 — Correto!"}
+                  {lastWinner === 2 && (botMode ? "Computador — Correto!" : "Jogador 2 — Correto!")}
                   {lastCorrect && (
                     <span className="text-gray-400 font-normal">(era {lastCorrect})</span>
                   )}

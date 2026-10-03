@@ -27,7 +27,7 @@ import bateuLogo from "@/assets/bateu-logo.png";
 const ANNOUNCEMENT_KEY = "bateu_navbar_announcement_dismissed";
 type Announcement = {
   id: string;
-  emoji: "\ud83d\udd25",
+  emoji: "🔥",
   text: string;
   cta: { label: string; href: string };
   gradient: string;
@@ -52,7 +52,7 @@ const Navbar = () => {
 
   const currentAnnouncement: Announcement | null = {
     id: "live-may2025",
-    emoji: "\ud83d\udd25",
+    emoji: "🔥",
     text: t("nav.announcement.text"),
     cta: { label: t("nav.announcement.cta"), href: "/lives-agora" },
     gradient: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary-glow)) 45%, hsl(var(--accent)))",

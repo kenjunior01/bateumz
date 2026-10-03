@@ -163,20 +163,20 @@ const NICHE_META: Record<string, {
   gradientColors: string[];
 }> = {
   entertainment: { icon: Sparkles, label: "Entretenimento", gradient: "from-violet-600 via-fuchsia-500 to-pink-500", particleColor: "#d946ef", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(217,70,239,0.25), transparent 70%)", badge: "Show de Entretenimento", defaultTitle: "Vem divertir-te connosco", defaultCta: "Entrar no Jogo", gradientColors: ["#7c3aed", "#d946ef", "#ec4899"] },
-  gaming: { icon: Gamepad2, label: "Gaming", gradient: "from-emerald-600 via-cyan-500 to-blue-500", particleColor: "#06b6d4", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.25), transparent 70%)", badge: "Gaming Zone", defaultTitle: "Arena de Jogos", defaultCta: "Come\u00e7ar a Jogar", gradientColors: ["#059669", "#06b6d4", "#3b82f6"] },
-  restaurant: { icon: UtensilsCrossed, label: "Restaura\u00e7\u00e3o", gradient: "from-orange-600 via-red-500 to-rose-500", particleColor: "#f97316", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.25), transparent 70%)", badge: "Sabor & Divers\u00e3o", defaultTitle: "Joga e Ganha Pr\u00e9mios", defaultCta: "Ver Card\u00e1pio de Jogos", gradientColors: ["#ea580c", "#ef4444", "#f43f5e"] },
+  gaming: { icon: Gamepad2, label: "Gaming", gradient: "from-emerald-600 via-cyan-500 to-blue-500", particleColor: "#06b6d4", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.25), transparent 70%)", badge: "Gaming Zone", defaultTitle: "Arena de Jogos", defaultCta: "Começar a Jogar", gradientColors: ["#059669", "#06b6d4", "#3b82f6"] },
+  restaurant: { icon: UtensilsCrossed, label: "Restauração", gradient: "from-orange-600 via-red-500 to-rose-500", particleColor: "#f97316", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.25), transparent 70%)", badge: "Sabor & Diversão", defaultTitle: "Joga e Ganha Prémios", defaultCta: "Ver Cardápio de Jogos", gradientColors: ["#ea580c", "#ef4444", "#f43f5e"] },
   retail: { icon: ShoppingBag, label: "Retalho", gradient: "from-blue-600 via-indigo-500 to-violet-500", particleColor: "#6366f1", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.25), transparent 70%)", badge: "Loja Interativa", defaultTitle: "Descontos exclusivos", defaultCta: "Aproveitar Agora", gradientColors: ["#2563eb", "#6366f1", "#7c3aed"] },
-  education: { icon: GraduationCap, label: "Educa\u00e7\u00e3o", gradient: "from-teal-600 via-emerald-500 to-green-500", particleColor: "#14b8a6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(20,184,166,0.25), transparent 70%)", badge: "Aprende & Joga", defaultTitle: "Aprende brincando", defaultCta: "Come\u00e7ar a Aprender", gradientColors: ["#0d9488", "#10b981", "#22c55e"] },
+  education: { icon: GraduationCap, label: "Educação", gradient: "from-teal-600 via-emerald-500 to-green-500", particleColor: "#14b8a6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(20,184,166,0.25), transparent 70%)", badge: "Aprende & Joga", defaultTitle: "Aprende brincando", defaultCta: "Começar a Aprender", gradientColors: ["#0d9488", "#10b981", "#22c55e"] },
   fitness: { icon: Dumbbell, label: "Fitness", gradient: "from-lime-500 via-green-500 to-emerald-600", particleColor: "#22c55e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.25), transparent 70%)", badge: "Desafio Fitness", defaultTitle: "Desafia os teus limites", defaultCta: "Iniciar Desafio", gradientColors: ["#65a30d", "#22c55e", "#059669"] },
-  music: { icon: Music, label: "M\u00fasica", gradient: "from-purple-600 via-pink-500 to-rose-500", particleColor: "#ec4899", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.25), transparent 70%)", badge: "Vibe Musical", defaultTitle: "Sente o ritmo", defaultCta: "Tocar Agora", gradientColors: ["#9333ea", "#ec4899", "#f43f5e"] },
-  fashion: { icon: Palette, label: "Moda", gradient: "from-pink-500 via-fuchsia-500 to-purple-600", particleColor: "#c026d3", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(192,38,211,0.25), transparent 70%)", badge: "Estilo & Divers\u00e3o", defaultTitle: "Desfiles de estilo", defaultCta: "Explorar Cole\u00e7\u00e3o", gradientColors: ["#ec4899", "#c026d3", "#9333ea"] },
-  tech: { icon: Zap, label: "Tecnologia", gradient: "from-cyan-500 via-blue-600 to-indigo-600", particleColor: "#0ea5e9", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(14,165,233,0.25), transparent 70%)", badge: "Tech Hub", defaultTitle: "Inova\u00e7\u00e3o em tempo real", defaultCta: "Explorar", gradientColors: ["#06b6d4", "#2563eb", "#4f46e5"] },
+  music: { icon: Music, label: "Música", gradient: "from-purple-600 via-pink-500 to-rose-500", particleColor: "#ec4899", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(236,72,153,0.25), transparent 70%)", badge: "Vibe Musical", defaultTitle: "Sente o ritmo", defaultCta: "Tocar Agora", gradientColors: ["#9333ea", "#ec4899", "#f43f5e"] },
+  fashion: { icon: Palette, label: "Moda", gradient: "from-pink-500 via-fuchsia-500 to-purple-600", particleColor: "#c026d3", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(192,38,211,0.25), transparent 70%)", badge: "Estilo & Diversão", defaultTitle: "Desfiles de estilo", defaultCta: "Explorar Coleção", gradientColors: ["#ec4899", "#c026d3", "#9333ea"] },
+  tech: { icon: Zap, label: "Tecnologia", gradient: "from-cyan-500 via-blue-600 to-indigo-600", particleColor: "#0ea5e9", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(14,165,233,0.25), transparent 70%)", badge: "Tech Hub", defaultTitle: "Inovação em tempo real", defaultCta: "Explorar", gradientColors: ["#06b6d4", "#2563eb", "#4f46e5"] },
   food: { icon: UtensilsCrossed, label: "Food & Bebidas", gradient: "from-amber-500 via-orange-500 to-red-500", particleColor: "#f59e0b", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.25), transparent 70%)", badge: "Sabores & Jogos", defaultTitle: "Prova a tua sorte", defaultCta: "Degustar & Jogar", gradientColors: ["#d97706", "#f97316", "#ef4444"] },
   beauty: { icon: Star, label: "Beleza", gradient: "from-rose-400 via-pink-500 to-fuchsia-500", particleColor: "#f472b6", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,114,182,0.25), transparent 70%)", badge: "Beleza & Sorte", defaultTitle: "Brilha & Ganha", defaultCta: "Descobrir", gradientColors: ["#fb7185", "#ec4899", "#d946ef"] },
   sports: { icon: Target, label: "Desporto", gradient: "from-green-500 via-emerald-600 to-teal-600", particleColor: "#10b981", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.25), transparent 70%)", badge: "Zona Desportiva", defaultTitle: "Compete em tempo real", defaultCta: "Entrar no Jogo", gradientColors: ["#22c55e", "#059669", "#0d9488"] },
   casino: { icon: Crown, label: "Casino", gradient: "from-yellow-500 via-amber-500 to-orange-600", particleColor: "#eab308", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(234,179,8,0.3), transparent 70%)", badge: "Casino Premium", defaultTitle: "A sorte sorri-te", defaultCta: "Jogar Agora", gradientColors: ["#eab308", "#f59e0b", "#ea580c"] },
-  charity: { icon: Heart, label: "Solidariedade", gradient: "from-rose-500 via-pink-500 to-red-500", particleColor: "#f43f5e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,63,94,0.25), transparent 70%)", badge: "Causa Solid\u00e1ria", defaultTitle: "Joga por uma causa", defaultCta: "Apoiar Agora", gradientColors: ["#f43f5e", "#ec4899", "#ef4444"] },
-  other: { icon: Sparkles, label: "Personalizado", gradient: "from-slate-600 via-gray-500 to-zinc-600", particleColor: "#94a3b8", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(148,163,184,0.2), transparent 70%)", badge: "Experi\u00eancia \u00danica", defaultTitle: "Bem-vindo", defaultCta: "Explorar", gradientColors: ["#475569", "#64748b", "#71717a"] },
+  charity: { icon: Heart, label: "Solidariedade", gradient: "from-rose-500 via-pink-500 to-red-500", particleColor: "#f43f5e", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(244,63,94,0.25), transparent 70%)", badge: "Causa Solidária", defaultTitle: "Joga por uma causa", defaultCta: "Apoiar Agora", gradientColors: ["#f43f5e", "#ec4899", "#ef4444"] },
+  other: { icon: Sparkles, label: "Personalizado", gradient: "from-slate-600 via-gray-500 to-zinc-600", particleColor: "#94a3b8", heroGlow: "radial-gradient(ellipse at 50% 0%, rgba(148,163,184,0.2), transparent 70%)", badge: "Experiência Única", defaultTitle: "Bem-vindo", defaultCta: "Explorar", gradientColors: ["#475569", "#64748b", "#71717a"] },
 };
 
 /* ─── Spring configs ──────────────────── */
@@ -370,8 +370,8 @@ const GameTypeIcon = ({ type }: { type: string }) => {
 
 const GameTypeLabel = ({ type }: { type: string }) => {
   switch (type) {
-    case "wheel": return <span>Roda de Pr\u00e9mios</span>;
-    case "millionaire": return <span>Quem Quer Ser Milion\u00e1rio</span>;
+    case "wheel": return <span>Roda de Prémios</span>;
+    case "millionaire": return <span>Quem Quer Ser Milionário</span>;
     default: return <span>Roleta de Desafios</span>;
   }
 };
@@ -468,7 +468,7 @@ const CompanyPublicProfile = () => {
         if (brandRes.data) setBranding(brandRes.data as any);
         const allGames: GameItem[] = [];
         (wheelsRes.data || []).forEach((w: any) => allGames.push({ id: w.id, name: w.name, type: "wheel", is_published: w.is_published, segment_count: w.segment_count, created_at: w.created_at, is_active: w.is_active }));
-        (milsRes.data || []).forEach((m: any) => allGames.push({ id: m.id, name: m.name || "Quem Quer Ser Milion\u00e1rio", type: "millionaire", is_published: m.is_active, created_at: m.created_at, is_active: m.is_active }));
+        (milsRes.data || []).forEach((m: any) => allGames.push({ id: m.id, name: m.name || "Quem Quer Ser Milionário", type: "millionaire", is_published: m.is_active, created_at: m.created_at, is_active: m.is_active }));
         (roulettesRes.data || []).forEach((r: any) => allGames.push({ id: r.id, name: r.title || "Roleta de Desafios", type: "custom", is_published: r.is_published, created_at: r.created_at }));
         setGames(allGames);
         setProducts((productsRes.data as PrestacaoProduct[]) || []);
@@ -490,7 +490,7 @@ const CompanyPublicProfile = () => {
             const profMap = new Map((profs || []).map((p: any) => [p.user_id, p.display_name]));
             setWinners(winnerRows.map((w: any) => {
               const r = raffleMap.get(w.raffle_id);
-              return { raffle_title: r?.title || "Sorteio", prize_title: r?.prize_title || "Pr\u00e9mio", display_name: profMap.get(w.user_id) || null, slug: r?.slug || null };
+              return { raffle_title: r?.title || "Sorteio", prize_title: r?.prize_title || "Prémio", display_name: profMap.get(w.user_id) || null, slug: r?.slug || null };
             }));
           }
         }
@@ -564,10 +564,10 @@ const CompanyPublicProfile = () => {
   const ogImage = branding?.company_logo_url || company?.avatar_url || undefined;
 
   useSEO({
-    title: `${companyName} \u2014 Jogos, Lives e Sorteios | Bateu`,
+    title: `${companyName} — Jogos, Lives e Sorteios | Bateu`,
     description: branding?.about_text
       ? branding.about_text.slice(0, 160)
-      : `Descobre os jogos interativos, sorteios, lives e pr\u00e9mios de ${companyName} na Bateu. Entra e participa!`,
+      : `Descobre os jogos interativos, sorteios, lives e prémios de ${companyName} na Bateu. Entra e participa!`,
     canonicalPath: location.pathname,
     ogType: "profile",
     ogImage,
@@ -597,8 +597,8 @@ const CompanyPublicProfile = () => {
           <div className="h-20 w-20 mx-auto mb-4 rounded-3xl bg-muted/30 flex items-center justify-center">
             <Gamepad2 className="h-10 w-10 text-muted-foreground/30" />
           </div>
-          <h2 className="text-2xl font-black font-display">Empresa n\u00e3o encontrada</h2>
-          <p className="text-sm text-muted-foreground mt-2">Este perfil n\u00e3o existe ou foi removido.</p>
+          <h2 className="text-2xl font-black font-display">Empresa não encontrada</h2>
+          <p className="text-sm text-muted-foreground mt-2">Este perfil não existe ou foi removido.</p>
           <Link to="/empresas" className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-full text-sm font-bold" style={{ backgroundColor: primary, color: "#000" }}>
             <ArrowRight className="h-4 w-4" /> Ver todas as empresas
           </Link>
@@ -764,7 +764,7 @@ const CompanyPublicProfile = () => {
               <EnhancedStatCard icon={Ticket} label="Sorteios" value={totalRaffles} sub={`${activeRaffles} abertos`} color={secondary} delay={0.05} />
               <EnhancedStatCard icon={Trophy} label="Vencedores" value={totalWinners} color={accent} delay={0.1} />
               <EnhancedStatCard icon={Radio} label="Lives" value={totalLives} color="#10b981" delay={0.15} />
-              <EnhancedStatCard icon={ShoppingBag} label="Prest\u00e7\u00f5es" value={products.length} color="#f59e0b" delay={0.2} />
+              <EnhancedStatCard icon={ShoppingBag} label="Prestções" value={products.length} color="#f59e0b" delay={0.2} />
               <EnhancedStatCard icon={Flame} label="Bilhetes" value={totalSold} color="#ef4444" delay={0.25} />
             </div>
           </motion.div>
@@ -786,7 +786,7 @@ const CompanyPublicProfile = () => {
                 </motion.div>
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-2xl font-black">Junta-te aos jogos!</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Coloca o teu nome para participar nos jogos e ver o teu hist\u00f3rico</p>
+                  <p className="text-sm text-muted-foreground mt-1">Coloca o teu nome para participar nos jogos e ver o teu histórico</p>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
                   <Input placeholder="O teu nome..." value={playerName} onChange={(e) => setPlayerName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && joinGame()} className="flex-1 md:w-64 rounded-full" />
@@ -802,7 +802,7 @@ const CompanyPublicProfile = () => {
                 {playerName.charAt(0).toUpperCase()}
               </motion.div>
               <div className="flex-1">
-                <p className="font-bold">Ol\u00e1, {playerName}!</p>
+                <p className="font-bold">Olá, {playerName}!</p>
                 <p className="text-xs text-muted-foreground">Pronto para jogar em nome de {companyName}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => { setHasJoined(false); setPlayerName(""); }}>Trocar</Button>
@@ -846,7 +846,7 @@ const CompanyPublicProfile = () => {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
                 ))}
-                <span className="text-[10px] text-muted-foreground ml-1">({totalWinners + TESTIMONIALS.length} opini\u00f5es)</span>
+                <span className="text-[10px] text-muted-foreground ml-1">({totalWinners + TESTIMONIALS.length} opiniões)</span>
               </div>
             </div>
           </div>
@@ -869,7 +869,7 @@ const CompanyPublicProfile = () => {
         >
           {[
             { icon: Shield, label: "Plataforma segura", desc: "Dados protegidos" },
-            { icon: Trophy, label: "Pr\u00e9mios reais", desc: "Entregas garantidas" },
+            { icon: Trophy, label: "Prémios reais", desc: "Entregas garantidas" },
             { icon: Zap, label: "Jogos em tempo real", desc: "Sem atrasos" },
             { icon: Users, label: "Comunidade ativa", desc: `${totalGames + totalRaffles} atividades` },
           ].map((item, i) => (
@@ -915,7 +915,7 @@ const CompanyPublicProfile = () => {
               <span className="hidden sm:inline ml-1 text-xs bg-muted px-2 py-0.5 rounded-full">{contests.length}</span>
             </TabsTrigger>
             <TabsTrigger value="prestacoes" className="flex-1 gap-2 rounded-xl data-[state=active]:shadow-md transition-all">
-              <ShoppingBag className="h-4 w-4" /> Presta\u00e7\u00f5es
+              <ShoppingBag className="h-4 w-4" /> Prestações
               <span className="hidden sm:inline ml-1 text-xs bg-muted px-2 py-0.5 rounded-full">{products.length}</span>
             </TabsTrigger>
             <TabsTrigger value="winners" className="flex-1 gap-2 rounded-xl data-[state=active]:shadow-md transition-all">
@@ -954,7 +954,7 @@ const CompanyPublicProfile = () => {
                           </span>
                         </div>
                         <div className="mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span>{game.type === "wheel" ? (game.segment_count ? `${game.segment_count} segmentos` : "Configurado") : game.type === "millionaire" ? "Perguntas & Pr\u00e9mios" : "Desafios personalizados"}</span>
+                          <span>{game.type === "wheel" ? (game.segment_count ? `${game.segment_count} segmentos` : "Configurado") : game.type === "millionaire" ? "Perguntas & Prémios" : "Desafios personalizados"}</span>
                           <span>{new Date(game.created_at).toLocaleDateString("pt-PT")}</span>
                         </div>
                       </div>
@@ -968,7 +968,7 @@ const CompanyPublicProfile = () => {
                   <Gamepad2 className="h-10 w-10 text-muted-foreground/20" />
                 </div>
                 <p className="text-sm text-muted-foreground">Nenhum jogo configurado ainda</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda n\u00e3o adicionou jogos</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda não adicionou jogos</p>
               </motion.div>
             )}
           </TabsContent>
@@ -1039,7 +1039,7 @@ const CompanyPublicProfile = () => {
                       <div className="h-8 w-8 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-500 font-black text-xs">{i + 1}</div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm truncate">{w.display_name || "Participante"}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{w.prize_title} \u2014 {w.raffle_title}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{w.prize_title} — {w.raffle_title}</p>
                       </div>
                       {w.slug && <Link to={`/raffle/${w.slug}`} className="text-[10px] font-bold" style={{ color: primary }}>Ver</Link>}
                     </motion.div>
@@ -1090,7 +1090,7 @@ const CompanyPublicProfile = () => {
               <div className="text-center py-16">
                 <Megaphone className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
                 <p className="text-sm text-muted-foreground">Nenhum concurso disponivel</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda n\u00e3o criou concursos</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda não criou concursos</p>
               </div>
             )}
           </TabsContent>
@@ -1113,7 +1113,7 @@ const CompanyPublicProfile = () => {
                         )}
                         <div className="flex items-center justify-between mt-3">
                           <p className="text-sm font-black" style={{ color: primary }}>{formatMoney(p.total_price)}</p>
-                          <span className="text-[10px] text-muted-foreground">at\u00e9 {p.max_months}x</span>
+                          <span className="text-[10px] text-muted-foreground">até {p.max_months}x</span>
                         </div>
                         {(p.city || p.province) && (
                           <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
@@ -1129,7 +1129,7 @@ const CompanyPublicProfile = () => {
               <div className="text-center py-16">
                 <ShoppingBag className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
                 <p className="text-sm text-muted-foreground">Nenhum produto disponivel</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda n\u00e3o adicionou presta\u00e7\u00f5es</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Esta empresa ainda não adicionou prestações</p>
               </div>
             )}
           </TabsContent>
@@ -1172,7 +1172,7 @@ const CompanyPublicProfile = () => {
             ) : (
               <div className="text-center py-16">
                 <Crown className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">Ainda n\u00e3o h\u00e1 vencedores</p>
+                <p className="text-sm text-muted-foreground">Ainda não há vencedores</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">Participa nos sorteios para poderes ganhar</p>
               </div>
             )}
@@ -1216,7 +1216,7 @@ const CompanyPublicProfile = () => {
               </motion.div>
               <h3 className="text-2xl md:text-3xl font-black">Pronto para jogar?</h3>
               <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                Entra na pr\u00f3xima live de {companyName}, participa nos sorteios e concursos, e ganha pr\u00e9mios incr\u00edveis.
+                Entra na próxima live de {companyName}, participa nos sorteios e concursos, e ganha prémios incríveis.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">

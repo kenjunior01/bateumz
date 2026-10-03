@@ -402,9 +402,9 @@ export default function BusinessDirectory() {
   const activeCount = useMemo(() => businesses.filter(b => b.raffle_count + b.contest_count > 0).length, [businesses]);
 
   const chipCategories = [
-    { id: "all", label: t("biz.filter.all"), icon: "\ud83c\udfe2", count: businesses.length },
-    { id: "verified", label: t("biz.filter.verified"), icon: "\u2705", count: verifiedCount },
-    { id: "active", label: t("biz.filter.active"), icon: "\u26a1", count: activeCount },
+    { id: "all", label: t("biz.filter.all"), icon: "🏢", count: businesses.length },
+    { id: "verified", label: t("biz.filter.verified"), icon: "✅", count: verifiedCount },
+    { id: "active", label: t("biz.filter.active"), icon: "⚡", count: activeCount },
   ];
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -938,7 +938,7 @@ export default function FlappyBirdGame({ onScore, liveCode }: Props) {
             transition={{ delay: 0.25, duration: 0.4 }}
             className="text-sm text-muted-foreground text-center max-w-xs leading-relaxed"
           >
-            Toque, clique ou pressione Espa\u00e7o para voar! Desvie dos canos e conquiste a maior pontua\u00e7\u00e3o.
+            Toque, clique ou pressione Espaço para voar! Desvie dos canos e conquiste a maior pontuação.
           </motion.p>
 
           <motion.div
@@ -1045,7 +1045,7 @@ export default function FlappyBirdGame({ onScore, liveCode }: Props) {
                 </Badge>
               </motion.div>
             )}
-            <p className="text-xs text-muted-foreground">Toque ou Espa\u00e7o para voar</p>
+            <p className="text-xs text-muted-foreground">Toque ou Espaço para voar</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1131,7 +1131,7 @@ export default function FlappyBirdGame({ onScore, liveCode }: Props) {
                 >
                   {displayedScore}
                 </motion.div>
-                <div className="text-xs text-muted-foreground mt-1">Pontua\u00e7\u00e3o</div>
+                <div className="text-xs text-muted-foreground mt-1">Pontuação</div>
               </div>
               <div className="bg-gradient-to-br from-muted/80 to-muted/40 rounded-xl p-3 border border-border/30">
                 <motion.div

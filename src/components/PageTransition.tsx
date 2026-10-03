@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { sfx } from "@/lib/sound-engine";
 
@@ -66,9 +66,12 @@ export default function PageTransition({ children, variant = 'default', classNam
   const isGlitch = variant === 'glitch';
   const glitchLabel = location.pathname.replace(/^\//, '').charAt(0).toUpperCase() || 'P';
   const hasPlayedSound = useRef(false);
+  // PERF: após a animação de entrada, remover o filter da página inteira.
+  // Manter filter:blur(0px) inline força a página TODA numa layer GPU com passe
+  // de blur em cada frame — degrada seriamente WebView low-end (APK).
+  const [fxDone, setFxDone] = useState(false);
   const combinedClassName = [
     className,
-    'text-reveal',
     isGlitch ? 'glitch-text' : '',
   ].filter(Boolean).join(' ');
 
@@ -92,10 +95,11 @@ export default function PageTransition({ children, variant = 'default', classNam
       animate="animate"
       exit="exit"
       className={combinedClassName}
-      style={{ animationDelay: `${delay}s`, boxShadow: '0 0 30px hsl(var(--primary) / 0.06)' }}
+      style={{ animationDelay: `${delay}s`, boxShadow: '0 0 30px hsl(var(--primary) / 0.06)', ...(fxDone ? { filter: 'none' } : {}) }}
       onAnimationStart={() => {
         try { sfx.sectionReveal(); } catch { /* ignore */ }
       }}
+      onAnimationComplete={() => setFxDone(true)}
       {...(isGlitch ? { 'data-text': glitchLabel } : {})}
     >
       {children}
