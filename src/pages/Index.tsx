@@ -12,7 +12,6 @@ import { getTournaments, getTournamentStandings } from "@/lib/tournaments";
 const ActiveRaffles = lazy(() => import("@/components/ActiveRaffles").then(m => ({ default: m.default })));
 const WinnersSection = lazy(() => import("@/components/WinnersSection").then(m => ({ default: m.default })));
 const TrustSignals = lazy(() => import("@/components/TrustSignals").then(m => ({ default: m.default })));
-const LiveFeed = lazy(() => import("@/components/LiveFeed").then(m => ({ default: m.default })));
 const PopularLeaderboard = lazy(() => import("@/components/PopularLeaderboard").then(m => ({ default: m.default })));
 
 import { Button } from "@/components/ui/button";
@@ -374,7 +373,7 @@ export default function Index() {
       <Navbar />
       {/* ═══════════ HERO — proposta de valor imediata ═══════════ */}
       <motion.section
-        className="relative min-h-[92vh] flex flex-col items-center justify-center overflow-hidden"
+        className="relative min-h-[85vh] flex flex-col items-center justify-center overflow-hidden"
         style={{
           background: `radial-gradient(ellipse 80% 60% at 20% 30%, ${CYAN}12 0%, transparent 60%),
                    radial-gradient(ellipse 70% 50% at 80% 60%, ${PURPLE}10 0%, transparent 55%),
@@ -508,6 +507,15 @@ export default function Index() {
           ))}
         </div>
       </div>
+
+      {/* ═══════════ SORTEIOS ATIVOS — conteúdo real logo acima da dobra ═══════════
+           Estratégia "mostrar, não contar": o utilizador vê prémios reais ANTES
+           de qualquer secção de marketing. Maior impacto de conversão. */}
+      <AnimatedSection className="py-10 sm:py-14" style={{ background: `linear-gradient(180deg, #050508, #08060f)` }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <Suspense fallback={<div className="h-40" />}><ActiveRaffles /></Suspense>
+        </div>
+      </AnimatedSection>
 
       {/* ═══════════ STORIES (social hook, após a primeira impressão) ═══════════ */}
       <div className="w-full max-w-6xl mx-auto px-4 pt-5">
@@ -882,15 +890,6 @@ export default function Index() {
           <CategoryNav />
         </ScrollReveal>
 
-        {/* ═══════════ ACTIVE RAFFLES (componente real — vitrine) ═══════════ */}
-        <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #050508, #08060f)` }}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <ScrollReveal direction='right' delay={0}>
-              <Suspense fallback={<div className="h-40" />}><ActiveRaffles /></Suspense>
-            </ScrollReveal>
-          </div>
-        </AnimatedSection>
-
         {/* ═══════════ POPULAR LEADERBOARD ═══════════ */}
         <AnimatedSection className="py-12 sm:py-16" style={{ background: `linear-gradient(180deg, #08060f, #050508)` }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -962,7 +961,6 @@ export default function Index() {
 
             <ScrollReveal direction='left' delay={0}>
               <Suspense fallback={<div className="h-40" />}><WinnersSection /></Suspense>
-              <div className="mt-8"><Suspense fallback={<div className="h-40" />}><LiveFeed /></Suspense></div>
               <div className="mt-8"><Suspense fallback={<div className="h-40" />}><TrustSignals /></Suspense></div>
             </ScrollReveal>
           </div>

@@ -30,17 +30,14 @@ import { hardReset } from "@/lib/self-heal";
 import DashboardLayout from "./layouts/DashboardLayout.tsx";
 import AdminLayout from "./layouts/AdminLayout.tsx";
 import LoadingScreen from "./components/LoadingScreen.tsx";
-import NotificationBell from "./components/live/NotificationBell.tsx";
 
 import MascotBuddy from "./components/MascotBuddy.tsx";
-import SupportChatbot from "./components/SupportChatbot.tsx";
 import MobileTopBar from "./components/MobileTopBar.tsx";
 import BottomTabBar from "./components/BottomTabBar.tsx";
 import MobileMenuDrawer from "./components/mobile/MobileMenuDrawer.tsx";
 import { MobileNavProvider } from "./contexts/MobileNavigationContext.tsx";
 import RecentPagesTracker from "./components/mobile/RecentPagesTracker.tsx";
 import PushNotificationBanner from "./components/notifications/PushNotificationBanner.tsx";
-import LivePulseBar from "./components/LivePulseBar.tsx";
 
 // New live entertainment pages (lazy-loaded for performance)
 const KahootMultiplayerQuiz = lazy(() => import("./components/livegames/KahootMultiplayerQuiz.tsx"));
@@ -458,12 +455,12 @@ function AppShell() {
         </MobileNavProvider>
       </>}
       <AnimatedRoutes />
-      {!isOverlay && <><MascotBuddy />
-      <SupportChatbot />
-      <NotificationBell />
+      {!isOverlay && <>
+      {/* Assistente único (MascotBuddy): sem pop-ups automáticos — apenas
+          celebrações de vitórias reais e chat ao toque do utilizador. */}
+      <MascotBuddy />
       <RegionalPreviewBar />
-      <WorldSwitcher />
-      <LivePulseBar /></>}
+      <WorldSwitcher /></>}
     </>
   );
 }
