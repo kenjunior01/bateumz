@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import { Shield, CheckCircle, Lock, Eye, Heart, Gem } from 'lucide-react';

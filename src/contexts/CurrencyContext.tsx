@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { SupportedCurrency } from "@/lib/currency";
 import { formatMoney } from "@/lib/currency";

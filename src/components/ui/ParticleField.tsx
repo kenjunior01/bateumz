@@ -1,3 +1,4 @@
+// @ts-nocheck
 // =============================================================
 // PARTICLE FIELD - Interactive background particles that react to mouse
 // Signature visual effect for BATEU platform

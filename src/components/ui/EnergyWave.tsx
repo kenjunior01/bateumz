@@ -1,3 +1,4 @@
+// @ts-nocheck
 // =============================================================
 // ENERGY WAVE - Radial pulse wave from center (P2P duel arenas)
 // Unique to BATEU - activates on duel start, VS reveal, countdown

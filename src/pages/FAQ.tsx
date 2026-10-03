@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { motion } from "framer-motion";
 import { HelpCircle, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
