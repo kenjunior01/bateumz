@@ -1,6 +1,7 @@
 // Supabase client with fallback defaults for deployment platforms
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { brokeredPreviewStorage } from './previewAuthStorage';
 
 // Fallback values ensure the app builds and runs even when env vars are missing
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://ngxrdpplyghlugoowjqj.supabase.co";
@@ -11,7 +12,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY |
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: brokeredPreviewStorage(),
     persistSession: true,
     autoRefreshToken: true,
   }
