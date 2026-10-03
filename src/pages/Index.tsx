@@ -14,6 +14,7 @@ const ActiveRaffles = lazy(() => import("@/components/ActiveRaffles").then(m => 
 const WinnersSection = lazy(() => import("@/components/WinnersSection").then(m => ({ default: m.default })));
 const TrustSignals = lazy(() => import("@/components/TrustSignals").then(m => ({ default: m.default })));
 const PopularLeaderboard = lazy(() => import("@/components/PopularLeaderboard").then(m => ({ default: m.default })));
+const MobileSocialFeed = lazy(() => import("@/components/MobileSocialFeed").then(m => ({ default: m.default })));
 
 import { Button } from "@/components/ui/button";
 import {
@@ -523,11 +524,16 @@ export default function Index() {
         <StoriesCarousel />
       </div>
 
+      {/* ═══════════ FEED SOCIAL "PARA TI" (mobile — psicologia de app social) ═══════════ */}
+      <Suspense fallback={<div className="h-40" />}>
+        <MobileSocialFeed />
+      </Suspense>
+
       {/* ═══════════ MAIN CONTENT ═══════════ */}
       <main className="flex-1">
 
         {/* ─── PILLAR 1: ESPORTS (dados reais; fallback honesto) ─── */}
-        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" style={{ background: `radial-gradient(ellipse 60% 40% at 15% 50%, ${CYAN}08, transparent), linear-gradient(180deg, #050508 0%, #060610 50%, #050508 100%)` }}>
+        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24 hidden md:block" style={{ background: `radial-gradient(ellipse 60% 40% at 15% 50%, ${CYAN}08, transparent), linear-gradient(180deg, #050508 0%, #060610 50%, #050508 100%)` }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
               <div className="flex items-center gap-3">
@@ -623,7 +629,7 @@ export default function Index() {
         <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${CYAN}20, ${PURPLE}20, transparent)` }} />
 
         {/* ─── PILLAR 2: SORTEIOS (100% dados reais) ─── */}
-        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 60% 40% at 85% 50%, ${PURPLE}08, transparent), linear-gradient(180deg, #050508 0%, #0a0814 50%, #050508 100%)` }}>
+        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24 hidden md:block" delay={0.1} style={{ background: `radial-gradient(ellipse 60% 40% at 85% 50%, ${PURPLE}08, transparent), linear-gradient(180deg, #050508 0%, #0a0814 50%, #050508 100%)` }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
               <div className="flex items-center gap-3">
@@ -715,7 +721,7 @@ export default function Index() {
         <div className="h-px mx-auto max-w-md" style={{ background: `linear-gradient(90deg, transparent, ${PURPLE}20, ${GREEN}20, transparent)` }} />
 
         {/* ─── PILLAR 3: JOGOS (catálogo real — jogos famosos primeiro) ─── */}
-        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24" delay={0.2} style={{ background: `radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08, transparent), linear-gradient(180deg, #050508 0%, #060a08 50%, #050508 100%)` }}>
+        <AnimatedSection className="relative overflow-hidden py-16 sm:py-24 hidden md:block" delay={0.2} style={{ background: `radial-gradient(ellipse 60% 40% at 50% 80%, ${GREEN}08, transparent), linear-gradient(180deg, #050508 0%, #060a08 50%, #050508 100%)` }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
               <div className="flex items-center gap-3">
@@ -901,7 +907,7 @@ export default function Index() {
         </AnimatedSection>
 
         {/* ═══════════ FAIR PLAY SHIELD (confiança) ═══════════ */}
-        <AnimatedSection className="relative py-16 sm:py-24" delay={0.1} style={{ background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(168,85,247,0.05), transparent), linear-gradient(180deg, #050508, #08060f, #050508)` }}>
+        <AnimatedSection className="relative py-16 sm:py-24 hidden md:block" delay={0.1} style={{ background: `radial-gradient(ellipse 80% 50% at 50% 50%, rgba(168,85,247,0.05), transparent), linear-gradient(180deg, #050508, #08060f, #050508)` }}>
           <div className="max-w-5xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-12">
               <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="relative inline-flex items-center justify-center mb-6">
