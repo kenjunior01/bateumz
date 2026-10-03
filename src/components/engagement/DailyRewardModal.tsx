@@ -1,6 +1,7 @@
 // @ts-nocheck
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useCallback, useMemo, type JSX } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Lock, Gift, Flame, Sparkles, Star, Coins, Zap } from 'lucide-react';
@@ -132,12 +133,7 @@ export function useDailyReward() {
     const today = getTodayStr();
     const canShowToday = stored.lastClaimDate !== today;
     const hasNeverClaimed = stored.lastClaimDate === null;
-    if (canShowToday) {
-      const timer = setTimeout(() => {
-        setShowDailyModal(true);
-      }, hasNeverClaimed ? 1500 : 800);
-      return () => clearTimeout(timer);
-    }
+    void canShowToday; void hasNeverClaimed; // no auto-open: it blocked games on mobile
   }, []);
 
   return {
@@ -447,7 +443,7 @@ export default function DailyRewardModal({
     setShowDailyModal(false);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -619,6 +615,7 @@ export default function DailyRewardModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
