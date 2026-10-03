@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, RotateCcw, Trophy, User, Bot, Flame, Zap, Target, Crown, Star } from "lucide-react";

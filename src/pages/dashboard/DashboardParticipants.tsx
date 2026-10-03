@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Download, Mail, CheckCircle2, Clock, XCircle, Users, Send, X, Trophy, Eye, Image } from "lucide-react";

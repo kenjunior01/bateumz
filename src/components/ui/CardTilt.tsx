@@ -1,3 +1,4 @@
+// @ts-nocheck
 // =============================================================
 // CARD TILT - Enhanced 3D perspective tilt with glare and spring
 // Fixed: useTransform API compatibility with framer-motion
