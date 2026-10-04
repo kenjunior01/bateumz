@@ -70,7 +70,7 @@ const ALL_GAMES: GameDef[] = [
   { id: "emoji", label: "Batalha de Emojis", emoji: "💥", desc: "Vote ao vivo, vencedores entram no sorteio!", grad: "from-pink-500 to-rose-500", category: "Social", players: "Multi", icon: Vote, hasBot: false },
   { id: "keyword", label: "Caca a Palavra", emoji: "🔎", desc: "Audiencia adivinha a palavra-chave secreta!", grad: "from-amber-500 to-orange-500", category: "Social", players: "Multi", icon: Search, hasBot: false },
   { id: "truthordare", label: "Verdade ou Desafio", emoji: "🔥", desc: "Verdades picantes e desafios engracados!", grad: "from-rose-500 to-red-600", category: "Social", players: "Multi", icon: Heart, hasBot: false },
-  { id: "mmorpg", label: "MMORPG Bateu", emoji: "🌍", desc: "Mundo persistente multijogador! Duelos PVP reais, economia P2P, chat global, ranking e World Boss!", grad: "from-blue-600 to-purple-700", category: "MMORPG", players: "Multiplayer", icon: Globe, hasBot: false },
+  { id: "mmorpg", label: "Mundo Aberto GO", emoji: "🗺️", desc: "Mundo aberto com mapa REAL da tua cidade! Explora com GPS ou joystick, derrota criaturas, captura animais, abre baús de sorteio e visita portais da plataforma!", grad: "from-emerald-500 to-teal-700", category: "MMORPG", players: "Mundo Aberto", icon: Globe, hasBot: false },
   { id: "punishment", label: "Roleta de Castigos", emoji: "💀", desc: "Gire a roleta e cumpra o castigo!", grad: "from-red-600 to-rose-700", category: "Social", players: "Multi", icon: Skull, hasBot: false },
   { id: "guessEmoji", label: "Adivinhe o Emoji", emoji: "😎", desc: "Decifre a frase a partir dos emojis!", grad: "from-yellow-500 to-amber-600", category: "Quiz", players: "Multi", icon: SmilePlus, hasBot: false },
   { id: "quickdraw", label: "Desenho Rapido", emoji: "🎨", desc: "Desenhe e deixe o publico adivinhar!", grad: "from-emerald-500 to-teal-600", category: "Social", players: "Multi", icon: Pencil, hasBot: false },
@@ -132,7 +132,7 @@ const CATEGORIES = [
   { id: "Acao", label: "Acao", emoji: "💥" },
   { id: "Digitacao", label: "Digitacao", emoji: "⌨️" },
   { id: "Campanha", label: "Campanha", emoji: "🏕️" },
-  { id: "MMORPG", label: "MMORPG", emoji: "🌍" },
+  { id: "MMORPG", label: "Mundo Aberto", emoji: "🗺️" },
   { id: "Instantaneo", label: "Instantaneos", emoji: "⚡" },
 ];
 

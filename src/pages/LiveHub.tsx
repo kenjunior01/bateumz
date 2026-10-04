@@ -80,7 +80,7 @@ const FlappyBirdGame = lazy(() => import("@/components/livegames/FlappyBirdGame"
 const FruitNinjaGame = lazy(() => import("@/components/livegames/FruitNinjaGame"));
 const TypingRacer = lazy(() => import("@/components/livegames/TypingRacer"));
 const CampaignRPGGame = lazy(() => import("@/components/livegames/CampaignRPGGame"));
-const MMORPGGame = lazy(() => import("@/components/livegames/MMORPGGame"));
+const OpenWorldGame = lazy(() => import("@/components/livegames/OpenWorldGame"));
 const P2PBetArena = lazy(() => import("@/components/livegames/P2PBetArena"));
 const NtchuvaGame = lazy(() => import("@/components/livegames/NtchuvaGame"));
 const DjikotaGame = lazy(() => import("@/components/livegames/DjikotaGame"));
@@ -1256,8 +1256,8 @@ const LiveHub = () => {
                 </motion.div>              )}
               {active === "mmorpg" && (
                 <motion.div key="mmorpg" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <GameErrorBoundary gameName="MMORPG Bateu">
-                  <MMORPGGame onScore={recordScore("MMORPG Bateu")} liveCode={liveCode} />
+                  <GameErrorBoundary gameName="Mundo Aberto GO">
+                  <OpenWorldGame onScore={recordScore("Mundo Aberto GO")} liveCode={liveCode} />
                   </GameErrorBoundary>
                 </motion.div>              )}
               {active === "p2pbet" && (
