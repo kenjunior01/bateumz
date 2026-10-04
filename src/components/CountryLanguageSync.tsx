@@ -13,7 +13,12 @@ export default function CountryLanguageSync() {
 
   useEffect(() => {
     if (isLangExplicitlyChosen()) return;
-    const next = resolveLangFromCountry(country, region?.default_language);
+    // Só sincroniza com o país ESCOLHIDO pelo utilizador. Sem país guardado,
+    // mantém o default da plataforma (PT — mercados MZ/AO). O default_language
+    // da região na DB não pode forçar EN a utilizadores de Moçambique.
+    const savedCountry = localStorage.getItem("bateu_country");
+    if (!savedCountry) return;
+    const next = resolveLangFromCountry(country, null);
     if (next === lang) return;
     setLang(next, { explicit: false });
   }, [country, region?.default_language, lang, setLang]);

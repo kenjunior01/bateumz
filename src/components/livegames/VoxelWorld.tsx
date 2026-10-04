@@ -895,7 +895,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     const canvas = canvasRef.current, wrap = wrapRef.current;
     if (!canvas || !wrap) return;
     const ctx = canvas.getContext("2d"); if (!ctx) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // DPR adaptativo: dispositivos fracos (poucos núcleos) renderizam mais leve
+    const cores = (navigator as any).hardwareConcurrency || 4;
+    const dprCap = cores <= 4 ? 1.25 : 2;
+    const dpr = Math.min(dprCap, window.devicePixelRatio || 1);
     const cw = wrap.clientWidth, ch = wrap.clientHeight;
     if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) {
       canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
@@ -1474,25 +1477,25 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
 
       {/* HUD topo */}
       <div className="absolute top-0 inset-x-0 p-2 flex items-center gap-1.5 pointer-events-none z-10">
-        <button onClick={onExit} className="pointer-events-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/55 border border-white/15 text-white text-[11px] font-bold backdrop-blur active:scale-95 transition">
+        <button onClick={onExit} className="pointer-events-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/55 border border-white/15 text-white text-[11px] font-bold active:scale-95 transition">
           <ArrowLeft className="h-3.5 w-3.5" /> Sair
         </button>
-        <div className="px-2.5 py-1.5 rounded-lg bg-black/55 border border-white/15 text-white text-[11px] font-bold backdrop-blur flex items-center gap-1">
+        <div className="px-2.5 py-1.5 rounded-lg bg-black/55 border border-white/15 text-white text-[11px] font-bold flex items-center gap-1">
           {night ? <Moon className="h-3.5 w-3.5 text-indigo-300" /> : <Sun className="h-3.5 w-3.5 text-amber-300" />}
           Dia {clock.day} · {String(clock.h).padStart(2, "0")}:00
         </div>
         <div className="flex-1" />
-        <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/25 border border-amber-400/40 text-amber-200 text-[11px] font-black backdrop-blur flex items-center gap-1">
+        <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/25 border border-amber-400/40 text-amber-200 text-[11px] font-black flex items-center gap-1">
           <Ticket className="h-3.5 w-3.5" /> {tickets}
         </div>
-        <button onClick={() => { const m = !muted; setMuted(m); mutedRef.current = m; }} className="pointer-events-auto p-2 rounded-lg bg-black/55 border border-white/15 text-white backdrop-blur active:scale-95">
+        <button onClick={() => { const m = !muted; setMuted(m); mutedRef.current = m; }} className="pointer-events-auto p-2 rounded-lg bg-black/55 border border-white/15 text-white active:scale-95">
           {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
         </button>
       </div>
 
       {/* barra de vida + sessão + atalhos */}
       <div className="absolute top-11 inset-x-0 px-2 flex items-center gap-1.5 pointer-events-none z-10">
-        <div className="px-2 py-1 rounded-lg bg-black/55 border border-white/15 backdrop-blur flex items-center gap-1.5">
+        <div className="px-2 py-1 rounded-lg bg-black/55 border border-white/15 flex items-center gap-1.5">
           <Heart className="h-3.5 w-3.5 text-red-400" />
           <div className="w-14 h-1.5 rounded-full bg-white/15 overflow-hidden">
             <div className="h-full bg-red-500 transition-all" style={{ width: `${(hp / maxHp) * 100}%` }} />
@@ -1500,19 +1503,19 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
           <span className="text-[10px] text-white font-bold">{hp}</span>
         </div>
         {sess.gold > 0 && (
-          <div className="px-2 py-1 rounded-lg bg-black/55 border border-yellow-500/30 backdrop-blur flex items-center gap-1 text-[10px] font-bold text-yellow-300">
+          <div className="px-2 py-1 rounded-lg bg-black/55 border border-yellow-500/30 flex items-center gap-1 text-[10px] font-bold text-yellow-300">
             <Coins className="h-3 w-3" /> +{sess.gold}
           </div>
         )}
-        {sess.xp > 0 && <div className="px-2 py-1 rounded-lg bg-black/55 border border-blue-500/30 backdrop-blur text-[10px] font-bold text-blue-300">+{sess.xp} XP</div>}
+        {sess.xp > 0 && <div className="px-2 py-1 rounded-lg bg-black/55 border border-blue-500/30 text-[10px] font-bold text-blue-300">+{sess.xp} XP</div>}
         <div className="flex-1" />
-        <button onClick={() => setModal("oficina")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-white/15 text-white text-[10px] font-bold backdrop-blur flex items-center gap-1 active:scale-95">
+        <button onClick={() => setModal("oficina")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-white/15 text-white text-[10px] font-bold flex items-center gap-1 active:scale-95">
           <Hammer className="h-3 w-3" /> {PICKS[pickTier].name.replace("Picareta de ", "")}{hasSword && " · ⚔"}
         </button>
-        <button onClick={() => setModal("sorteios")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-amber-500/40 text-amber-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Sorteios ao vivo">🎁</button>
-        <button onClick={() => setModal("arena")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-sky-500/40 text-sky-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Torneios">🏆</button>
-        <button onClick={() => setModal("questboard")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Missões">📜</button>
-        <button onClick={() => setModal("ajuda")} className="pointer-events-auto p-1.5 rounded-lg bg-black/55 border border-white/15 text-white backdrop-blur active:scale-95">
+        <button onClick={() => setModal("sorteios")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-amber-500/40 text-amber-300 text-[10px] font-bold active:scale-95" aria-label="Sorteios ao vivo">🎁</button>
+        <button onClick={() => setModal("arena")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-sky-500/40 text-sky-300 text-[10px] font-bold active:scale-95" aria-label="Torneios">🏆</button>
+        <button onClick={() => setModal("questboard")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold active:scale-95" aria-label="Missões">📜</button>
+        <button onClick={() => setModal("ajuda")} className="pointer-events-auto p-1.5 rounded-lg bg-black/55 border border-white/15 text-white active:scale-95">
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -1525,7 +1528,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
         <AnimatePresence>
           {toasts.map(t => (
             <motion.div key={t.id} initial={{ opacity: 0, y: -8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-              className="px-3 py-1.5 rounded-full bg-black/75 border text-[11px] font-bold backdrop-blur" style={{ color: t.color, borderColor: `${t.color}55` }}>
+              className="px-3 py-1.5 rounded-full bg-black/75 border text-[11px] font-bold" style={{ color: t.color, borderColor: `${t.color}55` }}>
               {t.text}
             </motion.div>
           ))}
@@ -1536,7 +1539,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       <AnimatePresence>
         {prompt && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="absolute bottom-[112px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/75 border border-amber-400/40 text-amber-300 text-[11px] font-bold backdrop-blur z-20 whitespace-nowrap">
+            className="absolute bottom-[112px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/75 border border-amber-400/40 text-amber-300 text-[11px] font-bold z-20 whitespace-nowrap">
             <span className="inline-block px-1.5 mr-1 rounded bg-amber-400/25 border border-amber-400/40">E / AÇÃO</span> {prompt}
           </motion.div>
         )}
@@ -1552,7 +1555,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
 
       {/* hotbar */}
       <div className="absolute bottom-2 inset-x-0 flex justify-center z-20 pointer-events-none">
-        <div className="flex gap-1 bg-black/55 rounded-xl p-1.5 border border-white/15 backdrop-blur max-w-[96%] overflow-x-auto no-scrollbar pointer-events-auto">
+        <div className="flex gap-1 bg-black/55 rounded-xl p-1.5 border border-white/15 max-w-[96%] overflow-x-auto no-scrollbar pointer-events-auto">
           {RES_META.map((r, i) => (
             <button key={r.id} onClick={() => setSelSlot(i)}
               className={`relative w-9 h-9 rounded-lg border-2 flex flex-col items-center justify-center shrink-0 transition ${selSlot === i ? "border-white bg-white/15 scale-105" : "border-white/20 bg-black/30"}`}>
@@ -1566,7 +1569,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
 
       {/* joystick */}
       <div ref={joyAreaRef}
-        className="absolute bottom-16 left-3 w-[104px] h-[104px] rounded-full bg-black/35 border border-white/20 backdrop-blur z-20 touch-none"
+        className="absolute bottom-16 left-3 w-[104px] h-[104px] rounded-full bg-black/35 border border-white/20 z-20 touch-none"
         onPointerDown={joyDown} onPointerMove={joyMove} onPointerUp={joyUp} onPointerCancel={joyUp}>
         <div className="absolute inset-0 grid place-items-center text-white/30 text-[9px] font-bold pointer-events-none">mover</div>
         <div className="absolute w-11 h-11 rounded-full bg-white/35 border-2 border-white/50 transition-transform pointer-events-none"
@@ -1577,17 +1580,17 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       <div className="absolute bottom-16 right-3 z-20 flex flex-col items-end gap-1.5">
         {isPlaceable && (
           <button onPointerDown={e => { e.preventDefault(); doBuild(); }}
-            className="w-14 h-9 rounded-lg bg-emerald-600/85 border border-emerald-300/50 text-white text-[10px] font-black backdrop-blur active:scale-95 flex items-center justify-center gap-1">
+            className="w-14 h-9 rounded-lg bg-emerald-600/85 border border-emerald-300/50 text-white text-[10px] font-black active:scale-95 flex items-center justify-center gap-1">
             <Backpack className="h-3.5 w-3.5" /> PÔR
           </button>
         )}
         <div className="flex gap-1.5">
           <button onPointerDown={e => { e.preventDefault(); doAttackRef.current(); }}
-            className="w-14 h-14 rounded-full bg-red-600/85 border border-red-300/50 text-white text-[10px] font-black backdrop-blur active:scale-95 flex flex-col items-center justify-center">
+            className="w-14 h-14 rounded-full bg-red-600/85 border border-red-300/50 text-white text-[10px] font-black active:scale-95 flex flex-col items-center justify-center">
             <Sparkles className="h-4 w-4 mb-0.5" />ATACAR
           </button>
           <button onPointerDown={e => { e.preventDefault(); doActionRef.current(); }}
-            className="w-14 h-14 rounded-full bg-amber-500/85 border border-amber-300/50 text-white text-[10px] font-black backdrop-blur active:scale-95 flex flex-col items-center justify-center">
+            className="w-14 h-14 rounded-full bg-amber-500/85 border border-amber-300/50 text-white text-[10px] font-black active:scale-95 flex flex-col items-center justify-center">
             AÇÃO
           </button>
         </div>
@@ -1597,14 +1600,14 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
             onPointerUp={() => { actRef.current.mine = false; }}
             onPointerLeave={() => { actRef.current.mine = false; }}
             onPointerCancel={() => { actRef.current.mine = false; }}
-            className="w-14 h-14 rounded-full bg-sky-600/85 border border-sky-300/50 text-white text-[10px] font-black backdrop-blur active:scale-95 flex flex-col items-center justify-center">
+            className="w-14 h-14 rounded-full bg-sky-600/85 border border-sky-300/50 text-white text-[10px] font-black active:scale-95 flex flex-col items-center justify-center">
             <Hammer className="h-4 w-4 mb-0.5" />MINERAR
           </button>
           <button
             onPointerDown={e => { e.preventDefault(); keysRef.current.jump = true; }}
             onPointerUp={() => { keysRef.current.jump = false; }}
             onPointerLeave={() => { keysRef.current.jump = false; }}
-            className="w-14 h-14 rounded-full bg-violet-600/85 border border-violet-300/50 text-white text-[10px] font-black backdrop-blur active:scale-95 flex flex-col items-center justify-center">
+            className="w-14 h-14 rounded-full bg-violet-600/85 border border-violet-300/50 text-white text-[10px] font-black active:scale-95 flex flex-col items-center justify-center">
             SALTAR
           </button>
         </div>
@@ -1619,7 +1622,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       <AnimatePresence>
         {modal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm z-30 flex items-center justify-center p-3"
+            className="absolute inset-0 bg-black/70 z-30 flex items-center justify-center p-3"
             onClick={() => setModal(null)}>
             <motion.div initial={{ scale: 0.92, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
               className="w-full max-w-md max-h-[88%] overflow-y-auto rounded-2xl bg-card border border-border p-4"

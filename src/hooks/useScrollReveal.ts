@@ -45,6 +45,7 @@ export function useScrollReveal(options: ScrollRevealOptions = {}): ScrollReveal
   const elementRef = useRef<HTMLElement | null>(null);
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasTriggeredRef = useRef(false);
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleIntersection = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -108,12 +109,42 @@ export function useScrollReveal(options: ScrollRevealOptions = {}): ScrollReveal
         return;
       }
 
+      // ---- FAIL-SAFE: elemento mais alto que o viewport ----
+      // IO threshold é por ÁREA. Um wrapper de página inteira (ex.: 6900px)
+      // nunca atinge 15% num viewport de 900px -> conteúdo ficaria invisível
+      // para sempre. Cap ao threshold geometricamente possível.
+      const rect0 = node.getBoundingClientRect();
+      const winH = window.innerHeight || 800;
+      let effThreshold = threshold;
+      if (rect0.height > winH) {
+        effThreshold = Math.min(threshold, Math.max(0.01, (winH * 0.8) / rect0.height));
+      }
+
       observerRef.current = new IntersectionObserver(handleIntersection, {
-        threshold,
+        threshold: effThreshold,
         rootMargin,
       });
 
       observerRef.current.observe(node);
+
+      // ---- FAIL-SAFE: timer de segurança ----
+      // Se após 2s o elemento estiver dentro do viewport mas o IO não
+      // disparou (edge cases: scrollers aninhados, transforms, etc.),
+      // força a visibilidade. Conteúdo NUNCA pode ficar escondido.
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+      safetyTimerRef.current = setTimeout(() => {
+        if (hasTriggeredRef.current) return;
+        const r = node.getBoundingClientRect();
+        const intersects = r.top < (window.innerHeight || 800) && r.bottom > 0 && r.right > 0 && r.left < (window.innerWidth || 800);
+        if (intersects) {
+          hasTriggeredRef.current = true;
+          setIsVisible(true);
+          setHasBeenVisible(true);
+          if (observerRef.current && elementRef.current) {
+            observerRef.current.unobserve(elementRef.current);
+          }
+        }
+      }, 2000);
     },
     [handleIntersection, threshold, rootMargin],
   );
@@ -123,6 +154,9 @@ export function useScrollReveal(options: ScrollRevealOptions = {}): ScrollReveal
     return () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current);
+      }
+      if (safetyTimerRef.current) {
+        clearTimeout(safetyTimerRef.current);
       }
       if (observerRef.current && elementRef.current) {
         observerRef.current.unobserve(elementRef.current);

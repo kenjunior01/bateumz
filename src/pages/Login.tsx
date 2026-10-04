@@ -84,10 +84,10 @@ export default function Login() {
   }, [email, password, error, focusedField]);
 
   const mascotMessages: Record<string, string> = {
-    happy: "Hey there! Great to see you 👋",
-    excited: "All set! Let's go 🚀",
-    thinking: "Hmm... something looks off 🤔",
-    winner: "Welcome back! 🎉",
+    happy: "Olá! Que bom ver-te aqui 👋",
+    excited: "Tudo pronto! Vamos a isso 🚀",
+    thinking: "Hmm... algo não está certo 🤔",
+    winner: "Bem-vindo de volta! 🎉",
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +96,7 @@ export default function Login() {
     setErrorAction(null);
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError("Enter both your email and password to continue.");
+      setError("Preenche o email e a palavra-passe para continuar.");
       setMascotMood("thinking");
       return;
     }
@@ -125,7 +125,7 @@ export default function Login() {
       options: { redirectTo: window.location.origin + (nextPath ?? "") },
     });
     if (error) {
-      setError("Could not connect with Google. Please try again.");
+      setError("Não foi possível ligar ao Google. Tenta novamente.");
       setGoogleLoading(false);
     }
   };
@@ -172,11 +172,11 @@ export default function Login() {
             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
           />
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}>
-            <h2 className="font-display text-2xl font-bold text-foreground">Welcome back! 🎊</h2>
+            <h2 className="font-display text-2xl font-bold text-foreground">Bem-vindo de volta! 🎊</h2>
           </motion.div>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
             className="text-sm text-muted-foreground mt-3">
-            Redirecting to your dashboard...
+A redirecionar para o teu painel...
           </motion.p>
           <motion.div
             className="mt-4 h-1.5 rounded-full bg-secondary overflow-hidden"
@@ -281,7 +281,7 @@ export default function Login() {
             transition={{ delay: 0.2 }}
             className="font-display text-xl font-bold text-foreground mb-1"
           >
-            Welcome back! 🎉
+            Bem-vindo de volta! 🎉
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -289,7 +289,7 @@ export default function Login() {
             transition={{ delay: 0.3 }}
             className="text-sm text-muted-foreground mb-6"
           >
-            Sign in to your account and keep winning
+Entra na tua conta e continua a ganhar
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="space-y-2">
@@ -305,7 +305,7 @@ export default function Login() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              {googleLoading ? "Connecting..." : "Continue with Google"}
+              {googleLoading ? "A ligar..." : "Continuar com Google"}
             </Button>
             <Button
               variant="outline"
@@ -316,7 +316,7 @@ export default function Login() {
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
               </svg>
-              {appleLoading ? "Connecting..." : "Continue with Apple"}
+              {appleLoading ? "A ligar..." : "Continuar com Apple"}
             </Button>
           </motion.div>
 
@@ -328,7 +328,7 @@ export default function Login() {
               <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-3 text-muted-foreground">or</span>
+              <span className="bg-card px-3 text-muted-foreground">ou</span>
             </div>
           </motion.div>
 
@@ -351,7 +351,7 @@ export default function Login() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
-              <label className="mb-1.5 block text-xs font-medium text-foreground">Password</label>
+              <label className="mb-1.5 block text-xs font-medium text-foreground">Palavra-passe</label>
               <div className="relative group">
                 <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors ${focusedField === "password" ? "text-primary" : "text-muted-foreground"}`} />
                 <input
@@ -390,16 +390,16 @@ export default function Login() {
                   {errorAction === "signup" && (
                     <p className="text-xs">
                       <Link to="/register" className="underline font-semibold">
-                        Create an account
+                        Criar conta
                       </Link>
                       {" · "}
                       <Link to="/forgot-password" className="underline font-semibold">
-                        Forgot password?
+                        Esqueceu a palavra-passe?
                       </Link>
                     </p>
                   )}
                   {errorAction === "resend_confirmation" && (
-                    <p className="text-xs">Confirm your email address, then sign in again.</p>
+                    <p className="text-xs">Confirma o teu email e entra novamente.</p>
                   )}
                 </motion.div>
               )}
@@ -421,11 +421,11 @@ export default function Login() {
                       animate={{ rotate: 360 }}
                       transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
                     />
-                    Signing in...
+                    A entrar...
                   </>
                 ) : (
                   <>
-                    Sign in <ChevronRight className="h-4 w-4" />
+                    Entrar <ChevronRight className="h-4 w-4" />
                   </>
                 )}
               </motion.button>
@@ -437,12 +437,12 @@ export default function Login() {
             className="mt-5 text-center space-y-2"
           >
             <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Forgot password? 🔑
+              Esqueceu a palavra-passe? 🔑
             </Link>
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Ainda não tens conta?{" "}
               <Link to="/register" className="text-primary hover:underline font-medium">
-                Create account 🚀
+                Criar conta 🚀
               </Link>
             </p>
           </motion.div>
@@ -453,7 +453,7 @@ export default function Login() {
           className="mt-4 text-center"
         >
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-3 w-3" /> Back to site
+            <ArrowLeft className="h-3 w-3" /> Voltar ao site
           </Link>
         </motion.div>
       </motion.div>

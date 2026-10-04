@@ -10,6 +10,8 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import ShimmerText from '@/components/ui/ShimmerText';
 import AnimatedNumber from '@/components/ui/AnimatedNumber';
 import HolographicCard from '@/components/ui/HolographicCard';
+import ChallengeModal from '@/components/games/ChallengeModal';
+import { getPlayerIdentity } from '@/lib/challenges';
 
 interface GameDef {
   id: string;
@@ -148,6 +150,9 @@ const AllGames = () => {
   const [sortBy, setSortBy] = useState<"name" | "category">("name");
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [challengeGame, setChallengeGame] = useState<{ id: string; label: string } | null>(null);
+  const [challengeToast, setChallengeToast] = useState<string | null>(null);
+  const meName = getPlayerIdentity().name;
 
   const filtered = useMemo(() => {
     let list = ALL_GAMES;
@@ -375,9 +380,20 @@ const AllGames = () => {
                       </div>
                       <div className="mt-3 pt-2 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                         <span className="text-[10px] text-muted-foreground/50">{game.category}</span>
-                        <motion.span className="text-[10px] font-semibold flex items-center gap-0.5" style={{ color: THEME_P }}>
-                          Jogar <ChevronRight className="h-3 w-3" />
-                        </motion.span>
+                        <span className="flex items-center gap-2">
+                          <motion.button
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setChallengeGame({ id: game.id, label: game.label }); sfx.click(); }}
+                            title={`Desafiar amigo no ${game.label}`}
+                            className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ color: THEME_A, background: "rgba(247,129,102,0.1)" }}
+                          >
+                            <Swords className="h-3 w-3" /> Desafiar
+                          </motion.button>
+                          <motion.span className="text-[10px] font-semibold flex items-center gap-0.5" style={{ color: THEME_P }}>
+                            Jogar <ChevronRight className="h-3 w-3" />
+                          </motion.span>
+                        </span>
                       </div>
                     </div>
                   </Link>
@@ -447,6 +463,25 @@ const AllGames = () => {
           </motion.div>
         </section>
       )}
+
+      <ChallengeModal
+        open={challengeGame !== null}
+        onClose={() => setChallengeGame(null)}
+        gameId={challengeGame?.id ?? ""}
+        gameLabel={challengeGame?.label ?? ""}
+        onCreated={(msg) => { setChallengeToast(msg); window.setTimeout(() => setChallengeToast(null), 4000); }}
+      />
+
+      <AnimatePresence>
+        {challengeToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] px-4 py-2.5 rounded-xl bg-card border border-orange-500/40 shadow-2xl text-xs font-bold"
+          >
+            {challengeToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </div>

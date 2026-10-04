@@ -29,7 +29,7 @@ const RegionalThemeContext = createContext<Ctx | null>(null);
 const STORAGE_KEY = "bateu_country";
 
 function detectInitialCountry(): string {
-  if (typeof window === "undefined") return "US";
+  if (typeof window === "undefined") return "MZ";
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) return saved.toUpperCase();
   const loc = (navigator.language || "").toLowerCase();
@@ -39,7 +39,9 @@ function detectInitialCountry(): string {
   if (loc.endsWith("-mz")) return "MZ";
   if (loc.endsWith("-ao")) return "AO";
   if (loc.endsWith("-in") || loc === "hi" || loc === "hi-in") return "IN";
-  return "US";
+  // Fallback = mercado principal (Moçambique) — browsers em inglês em MZ/AO
+  // continuam a ver a plataforma em português
+  return "MZ";
 }
 
 function applyCssVars(theme: RegionalTheme | null) {
@@ -93,7 +95,7 @@ export function RegionalThemeProvider({ children }: { children: ReactNode }) {
       setRegion(theme);
       applyCssVars(theme);
 
-      const lang = theme?.default_language || "en";
+      const lang = theme?.default_language || "pt";
       // Load translations: global (region_id is null) + region-specific. Region overrides global.
       const { data: trans } = await supabase
         .from("translations")
@@ -127,7 +129,7 @@ export function useRegionalTheme() {
   const ctx = useContext(RegionalThemeContext);
   if (!ctx) {
     return {
-      country: "US",
+      country: "MZ",
       setCountry: () => {},
       region: null,
       loading: false,

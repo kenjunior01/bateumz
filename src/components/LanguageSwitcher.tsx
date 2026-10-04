@@ -9,9 +9,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const LANGS: { code: Lang; label: string; flag: string }[] = [
-  { code: "en", label: "English", flag: "🇺🇸" },
-  { code: "pt", label: "Português (PT)", flag: "🇵🇹" },
+  { code: "pt", label: "Português (MZ)", flag: "🇲🇿" },
   { code: "pt-BR", label: "Português (BR)", flag: "🇧🇷" },
+  { code: "en", label: "English", flag: "🇺🇸" },
   { code: "es", label: "Español", flag: "🇪🇸" },
   { code: "fr", label: "Français", flag: "🇫🇷" },
   { code: "hi", label: "हिंदी", flag: "🇮🇳" },

@@ -14,7 +14,7 @@ export const COUNTRY_DEFAULT_LANG: Record<string, Lang> = {
 };
 
 export function detectCountryFromNavigator(): string {
-  if (typeof navigator === "undefined") return "US";
+  if (typeof navigator === "undefined") return "MZ";
   const loc = (navigator.language || "").toLowerCase();
   if (loc.endsWith("-ca")) return "CA";
   if (loc.endsWith("-br") || loc === "pt-br") return "BR";
@@ -22,7 +22,8 @@ export function detectCountryFromNavigator(): string {
   if (loc.endsWith("-mz")) return "MZ";
   if (loc.endsWith("-ao")) return "AO";
   if (loc.endsWith("-in") || loc === "hi" || loc === "hi-in") return "IN";
-  return "US";
+  // Fallback = core market (Mozambique) so English-language browsers in MZ/AO still get PT
+  return "MZ";
 }
 
 export function resolveLangFromCountry(country: string, dbDefault?: string | null): Lang {

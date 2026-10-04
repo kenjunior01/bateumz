@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    watch: {
+      // android/app (assets Capacitor gerados) tem milhares de ficheiros e
+      // rebenta o limite de inotify watchers (ENOSPC) em dev
+      ignored: ["**/android/**", "**/dist/**"],
+    },
   },
   plugins: [
     react(),
