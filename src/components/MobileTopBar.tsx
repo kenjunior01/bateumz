@@ -147,6 +147,7 @@ const MobileTopBar = () => {
                 x1="3" y1="5" x2="17" y2="5"
                 className="stroke-current"
                 strokeWidth="2" strokeLinecap="round"
+                initial={false}
                 variants={{
                   open: { y1: 10, x2: 10, rotate: 45 },
                   closed: { y1: 5, x2: 17, rotate: 0 },
@@ -158,6 +159,7 @@ const MobileTopBar = () => {
                 x1="3" y1="10" x2="17" y2="10"
                 className="stroke-current"
                 strokeWidth="2" strokeLinecap="round"
+                initial={false}
                 variants={{
                   open: { opacity: 0, x1: 10 },
                   closed: { opacity: 1, x1: 3 },
@@ -169,6 +171,7 @@ const MobileTopBar = () => {
                 x1="3" y1="15" x2="17" y2="15"
                 className="stroke-current"
                 strokeWidth="2" strokeLinecap="round"
+                initial={false}
                 variants={{
                   open: { y1: 10, x2: 10, rotate: -45 },
                   closed: { y1: 15, x2: 17, rotate: 0 },

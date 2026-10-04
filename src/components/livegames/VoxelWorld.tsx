@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type PointerEvent as RPointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, X, Coins, Heart, Ticket, Volume2, VolumeX,
@@ -27,11 +28,26 @@ interface Mob { kind: "zombie" | "pig"; x: number; y: number; vx: number; vy: nu
 interface Part { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; grav: number; }
 interface FloatTxt { x: number; y: number; text: string; life: number; color: string; }
 
+// ---- Dados ao vivo da plataforma (sincronização total) ----
+interface LiveRaffle { id: string; title: string; slug: string | null; prize_title: string | null; ticket_price: number | null; image_url: string | null; end_date: string | null; total_tickets: number | null; sold_tickets: number | null; raffle_type: string | null; points_cost: number | null; }
+interface LiveContest { id: string; title: string; image_url: string | null; status: string; }
+interface LiveTournament { id: string; name: string; prize_description: string | null; prize_value: number | null; currency: string | null; end_date: string; }
+function fmtCountdown(date: string | null): string | null {
+  if (!date) return null;
+  const diff = new Date(date).getTime() - Date.now();
+  if (diff <= 0) return "terminou";
+  const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function fmtMzn(v: number | null): string { return v == null ? "—" : `${v} MT`; }
+
 // ---- Blocos ----
 const W = 180, H = 80;
-const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4, WATER: 5, LOG: 6, LEAF: 7, COAL: 8, IRON: 9, GOLD: 10, DIAMOND: 11, CHEST: 12, PORTAL_G: 13, PORTAL_M: 14, TORCH: 15, BEDROCK: 16, PLANK: 17 } as const;
+const B = { AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4, WATER: 5, LOG: 6, LEAF: 7, COAL: 8, IRON: 9, GOLD: 10, DIAMOND: 11, CHEST: 12, PORTAL_G: 13, PORTAL_M: 14, TORCH: 15, BEDROCK: 16, PLANK: 17, BILLBOARD: 18, STALL: 19, COLISEUM: 20, QUESTBOARD: 21 } as const;
 
-const SOLID = new Set<number>([B.GRASS, B.DIRT, B.STONE, B.SAND, B.LOG, B.LEAF, B.COAL, B.IRON, B.GOLD, B.DIAMOND, B.CHEST, B.PORTAL_G, B.PORTAL_M, B.BEDROCK, B.PLANK]);
+const SOLID = new Set<number>([B.GRASS, B.DIRT, B.STONE, B.SAND, B.LOG, B.LEAF, B.COAL, B.IRON, B.GOLD, B.DIAMOND, B.CHEST, B.PORTAL_G, B.PORTAL_M, B.BEDROCK, B.PLANK, B.BILLBOARD, B.STALL, B.COLISEUM, B.QUESTBOARD]);
 
 const HARDNESS: Record<number, number> = {
   [B.GRASS]: 0.5, [B.DIRT]: 0.5, [B.SAND]: 0.4, [B.STONE]: 1.6, [B.LOG]: 0.9,
@@ -89,6 +105,7 @@ const AVG: Record<number, string> = {
   [B.WATER]: "#3b82f6", [B.LOG]: "#6b4423", [B.LEAF]: "#2f8f2f", [B.COAL]: "#555",
   [B.IRON]: "#c89878", [B.GOLD]: "#e8b83a", [B.DIAMOND]: "#59e3e3", [B.CHEST]: "#c47f1a",
   [B.PORTAL_G]: "#8b5cf6", [B.PORTAL_M]: "#ec4899", [B.TORCH]: "#ffb347", [B.BEDROCK]: "#3a3a3a", [B.PLANK]: "#b4832f",
+  [B.BILLBOARD]: "#b4703a", [B.STALL]: "#e2453f", [B.COLISEUM]: "#d9c48e", [B.QUESTBOARD]: "#6e4f28",
 };
 
 // ---- Texturas 8x8 procedurais ----
@@ -147,6 +164,29 @@ function buildTextures(): Record<number, HTMLCanvasElement> {
     for (let x = 0; x < 8; x++) { px(x, 2, "#8a611e"); px(x, 5, "#8a611e"); }
   });
   t[B.BEDROCK] = mkTex(23, (px, rnd) => speckle(px, rnd, "#3a3a3a", "#2a2a2a", "#4a4a4a", 12));
+  t[B.BILLBOARD] = mkTex(24, (px, rnd) => {
+    // moldura de madeira + papel branco com linhas vermelhas (mural de sorteios)
+    speckle(px, rnd, "#8a5a2b", "#754a20", "#9c6a35", 5);
+    for (let x = 1; x < 7; x++) for (let y = 1; y < 7; y++) px(x, y, "#f5f0e0");
+    px(2, 2, "#e2453f"); px(3, 2, "#e2453f"); px(4, 2, "#e2453f"); px(5, 2, "#e2453f");
+    px(2, 4, "#c9b896"); px(3, 4, "#c9b896"); px(4, 4, "#c9b896"); px(5, 4, "#c9b896");
+  });
+  t[B.STALL] = mkTex(25, (px, rnd) => {
+    // toldo listrado vermelho/branco da feira
+    for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) px(x, y, x % 2 === 0 ? "#e2453f" : "#f7f3ea");
+    for (let x = 0; x < 8; x++) px(x, 7, "#6b4423");
+  });
+  t[B.COLISEUM] = mkTex(26, (px, rnd) => {
+    // arenito com arco do coliseu
+    speckle(px, rnd, "#d9c48e", "#c4ad72", "#e8d8a4", 8);
+    for (let y = 2; y < 8; y++) { px(3, y, "#7a6338"); px(4, y, "#7a6338"); }
+    px(2, 5, "#7a6338"); px(5, 5, "#7a6338"); px(2, 6, "#7a6338"); px(5, 6, "#7a6338");
+  });
+  t[B.QUESTBOARD] = mkTex(27, (px, rnd) => {
+    // madeira escura com "!" dourado (quadro de missões)
+    speckle(px, rnd, "#5a3f1e", "#4a3316", "#6e4f28", 6);
+    px(3, 1, "#fbbf24"); px(4, 1, "#fbbf24"); px(3, 2, "#fbbf24"); px(4, 2, "#fbbf24"); px(3, 3, "#fbbf24"); px(4, 3, "#fbbf24"); px(3, 5, "#fbbf24"); px(4, 5, "#fbbf24");
+  });
   return t;
 }
 
@@ -160,7 +200,7 @@ function surfaceHeight(x: number): number {
   return Math.max(24, Math.min(64, Math.round(h)));
 }
 
-interface WorldMeta { chestX: number[]; portalGX: number; portalMX: number; merchantX: number; spawnX: number; }
+interface WorldMeta { chestX: number[]; portalGX: number; portalMX: number; merchantX: number; spawnX: number; billboardX: number; feiraX: number; arenaX: number; questX: number; }
 
 function genWorld(): { data: Uint8Array; meta: WorldMeta } {
   const d = new Uint8Array(W * H);
@@ -203,7 +243,7 @@ function genWorld(): { data: Uint8Array; meta: WorldMeta } {
       x += 2;
     }
   }
-  const meta: WorldMeta = { chestX: [Math.round(W / 2) - 5, Math.round(W / 2) + 5, 26, 92, 152], portalGX: Math.round(W / 2) - 9, portalMX: Math.round(W / 2) + 9, merchantX: Math.round(W / 2) + 2, spawnX: Math.round(W / 2) };
+  const meta: WorldMeta = { chestX: [Math.round(W / 2) - 5, Math.round(W / 2) + 5, 26, 92, 152], portalGX: Math.round(W / 2) - 9, portalMX: Math.round(W / 2) + 9, merchantX: Math.round(W / 2) + 2, spawnX: Math.round(W / 2), billboardX: Math.round(W / 2) - 16, feiraX: Math.round(W / 2) + 16, arenaX: 40, questX: 140 };
   // estruturas especiais sobre a superfície
   const put = (x: number, block: number) => {
     const sx = Math.max(1, Math.min(W - 2, x));
@@ -217,6 +257,10 @@ function genWorld(): { data: Uint8Array; meta: WorldMeta } {
   put(meta.portalGX, B.PORTAL_G);
   put(meta.portalMX, B.PORTAL_M);
   meta.chestX.forEach(cx => put(cx, B.CHEST));
+  put(meta.billboardX, B.BILLBOARD);
+  put(meta.feiraX, B.STALL);
+  put(meta.arenaX, B.COLISEUM);
+  put(meta.questX, B.QUESTBOARD);
   return { data: d, meta };
 }
 
@@ -225,12 +269,13 @@ interface VSave {
   inv: Record<string, number>; edits: Record<string, number>; tickets: number;
   pick: number; sword: boolean; hp: number; day: number; tod: number;
   x: number; y: number; chests: Record<string, number>; kills: number; mined: number; sessionGold: number; sessionXp: number;
+  dayKills: number; dayMined: number; pquestDate: string; pqChest: boolean; pqKill: boolean; pqMine: boolean; pqMarket: boolean; pqJogos: boolean;
 }
 const SAVE_KEY = "bateu_voxel_save_v1";
 
 function defaultSave(): VSave {
   const inv: Record<string, number> = {}; RES_IDS.forEach(r => { inv[r] = 0; });
-  return { inv, edits: {}, tickets: 0, pick: 0, sword: false, hp: 100, day: 1, tod: 0.32, x: 0, y: 0, chests: {}, kills: 0, mined: 0, sessionGold: 0, sessionXp: 0 };
+  return { inv, edits: {}, tickets: 0, pick: 0, sword: false, hp: 100, day: 1, tod: 0.32, x: 0, y: 0, chests: {}, kills: 0, mined: 0, sessionGold: 0, sessionXp: 0, dayKills: 0, dayMined: 0, pquestDate: "", pqChest: false, pqKill: false, pqMine: false, pqMarket: false, pqJogos: false };
 }
 
 function loadSave(): VSave {
@@ -351,10 +396,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
   const maxHp = 100 + level * 12;
   const [tickets, setTickets] = useState(0);
   const [selSlot, setSelSlot] = useState(0);
-  const [modal, setModal] = useState<null | "oficina" | "mercado" | "ajuda">(null);
+  const [modal, setModal] = useState<null | "oficina" | "mercado" | "ajuda" | "sorteios" | "feira" | "arena" | "questboard">(null);
   const [muted, setMuted] = useState(false);
   const [prompt, setPrompt] = useState<string | null>(null);
-  const [promptKind, setPromptKind] = useState<null | "chest" | "portalG" | "portalM" | "merchant">(null);
+  const [promptKind, setPromptKind] = useState<null | "chest" | "portalG" | "portalM" | "merchant" | "billboard" | "stall" | "coliseum" | "questboard">(null);
   const [toasts, setToasts] = useState<{ id: number; text: string; color: string }[]>([]);
   const [pickTier, setPickTier] = useState(0);
   const [hasSword, setHasSword] = useState(false);
@@ -376,6 +421,75 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     if (gold) { sessRef.current.gold += gold; }
     if (xp) { sessRef.current.xp += xp; }
   }, []);
+
+  // ---- dados vivos da plataforma (sorteios, feira, torneios) ----
+  const [liveRaffles, setLiveRaffles] = useState<LiveRaffle[] | null>(null);
+  const [liveFeira, setLiveFeira] = useState<{ contests: LiveContest[]; wheels: number; mills: number } | null>(null);
+  const [liveTours, setLiveTours] = useState<LiveTournament[] | null>(null);
+  const [liveErr, setLiveErr] = useState<string | null>(null);
+  const xpOnceRef = useRef<Set<string>>(new Set());
+
+  const grantVisitXp = useCallback((key: string, label: string) => {
+    if (xpOnceRef.current.has(key)) return;
+    xpOnceRef.current.add(key);
+    addPend(0, 8); toast(`${label}: +8 XP por visitar!`, "#a78bfa");
+  }, [addPend, toast]);
+
+  // missões diárias ligadas à plataforma (reset por dia real)
+  const ensurePqDay = useCallback(() => {
+    const s = saveRef.current;
+    const today = new Date().toDateString();
+    if (s.pquestDate !== today) {
+      s.pquestDate = today; s.dayKills = 0; s.dayMined = 0;
+      s.pqChest = false; s.pqKill = false; s.pqMine = false; s.pqMarket = false; s.pqJogos = false;
+    }
+    return s;
+  }, []);
+
+  // missão de plataforma: recompensa + navegação
+  const claimPq = useCallback((key: "pqMarket" | "pqJogos", gold: number, xp: number, route: string, label: string) => {
+    const s = ensurePqDay();
+    if (s[key]) return;
+    s[key] = true;
+    addPend(gold, xp);
+    toast(`📜 Missão: ${label} +${gold} ouro`, "#4ade80");
+    setModal(null);
+    setTimeout(() => propsRef.current.navigate(route), 300);
+  }, [addPend, toast, ensurePqDay]);
+
+  const fetchLive = useCallback(async (kind: "sorteios" | "feira" | "arena") => {
+    try {
+      if (kind === "sorteios") {
+        const { data, error } = await (supabase as any).from("raffles")
+          .select("id,title,slug,prize_title,ticket_price,image_url,end_date,total_tickets,sold_tickets,raffle_type,points_cost")
+          .eq("status", "active").order("end_date", { ascending: true }).limit(6);
+        if (error) throw error;
+        setLiveRaffles((data || []) as LiveRaffle[]);
+      } else if (kind === "feira") {
+        const [c, w, m] = await Promise.all([
+          (supabase as any).from("contests").select("id,title,image_url,status").in("status", ["active", "voting"]).order("created_at", { ascending: false }).limit(4),
+          (supabase as any).from("spin_wheel_games").select("id", { count: "exact", head: true }).eq("is_published", true),
+          (supabase as any).from("millionaire_games").select("id", { count: "exact", head: true }).eq("is_published", true),
+        ]);
+        setLiveFeira({ contests: (c.data || []) as LiveContest[], wheels: w.count ?? 0, mills: m.count ?? 0 });
+      } else {
+        const { data, error } = await (supabase as any).from("tournaments")
+          .select("id,name,prize_description,prize_value,currency,end_date")
+          .eq("status", "active").order("end_date", { ascending: true }).limit(5);
+        if (error) throw error;
+        setLiveTours((data || []) as LiveTournament[]);
+      }
+      setLiveErr(null);
+    } catch { setLiveErr("Sem ligação à plataforma — verifica a internet"); }
+  }, []);
+
+  // buscar dados quando um painel abre + XP de primeira visita
+  useEffect(() => {
+    if (modal === "sorteios") { fetchLive("sorteios"); grantVisitXp("sorteios", "🎁 Mural de Sorteios"); }
+    else if (modal === "feira") { fetchLive("feira"); grantVisitXp("feira", "🛒 Feira de Vendas"); }
+    else if (modal === "arena") { fetchLive("arena"); grantVisitXp("arena", "🏆 Arena de Torneios"); }
+    else if (modal === "questboard") { grantVisitXp("questboard", "📜 Quadro de Missões"); }
+  }, [modal, fetchLive, grantVisitXp]);
 
   // ---- helpers de mundo ----
   const getBlock = useCallback((x: number, y: number): number => {
@@ -418,6 +532,8 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     const gold = 50 + lvl * 15 + Math.floor(Math.random() * 40);
     setTickets(t => t + tks); saveRef.current.tickets += tks;
     addPend(gold, 15 + lvl * 3);
+    const qp = ensurePqDay();
+    if (!qp.pqChest) { qp.pqChest = true; addPend(25, 0); toast("📜 Missão: baú aberto! +25 ouro", "#4ade80"); }
     floatTxt(cx + 0.5, surfaceHeight(cx) - 3, `+${tks} bilhetes`, "#fbbf24");
     floatTxt(cx + 0.5, surfaceHeight(cx) - 4, `+${gold} ouro`, "#fde047");
     if (Math.random() < 0.25) { saveRef.current.inv.diamante += 1; setInv(i => ({ ...i, diamante: (i.diamante || 0) + 1 })); floatTxt(cx + 0.5, surfaceHeight(cx) - 5, "+1 Diamante!", "#59e3e3"); }
@@ -426,13 +542,17 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     confetti({ particleCount: 60, spread: 55, origin: { y: 0.4 }, colors: ["#fbbf24", "#f59e0b", "#59e3e3"] });
     toast(`${tks} bilhete${tks > 1 ? "s" : ""} de sorteio + ${gold} ouro!`, "#fbbf24");
     propsRef.current.notify(`🎁 Baú de Sorteio: +${tks} bilhetes!`);
-  }, [addPend, toast]);
+  }, [addPend, toast, ensurePqDay]);
 
   const doAction = useCallback(() => {
     const p = playerRef.current; const meta = metaRef.current; if (!meta) return;
     // coisas próximas (prioridade)
     const near = (wx: number, range: number) => Math.abs(p.x + 0.3 - (wx + 0.5)) < range;
     if (near(meta.merchantX, 2.2)) { setModal("mercado"); sfxRef.current.place(); return; }
+    if (near(meta.billboardX, 2.0)) { setModal("sorteios"); sfxRef.current.place(); return; }
+    if (near(meta.feiraX, 2.0)) { setModal("feira"); sfxRef.current.place(); return; }
+    if (near(meta.arenaX, 2.2)) { setModal("arena"); sfxRef.current.place(); return; }
+    if (near(meta.questX, 2.0)) { setModal("questboard"); sfxRef.current.place(); return; }
     for (const cx of meta.chestX) {
       const sh = surfaceHeight(cx);
       if (near(cx, 1.9) && Math.abs((p.y - 0.9) - (sh - 1.5)) < 4) { openChest(cx); return; }
@@ -501,6 +621,8 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
             floatTxt(m.x, m.y - 2, `+${gold} ouro`, "#fde047");
             burst(m.x, m.y - 1, "#22c55e", 12, 18);
             saveRef.current.kills += 1;
+            const qs = ensurePqDay(); qs.dayKills += 1;
+            if (!qs.pqKill) { qs.pqKill = true; addPend(30, 0); toast("📜 Missão: zumbi derrotado! +30 ouro", "#4ade80"); }
           } else {
             const heal = Math.min(14, maxHpRef.current - hpRef.current);
             if (heal > 2) { hpRef.current += heal; setHp(hpRef.current); floatTxt(m.x, m.y - 1.5, `+${heal} HP`, "#f9a8d4"); }
@@ -602,7 +724,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       m.t += dt; // anim timer
     }
     mobsRef.current = mobs.filter(m => !m.dead && Math.abs(m.x - p.x) < 60);
-  }, [addPend, burst, getBlock, hurtPlayer, solidAt]);
+  }, [addPend, burst, getBlock, hurtPlayer, solidAt, ensurePqDay, toast]);
 
   const trySpawn = useCallback((dt: number) => {
     spawnT.current += dt;
@@ -649,6 +771,8 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       const xpMap: Record<number, number> = { [B.GRASS]: 1, [B.DIRT]: 1, [B.SAND]: 1, [B.LEAF]: 1, [B.LOG]: 1, [B.PLANK]: 1, [B.STONE]: 2, [B.COAL]: 3, [B.IRON]: 4, [B.GOLD]: 5, [B.DIAMOND]: 8 };
       addPend(0, xpMap[b] ?? 1);
       saveRef.current.mined += 1;
+      const qs = ensurePqDay(); qs.dayMined += 1;
+      if (!qs.pqMine && qs.dayMined >= 10) { qs.pqMine = true; addPend(40, 0); toast("📜 Missão: 10 blocos minerados! +40 ouro", "#4ade80"); }
       if (drop && (b !== B.LEAF || Math.random() < 0.6)) {
         saveRef.current.inv[drop] = (saveRef.current.inv[drop] || 0) + 1;
         setInv(i => ({ ...i, [drop]: (i[drop] || 0) + 1 }));
@@ -667,6 +791,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     const near = (wx: number, range: number) => Math.abs(p.x + 0.3 - (wx + 0.5)) < range;
     let kind: typeof promptKind = null; let text: string | null = null;
     if (near(meta.merchantX, 2.2)) { kind = "merchant"; text = "Falar com o Mercador"; }
+    else if (near(meta.billboardX, 2.0)) { kind = "billboard"; text = "Ver Sorteios ao Vivo"; }
+    else if (near(meta.feiraX, 2.0)) { kind = "stall"; text = "Visitar a Feira de Vendas"; }
+    else if (near(meta.arenaX, 2.2)) { kind = "coliseum"; text = "Ver Torneios da Plataforma"; }
+    else if (near(meta.questX, 2.0)) { kind = "questboard"; text = "Ver Missões de Hoje"; }
     else {
       for (const cx of meta.chestX) {
         const sh = surfaceHeight(cx);
@@ -690,7 +818,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     const p = playerRef.current;
     // tempo
     todRef.current += dt / 240;
-    if (todRef.current >= 1) { todRef.current = 0; dayRef.current += 1; toast(`☀ Dia ${dayRef.current} — os baús de sorteio esperam por ti!`, "#fde047"); }
+    if (todRef.current >= 1) { todRef.current = 0; dayRef.current += 1; ensurePqDay(); toast(`☀ Dia ${dayRef.current} — os baús de sorteio esperam por ti!`, "#fde047"); }
 
     // input -> velocidade
     const k = keysRef.current; const j = joyRef.current;
@@ -756,7 +884,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
     floatsRef.current = fl.filter(f => f.life > 0);
 
     updatePrompt();
-  }, [getBlock, solidAt, toast, updateMining, updateMobs, trySpawn, updatePrompt]);
+  }, [getBlock, solidAt, toast, updateMining, updateMobs, trySpawn, updatePrompt, ensurePqDay]);
 
   // ---- motor: render ----
   const starsRef = useRef<{ x: number; y: number; s: number; ph: number }[]>([]);
@@ -879,6 +1007,22 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
           ctx.fillStyle = "rgba(255,255,255,0.9)";
           ctx.font = "bold 9px system-ui"; ctx.textAlign = "center";
           ctx.fillText(b === B.PORTAL_G ? "ARCADE" : "MERCADO", px + TILE / 2, py - 5);
+          continue;
+        }
+        if (b === B.BILLBOARD || b === B.STALL || b === B.COLISEUM || b === B.QUESTBOARD) {
+          const t = tex[b];
+          if (t) ctx.drawImage(t, px, py, TILE, TILE);
+          else { ctx.fillStyle = AVG[b] || "#888"; ctx.fillRect(px, py, TILE, TILE); }
+          const pulse = 0.65 + 0.35 * Math.sin(time * 2.6 + x);
+          const label = b === B.BILLBOARD ? "SORTEIOS" : b === B.STALL ? "FEIRA" : b === B.COLISEUM ? "TORNEIOS" : "MISSÕES";
+          const lblCol = b === B.BILLBOARD ? "#fbbf24" : b === B.STALL ? "#f9a8d4" : b === B.COLISEUM ? "#7dd3fc" : "#86efac";
+          ctx.font = "bold 9px system-ui"; ctx.textAlign = "center";
+          ctx.fillStyle = `rgba(0,0,0,${0.55 * pulse})`;
+          ctx.fillText(label, px + TILE / 2 + 1, py - 4);
+          ctx.fillStyle = lblCol;
+          ctx.globalAlpha = 0.75 + 0.25 * pulse;
+          ctx.fillText(label, px + TILE / 2, py - 5);
+          ctx.globalAlpha = 1;
           continue;
         }
         const t = tex[b];
@@ -1087,6 +1231,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       meta.chestX.forEach(cx => { const sh = surfaceHeight(cx); g.fillRect(cx, Math.min(38, (sh - 8) / 2), 2, 2); });
       g.fillStyle = "#22d3ee"; g.fillRect(meta.portalGX, Math.min(38, (surfaceHeight(meta.portalGX) - 8) / 2), 2, 2);
       g.fillStyle = "#f472b6"; g.fillRect(meta.portalMX, Math.min(38, (surfaceHeight(meta.portalMX) - 8) / 2), 2, 2);
+      g.fillStyle = "#fde047"; g.fillRect(meta.billboardX, Math.min(38, (surfaceHeight(meta.billboardX) - 8) / 2), 2, 2);
+      g.fillStyle = "#fb7185"; g.fillRect(meta.feiraX, Math.min(38, (surfaceHeight(meta.feiraX) - 8) / 2), 2, 2);
+      g.fillStyle = "#38bdf8"; g.fillRect(meta.arenaX, Math.min(38, (surfaceHeight(meta.arenaX) - 8) / 2), 2, 2);
+      g.fillStyle = "#4ade80"; g.fillRect(meta.questX, Math.min(38, (surfaceHeight(meta.questX) - 8) / 2), 2, 2);
       g.fillStyle = "#fff"; g.fillRect(meta.merchantX, Math.min(38, (surfaceHeight(meta.merchantX) - 8) / 2), 2, 2);
     }
     const p = playerRef.current;
@@ -1361,6 +1509,9 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
         <button onClick={() => setModal("oficina")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-white/15 text-white text-[10px] font-bold backdrop-blur flex items-center gap-1 active:scale-95">
           <Hammer className="h-3 w-3" /> {PICKS[pickTier].name.replace("Picareta de ", "")}{hasSword && " · ⚔"}
         </button>
+        <button onClick={() => setModal("sorteios")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-amber-500/40 text-amber-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Sorteios ao vivo">🎁</button>
+        <button onClick={() => setModal("arena")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-sky-500/40 text-sky-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Torneios">🏆</button>
+        <button onClick={() => setModal("questboard")} className="pointer-events-auto px-2 py-1 rounded-lg bg-black/55 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold backdrop-blur active:scale-95" aria-label="Missões">📜</button>
         <button onClick={() => setModal("ajuda")} className="pointer-events-auto p-1.5 rounded-lg bg-black/55 border border-white/15 text-white backdrop-blur active:scale-95">
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
@@ -1478,6 +1629,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
                   {modal === "oficina" && "🔨 Oficina de Craft"}
                   {modal === "mercado" && "💰 Mercador Voxel"}
                   {modal === "ajuda" && "🧱 Como jogar o Mundo Voxel"}
+                  {modal === "sorteios" && "🎁 Mural de Sorteios — ao vivo"}
+                  {modal === "feira" && "🛒 Feira de Vendas da Plataforma"}
+                  {modal === "arena" && "🏆 Arena de Torneios"}
+                  {modal === "questboard" && "📜 Missões de Hoje"}
                 </p>
                 <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-muted"><X className="h-4 w-4" /></button>
               </div>
@@ -1531,6 +1686,139 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
                 </div>
               )}
 
+              {modal === "sorteios" && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">Sorteios reais da plataforma, sincronizados ao vivo. Os bilhetes dos baús dourados servem para participar!</p>
+                  {liveErr && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">{liveErr}</div>}
+                  {!liveRaffles && !liveErr && <p className="text-[11px] text-muted-foreground animate-pulse">A carregar sorteios ao vivo…</p>}
+                  {liveRaffles && liveRaffles.length === 0 && <div className="p-3 rounded-xl bg-muted/40 text-[11px] text-muted-foreground text-center">Sem sorteios ativos agora — volta em breve! 🎉</div>}
+                  {liveRaffles?.map(r => {
+                    const sold = r.sold_tickets ?? 0, total = r.total_tickets ?? 0;
+                    const pct = total > 0 ? Math.min(100, Math.round((sold / total) * 100)) : 0;
+                    const price = r.raffle_type === "free" ? "Grátis" : r.raffle_type === "points" ? `${r.points_cost ?? 0} pts` : fmtMzn(r.ticket_price);
+                    const cd = fmtCountdown(r.end_date);
+                    return (
+                      <button key={r.id} onClick={() => { propsRef.current.notify(`🎁 ${r.title}`); setModal(null); setTimeout(() => propsRef.current.navigate(`/raffle/${r.slug || r.id}`), 300); }}
+                        className="w-full text-left p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5 active:scale-[0.98] transition-transform">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold truncate">{r.title}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{r.prize_title}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-black text-amber-400">{price}</p>
+                            {cd && <p className="text-[9px] text-muted-foreground">⏳ {cd}</p>}
+                          </div>
+                        </div>
+                        {total > 0 && (
+                          <div className="mt-1.5">
+                            <div className="h-1.5 rounded-full bg-black/30 overflow-hidden"><div className="h-full bg-gradient-to-r from-amber-500 to-orange-500" style={{ width: `${pct}%` }} /></div>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">{sold}/{total} bilhetes · {pct}%</p>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                  <button onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate("/marketplace"), 300); }} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-black active:scale-95">Ver todos os sorteios →</button>
+                </div>
+              )}
+
+              {modal === "feira" && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">Tudo o que a plataforma tem à venda e para jogar — direto do mundo.</p>
+                  {liveErr && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">{liveErr}</div>}
+                  {!liveFeira && !liveErr && <p className="text-[11px] text-muted-foreground animate-pulse">A abrir a feira…</p>}
+                  {liveFeira && liveFeira.contests.length === 0 && <div className="p-3 rounded-xl bg-muted/40 text-[11px] text-muted-foreground text-center">Sem concursos ativos agora.</div>}
+                  {liveFeira?.contests.map(c => (
+                    <button key={c.id} onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate(`/concursos/${c.id}`), 300); }}
+                      className="w-full text-left p-2.5 rounded-xl border border-pink-500/30 bg-pink-500/5 flex items-center gap-2 active:scale-[0.98] transition-transform">
+                      <span className="text-lg">🎪</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold truncate">{c.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{c.status === "voting" ? "🗳 Em votação" : "🟢 Ativo"}</p>
+                      </div>
+                      <span className="text-[10px] font-black text-pink-400">Participar →</span>
+                    </button>
+                  ))}
+                  {liveFeira && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate("/jogos"), 300); }} className="p-2.5 rounded-xl border border-violet-500/30 bg-violet-500/5 text-center active:scale-95">
+                        <p className="text-lg">🎡</p><p className="text-[10px] font-bold">{liveFeira.wheels} Rodas da Sorte</p>
+                      </button>
+                      <button onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate("/jogos"), 300); }} className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-center active:scale-95">
+                        <p className="text-lg">💰</p><p className="text-[10px] font-bold">{liveFeira.mills} Jogos do Milionário</p>
+                      </button>
+                    </div>
+                  )}
+                  <button onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate("/marketplace"), 300); }} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-black active:scale-95">Abrir o Mercado completo →</button>
+                </div>
+              )}
+
+              {modal === "arena" && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground">Torneios reais da plataforma com prémios — compete com outros jogadores!</p>
+                  {liveErr && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">{liveErr}</div>}
+                  {!liveTours && !liveErr && <p className="text-[11px] text-muted-foreground animate-pulse">A carregar torneios…</p>}
+                  {liveTours && liveTours.length === 0 && <div className="p-3 rounded-xl bg-muted/40 text-[11px] text-muted-foreground text-center">Sem torneios ativos — participa nos concursos! 🎪</div>}
+                  {liveTours?.map(t => (
+                    <button key={t.id} onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate(`/tournaments/${t.id}`), 300); }}
+                      className="w-full text-left p-2.5 rounded-xl border border-sky-500/30 bg-sky-500/5 active:scale-[0.98] transition-transform">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🏆</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate">{t.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{t.prize_description || "Com prémio especial"}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {t.prize_value != null && <p className="text-[10px] font-black text-yellow-400">{t.prize_value} {t.currency || "MT"}</p>}
+                          <p className="text-[9px] text-muted-foreground">⏳ {fmtCountdown(t.end_date)}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  <button onClick={() => { setModal(null); setTimeout(() => propsRef.current.navigate("/tournaments"), 300); }} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-black active:scale-95">Todos os torneios →</button>
+                </div>
+              )}
+
+              {modal === "questboard" && (() => {
+                const s = ensurePqDay();
+                const quests = [
+                  { icon: "🎁", label: "Abre um Baú de Sorteio", done: s.pqChest, reward: 25, hint: "baús dourados no minimapa" },
+                  { icon: "⚔️", label: "Derrota 1 zumbi", done: s.pqKill, reward: 30, hint: "à noite eles surgem" },
+                  { icon: "⛏️", label: `Minera 10 blocos (${Math.min(s.dayMined, 10)}/10)`, done: s.pqMine, reward: 40, hint: "qualquer bloco conta" },
+                ];
+                return (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-muted-foreground">Missões de hoje — ligam o mundo à plataforma. Recomeçam a cada dia!</p>
+                    {quests.map(q => (
+                      <div key={q.label} className={`p-2.5 rounded-xl border ${q.done ? "border-emerald-500/40 bg-emerald-500/10" : "border-border bg-muted/30"} flex items-center gap-2`}>
+                        <span className="text-lg">{q.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold">{q.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{q.hint} · +{q.reward} ouro</p>
+                        </div>
+                        <span className={`text-[10px] font-black ${q.done ? "text-emerald-400" : "text-muted-foreground"}`}>{q.done ? "✓ Feita" : "…"}</span>
+                      </div>
+                    ))}
+                    <p className="text-[10px] font-bold text-primary mt-1">🌐 Missões da plataforma:</p>
+                    <button onClick={() => claimPq("pqMarket", 20, 10, "/marketplace", "Mercado visitado!")}
+                      disabled={s.pqMarket}
+                      className={`w-full text-left p-2.5 rounded-xl border flex items-center gap-2 active:scale-[0.98] transition-transform ${s.pqMarket ? "border-emerald-500/40 bg-emerald-500/10 opacity-70" : "border-pink-500/30 bg-pink-500/5"}`}>
+                      <span className="text-lg">🛒</span>
+                      <div className="flex-1"><p className="text-xs font-bold">Visita o Mercado da plataforma</p><p className="text-[10px] text-muted-foreground">vê os sorteios à venda · +20 ouro +10 XP</p></div>
+                      <span className="text-[10px] font-black text-pink-400">{s.pqMarket ? "✓" : "Ir →"}</span>
+                    </button>
+                    <button onClick={() => claimPq("pqJogos", 20, 10, "/jogos", "Jogo jogado!")}
+                      disabled={s.pqJogos}
+                      className={`w-full text-left p-2.5 rounded-xl border flex items-center gap-2 active:scale-[0.98] transition-transform ${s.pqJogos ? "border-emerald-500/40 bg-emerald-500/10 opacity-70" : "border-violet-500/30 bg-violet-500/5"}`}>
+                      <span className="text-lg">🕹</span>
+                      <div className="flex-1"><p className="text-xs font-bold">Joga um jogo da plataforma</p><p className="text-[10px] text-muted-foreground">90+ jogos no Arcade · +20 ouro +10 XP</p></div>
+                      <span className="text-[10px] font-black text-violet-400">{s.pqJogos ? "✓" : "Ir →"}</span>
+                    </button>
+                  </div>
+                );
+              })()}
+
               {modal === "ajuda" && (
                 <div className="space-y-3 text-[11px] leading-relaxed">
                   <div className="p-2.5 rounded-xl bg-muted/40">
@@ -1544,6 +1832,10 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
                   <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/25">
                     <p className="font-bold text-xs mb-1">🕹 Portais</p>
                     <p className="text-muted-foreground">O <b>Portal Arcade</b> leva-te aos jogos da plataforma e o <b>Portal do Mercado</b> à loja de vendas. Entrar dá XP para o teu personagem RPG.</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                    <p className="font-bold text-xs mb-1">🌍 Mundo sincronizado com a plataforma</p>
+                    <p className="text-muted-foreground">O <b>Mural de Sorteios</b> mostra os sorteios reais ao vivo (prémio, preço, contagem) — toca para participar. A <b>Feira</b> mostra o que a plataforma tem à venda (concursos, rodas, milionário). A <b>Arena</b> lista os torneios ativos com prémios. O <b>Quadro de Missões</b> dá ouro diário por jogar a plataforma inteira!</p>
                   </div>
                   <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/25">
                     <p className="font-bold text-xs mb-1">🌙 Ciclo dia/noite</p>

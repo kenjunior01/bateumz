@@ -208,6 +208,7 @@ export const sfx = {
   tabHover: () => tone(1200, 0.03, 'sine', vol('ui', 0.03)),
   modalOpen: () => sweep(300, 600, 0.15, 'sine', vol('ui', 0.05)),
   modalClose: () => sweep(600, 300, 0.1, 'sine', vol('ui', 0.04)),
+  dismiss: () => sweep(600, 220, 0.12, 'sine', vol('ui', 0.04)),
   inputFocus: () => tone(1400, 0.03, 'sine', vol('ui', 0.02)),
   toggleOn: () => { tone(800, 0.04, 'sine', vol('ui', 0.05)); tone(1200, 0.06, 'sine', vol('ui', 0.04), 0.04); haptic(10); },
   toggleOff: () => { tone(1200, 0.04, 'sine', vol('ui', 0.04)); tone(800, 0.06, 'sine', vol('ui', 0.05), 0.04); haptic(10); },
