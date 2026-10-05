@@ -51,6 +51,7 @@ const CLASSES = [
   { name: "Guerreiro", emoji: "⚔️", color: "#ef4444", grad: "from-red-500 to-rose-600", desc: "Combate corpo a corpo, vida alta" },
   { name: "Mago", emoji: "🔮", color: "#8b5cf6", grad: "from-violet-500 to-purple-600", desc: "Bolas de fogo à distância" },
   { name: "Arqueiro", emoji: "🏹", color: "#22c55e", grad: "from-green-500 to-emerald-600", desc: "Flechas rápidas e precisas" },
+  { name: "Curandeiro", emoji: "🌿", color: "#06b6d4", grad: "from-cyan-500 to-teal-600", desc: "Onda vital: cura-te e fere inimigos" },
 ];
 
 function xpNeeded(level: number): number {
@@ -86,7 +87,7 @@ function loadChar(): Char | null {
 }
 
 function calcStats(c: Char) {
-  const baseAtk = [12, 11, 10][c.classId] ?? 11;
+  const baseAtk = [12, 11, 10, 9][c.classId] ?? 11;
   return {
     atk: baseAtk + c.allocAtk + Math.floor((c.level - 1) * 1.2),
     maxHp: 100 + (c.level - 1) * 8 + c.allocHp * 10,
@@ -94,8 +95,8 @@ function calcStats(c: Char) {
   };
 }
 
-const CLS_NAMES = ["Guerreiro", "Mago", "Arqueiro"];
-const CLS_EMOJIS = ["⚔️", "🔮", "🏹"];
+const CLS_NAMES = ["Guerreiro", "Mago", "Arqueiro", "Curandeiro"];
+const CLS_EMOJIS = ["⚔️", "🔮", "🏹", "🌿"];
 
 export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [phase, setPhase] = useState<"boot" | "create" | "world">("boot");
@@ -489,7 +490,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             <h2 className="font-display text-2xl md:text-3xl font-black tracking-tight">BATEU WORLD</h2>
             <p className="text-white/70 text-sm">MMO 3D da plataforma — entra, luta, cresce e ganha prémios reais</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 md:gap-3 w-full max-w-md">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 w-full max-w-md">
             {CLASSES.map((cl, i) => (
               <button
                 key={cl.name}

@@ -95,7 +95,7 @@ const MOB_TIERS = [
   { hp: 190, atk: 20, xp: 75, gold: 55, speed: 3.3, color: 0xa855f7, name: "Bug Sombrio", scale: 1.5 },
 ];
 
-const CLASS_COLORS = [0xef4444, 0x8b5cf6, 0x22c55e];
+const CLASS_COLORS = [0xef4444, 0x8b5cf6, 0x22c55e, 0x06b6d4];
 const WORLD_RADIUS = 148;
 const DAY_LEN = 240000; // ms
 
@@ -597,7 +597,7 @@ export class WorldEngine {
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
     const leafGeo = new THREE.ConeGeometry(1.5, 3.4, 7);
     const leafMat = new THREE.MeshLambertMaterial({ color: 0x2d6a4f });
-    const N = 70;
+    const N = 150;
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
     const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N);
     const dummy = new THREE.Object3D();
@@ -628,10 +628,10 @@ export class WorldEngine {
 
     const rockGeo = new THREE.IcosahedronGeometry(0.9, 0);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x7d8590 });
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 30);
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 60);
     let rp = 0;
     guard = 0;
-    while (rp < 30 && guard++ < 300) {
+    while (rp < 60 && guard++ < 500) {
       const a = Math.random() * Math.PI * 2;
       const r = 26 + Math.random() * 110;
       const x = Math.cos(a) * r;
@@ -646,6 +646,28 @@ export class WorldEngine {
     }
     rocks.count = rp;
     this.scene.add(rocks);
+
+    // Arbustos low-poly (toque Hordes.io no vale)
+    const bushGeo = new THREE.IcosahedronGeometry(0.55, 0);
+    const bushMat = new THREE.MeshLambertMaterial({ color: 0x40916c });
+    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 50);
+    let bp = 0;
+    guard = 0;
+    while (bp < 50 && guard++ < 400) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 14 + Math.random() * 130;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      if (Math.abs(x) < 5 || Math.abs(z) < 5) continue;
+      dummy.position.set(x, groundY(x, z) + 0.22, z);
+      dummy.scale.set(0.7 + Math.random() * 0.9, 0.5 + Math.random() * 0.5, 0.7 + Math.random() * 0.9);
+      dummy.rotation.set(0, Math.random() * Math.PI, 0);
+      dummy.updateMatrix();
+      bushes.setMatrixAt(bp, dummy.matrix);
+      bp++;
+    }
+    bushes.count = bp;
+    this.scene.add(bushes);
   }
 
   // ── Jogador ─────────────────────────────────────────────────
@@ -914,7 +936,8 @@ export class WorldEngine {
     const cls = this.opts.classId;
     if (cls === 0) this.meleeAttack();
     else if (cls === 1) this.shoot(0xff7b00, 16, 18, "orb");
-    else this.shoot(0xfde047, 24, 20, "arrow");
+    else if (cls === 2) this.shoot(0xfde047, 24, 20, "arrow");
+    else this.shoot(0x2dd4bf, 14, 16, "orb");
   }
 
   skill(): void {
@@ -930,16 +953,23 @@ export class WorldEngine {
     this.skillCd = 8;
     this.ringEffect(0xfbbf24, 4.5);
     const cls = this.opts.classId;
-    const mult = cls === 0 ? 2.0 : cls === 1 ? 2.5 : 1.6;
+    const mult = cls === 0 ? 2.0 : cls === 1 ? 2.5 : cls === 2 ? 1.6 : 1.8;
     let hits = 0;
     const maxHits = cls === 2 ? 5 : 20;
-    const range = cls === 0 ? 4.2 : cls === 1 ? 7 : 13;
+    const range = cls === 0 ? 4.2 : cls === 1 ? 7 : cls === 2 ? 13 : 8;
     for (const m of this.mobs) {
       if (m.state === "dead" || hits >= maxHits) continue;
       if (m.group.position.distanceTo(this.pos) <= range) {
         this.damageMob(m, this.opts.stats.atk * mult * (0.9 + Math.random() * 0.2), false);
         hits++;
       }
+    }
+    if (cls === 3) {
+      // Onda Vital do Curandeiro: cura 30% da vida máxima
+      this.hp = Math.min(this.opts.stats.maxHp, this.hp + Math.round(this.opts.stats.maxHp * 0.3));
+      this.opts.onEvent({ type: "hp", hp: this.hp, maxHp: this.opts.stats.maxHp });
+      this.ringEffect(0x2dd4bf, 6);
+      this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), "+vida", "#4ade80", 1.1);
     }
     if (hits > 0) this.opts.onEvent({ type: "skillhit", hits });
   }

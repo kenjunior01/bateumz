@@ -120,7 +120,7 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, fallback: T): Promise<T> 
   return new Promise<T>((resolve) => {
     let done = false;
     const t = setTimeout(() => { if (!done) { done = true; resolve(fallback); } }, ms);
-    p.then((v) => { if (!done) { done = true; clearTimeout(t); resolve(v); } }).catch(() => { if (!done) { done = true; clearTimeout(t); resolve(fallback); } });
+    Promise.resolve(p).then((v) => { if (!done) { done = true; clearTimeout(t); resolve(v); } }).catch(() => { if (!done) { done = true; clearTimeout(t); resolve(fallback); } });
   });
 }
 
