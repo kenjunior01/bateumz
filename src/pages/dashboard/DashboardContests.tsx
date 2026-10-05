@@ -441,7 +441,7 @@ export default function DashboardContests() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-xs">Âmbito no Mundo Aberto GO 🎮</Label>
+                        <Label className="text-xs">Âmbito no Bateu World 3D 🎮</Label>
                         <Select value={form.map_scope} onValueChange={(v) => setForm((f) => ({ ...f, map_scope: v as "nacional" | "provincia", province: "" }))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>

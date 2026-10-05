@@ -1,6 +1,6 @@
 // Seletor de localização em mapa real (Leaflet) — usado nos formulários de
 // anúncios (Prestações + Alienação). O vendedor clica no mapa ou usa o GPS;
-// as coordenadas fazem o bem aparecer no jogo BATEU MUNDO ABERTO GO.
+// as coordenadas fazem o bem aparecer no jogo BATEU Bateu World 3D.
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -108,7 +108,7 @@ export default function MapLocationPicker({ lat, lng, onChange }: Props) {
         style={{ background: "#0b1020" }}
       />
       <p className="text-[10px] text-muted-foreground">
-        Toca no mapa para marcar o local exato. Com localização, o teu anúncio aparece no jogo Mundo Aberto GO para quem estiver perto! 🎮
+        Toca no mapa para marcar o local exato. Com localização, o teu anúncio aparece no jogo Bateu World 3D para quem estiver perto! 🎮
       </p>
     </div>
   );

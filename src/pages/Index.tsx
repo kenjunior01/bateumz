@@ -754,15 +754,15 @@ export default function Index() {
 
             {/* Jogos famosos em destaque — Ludo, Dominó, Xadrez… */}
             <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 sm:gap-4`}>
-              {/* MUNDO ABERTO GO — jogo permanente em destaque */}
-              <motion.div custom={0} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300 col-span-2 sm:col-span-2" style={{ background: "linear-gradient(135deg, #064e3b 0%, #0f766e 55%, #164e63 100%)", border: `2px solid rgba(16,185,129,0.45)`, boxShadow: "0 0 30px rgba(16,185,129,0.3)" }} onClick={() => { sfx.whoosh(); navigate("/mmorpg"); }}>
-                <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse" style={{ background: "#facc15", color: "#422006" }}>DESTAQUE</span>
+              {/* BATEU WORLD 3D — jogo permanente em destaque */}
+              <motion.div custom={0} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300 col-span-2 sm:col-span-2" style={{ background: "linear-gradient(135deg, #4c0519 0%, #9f1239 55%, #312e81 100%)", border: `2px solid rgba(244,63,94,0.5)`, boxShadow: "0 0 30px rgba(244,63,94,0.35)" }} onClick={() => { sfx.whoosh(); navigate("/world"); }}>
+                <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse" style={{ background: "linear-gradient(90deg,#f43f5e,#fb923c)", color: "#fff" }}>MMO 3D · DESTAQUE</span>
                 <div className="flex items-start gap-3">
                   <span className="text-3xl">🌍</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-white mb-0.5 leading-tight">MUNDO ABERTO GO</p>
-                    <p className="text-[10px] font-semibold text-white/75 leading-snug mb-1">Mapa real, missões, loja e ranking — o jogo permanente da Bateu.</p>
-                    <div className="flex items-center gap-1"><Users className="h-3 w-3" style={{ color: GREEN }} /><span className="text-[10px] font-bold" style={{ color: GREEN }}>Continua a tua aventura</span></div>
+                    <p className="text-sm font-black text-white mb-0.5 leading-tight">BATEU WORLD 3D</p>
+                    <p className="text-[10px] font-semibold text-white/75 leading-snug mb-1">Mundo 3D em tempo real, jogadores ao vivo, sorteios e cupões reais — o jogo permanente da Bateu.</p>
+                    <div className="flex items-center gap-1"><Users className="h-3 w-3" style={{ color: "#fda4af" }} /><span className="text-[10px] font-bold" style={{ color: "#fda4af" }}>Continua a tua aventura</span></div>
                   </div>
                 </div>
               </motion.div>
@@ -830,7 +830,7 @@ export default function Index() {
                     <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full" style={{ background: `${GREEN}20`, color: GREEN, border: `1px solid ${GREEN}30` }}>MUNDO REAL</span>
                   </div>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3 leading-tight">
-                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>MUNDO ABERTO GO</span>
+                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Bateu World 3D</span>
                   </h2>
                   <p className="text-sm sm:text-base text-zinc-400 max-w-lg mb-5 leading-relaxed">
                     O jogo permanente da Bateu! Cria o teu herói, explora o mapa REAL da tua cidade com GPS, derrota criaturas que crescem contigo, distribui pontos de atributo, melhora o teu equipamento, sobe de rank e troca bilhetes por prémios verdadeiros.

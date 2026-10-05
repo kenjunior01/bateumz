@@ -595,7 +595,7 @@ export default function DashboardPrestacoes() {
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <Label>Localização no mapa (aparece no Mundo Aberto GO)</Label>
+                  <Label>Localização no mapa (aparece no Bateu World 3D)</Label>
                   <div className="mt-1.5">
                     <MapLocationPicker
                       lat={form.lat}

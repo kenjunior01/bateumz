@@ -13,7 +13,7 @@ import GlowOrb from '@/components/ui/GlowOrb';
 import ParticleField from '@/components/ui/ParticleField';
 import CardTilt from '@/components/ui/CardTilt';
 import ShimmerText from '@/components/ui/ShimmerText';
-import ChallengeDock from '@/components/games/ChallengeDock';
+import ScrollReveal from '@/components/ui/ScrollReveal';
 
 const NAV_ITEMS = [
   { icon: Gamepad2, label: 'Todos os Jogos', path: '/jogos' },
@@ -116,7 +116,7 @@ export default function JogosLayout() {
                 >
                   JOGOS ONLINE
                 </span>
-                <span className="text-[9px] tracking-widest text-[#6ec07a]/80 font-medium uppercase">
+                <span className="text-[9px] tracking-widest text-[#2ea043]/40 font-medium uppercase">
                   Joga. Conquista. Domina.
                 </span>
               </div>
@@ -243,9 +243,7 @@ export default function JogosLayout() {
       />
 
       <div className="h-14" />
-      {/* NOTA: sem ScrollReveal em página inteira — wrapper de ~7000px nunca
-          atinge o threshold do IntersectionObserver e o conteúdo ficava
-          invisível (bug da tela preta). Reveals devem ser por secção/card. */}
+      <ScrollReveal direction='up' delay={100} threshold={0.01}>
       <main className="relative z-10">
         <CardTilt
           className="w-full"
@@ -257,7 +255,7 @@ export default function JogosLayout() {
           <Outlet />
         </CardTilt>
       </main>
-      <ChallengeDock />
+      </ScrollReveal>
     </div>
   );
 }

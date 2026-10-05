@@ -203,7 +203,7 @@ export default function AdminContests() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Âmbito no Mundo Aberto GO 🎮</Label>
+                  <Label>Âmbito no Bateu World 3D 🎮</Label>
                   <Select value={form.map_scope} onValueChange={(v) => setForm({ ...form, map_scope: v as "nacional" | "provincia", province: "" })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>

@@ -70,7 +70,7 @@ const ALL_GAMES: GameDef[] = [
   { id: "emoji", label: "Batalha de Emojis", emoji: "💥", desc: "Vote ao vivo, vencedores entram no sorteio!", grad: "from-pink-500 to-rose-500", category: "Social", players: "Multi", icon: Vote, hasBot: false },
   { id: "keyword", label: "Caca a Palavra", emoji: "🔎", desc: "Audiencia adivinha a palavra-chave secreta!", grad: "from-amber-500 to-orange-500", category: "Social", players: "Multi", icon: Search, hasBot: false },
   { id: "truthordare", label: "Verdade ou Desafio", emoji: "🔥", desc: "Verdades picantes e desafios engracados!", grad: "from-rose-500 to-red-600", category: "Social", players: "Multi", icon: Heart, hasBot: false },
-  { id: "mmorpg", label: "Mundo Aberto GO", emoji: "🗺️", desc: "Mundo aberto com mapa REAL da tua cidade! Explora com GPS ou joystick, derrota criaturas, captura animais, abre baús de sorteio e visita portais da plataforma!", grad: "from-emerald-500 to-teal-700", category: "MMORPG", players: "Mundo Aberto", icon: Globe, hasBot: false },
+  { id: "mmorpg", label: "🌍 Bateu World 3D", emoji: "🌍", desc: "MMO 3D estilo Hordes.io — combate em tempo real, jogadores ao vivo, sorteios e cupões reais no mundo!", grad: "from-rose-600 to-indigo-700", category: "MMORPG", players: "Multiplayer", icon: Globe, hasBot: false },
   { id: "punishment", label: "Roleta de Castigos", emoji: "💀", desc: "Gire a roleta e cumpra o castigo!", grad: "from-red-600 to-rose-700", category: "Social", players: "Multi", icon: Skull, hasBot: false },
   { id: "guessEmoji", label: "Adivinhe o Emoji", emoji: "😎", desc: "Decifre a frase a partir dos emojis!", grad: "from-yellow-500 to-amber-600", category: "Quiz", players: "Multi", icon: SmilePlus, hasBot: false },
   { id: "quickdraw", label: "Desenho Rapido", emoji: "🎨", desc: "Desenhe e deixe o publico adivinhar!", grad: "from-emerald-500 to-teal-600", category: "Social", players: "Multi", icon: Pencil, hasBot: false },
@@ -153,17 +153,6 @@ const AllGames = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [challengeGame, setChallengeGame] = useState<{ id: string; label: string } | null>(null);
   const [challengeToast, setChallengeToast] = useState<string | null>(null);
-  // progresso do herói no MUNDO ABERTO GO — jogo permanente em destaque
-  const [owHero, setOwHero] = useState<{ name: string; level: number } | null>(null);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("bateu_openworld_save");
-      if (raw) {
-        const c = JSON.parse(raw);
-        if (c?.name && c?.level) setOwHero({ name: c.name, level: c.level });
-      }
-    } catch { /* noop */ }
-  }, []);
   const meName = getPlayerIdentity().name;
 
   const filtered = useMemo(() => {
@@ -280,7 +269,7 @@ const AllGames = () => {
       </div>
 
       <div className="container mx-auto px-4 pt-4 pb-2 relative z-20">
-        {/* ⭐ MUNDO ABERTO GO — destaque permanente no topo da página de jogos */}
+        {/* ⭐ Bateu World 3D — destaque permanente no topo da página de jogos */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
@@ -305,17 +294,15 @@ const AllGames = () => {
             </motion.div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-display text-lg sm:text-xl font-black text-white leading-none">MUNDO ABERTO GO</span>
-                <span className="px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[9px] font-black animate-pulse">JOGO EM DESTAQUE</span>
+                <span className="font-display text-lg sm:text-xl font-black text-white leading-none">🌍 BATEU WORLD 3D</span>
+                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[9px] font-black animate-pulse">MMO 3D · JOGO EM DESTAQUE</span>
               </div>
               <p className="text-[11px] sm:text-xs font-semibold text-white/80 mt-1 leading-snug">
-                {owHero
-                  ? <>Teu herói: <b className="text-yellow-300">{owHero.name}</b> · Nível {owHero.level} — continua a crescer com pontos, equipamento e ranking!</>
-                  : "O jogo permanente da Bateu: mapa real, GPS, criaturas, loja, conquistas e prémios verdadeiros."}
+                O jogo permanente da Bateu: mundo 3D em tempo real, jogadores ao vivo, sorteios reais, Feira, cupões e progressão com pontos.
               </p>
             </div>
-            <div className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 font-black text-[11px] sm:text-xs shadow-lg">
-              {owHero ? "CONTINUAR ▶" : "JOGAR AGORA ▶"}
+            <div className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 text-white font-black text-[11px] sm:text-xs shadow-lg">
+              JOGAR AGORA ▶
             </div>
           </div>
         </motion.div>

@@ -482,7 +482,7 @@ export default function CreateRaffle() {
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">Restrinja o sorteio a um país, região ou cidade específica</p>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Âmbito no Mundo Aberto GO 🎮</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Âmbito no Bateu World 3D 🎮</label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setForm({ ...form, map_scope: "nacional" })}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${form.map_scope === "nacional" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary/50"}`}>

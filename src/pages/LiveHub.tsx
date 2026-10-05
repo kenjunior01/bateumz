@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo, Component, lazy, Suspense, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Radio, Zap, Brain, Package, RotateCcw, Sparkles, Trophy, Users, Plus, Copy, Check, Search, Vote, Play, Square, Lock, Loader2, Gamepad2, Skull, Swords, Pencil, Bomb, Hash, SmilePlus, Shuffle, Flame, Heart, Grid3X3, Anchor, Dices, CircleDot, LayoutGrid, Target, Palette, Map, Crosshair, Layers, Globe, Coins, HandCoins, Rocket, Spade, Ticket, Gauge, TrendingUp } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -80,7 +80,7 @@ const FlappyBirdGame = lazy(() => import("@/components/livegames/FlappyBirdGame"
 const FruitNinjaGame = lazy(() => import("@/components/livegames/FruitNinjaGame"));
 const TypingRacer = lazy(() => import("@/components/livegames/TypingRacer"));
 const CampaignRPGGame = lazy(() => import("@/components/livegames/CampaignRPGGame"));
-const OpenWorldGame = lazy(() => import("@/components/livegames/OpenWorldGame"));
+const BateuWorld = lazy(() => import("@/components/livegames/world/BateuWorld"));
 const P2PBetArena = lazy(() => import("@/components/livegames/P2PBetArena"));
 const NtchuvaGame = lazy(() => import("@/components/livegames/NtchuvaGame"));
 const DjikotaGame = lazy(() => import("@/components/livegames/DjikotaGame"));
@@ -254,6 +254,7 @@ const LiveHub = () => {
   const { t } = useLanguage();
   useSEO({ title: 'Lives ao Vivo', description: 'Assista e participe em lives ao vivo na Bateu. Sorteios em direto, interação em tempo real e a oportunidade de ganhar prémios exclusivos.', canonicalPath: '/lives' });
   const { sfx } = useSoundEffects();
+  const navigate = useNavigate();
   const GAMES = useMemo(() => GAME_DEFS.map(g => ({
     ...g,
     label: t("livehub.game." + g.id),
@@ -262,17 +263,6 @@ const LiveHub = () => {
   const [searchParams] = useSearchParams();
   const gameFromUrl = searchParams.get("game") as GameId | null;
 
-  // progresso do herói no MUNDO ABERTO GO — jogo permanente em destaque
-  const [owHero, setOwHero] = useState<{ name: string; level: number } | null>(null);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("bateu_openworld_save");
-      if (raw) {
-        const c = JSON.parse(raw);
-        if (c?.name && c?.level) setOwHero({ name: c.name, level: c.level });
-      }
-    } catch { /* noop */ }
-  }, []);
   const templateId = searchParams.get("template");
   const { user, role } = useAuth();
   const spinWheelManagerPath = getGameManagerPath(role, "spin-wheel");
@@ -674,7 +664,7 @@ const LiveHub = () => {
           onCategoryChange={(id) => setActive(id as GameId)}
         />
 
-        {/* ⭐ MUNDO ABERTO GO — banner destaque permanente */}
+        {/* ⭐ BATEU WORLD 3D — banner destaque permanente */}
         {active !== "mmorpg" && (
           <motion.button
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -682,21 +672,21 @@ const LiveHub = () => {
             onClick={() => setActive("mmorpg" as GameId)}
             data-testid="livehub-destaque-mundo-aberto"
             className="relative w-full overflow-hidden rounded-2xl mb-4 mt-3 text-left"
-            style={{ background: "linear-gradient(120deg, #064e3b 0%, #0f766e 45%, #164e63 100%)", border: "1px solid rgba(16,185,129,0.45)", boxShadow: "0 0 36px rgba(16,185,129,0.28)" }}
+            style={{ background: "linear-gradient(120deg, #4c0519 0%, #831843 40%, #312e81 100%)", border: "1px solid rgba(244,63,94,0.5)", boxShadow: "0 0 36px rgba(244,63,94,0.3)" }}
           >
-            <motion.div className="absolute inset-0" style={{ background: "radial-gradient(circle at 12% 25%, rgba(255,255,255,0.16), transparent 50%), radial-gradient(circle at 88% 80%, rgba(250,204,21,0.22), transparent 45%)" }} animate={{ opacity: [0.5, 0.9, 0.5] }} transition={{ duration: 4, repeat: Infinity }} />
+            <motion.div className="absolute inset-0" style={{ background: "radial-gradient(circle at 12% 25%, rgba(255,255,255,0.16), transparent 50%), radial-gradient(circle at 88% 80%, rgba(56,189,248,0.25), transparent 45%)" }} animate={{ opacity: [0.5, 0.9, 0.5] }} transition={{ duration: 4, repeat: Infinity }} />
             <div className="relative z-10 px-4 py-3.5 flex items-center gap-3">
               <motion.span className="text-3xl" animate={{ y: [0, -3, 0] }} transition={{ duration: 2.2, repeat: Infinity }}>🌍</motion.span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-display text-base font-black text-white">MUNDO ABERTO GO</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[8px] font-black animate-pulse">DESTAQUE</span>
+                  <span className="font-display text-base font-black text-white">🌍 BATEU WORLD 3D</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[8px] font-black animate-pulse">MMO 3D · DESTAQUE</span>
                 </div>
                 <p className="text-[10px] font-semibold text-white/80 truncate">
-                  {owHero ? <>Herói {owHero.name} · Nv {owHero.level} — continua a crescer!</> : "Cria o teu herói, sobe de nível e ganha prémios reais!"}
+                  Combate em tempo real, jogadores ao vivo — participa em sorteios, compra na Feira e apanha cupões dentro do mundo!
                 </p>
               </div>
-              <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-[10px] font-black">JOGAR ▶</span>
+              <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[10px] font-black">JOGAR ▶</span>
             </div>
           </motion.button>
         )}
@@ -710,18 +700,27 @@ const LiveHub = () => {
                 key={g.id}
                 onClick={() => setActive(g.id)}
                 className={`text-left rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${
-                  isActive ? "border-primary bg-primary/5" : featured ? "border-emerald-500/60 bg-emerald-500/5 hover:border-emerald-400" : "border-border bg-card hover:border-primary/40"
+                  featured
+                    ? "border-rose-400/70 bg-gradient-to-br from-rose-500/10 via-card to-indigo-500/10 shadow-[0_0_18px_rgba(244,63,94,0.18)] hover:shadow-[0_0_26px_rgba(244,63,94,0.3)] col-span-2 lg:col-span-2"
+                    : isActive ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
                 }`}
-                style={featured ? { boxShadow: "0 0 22px rgba(16,185,129,0.22)" } : undefined}
               >
                 {featured && (
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[8px] font-black animate-pulse">DESTAQUE</span>
+                  <span className="absolute right-0 top-0 rounded-bl-xl bg-gradient-to-r from-rose-500 to-orange-500 px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
+                    ⭐ DESTAQUE 3D
+                  </span>
                 )}
-                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2`} style={featured ? { boxShadow: "0 0 14px rgba(16,185,129,0.5)" } : undefined}>
-                  <g.icon className="h-5 w-5 text-white" />
+                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2 ${featured ? "h-12 w-12 ring-2 ring-rose-400/50" : ""}`}>
+                  <g.icon className={`text-white ${featured ? "h-6 w-6" : "h-5 w-5"}`} />
                 </div>
-                <p className="font-display text-sm font-bold mb-1">{featured ? "🌍 MUNDO ABERTO GO" : g.label}</p>
+                <p className={`font-display font-bold mb-1 ${featured ? "text-base" : "text-sm"}`}>{g.label}</p>
                 <p className="text-[11px] text-muted-foreground line-clamp-2">{g.desc}</p>
+                {featured && (
+                  <p className="mt-1.5 text-[10px] font-bold text-rose-400 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
+                    MMO em tempo real · sorteios, feira e cupões no mundo
+                  </p>
+                )}
               </button>
             );
           })}
@@ -1300,8 +1299,8 @@ const LiveHub = () => {
                 </motion.div>              )}
               {active === "mmorpg" && (
                 <motion.div key="mmorpg" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <GameErrorBoundary gameName="Mundo Aberto GO">
-                  <OpenWorldGame onScore={recordScore("Mundo Aberto GO")} liveCode={liveCode} />
+                  <GameErrorBoundary gameName="Bateu World 3D">
+                  <BateuWorld onScore={recordScore("Bateu World")} onNavigate={(route: string) => navigate(route)} />
                   </GameErrorBoundary>
                 </motion.div>              )}
               {active === "p2pbet" && (
