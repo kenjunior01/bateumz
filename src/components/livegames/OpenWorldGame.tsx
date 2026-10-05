@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Coins, Ticket, Heart, Store, Trophy, Gamepad2, Navigation, Joystick, X, ChevronRight, Sparkles, WifiOff,
+  ArrowUp, Zap,
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -13,12 +14,17 @@ import { Geolocation } from "@capacitor/geolocation";
 import {
   OW_CLASSES, classById, CREATURES, creatureById, RARITY_META,
   spawnCell, nearbyCells, haversineM, CELL,
-  loadChar, saveChar, todayStr, freshQuests, xpForLevel, maxHpFor, atkFor,
-  OW_QUESTS, DEFAULT_POS,
-  type OWChar, type OWEntity, type OWQuestDef,
+  loadChar, saveChar, todayStr, freshQuests, xpForLevel, maxHpFor, atkFor, defFor,
+  OW_QUESTS, DEFAULT_POS, hydrateChar, rankFor, RANKS,
+  ATTR_META, PTS_PER_LEVEL, ptsFreeFor, type OWPts,
+  OW_ITEMS, upgCost, MAX_UPG, UPG_META,
+  skillFor, ACHIEVEMENTS, newAchievements,
+  streakReward, yesterdayStr, scaleFor,
+  type OWChar, type OWEntity, type OWQuestDef, type OWAch,
 } from "./openworld/core";
 import { fetchReal, scopeForCell } from "./openworld/live";
 import { detectProvince, type RealEnt } from "./openworld/geo";
+import { buildRanking, yourPosition } from "./openworld/rank";
 
 interface Props {
   onScore?: (name: string, score: number) => void;
@@ -40,6 +46,7 @@ interface BattleState {
   log: string[];
   over: "win" | "lose" | null;
   canCapture: boolean;
+  cd: number; // turnos até a habilidade especial recarregar
 }
 
 const PORTAL_META: Record<string, { emoji: string; label: string; to: string; desc: string }> = {
@@ -64,7 +71,7 @@ export default function OpenWorldGame({ onScore }: Props) {
   const [pickClass, setPickClass] = useState("guerreiro");
 
   // HUD / modais
-  const [modal, setModal] = useState<null | "quests" | "sorteios" | "feira" | "arena" | "bestiario" | "perfil" | "perto">(null);
+  const [modal, setModal] = useState<null | "quests" | "sorteios" | "feira" | "arena" | "bestiario" | "perfil" | "perto" | "loja" | "ranking" | "conquistas">(null);
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; msg: string }>>([]);
   const toastId = useRef(1);
@@ -144,6 +151,7 @@ export default function OpenWorldGame({ onScore }: Props) {
     if (!c) return;
     let level = c.level;
     let nxp = c.xp + xp;
+    const prevRank = rankFor(level).title;
     let leveled = false;
     while (nxp >= xpForLevel(level)) { nxp -= xpForLevel(level); level++; leveled = true; }
     const nc: OWChar = {
@@ -152,23 +160,58 @@ export default function OpenWorldGame({ onScore }: Props) {
       xp: nxp,
       gold: c.gold + gold,
       tickets: c.tickets + tickets,
-      hp: leveled ? maxHpFor(level, c.classId) : c.hp,
+      hp: leveled ? maxHpFor(level, c.classId, c.pts.vit) : c.hp,
     };
     charRef.current = nc;
     setChar(nc);
     if (leveled) {
-      notify(`⬆️ Nível ${level}! Novo poder desbloqueado.`);
+      const newRank = rankFor(level);
+      notify(`⬆️ Nível ${level}! +${PTS_PER_LEVEL} pontos de atributo${newRank.title !== prevRank ? ` — NOVO RANK: ${newRank.emoji} ${newRank.title}!` : ""}`);
       try { onScore?.("Mundo Aberto Bateu", level); } catch { /* noop */ }
     }
     if (gold > 0) advanceQuest("gold_earn", gold);
   }, [advanceQuest, notify, onScore]);
 
-  // manter hp coerente com nível
+  // ================== CONQUISTAS (auto) ==================
   useEffect(() => {
-    if (char && char.hp > maxHpFor(char.level, char.classId)) {
-      setChar((c) => (c ? { ...c, hp: maxHpFor(c.level, c.classId) } : c));
+    const c = charRef.current;
+    if (!c || screen !== "game") return;
+    const newly: OWAch[] = newAchievements(c);
+    if (!newly.length) return;
+    let nc: OWChar = { ...c, ach: [...c.ach, ...newly.map((a) => a.id)] };
+    charRef.current = nc;
+    setChar(nc);
+    const totG = newly.reduce((s, a) => s + a.gold, 0);
+    const totX = newly.reduce((s, a) => s + a.xp, 0);
+    const totT = newly.reduce((s, a) => s + (a.tickets || 0), 0);
+    if (totG || totX || totT) gainRewards(totG, totX, totT);
+    newly.forEach((a) => notify(`⭐ Conquista desbloqueada: ${a.emoji} ${a.name}!`));
+  }, [char, screen, gainRewards, notify]);
+
+  // ================== BÓNUS DIÁRIO (streak) ==================
+  const bonusDone = useRef(false);
+  useEffect(() => {
+    if (screen !== "game" || bonusDone.current) return;
+    const c = charRef.current;
+    if (!c) return;
+    bonusDone.current = true;
+    const today = todayStr();
+    if (c.lastBonus === today) return;
+    const streak = c.lastBonus === yesterdayStr() ? (c.streak || 0) + 1 : 1;
+    const rw = streakReward(streak);
+    const nc: OWChar = { ...charRef.current!, streak, lastBonus: today };
+    charRef.current = nc;
+    setChar(nc);
+    gainRewards(rw.gold, rw.xp, rw.tickets);
+    notify(`🔥 Bónus dia ${streak}: +${rw.gold} ouro${rw.tickets ? ` +${rw.tickets} 🎟️` : ""} — volta amanhã!`);
+  }, [screen, gainRewards, notify]);
+
+  // manter hp coerente com nível/atributos
+  useEffect(() => {
+    if (char && char.hp > maxHpFor(char.level, char.classId, char.pts.vit)) {
+      setChar((c) => (c ? { ...c, hp: maxHpFor(c.level, c.classId, c.pts.vit) } : c));
     }
-  }, [char?.level]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [char?.level, char?.pts.vit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // salvar (debounce leve via effect)
   useEffect(() => {
@@ -272,11 +315,13 @@ export default function OpenWorldGame({ onScore }: Props) {
 
     if (e.kind === "creature" && e.creatureId) {
       const cr = creatureById(e.creatureId);
-      const pMax = maxHpFor(c.level, c.classId);
+      const sc = scaleFor(c.level); // o mundo cresce contigo
+      const cMax = Math.round(cr.hp * sc.hpMul);
+      const pMax = maxHpFor(c.level, c.classId, c.pts.vit);
       const startHp = Math.min(c.hp, pMax);
       setBattle({
-        entityKey: e.key, creatureId: cr.id, cHp: cr.hp, cMaxHp: cr.hp,
-        pHp: Math.max(8, startHp), pMaxHp: pMax, log: [`⚔️ Um ${cr.name} selvagem aparece!`], over: null, canCapture: false,
+        entityKey: e.key, creatureId: cr.id, cHp: cMax, cMaxHp: cMax,
+        pHp: Math.max(8, startHp), pMaxHp: pMax, log: [`⚔️ Um ${cr.name} selvagem aparece!`], over: null, canCapture: false, cd: 0,
       });
     } else if (e.kind === "chest") {
       const tier = e.tier || 1;
@@ -286,17 +331,20 @@ export default function OpenWorldGame({ onScore }: Props) {
       collectEntity(e);
       gainRewards(gold, 8 + tier * 4, ticket);
       advanceQuest("chest", 1);
+      setChar((ch) => (ch ? { ...ch, stats: { ...ch.stats, chests: ch.stats.chests + 1 } } : ch));
       notify(`🎁 Baú ${tier === 3 ? "lendário" : tier === 2 ? "prateado" : "comum"}: +${gold} ouro${ticket ? " +1 🎟️ bilhete de sorteio!" : "!"}`);
     } else if (e.kind === "crystal") {
       const tier = e.tier || 1;
       const gold = 8 + Math.floor(Math.random() * (8 + tier * 6));
       collectEntity(e);
       gainRewards(gold, 5 + tier * 3);
+      setChar((ch) => (ch ? { ...ch, stats: { ...ch.stats, crystals: ch.stats.crystals + 1 } } : ch));
       notify(`💎 Cristal de energia: +${gold} ouro!`);
     } else if (e.kind === "portal") {
       const pm = PORTAL_META[e.portalId || "feira"];
       advanceQuest("portal", 1);
       gainRewards(15, 12);
+      setChar((ch) => (ch ? { ...ch, stats: { ...ch.stats, portals: ch.stats.portals + 1 } } : ch));
       notify(`${pm.emoji} ${pm.label} aberto — +15 ouro, +12 XP`);
       setTimeout(() => navigate(pm.to), 450);
     }
@@ -320,7 +368,7 @@ export default function OpenWorldGame({ onScore }: Props) {
     if (c.loot[stamp] && c.loot[stamp] > now) { notify("✅ Já registaste esta oferta hoje — volta amanhã!"); return; }
     const d = haversineM(posRef.current.lat, posRef.current.lng, e.lat, e.lng);
     if (d > 300) { notify(`📍 Aproxima-te primeiro (estás a ${Math.round(d)}m)!`); return; }
-    setChar((ch) => (ch ? { ...ch, loot: { ...ch.loot, [stamp]: now + 24 * 3600_000 } } : ch));
+    setChar((ch) => (ch ? { ...ch, loot: { ...ch.loot, [stamp]: now + 24 * 3600_000 }, realFinds: (ch.realFinds || 0) + 1 } : ch));
     gainRewards(10, 6);
     notify(`${e.emoji} Descoberta registada: +10 ouro, +6 XP!`);
   }, [gainRewards, notify]);
@@ -347,64 +395,114 @@ export default function OpenWorldGame({ onScore }: Props) {
   useEffect(() => { refreshReal(); }, [realFixed, realScope, refreshReal]);
 
   // ---------- batalha ----------
+  // contra-ataque da criatura (depois de qualquer ação do jogador)
+  const counter = (b: BattleState, log: string[], skillLeechHeal = 0): BattleState => {
+    const c = charRef.current!;
+    const cr = creatureById(b.creatureId);
+    const sc = scaleFor(c.level);
+    const cAtk = Math.round(cr.atk * sc.atkMul);
+    const dfn = defFor(c.level, c.classId, c.pts.def, c.upg.armadura);
+    const dmgTaken = Math.max(2, Math.round(cAtk * (0.75 + Math.random() * 0.5) * (1 - dfn / (dfn + 34))));
+    let pHp = Math.max(0, b.pHp - dmgTaken);
+    if (skillLeechHeal > 0) { pHp = Math.min(b.pMaxHp, pHp + skillLeechHeal); log.push(`🌙 Sugaste vida: +${skillLeechHeal} HP`); }
+    log.push(`🛡️ ${cr.name} contra-ataca: -${dmgTaken} HP`);
+    if (pHp <= 0) {
+      log.push("😵 Foste derrotado! Recuperas num ponto seguro…");
+      setChar((ch) => (ch ? { ...ch, hp: Math.round(maxHpFor(ch.level, ch.classId, ch.pts.vit) * 0.35) } : ch));
+      window.setTimeout(() => notify("🩹 Curado parcialmente. Usa poções da Loja e treina mais!"), 250);
+      return { ...b, pHp, log, over: "lose" };
+    }
+    return { ...b, pHp, log, cd: Math.max(0, b.cd - 1) };
+  };
+
+  // fim da batalha por vitória (recompensas + quest + marcador)
+  const winBattle = (b: BattleState, log: string[]) => {
+    const c = charRef.current!;
+    const cr = creatureById(b.creatureId);
+    const sc = scaleFor(c.level);
+    const gold = Math.round((cr.gold + Math.floor(Math.random() * 10)) * sc.goldMul);
+    const xp = Math.round(cr.xp * sc.xpMul);
+    log.push(`🎉 ${cr.name} derrotado! +${gold} ouro, +${xp} XP`);
+    const nb: BattleState = { ...b, cHp: 0, log, over: "win" };
+    battleRef.current = nb;
+    setBattle(nb);
+    gainRewards(gold, xp);
+    advanceQuest("kill", 1);
+    setChar((ch) => (ch ? { ...ch, stats: { ...ch.stats, kills: ch.stats.kills + 1 }, loot: { ...ch.loot, [b.entityKey]: Date.now() + 24 * 3600_000 } } : ch));
+    const mk = entMarkers.current.get(b.entityKey);
+    if (mk) { mk.remove(); entMarkers.current.delete(b.entityKey); }
+  };
+
   const attack = useCallback(() => {
     const b = battleRef.current;
     const c = charRef.current;
     if (!b || b.over || !c) return;
     const cr = creatureById(b.creatureId);
     const cls = classById(c.classId);
-    const pAtk = atkFor(c.level, c.classId);
-    const critChance = cls.id === "arqueiro" ? 0.25 : 0.15;
+    const pAtk = atkFor(c.level, c.classId, c.pts.atk, c.upg.arma);
+    const critChance = cls.id === "arqueiro" ? 0.25 + c.pts.luk * 0.005 : 0.15 + c.pts.luk * 0.005;
     const crit = Math.random() < critChance;
     const dmg = Math.max(3, Math.round(pAtk * (0.85 + Math.random() * 0.35) * (crit ? 2 : 1)));
     const cHp = Math.max(0, b.cHp - dmg);
     const log = [...b.log.slice(-5), `${crit ? "💥 CRÍTICO! " : "🗡️ "}Causas ${dmg} de dano ao ${cr.name}.`];
-    if (cHp <= 0) {
-      const gold = cr.gold + Math.floor(Math.random() * 10);
-      log.push(`🎉 ${cr.name} derrotado! +${gold} ouro`);
-      const nb: BattleState = { ...b, cHp, log, over: "win" };
-      battleRef.current = nb;
-      setBattle(nb);
-      gainRewards(gold, cr.xp);
-      advanceQuest("kill", 1);
-      setChar((ch) => (ch ? { ...ch, stats: { ...ch.stats, kills: ch.stats.kills + 1 }, loot: { ...ch.loot, [b.entityKey]: Date.now() + 24 * 3600_000 } } : ch));
-      const mk = entMarkers.current.get(b.entityKey);
-      if (mk) { mk.remove(); entMarkers.current.delete(b.entityKey); }
-      return;
-    }
-    const cAtk = cr.atk;
-    const def = cls.def;
-    const dmgTaken = Math.max(2, Math.round(cAtk * (0.75 + Math.random() * 0.5) * (1 - def / (def + 34))));
-    const pHp = Math.max(0, b.pHp - dmgTaken);
-    log.push(`🛡️ ${cr.name} contra-ataca: -${dmgTaken} HP`);
-    if (pHp <= 0) {
-      log.push("😵 Foste derrotado! Recuperas num ponto seguro…");
-      const nb2: BattleState = { ...b, cHp, pHp, log, over: "lose" };
-      battleRef.current = nb2;
-      setBattle(nb2);
-      setChar((ch) => (ch ? { ...ch, hp: Math.round(maxHpFor(ch.level, ch.classId) * 0.35) } : ch));
-      notify("🩹 Curado parcialmente. Treina mais e volta!");
-      return;
-    }
-    const nb3: BattleState = { ...b, cHp, pHp, log };
-    battleRef.current = nb3;
-    setBattle(nb3);
+    if (cHp <= 0) { winBattle({ ...b, cHp }, log); return; }
+    const nb = counter({ ...b, cHp }, log);
+    battleRef.current = nb;
+    setBattle(nb);
   }, [advanceQuest, gainRewards, notify]);
 
-  const tryCapture = useCallback(() => {
+  const useSkill = useCallback(() => {
+    const b = battleRef.current;
+    const c = charRef.current;
+    if (!b || b.over || !c || b.cd > 0) return;
+    const cr = creatureById(b.creatureId);
+    const sk = skillFor(c.classId);
+    const pAtk = atkFor(c.level, c.classId, c.pts.atk, c.upg.arma);
+    const base = Math.max(3, Math.round(pAtk * sk.mult * (0.9 + Math.random() * 0.25)));
+    // Mago ignora parte da "defesa" da criatura — dano bruto com bónus
+    const dmg = sk.pierce ? Math.round(base * 1.15) : base;
+    const cHp = Math.max(0, b.cHp - dmg);
+    const log = [...b.log.slice(-5), `${sk.emoji} ${sk.name}! ${dmg} de dano ao ${cr.name}.`];
+    const leech = sk.leech ? Math.round(dmg * sk.leech) : 0;
+    if (cHp <= 0) { winBattle({ ...b, cHp }, log); return; }
+    const nb = counter({ ...b, cHp, cd: sk.cd }, log, leech);
+    battleRef.current = nb;
+    setBattle(nb);
+  }, [advanceQuest, gainRewards, notify]);
+
+  const usePotion = useCallback(() => {
+    const b = battleRef.current;
+    const c = charRef.current;
+    if (!b || b.over || !c) return;
+    if (c.items.pocao <= 0) { notify("🧪 Sem poções — compra na Loja!"); return; }
+    const cr = creatureById(b.creatureId);
+    const heal = 60;
+    const pHp = Math.min(b.pMaxHp, b.pHp + heal);
+    const log = [...b.log.slice(-5), `🧪 Poção de Vida: +${heal} HP.`];
+    setChar((ch) => (ch ? { ...ch, items: { ...ch.items, pocao: ch.items.pocao - 1 } } : ch));
+    const nb = counter({ ...b, pHp }, log);
+    battleRef.current = nb;
+    setBattle(nb);
+  }, [notify]);
+
+  const tryCapture = useCallback((useBand = false) => {
     const b = battleRef.current;
     const c = charRef.current;
     if (!b || b.over !== "win" || !c) return;
     const cr = creatureById(b.creatureId);
     const cls = classById(c.classId);
+    if (useBand && c.items.faixa <= 0) { notify("🎀 Sem faixas — compra na Loja!"); return; }
     let chance = RARITY_META[cr.rarity].captureChance;
     if (cls.id === "assassino") chance = Math.min(0.95, chance * 1.6);
+    chance += c.pts.luk * 0.01; // sorte ajuda
+    if (useBand) chance = Math.min(0.98, chance * 1.8); // faixa fortalecida
     const ok = Math.random() < chance;
+    if (useBand) setChar((ch) => (ch ? { ...ch, items: { ...ch.items, faixa: Math.max(0, ch.items.faixa - 1) } } : ch));
     if (ok) {
       const nc: OWChar = {
-        ...c,
-        captured: { ...c.captured, [cr.id]: (c.captured[cr.id] || 0) + 1 },
-        stats: { ...c.stats, captured: c.stats.captured + 1 },
+        ...charRef.current!,
+        captured: { ...charRef.current!.captured, [cr.id]: (charRef.current!.captured[cr.id] || 0) + 1 },
+        stats: { ...charRef.current!.stats, captured: charRef.current!.stats.captured + 1 },
       };
       charRef.current = nc;
       setChar(nc);
@@ -420,6 +518,28 @@ export default function OpenWorldGame({ onScore }: Props) {
       setBattle(nb2);
     }
   }, [advanceQuest, gainRewards, notify]);
+
+  // curar fora de batalha (elixir no perfil/loja)
+  const useElixir = useCallback(() => {
+    const c = charRef.current;
+    if (!c) return;
+    if (c.items.elixir <= 0) { notify("⚗️ Sem elixires — compra na Loja!"); return; }
+    const pMax = maxHpFor(c.level, c.classId, c.pts.vit);
+    setChar((ch) => (ch ? { ...ch, items: { ...ch.items, elixir: ch.items.elixir - 1 }, hp: pMax } : ch));
+    notify(`⚗️ Elixir Total: vida cheia (${pMax} HP)!`);
+  }, [notify]);
+
+  // usar poção fora de batalha
+  const usePotionOutside = useCallback(() => {
+    const c = charRef.current;
+    if (!c) return;
+    if (c.items.pocao <= 0) { notify("🧪 Sem poções — compra na Loja!"); return; }
+    const pMax = maxHpFor(c.level, c.classId, c.pts.vit);
+    const heal = Math.min(60, pMax - c.hp);
+    if (heal <= 0) { notify("❤️ Já estás com a vida cheia!"); return; }
+    setChar((ch) => (ch ? { ...ch, items: { ...ch.items, pocao: ch.items.pocao - 1 }, hp: Math.min(pMax, ch.hp + 60) } : ch));
+    notify(`🧪 Poção usada: +${heal} HP.`);
+  }, [notify]);
 
   const closeBattle = useCallback(() => {
     const b = battleRef.current;
@@ -595,17 +715,57 @@ export default function OpenWorldGame({ onScore }: Props) {
   const createChar = useCallback(() => {
     const nm = name.trim().slice(0, 16) || `Explorador${Math.floor(Math.random() * 999)}`;
     const cls = classById(pickClass);
-    const c: OWChar = {
-      v: 1, name: nm, classId: cls.id, level: 1, xp: 0, gold: 100, tickets: 1,
+    const c = hydrateChar({
+      name: nm, classId: cls.id, level: 1, xp: 0, gold: 100, tickets: 1,
       hp: maxHpFor(1, cls.id), pos: { ...DEFAULT_POS }, mode: "joystick",
-      captured: {}, stats: { kills: 0, chests: 0, crystals: 0, portals: 0, captured: 0 },
-      questDate: todayStr(), quests: freshQuests(), loot: {}, createdAt: Date.now(),
-    };
+      questDate: todayStr(), createdAt: Date.now(),
+      items: { pocao: 1, elixir: 0, faixa: 1 },
+    });
     setChar(c);
     saveChar(c);
     setScreen("game");
-    notify(`🌍 Bem-vindo, ${nm}! Explora o mapa, derrota criaturas e conquista prémios reais!`);
+    notify(`🌍 Bem-vindo, ${nm}! Explora, luta e cresce — o mundo é teu!`);
   }, [name, pickClass, notify]);
+
+  // ---------- distribuição de pontos de atributo ----------
+  const spendPoint = useCallback((k: keyof OWPts) => {
+    const c = charRef.current;
+    if (!c) return;
+    if (ptsFreeFor(c) <= 0) { notify("⚠️ Sem pontos livres — sobe de nível!"); return; }
+    const nc: OWChar = {
+      ...c,
+      pts: { ...c.pts, [k]: c.pts[k] + 1 },
+      hp: k === "vit" ? c.hp + 10 : c.hp,
+    };
+    charRef.current = nc;
+    setChar(nc);
+    notify(`${ATTR_META[k].emoji} ${ATTR_META[k].name} +1 — ${ATTR_META[k].desc}`);
+  }, [notify]);
+
+  // ---------- loja ----------
+  const buyItem = useCallback((id: "pocao" | "elixir" | "faixa") => {
+    const c = charRef.current;
+    if (!c) return;
+    const def = OW_ITEMS.find((i) => i.id === id)!;
+    if (c.gold < def.price) { notify(`💰 Ouro insuficiente (${def.price} MT de ouro).`); return; }
+    const nc: OWChar = { ...c, gold: c.gold - def.price, items: { ...c.items, [id]: c.items[id] + 1 } };
+    charRef.current = nc;
+    setChar(nc);
+    notify(`${def.emoji} ${def.name} comprada! Tens ${nc.items[id]}.`);
+  }, [notify]);
+
+  const upgradeGear = useCallback((k: "arma" | "armadura") => {
+    const c = charRef.current;
+    if (!c) return;
+    const nv = c.upg[k];
+    if (nv >= MAX_UPG) { notify("⭐ Nível máximo atingido!"); return; }
+    const cost = upgCost(nv);
+    if (c.gold < cost) { notify(`💰 Precisas de ${cost} de ouro.`); return; }
+    const nc: OWChar = { ...c, gold: c.gold - cost, upg: { ...c.upg, [k]: nv + 1 } };
+    charRef.current = nc;
+    setChar(nc);
+    notify(`${UPG_META[k].emoji} ${UPG_META[k].name} → nível ${nv + 1}!`);
+  }, [notify]);
 
   const claimQuest = useCallback((def: OWQuestDef) => {
     const c = charRef.current;
@@ -626,8 +786,9 @@ export default function OpenWorldGame({ onScore }: Props) {
           <div className="text-4xl mb-1">🌍</div>
           <h2 className="text-2xl font-black text-white">BATEU MUNDO ABERTO</h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-            Explora o mapa REAL da tua cidade, derrota criaturas, abre baús de sorteio
-            e troca bilhetes por prémios verdadeiros da plataforma!
+            O jogo permanente da Bateu! Explora o mapa REAL da tua cidade, sobe de nível,
+            distribui pontos, melhora o teu equipamento, derrota criaturas e troca bilhetes
+            por prémios verdadeiros da plataforma.
           </p>
         </div>
         <div className="w-full max-w-md space-y-3">
@@ -671,9 +832,14 @@ export default function OpenWorldGame({ onScore }: Props) {
   }
 
   const cls = classById(char.classId);
-  const pMax = maxHpFor(char.level, char.classId);
+  const pMax = maxHpFor(char.level, char.classId, char.pts.vit);
   const xpNeed = xpForLevel(char.level);
   const capturedTotal = Object.values(char.captured).reduce((a, b) => a + b, 0);
+  const rk = rankFor(char.level);
+  const ptsFree = ptsFreeFor(char);
+  const sk = skillFor(char.classId);
+  const ranking = buildRanking(char);
+  const myPos = yourPosition(ranking);
 
   return (
     <div className="relative w-full h-[calc(100svh-215px)] min-h-[460px] max-h-[820px] rounded-xl overflow-hidden border border-border select-none bg-[#0b1020]">
@@ -698,9 +864,17 @@ export default function OpenWorldGame({ onScore }: Props) {
           <span className="text-lg">{cls.emoji}</span>
           <div className="text-left leading-none">
             <div className="text-[10px] font-black truncate max-w-[90px]">{char.name}</div>
-            <div className="text-[9px] font-bold" style={{ color: cls.color }}>Nível {char.level}</div>
+            <div className="text-[9px] font-bold flex items-center gap-0.5" style={{ color: rk.color }}>
+              {rk.emoji} {rk.title} · Nv {char.level}
+            </div>
           </div>
         </button>
+        {ptsFree > 0 && (
+          <button onClick={() => setModal("perfil")} data-testid="hud-pts"
+            className="pointer-events-auto px-2 py-1.5 rounded-lg bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 text-[10px] font-black animate-pulse">
+            ⭐ {ptsFree} pt{ptsFree > 1 ? "s" : ""}
+          </button>
+        )}
         <div className="px-2 py-1.5 rounded-lg bg-black/70 border border-red-500/30 flex items-center gap-1">
           <Heart className="h-3 w-3 text-red-400" />
           <div className="w-12 h-1.5 rounded-full bg-white/15 overflow-hidden">
@@ -709,6 +883,11 @@ export default function OpenWorldGame({ onScore }: Props) {
           <span className="text-[9px] text-white font-bold">{char.hp}</span>
         </div>
         <div className="flex-1" />
+        {char.items.pocao > 0 && (
+          <button onClick={usePotionOutside} className="pointer-events-auto px-2 py-1.5 rounded-lg bg-black/70 border border-emerald-400/30 text-[10px] font-black text-emerald-300 flex items-center gap-1">
+            🧪 {char.items.pocao}
+          </button>
+        )}
         <div className="px-2 py-1.5 rounded-lg bg-black/70 border border-yellow-500/30 flex items-center gap-1 text-[10px] font-black text-yellow-300">
           <Coins className="h-3 w-3" /> {char.gold}
         </div>
@@ -735,9 +914,12 @@ export default function OpenWorldGame({ onScore }: Props) {
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-2xl bg-black/75 border border-white/15 pointer-events-auto overflow-x-auto max-w-full">
           <DockBtn emoji="📍" label="Perto" tid="dock-perto" onClick={() => setModal("perto")} />
           <DockBtn emoji="📜" label="Missões" tid="dock-quests" onClick={() => setModal("quests")} />
+          <DockBtn emoji="🏪" label="Loja" tid="dock-loja" onClick={() => setModal("loja")} hot />
           <DockBtn emoji="🎁" label="Sorteios" tid="dock-sorteios" onClick={() => setModal("sorteios")} />
           <DockBtn emoji="🛒" label="Feira" tid="dock-feira" onClick={() => setModal("feira")} />
           <DockBtn emoji="🏆" label="Arena" tid="dock-arena" onClick={() => setModal("arena")} />
+          <DockBtn emoji="🏅" label="Top" tid="dock-ranking" onClick={() => setModal("ranking")} />
+          <DockBtn emoji="⭐" label="Feitos" tid="dock-conquistas" onClick={() => setModal("conquistas")} />
           <DockBtn emoji="📖" label="Bestiário" tid="dock-bestiario" onClick={() => setModal("bestiario")} />
           <button onClick={() => setMode(char.mode === "gps" ? "joystick" : "gps")}
             className="flex flex-col items-center px-2 py-1 rounded-lg bg-white/10 border border-white/15 text-white active:scale-95">
@@ -780,18 +962,38 @@ export default function OpenWorldGame({ onScore }: Props) {
                       {battle.log.map((l, i) => <div key={i} className="text-[10px] text-white/85">{l}</div>)}
                     </div>
                     {battle.over === null && (
-                      <motion.button whileTap={{ scale: 0.96 }} onClick={attack}
-                        className="w-full mt-3 py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-base">
-                        ⚔️ ATACAR
-                      </motion.button>
+                      <div className="mt-3 space-y-2">
+                        <motion.button whileTap={{ scale: 0.96 }} onClick={attack} data-testid="btn-atacar"
+                          className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-base">
+                          ⚔️ ATACAR
+                        </motion.button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button onClick={useSkill} disabled={battle.cd > 0} data-testid="btn-skill"
+                            className={`py-2.5 rounded-xl font-black text-[11px] border ${battle.cd > 0 ? "bg-white/5 border-white/10 text-white/40" : "bg-purple-600/30 border-purple-400/50 text-purple-200 active:scale-95"}`}>
+                            {sk.emoji} {sk.name} {battle.cd > 0 ? `(${battle.cd})` : "PRONTO"}
+                          </button>
+                          <button onClick={usePotion} disabled={char.items.pocao <= 0} data-testid="btn-pocao"
+                            className={`py-2.5 rounded-xl font-black text-[11px] border ${char.items.pocao <= 0 ? "bg-white/5 border-white/10 text-white/40" : "bg-emerald-600/30 border-emerald-400/50 text-emerald-200 active:scale-95"}`}>
+                            🧪 Poção ({char.items.pocao})
+                          </button>
+                        </div>
+                      </div>
                     )}
                     {battle.over === "win" && (
                       <div className="mt-3 space-y-2">
                         {!battle.canCapture && !battle.log.some((l) => l.includes("CAPTURADO") || l.includes("escapou")) && (
-                          <motion.button whileTap={{ scale: 0.96 }} onClick={tryCapture}
-                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-sm">
-                            🐾 TENTAR CAPTURAR
-                          </motion.button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <motion.button whileTap={{ scale: 0.96 }} onClick={() => tryCapture(false)}
+                              className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-sm">
+                              🐾 CAPTURAR
+                            </motion.button>
+                            {char.items.faixa > 0 && (
+                              <motion.button whileTap={{ scale: 0.96 }} onClick={() => tryCapture(true)}
+                                className="py-2.5 rounded-xl bg-amber-500/30 border border-amber-400/50 text-amber-200 font-black text-sm">
+                                🎀 Faixa ×1.8 ({char.items.faixa})
+                              </motion.button>
+                            )}
+                          </div>
                         )}
                         <button onClick={closeBattle} className="w-full py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-black text-sm">
                           CONTINUAR A EXPLORAR →
@@ -825,6 +1027,9 @@ export default function OpenWorldGame({ onScore }: Props) {
                   {modal === "arena" && "🏆 Arena de Torneios"}
                   {modal === "bestiario" && "📖 O teu Bestiário"}
                   {modal === "perfil" && "🧭 Painel do Aventureiro"}
+                  {modal === "loja" && "🏪 Loja do Aventureiro"}
+                  {modal === "ranking" && "🏅 Ranking do Mundo Aberto"}
+                  {modal === "conquistas" && "⭐ Conquistas"}
                 </h3>
                 <button onClick={() => setModal(null)} data-testid="modal-close" className="p-1.5 rounded-lg bg-white/10 text-white"><X className="h-4 w-4" /></button>
               </div>
@@ -984,16 +1189,185 @@ export default function OpenWorldGame({ onScore }: Props) {
                 </div>
               )}
 
+              {modal === "loja" && (
+                <div className="space-y-3" data-testid="loja-modal">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-black/30 border border-yellow-500/20">
+                    <span className="text-[11px] font-bold text-white/80">O teu ouro</span>
+                    <span className="text-sm font-black text-yellow-300 flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {char.gold}</span>
+                  </div>
+                  {/* consumíveis */}
+                  <div className="space-y-2">
+                    {OW_ITEMS.map((it) => (
+                      <div key={it.id} className="p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0" style={{ background: `${it.color}22`, border: `1px solid ${it.color}55` }}>{it.emoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-black text-white">{it.name} <span className="text-[10px] text-white/60">×{char.items[it.id]}</span></div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{it.desc}</div>
+                        </div>
+                        <button onClick={() => buyItem(it.id)} data-testid={`comprar-${it.id}`}
+                          className="px-3 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-600 text-white text-[10px] font-black shrink-0 active:scale-95">
+                          {it.price} 💰
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {/* equipamento */}
+                  <div className="text-[10px] font-black text-white/60 uppercase tracking-wide pt-1">Equipamento</div>
+                  <div className="space-y-2">
+                    {(["arma", "armadura"] as const).map((k) => {
+                      const nv = char.upg[k];
+                      const maxed = nv >= MAX_UPG;
+                      const cost = upgCost(nv);
+                      const meta = UPG_META[k];
+                      return (
+                        <div key={k} className="p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0" style={{ background: `${meta.color}22`, border: `1px solid ${meta.color}55` }}>{meta.emoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-black text-white">{meta.name} <span className="text-[10px]" style={{ color: meta.color }}>Nv {nv}/{MAX_UPG}</span></div>
+                            <div className="text-[10px] text-muted-foreground leading-tight">{meta.desc}</div>
+                          </div>
+                          <button onClick={() => upgradeGear(k)} disabled={maxed} data-testid={`melhorar-${k}`}
+                            className={`px-3 py-2 rounded-lg text-[10px] font-black shrink-0 ${maxed ? "bg-white/10 text-white/40" : "bg-gradient-to-r from-sky-500 to-blue-600 text-white active:scale-95"}`}>
+                            {maxed ? "MÁX" : `${cost} 💰`}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* usos rápidos */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button onClick={usePotionOutside} disabled={char.items.pocao <= 0}
+                      className={`py-2.5 rounded-xl text-[11px] font-black ${char.items.pocao > 0 ? "bg-emerald-600/30 border border-emerald-400/40 text-emerald-200 active:scale-95" : "bg-white/5 text-white/40 border border-white/10"}`}>
+                      🧪 Usar Poção ({char.items.pocao})
+                    </button>
+                    <button onClick={useElixir} disabled={char.items.elixir <= 0}
+                      className={`py-2.5 rounded-xl text-[11px] font-black ${char.items.elixir > 0 ? "bg-sky-600/30 border border-sky-400/40 text-sky-200 active:scale-95" : "bg-white/5 text-white/40 border border-white/10"}`}>
+                      ⚗️ Usar Elixir ({char.items.elixir})
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">Ganha ouro lutando, abrindo baús e nas missões diárias!</p>
+                </div>
+              )}
+
+              {modal === "ranking" && (
+                <div className="space-y-2" data-testid="ranking-modal">
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-600/15 border border-amber-400/30 text-center">
+                    <div className="text-[10px] font-black text-amber-300 uppercase tracking-wide">A tua posição</div>
+                    <div className="text-2xl font-black text-white mt-0.5">#{myPos} <span className="text-sm text-white/60">de {ranking.length}</span></div>
+                    <div className="text-[10px] text-white/70 font-bold mt-0.5">{rk.emoji} {rk.title} · Poder {ranking.find((x) => x.isYou)?.power || 0}</div>
+                  </div>
+                  {ranking.map((r, i) => (
+                    <div key={r.id} className={`p-2.5 rounded-xl border flex items-center gap-2 ${r.isYou ? "bg-emerald-500/15 border-emerald-400/50" : "bg-black/30 border-white/10"}`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${i === 0 ? "bg-yellow-500/30 text-yellow-300" : i === 1 ? "bg-slate-400/30 text-slate-200" : i === 2 ? "bg-orange-600/30 text-orange-300" : "bg-white/10 text-white/60"}`}>
+                        {i + 1}º
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] font-black text-white truncate">{r.isYou ? "👑 " : ""}{r.name} {r.isYou && <span className="text-[9px] text-emerald-300">(TU)</span>}</div>
+                        <div className="text-[9px] font-bold" style={{ color: r.rankColor }}>{r.rankEmoji} {r.rankTitle} · Nv {r.level}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[11px] font-black text-white/85">{r.power.toLocaleString("pt-PT")}</div>
+                        <div className="text-[8px] text-muted-foreground font-bold uppercase">poder</div>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground text-center pt-1">Sobe de nível e ganha XP para ultrapassar os rivais do mundo!</p>
+                </div>
+              )}
+
+              {modal === "conquistas" && (
+                <div className="space-y-2" data-testid="conquistas-modal">
+                  <div className="p-2.5 rounded-xl bg-black/30 border border-white/10 text-center">
+                    <span className="text-[11px] font-black text-white/80">{char.ach.length}/{ACHIEVEMENTS.length} desbloqueadas</span>
+                    <div className="h-1.5 mt-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-500" style={{ width: `${(char.ach.length / ACHIEVEMENTS.length) * 100}%` }} />
+                    </div>
+                  </div>
+                  {ACHIEVEMENTS.map((a) => {
+                    const done = char.ach.includes(a.id);
+                    return (
+                      <div key={a.id} className={`p-2.5 rounded-xl border flex items-center gap-2 ${done ? "bg-amber-500/10 border-amber-400/40" : "bg-black/30 border-white/10 opacity-70"}`}>
+                        <span className="text-xl shrink-0">{done ? a.emoji : "🔒"}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-[12px] font-black ${done ? "text-amber-300" : "text-white"}`}>{a.name}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{a.desc}</div>
+                        </div>
+                        <div className="text-[9px] font-black text-yellow-300 shrink-0 text-right">
+                          {a.gold > 0 && <div>+{a.gold} 💰</div>}
+                          {a.xp > 0 && <div>+{a.xp} XP</div>}
+                          {!!a.tickets && <div>+{a.tickets} 🎟️</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {modal === "perfil" && (
-                <div className="space-y-3">
+                <div className="space-y-3" data-testid="perfil-modal">
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/10">
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl" style={{ background: `${cls.color}22`, border: `1.5px solid ${cls.color}` }}>{cls.emoji}</div>
                     <div>
                       <div className="font-black text-white">{char.name}</div>
-                      <div className="text-[11px] font-bold" style={{ color: cls.color }}>{cls.name} · Nível {char.level}</div>
-                      <div className="text-[10px] text-muted-foreground">Membro desde {new Date(char.createdAt).toLocaleDateString("pt-PT")}</div>
+                      <div className="text-[11px] font-bold flex items-center gap-1">
+                        <span style={{ color: cls.color }}>{cls.name}</span>
+                        <span className="text-white/30">·</span>
+                        <span style={{ color: rk.color }}>{rk.emoji} {rk.title}</span>
+                        <span className="text-white/30">·</span>
+                        <span className="text-white/80">Nível {char.level}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                        <span>Membro desde {new Date(char.createdAt).toLocaleDateString("pt-PT")}</span>
+                        <span className="text-orange-300 font-black">🔥 {char.streak || 0} dia{(char.streak || 0) !== 1 ? "s" : ""} seguidos</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* pontos de atributo */}
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-600/15 to-teal-600/10 border border-emerald-400/25">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[11px] font-black text-emerald-300 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Pontos de Atributo</div>
+                      <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${ptsFree > 0 ? "bg-emerald-500/30 text-emerald-200 animate-pulse" : "bg-white/10 text-white/50"}`}>
+                        {ptsFree} livre{ptsFree === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(Object.keys(ATTR_META) as Array<keyof OWPts>).map((k) => {
+                        const m = ATTR_META[k];
+                        return (
+                          <button key={k} onClick={() => spendPoint(k)} disabled={ptsFree <= 0} data-testid={`ponto-${k}`}
+                            className={`p-2 rounded-lg border flex items-center gap-2 text-left ${ptsFree > 0 ? "bg-black/30 border-white/10 active:scale-95 hover:bg-white/10" : "bg-black/20 border-white/5 opacity-60"}`}>
+                            <span className="text-lg">{m.emoji}</span>
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-black text-white">{m.name} <span style={{ color: m.color }}>×{char.pts[k]}</span></div>
+                              <div className="text-[8px] text-muted-foreground">{m.desc}</div>
+                            </div>
+                            {ptsFree > 0 && <ArrowUp className="h-3 w-3 text-emerald-400 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[9px] text-muted-foreground mt-1.5">Ganha +3 pontos por nível. Toca num atributo para evoluir!</p>
+                  </div>
+
+                  {/* equipamento + batalha */}
+                  <div className="p-3 rounded-xl bg-black/30 border border-white/10">
+                    <div className="text-[11px] font-black text-white/70 mb-2 flex items-center gap-1"><Zap className="h-3.5 w-3.5" /> Combate & Equipamento</div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <Stat label="Ataque" value={atkFor(char.level, char.classId, char.pts.atk, char.upg.arma)} emoji="⚔️" />
+                      <Stat label="Defesa" value={defFor(char.level, char.classId, char.pts.def, char.upg.armadura)} emoji="🛡️" />
+                      <Stat label="Arma" value={`Nv ${char.upg.arma}`} emoji="🗡️" />
+                      <Stat label="Armadura" value={`Nv ${char.upg.armadura}`} emoji="🥋" />
+                    </div>
+                    <div className="mt-2 p-2 rounded-lg bg-purple-600/15 border border-purple-400/25">
+                      <div className="text-[10px] font-black text-purple-300">{sk.emoji} {sk.name} (habilidade de classe)</div>
+                      <div className="text-[9px] text-white/70">{sk.desc} Recarrega em {sk.cd} turnos.</div>
+                    </div>
+                    <button onClick={() => setModal("loja")} className="w-full mt-2 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-600 text-white text-[11px] font-black active:scale-95">
+                      🏪 Abrir Loja — melhorar equipamento
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <Stat label="Ouro" value={char.gold} emoji="💰" />
                     <Stat label="Bilhetes" value={char.tickets} emoji="🎟️" />
@@ -1086,11 +1460,12 @@ export default function OpenWorldGame({ onScore }: Props) {
 }
 
 // ---------- sub-componentes ----------
-function DockBtn({ emoji, label, tid, onClick }: { emoji: string; label: string; tid?: string; onClick: () => void }) {
+function DockBtn({ emoji, label, tid, onClick, hot }: { emoji: string; label: string; tid?: string; onClick: () => void; hot?: boolean }) {
   return (
-    <button onClick={onClick} data-testid={tid} className="flex flex-col items-center px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-white active:scale-95">
+    <button onClick={onClick} data-testid={tid} className={`relative flex flex-col items-center px-2 py-1 rounded-lg border text-white active:scale-95 ${hot ? "bg-amber-500/20 border-amber-400/40" : "bg-white/5 border-white/10"}`}>
       <span className="text-base leading-none">{emoji}</span>
       <span className="text-[8px] font-black mt-0.5">{label}</span>
+      {hot && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
     </button>
   );
 }

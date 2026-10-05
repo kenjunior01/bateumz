@@ -754,12 +754,17 @@ export default function Index() {
 
             {/* Jogos famosos em destaque — Ludo, Dominó, Xadrez… */}
             <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-4"} gap-3 sm:gap-4`}>
-              {/* MMORPG — destaque permanente */}
-              <motion.div custom={0} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300 col-span-1 sm:col-span-1" style={{ background: `linear-gradient(135deg, ${PURPLE}25, ${CYAN}15)`, border: `2px solid ${PURPLE}30`, boxShadow: `0 0 25px ${PURPLE}15` }} onClick={() => { sfx.whoosh(); navigate("/mmorpg"); }}>
-                <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse" style={{ background: `${PURPLE}30`, color: PURPLE, border: `1px solid ${PURPLE}50` }}>NOVO</span>
-                <span className="text-3xl block mb-3">🌍</span>
-                <p className="text-sm font-bold text-white mb-1 leading-tight">MMORPG Bateu</p>
-                <div className="flex items-center gap-1"><Users className="h-3 w-3" style={{ color: GREEN }} /><span className="text-[11px] font-semibold" style={{ color: GREEN }}>Multiplayer ao Vivo</span></div>
+              {/* MUNDO ABERTO GO — jogo permanente em destaque */}
+              <motion.div custom={0} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300 col-span-2 sm:col-span-2" style={{ background: "linear-gradient(135deg, #064e3b 0%, #0f766e 55%, #164e63 100%)", border: `2px solid rgba(16,185,129,0.45)`, boxShadow: "0 0 30px rgba(16,185,129,0.3)" }} onClick={() => { sfx.whoosh(); navigate("/mmorpg"); }}>
+                <span className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse" style={{ background: "#facc15", color: "#422006" }}>DESTAQUE</span>
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🌍</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white mb-0.5 leading-tight">MUNDO ABERTO GO</p>
+                    <p className="text-[10px] font-semibold text-white/75 leading-snug mb-1">Mapa real, missões, loja e ranking — o jogo permanente da Bateu.</p>
+                    <div className="flex items-center gap-1"><Users className="h-3 w-3" style={{ color: GREEN }} /><span className="text-[10px] font-bold" style={{ color: GREEN }}>Continua a tua aventura</span></div>
+                  </div>
+                </div>
               </motion.div>
               {FEATURED_GAMES.map((game, i) => (
                 <motion.div key={game.name} custom={i + 1} variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.97 }} className="relative rounded-xl p-4 cursor-pointer overflow-hidden transition-all duration-300" style={{ background: game.grad, border: `1px solid ${game.border}15` }} onClick={() => { sfx.whoosh(); navigate("/jogos"); }}>
@@ -821,21 +826,21 @@ export default function Index() {
                 {/* Left: Icon & Text */}
                 <div className="flex-1 text-center sm:text-left">
                   <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-                    <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full animate-pulse" style={{ background: `linear-gradient(135deg, ${PURPLE}30, ${CYAN}30)`, color: PURPLE, border: `1px solid ${PURPLE}40` }}>NOVO</span>
-                    <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full" style={{ background: `${GREEN}20`, color: GREEN, border: `1px solid ${GREEN}30` }}>MULTIPLAYER</span>
+                    <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full animate-pulse" style={{ background: "rgba(250,204,21,0.18)", color: "#facc15", border: "1px solid rgba(250,204,21,0.4)" }}>JOGO EM DESTAQUE</span>
+                    <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full" style={{ background: `${GREEN}20`, color: GREEN, border: `1px solid ${GREEN}30` }}>MUNDO REAL</span>
                   </div>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3 leading-tight">
-                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>MMORPG Bateu</span>
+                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>MUNDO ABERTO GO</span>
                   </h2>
                   <p className="text-sm sm:text-base text-zinc-400 max-w-lg mb-5 leading-relaxed">
-                    Cria o teu heroi, explora zonas perigosas, luta contra monstros e outros jogadores. Economia P2P, chat global, world boss e muito mais. O mundo persiste mesmo depois de saires.
+                    O jogo permanente da Bateu! Cria o teu herói, explora o mapa REAL da tua cidade com GPS, derrota criaturas que crescem contigo, distribui pontos de atributo, melhora o teu equipamento, sobe de rank e troca bilhetes por prémios verdadeiros.
                   </p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mb-5">
                     {[
-                      { icon: Users, label: "6 Classes", color: CYAN },
-                      { icon: Swords, label: "PVP Duelos", color: PURPLE },
-                      { icon: Coins, label: "Economia P2P", color: GOLD },
-                      { icon: Globe, label: "Mundo Persistente", color: GREEN },
+                      { icon: Users, label: "4 Classes", color: CYAN },
+                      { icon: Swords, label: "Ranks e Pontos", color: PURPLE },
+                      { icon: Coins, label: "Loja e Conquistas", color: GOLD },
+                      { icon: Globe, label: "Mapa Real + GPS", color: GREEN },
                     ].map((f) => {
                       const FIcon = f.icon;
                       return (

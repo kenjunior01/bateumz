@@ -170,6 +170,20 @@ export default function MobileMenuDrawer() {
   const { format } = useCurrency();
   const { menuOpen, setMenuOpen } = useMobileNav();
 
+  // progresso do herói no MUNDO ABERTO GO (jogo permanente em destaque)
+  const [owHero, setOwHero] = useState<{ name: string; level: number } | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    try {
+      const raw = localStorage.getItem("bateu_openworld_save");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.name && c?.level) setOwHero({ name: c.name, level: c.level });
+        else setOwHero(null);
+      } else setOwHero(null);
+    } catch { setOwHero(null); }
+  }, [menuOpen]);
+
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     [NAV_GROUPS[0].titleKey]: true,
   });
@@ -323,6 +337,46 @@ export default function MobileMenuDrawer() {
                       </button>
                     ))}
                   </motion.div>
+
+                  {/* ⭐ MUNDO ABERTO GO — jogo permanente em destaque no menu */}
+                  <motion.button
+                    variants={itemVariants}
+                    onClick={() => goOrAuth("/lives?game=mmorpg")}
+                    data-testid="menu-mundo-aberto"
+                    className="relative w-full overflow-hidden rounded-2xl text-left group"
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700" />
+                    <motion.div
+                      className="absolute inset-0 opacity-40"
+                      style={{ background: "radial-gradient(circle at 20% 30%, rgba(255,255,255,0.35), transparent 55%), radial-gradient(circle at 85% 80%, rgba(250,204,21,0.35), transparent 50%)" }}
+                      animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.5, 0.3] }}
+                      transition={{ duration: 5, repeat: Infinity }}
+                    />
+                    <div className="relative z-10 flex items-center gap-3 p-3.5">
+                      <motion.div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 border border-white/30 text-2xl shadow-lg"
+                        animate={{ y: [0, -3, 0] }}
+                        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        🌍
+                      </motion.div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-display text-[15px] font-black text-white leading-tight">MUNDO ABERTO GO</span>
+                          <span className="rounded-full bg-yellow-400 px-1.5 py-0.5 text-[8px] font-black text-yellow-950 animate-pulse">DESTAQUE</span>
+                        </div>
+                        <p className="text-[10.5px] font-semibold text-white/85 leading-tight mt-0.5 truncate">
+                          {owHero
+                            ? <>O teu herói {owHero.name} está no nível {owHero.level} — continua a crescer!</>
+                            : "Cria o teu herói, explora o mapa real e sobe de rank!"}
+                        </p>
+                      </div>
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/25">
+                        <Play className="h-4 w-4 text-white fill-white" />
+                      </div>
+                    </div>
+                  </motion.button>
 
                   {liveCount > 0 && (
                     <motion.div variants={itemVariants}>

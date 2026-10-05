@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { Search, Gamepad2, Users, Brain, Zap, Swords, Grid3X3, Target, Sparkles, Dices, LayoutGrid, Hash, Shuffle, Palette, Map, Crosshair, Layers, Radio, Trophy, Pencil, Bomb, SmilePlus, Anchor, CircleDot, Package, RotateCcw, Vote, Skull, Heart, Lock, ChevronRight, Spade, Globe, Crown, Swords as SwordsIcon, Cherry, Keyboard, Shield, Coins, Rocket, Ticket, Gauge } from "lucide-react";
@@ -144,6 +144,7 @@ const THEME_A = "#f78166";
 
 const AllGames = () => {
   const { sfx } = useSoundEffects();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("todos");
   const [regionFilter, setRegionFilter] = useState("all");
@@ -152,6 +153,17 @@ const AllGames = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [challengeGame, setChallengeGame] = useState<{ id: string; label: string } | null>(null);
   const [challengeToast, setChallengeToast] = useState<string | null>(null);
+  // progresso do herói no MUNDO ABERTO GO — jogo permanente em destaque
+  const [owHero, setOwHero] = useState<{ name: string; level: number } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bateu_openworld_save");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.name && c?.level) setOwHero({ name: c.name, level: c.level });
+      }
+    } catch { /* noop */ }
+  }, []);
   const meName = getPlayerIdentity().name;
 
   const filtered = useMemo(() => {
@@ -268,6 +280,46 @@ const AllGames = () => {
       </div>
 
       <div className="container mx-auto px-4 pt-4 pb-2 relative z-20">
+        {/* ⭐ MUNDO ABERTO GO — destaque permanente no topo da página de jogos */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+          onClick={() => { sfx.whoosh(); navigate("/lives?game=mmorpg"); }}
+          data-testid="jogos-destaque-mundo-aberto"
+          className="relative overflow-hidden rounded-2xl mb-5 cursor-pointer"
+          style={{ background: "linear-gradient(120deg, #064e3b 0%, #0f766e 45%, #164e63 100%)", border: "1px solid rgba(16,185,129,0.4)", boxShadow: "0 0 40px rgba(16,185,129,0.25), 0 12px 32px rgba(0,0,0,0.4)" }}
+        >
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.18), transparent 50%), radial-gradient(circle at 90% 85%, rgba(250,204,21,0.2), transparent 45%)" }}
+            animate={{ opacity: [0.5, 0.85, 0.5] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+          <div className="relative z-10 p-4 sm:p-5 flex items-center gap-4">
+            <motion.div
+              className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center text-3xl sm:text-4xl"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              🌍
+            </motion.div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-display text-lg sm:text-xl font-black text-white leading-none">MUNDO ABERTO GO</span>
+                <span className="px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[9px] font-black animate-pulse">JOGO EM DESTAQUE</span>
+              </div>
+              <p className="text-[11px] sm:text-xs font-semibold text-white/80 mt-1 leading-snug">
+                {owHero
+                  ? <>Teu herói: <b className="text-yellow-300">{owHero.name}</b> · Nível {owHero.level} — continua a crescer com pontos, equipamento e ranking!</>
+                  : "O jogo permanente da Bateu: mapa real, GPS, criaturas, loja, conquistas e prémios verdadeiros."}
+              </p>
+            </div>
+            <div className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 font-black text-[11px] sm:text-xs shadow-lg">
+              {owHero ? "CONTINUAR ▶" : "JOGAR AGORA ▶"}
+            </div>
+          </div>
+        </motion.div>
+
         <motion.div
           className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide custom-scrollbar"
           initial={{ opacity: 0, y: 10 }}

@@ -111,9 +111,9 @@ async function testViewport(browser, label, viewport, isTouch) {
 
   // ---- 4. HUD ----
   const hudTxt = await page.evaluate(() => document.body.innerText);
-  ok('HUD presente (ouro/bilhetes/nível)', /Nível 1/.test(hudTxt) && /ExploraMZ|Ouro|Bilhete/i.test(hudTxt));
-  ok('dock de atalhos (Perto/Missões/Sorteios/Feira/Arena/Bestiário)',
-    /Missões/i.test(hudTxt) && /Sorteios/i.test(hudTxt) && /Feira/i.test(hudTxt) && /Arena/i.test(hudTxt) && /Bestiário/i.test(hudTxt) && /Perto/i.test(hudTxt));
+  ok('HUD presente (ouro/bilhetes/nível)', /(Nv 1|Nível 1)/.test(hudTxt) && /ExploraMZ|Ouro|Bilhete/i.test(hudTxt));
+  ok('dock de atalhos (Perto/Missões/Loja/Sorteios/Feira/Arena/Top/Feitos/Bestiário)',
+    /Missões/i.test(hudTxt) && /Sorteios/i.test(hudTxt) && /Feira/i.test(hudTxt) && /Arena/i.test(hudTxt) && /Bestiário/i.test(hudTxt) && /Perto/i.test(hudTxt) && /Loja/i.test(hudTxt) && /Top/i.test(hudTxt) && /Feitos/i.test(hudTxt));
   const exploradorOk = await page.evaluate(() => /Explorador/i.test(document.body.innerText) && !!document.querySelector('.ow-avatar'));
   ok('modo Explorador (joystick) ativo por omissão', exploradorOk);
 
@@ -296,6 +296,27 @@ async function testViewport(browser, label, viewport, isTouch) {
   ok('Bestiário abre (estatísticas + catálogo)', /O teu Bestiário/i.test(bTxt) && /Criaturas capturadas/i.test(bTxt) && /Vitórias em batalha/i.test(bTxt));
   await closePanel();
 
+  // ---- 7.4 Progressão: Loja, Ranking, Conquistas ----
+  await openDock('dock-loja');
+  const lojaTxt = await page.evaluate(() => document.body.innerText);
+  ok('Loja abre (consumíveis + equipamento)', /Loja do Aventureiro/i.test(lojaTxt) && /Poção de Vida/i.test(lojaTxt) && /Faixa Fortalecida/i.test(lojaTxt) && /Arma/i.test(lojaTxt));
+  const lojaGoldBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('bateu_openworld_save') || '{}').gold);
+  await page.evaluate(() => document.querySelector('[data-testid="comprar-pocao"]')?.click());
+  await page.waitForTimeout(800);
+  const lojaGoldAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('bateu_openworld_save') || '{}').gold);
+  ok('compra na loja debita ouro', typeof lojaGoldAfter === 'number' && typeof lojaGoldBefore === 'number' && lojaGoldAfter < lojaGoldBefore, `(${lojaGoldBefore} → ${lojaGoldAfter})`);
+  await closePanel();
+
+  await openDock('dock-ranking');
+  const rankTxt = await page.evaluate(() => document.body.innerText);
+  ok('Ranking abre (posição + rivais)', /Ranking do Mundo Aberto/i.test(rankTxt) && /tua posição/i.test(rankTxt) && /poder/i.test(rankTxt));
+  await closePanel();
+
+  await openDock('dock-conquistas');
+  const achTxt = await page.evaluate(() => document.body.innerText);
+  ok('Conquistas abre (progresso + catálogo)', /Conquistas/i.test(achTxt) && /desbloqueadas/i.test(achTxt) && /Primeira Vitória/i.test(achTxt));
+  await closePanel();
+
   // perfil + atalhos para a plataforma
   const perfil = await page.evaluate(() => document.querySelector('[data-testid="hud-perfil"]'));
   if (perfil) {
@@ -303,6 +324,8 @@ async function testViewport(browser, label, viewport, isTouch) {
     await page.waitForTimeout(1300);
     const pTxt = await page.evaluate(() => document.body.innerText);
     ok('Painel do Aventureiro abre', /Painel do Aventureiro/i.test(pTxt) && /ExploraMZ/i.test(pTxt));
+    ok('distribuição de pontos de atributo', /Pontos de Atributo/i.test(pTxt) && /Força/i.test(pTxt) && /Sorte/i.test(pTxt));
+    ok('rank do herói visível', /Novato|Explorador|Caçador|Veterano|Elite|Lenda|Mítico/i.test(pTxt));
     await closePanel();
   } else ok('Painel do Aventureiro abre', false, '(botão não encontrado)');
 
@@ -331,12 +354,20 @@ async function testViewport(browser, label, viewport, isTouch) {
     await closePanel();
   }
 
-  // ---- 8. /jogos com o novo nome ----
+  // ---- 8. /jogos com destaque permanente ----
   await page.goto(`${BASE}/jogos`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(6000);
   const jogosTxt = await page.evaluate(() => document.body.innerText);
   ok('página /jogos renderiza', jogosTxt.length > 1000, `(${jogosTxt.length} chars)`);
   ok('Mundo Aberto GO listado em /jogos', /Mundo Aberto GO/i.test(jogosTxt));
+  const destaqueOk = await page.evaluate(() => !!document.querySelector('[data-testid="jogos-destaque-mundo-aberto"]') && /JOGO EM DESTAQUE/i.test(document.body.innerText));
+  ok('card DESTAQUE permanente em /jogos', destaqueOk);
+
+  // ---- 9. Banner destaque no LiveHub (outro jogo ativo) ----
+  await page.goto(`${BASE}/lives?game=wheel`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(9000);
+  const lhBanner = await page.evaluate(() => !!document.querySelector('[data-testid="livehub-destaque-mundo-aberto"]'));
+  ok('banner DESTAQUE no LiveHub (jogo permanente)', lhBanner);
 
   ok(`0 pageerrors (${label})`, errors.length === 0, errors.length ? `→ ${errors.slice(0, 3).join(' | ')}` : '');
   await ctx.close();

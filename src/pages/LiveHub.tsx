@@ -261,6 +261,18 @@ const LiveHub = () => {
   })), [t]);
   const [searchParams] = useSearchParams();
   const gameFromUrl = searchParams.get("game") as GameId | null;
+
+  // progresso do herói no MUNDO ABERTO GO — jogo permanente em destaque
+  const [owHero, setOwHero] = useState<{ name: string; level: number } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bateu_openworld_save");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.name && c?.level) setOwHero({ name: c.name, level: c.level });
+      }
+    } catch { /* noop */ }
+  }, []);
   const templateId = searchParams.get("template");
   const { user, role } = useAuth();
   const spinWheelManagerPath = getGameManagerPath(role, "spin-wheel");
@@ -662,21 +674,53 @@ const LiveHub = () => {
           onCategoryChange={(id) => setActive(id as GameId)}
         />
 
+        {/* ⭐ MUNDO ABERTO GO — banner destaque permanente */}
+        {active !== "mmorpg" && (
+          <motion.button
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+            onClick={() => setActive("mmorpg" as GameId)}
+            data-testid="livehub-destaque-mundo-aberto"
+            className="relative w-full overflow-hidden rounded-2xl mb-4 mt-3 text-left"
+            style={{ background: "linear-gradient(120deg, #064e3b 0%, #0f766e 45%, #164e63 100%)", border: "1px solid rgba(16,185,129,0.45)", boxShadow: "0 0 36px rgba(16,185,129,0.28)" }}
+          >
+            <motion.div className="absolute inset-0" style={{ background: "radial-gradient(circle at 12% 25%, rgba(255,255,255,0.16), transparent 50%), radial-gradient(circle at 88% 80%, rgba(250,204,21,0.22), transparent 45%)" }} animate={{ opacity: [0.5, 0.9, 0.5] }} transition={{ duration: 4, repeat: Infinity }} />
+            <div className="relative z-10 px-4 py-3.5 flex items-center gap-3">
+              <motion.span className="text-3xl" animate={{ y: [0, -3, 0] }} transition={{ duration: 2.2, repeat: Infinity }}>🌍</motion.span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-display text-base font-black text-white">MUNDO ABERTO GO</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[8px] font-black animate-pulse">DESTAQUE</span>
+                </div>
+                <p className="text-[10px] font-semibold text-white/80 truncate">
+                  {owHero ? <>Herói {owHero.name} · Nv {owHero.level} — continua a crescer!</> : "Cria o teu herói, sobe de nível e ganha prémios reais!"}
+                </p>
+              </div>
+              <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-[10px] font-black">JOGAR ▶</span>
+            </div>
+          </motion.button>
+        )}
+
         <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 mt-4">
           {GAMES.map((g) => {
             const isActive = active === g.id;
+            const featured = g.id === "mmorpg";
             return (
               <button
                 key={g.id}
                 onClick={() => setActive(g.id)}
-                className={`text-left rounded-2xl border-2 p-4 transition-all ${
-                  isActive ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+                className={`text-left rounded-2xl border-2 p-4 transition-all relative overflow-hidden ${
+                  isActive ? "border-primary bg-primary/5" : featured ? "border-emerald-500/60 bg-emerald-500/5 hover:border-emerald-400" : "border-border bg-card hover:border-primary/40"
                 }`}
+                style={featured ? { boxShadow: "0 0 22px rgba(16,185,129,0.22)" } : undefined}
               >
-                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2`}>
+                {featured && (
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-yellow-950 text-[8px] font-black animate-pulse">DESTAQUE</span>
+                )}
+                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2`} style={featured ? { boxShadow: "0 0 14px rgba(16,185,129,0.5)" } : undefined}>
                   <g.icon className="h-5 w-5 text-white" />
                 </div>
-                <p className="font-display text-sm font-bold mb-1">{g.label}</p>
+                <p className="font-display text-sm font-bold mb-1">{featured ? "🌍 MUNDO ABERTO GO" : g.label}</p>
                 <p className="text-[11px] text-muted-foreground line-clamp-2">{g.desc}</p>
               </button>
             );

@@ -228,7 +228,7 @@ const Navbar = () => {
         cta: t("nav.spotlight.cta.live"),
       },
       items: [
-        { label: "MMORPG Bateu", href: "/mmorpg", icon: Globe, desc: "Mundo persistente multiplayer — cria o teu heroi", badge: "NOVO" },
+        { label: "MUNDO ABERTO GO", href: "/mmorpg", icon: Globe, desc: "O jogo permanente da Bateu — sobe de nível no mapa real", badge: "DESTAQUE" },
         { label: t("nav.games"), href: "/jogos", icon: Gamepad2, desc: t("nav.games.desc"), badge: "Hot", trending: true },
         { label: t("nav.tournaments"), href: "/tournaments", icon: Swords, desc: t("nav.tournaments.desc"), badge: t("nav.badge.new") },
         { label: t("nav.livedraw"), href: "/lives-agora", icon: Radio, desc: t("nav.livedraw.desc"), live: true },
