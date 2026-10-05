@@ -17,6 +17,8 @@ import {
   OW_QUESTS, DEFAULT_POS,
   type OWChar, type OWEntity, type OWQuestDef,
 } from "./openworld/core";
+import { fetchReal, scopeForCell } from "./openworld/live";
+import { detectProvince, type RealEnt } from "./openworld/geo";
 
 interface Props {
   onScore?: (name: string, score: number) => void;
@@ -24,7 +26,7 @@ interface Props {
 }
 
 // ---------- dados ao vivo da plataforma ----------
-interface LiveRaffle { id: string; title: string; prize_title?: string; ticket_price?: number; image_url?: string; end_date?: string; total_tickets?: number; sold_tickets?: number }
+interface LiveRaffle { id: string; slug?: string; title: string; prize_title?: string; ticket_price?: number; image_url?: string; end_date?: string; total_tickets?: number; sold_tickets?: number }
 interface LiveContest { id: string; title: string; image_url?: string; status?: string }
 interface LiveTournament { id: string; name: string; prize_description?: string; prize_value?: number; currency?: string; end_date?: string }
 
@@ -62,7 +64,7 @@ export default function OpenWorldGame({ onScore }: Props) {
   const [pickClass, setPickClass] = useState("guerreiro");
 
   // HUD / modais
-  const [modal, setModal] = useState<null | "quests" | "sorteios" | "feira" | "arena" | "bestiario" | "perfil">(null);
+  const [modal, setModal] = useState<null | "quests" | "sorteios" | "feira" | "arena" | "bestiario" | "perfil" | "perto">(null);
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: number; msg: string }>>([]);
   const toastId = useRef(1);
@@ -91,6 +93,17 @@ export default function OpenWorldGame({ onScore }: Props) {
   const [liveContests, setLiveContests] = useState<LiveContest[]>([]);
   const [liveTours, setLiveTours] = useState<LiveTournament[]>([]);
   const [liveErr, setLiveErr] = useState<string | null>(null);
+
+  // entidades REAIS da plataforma no mapa (anúncios, sorteios, concursos, cupões)
+  const [realFixed, setRealFixed] = useState<RealEnt[]>([]);
+  const [realScope, setRealScope] = useState<RealEnt[]>([]);
+  const [realSheet, setRealSheet] = useState<RealEnt | null>(null);
+  const realFixedRef = useRef<RealEnt[]>([]);
+  realFixedRef.current = realFixed;
+  const realScopeRef = useRef<RealEnt[]>([]);
+  realScopeRef.current = realScope;
+  const realMarkers = useRef<Map<string, { m: L.Marker; ent: RealEnt }>>(new Map());
+  const openRealSheetRef = useRef<(e: RealEnt) => void>(() => { });
 
   const notify = useCallback((msg: string) => {
     const id = toastId.current++;
@@ -206,6 +219,38 @@ export default function OpenWorldGame({ onScore }: Props) {
     }
   }, []);
 
+  // ---------- marcadores de entidades REAIS da plataforma ----------
+  const refreshReal = useCallback(() => {
+    const map = mapRef.current;
+    const c = charRef.current;
+    if (!map || !c) return;
+    const wanted = new Map<string, RealEnt>();
+    // anúncios com coordenada real (até 2,5 km)
+    for (const e of realFixedRef.current) {
+      const d = haversineM(c.pos.lat, c.pos.lng, e.lat, e.lng);
+      if (d <= 2500) wanted.set(`fixed:${e.key}`, { ...e, key: `fixed:${e.key}` });
+    }
+    // nacionais/por província — colocados por célula (1-2 por célula, estável por dia)
+    for (const { cx, cy } of nearbyCells(c.pos.lat, c.pos.lng, 1)) {
+      for (const e of scopeForCell(cx, cy, realScopeRef.current)) {
+        wanted.set(e.key, e);
+      }
+    }
+    for (const [k, v] of realMarkers.current) {
+      if (!wanted.has(k)) { v.m.remove(); realMarkers.current.delete(k); }
+    }
+    for (const [k, e] of wanted) {
+      if (realMarkers.current.has(k)) continue;
+      const icon = L.divIcon({
+        html: `<div class="ow-ent ow-real" style="border-color:${e.color};box-shadow:0 0 12px ${e.color}88">${e.emoji}</div>`,
+        className: "ow-icon", iconSize: [40, 40], iconAnchor: [20, 20],
+      });
+      const mk = L.marker([e.lat, e.lng], { icon, zIndexOffset: 500 }).addTo(map);
+      mk.on("click", () => openRealSheetRef.current(e));
+      realMarkers.current.set(k, { m: mk, ent: e });
+    }
+  }, []);
+
   // ---------- interacção com entidade ----------
   const distTo = (e: OWEntity) => haversineM(posRef.current.lat, posRef.current.lng, e.lat, e.lng);
 
@@ -259,6 +304,47 @@ export default function OpenWorldGame({ onScore }: Props) {
 
   const interactRef = useRef(interact);
   interactRef.current = interact;
+
+  // ---------- entidades REAIS: ficha + recompensa de descoberta ----------
+  const openRealSheet = useCallback((e: RealEnt) => {
+    setModal(null);
+    setRealSheet(e);
+  }, []);
+  openRealSheetRef.current = openRealSheet;
+
+  const claimVisit = useCallback((e: RealEnt) => {
+    const c = charRef.current;
+    if (!c) return;
+    const stamp = `v:${e.key.split("@")[0]}`;
+    const now = Date.now();
+    if (c.loot[stamp] && c.loot[stamp] > now) { notify("✅ Já registaste esta oferta hoje — volta amanhã!"); return; }
+    const d = haversineM(posRef.current.lat, posRef.current.lng, e.lat, e.lng);
+    if (d > 300) { notify(`📍 Aproxima-te primeiro (estás a ${Math.round(d)}m)!`); return; }
+    setChar((ch) => (ch ? { ...ch, loot: { ...ch.loot, [stamp]: now + 24 * 3600_000 } } : ch));
+    gainRewards(10, 6);
+    notify(`${e.emoji} Descoberta registada: +10 ouro, +6 XP!`);
+  }, [gainRewards, notify]);
+
+  // ---------- fetch do conteúdo real (renova a cada 90s) ----------
+  useEffect(() => {
+    if (screen !== "game") return;
+    let alive = true;
+    const load = async () => {
+      const p = posRef.current;
+      const cap = detectProvince(p.lat, p.lng);
+      try {
+        const r = await fetchReal(p.lat, p.lng, cap?.slug || null);
+        if (!alive) return;
+        setRealFixed(r.fixed);
+        setRealScope(r.scoped);
+      } catch { /* sem rede — mantém os anteriores */ }
+    };
+    load();
+    const iv = window.setInterval(load, 90_000);
+    return () => { alive = false; window.clearInterval(iv); };
+  }, [screen]);
+
+  useEffect(() => { refreshReal(); }, [realFixed, realScope, refreshReal]);
 
   // ---------- batalha ----------
   const attack = useCallback(() => {
@@ -440,6 +526,8 @@ export default function OpenWorldGame({ onScore }: Props) {
       avatarRef.current = null;
       entMarkers.current.forEach((m) => m.remove());
       entMarkers.current.clear();
+      realMarkers.current.forEach((v) => v.m.remove());
+      realMarkers.current.clear();
       setMapReady(false);
     };
   }, [screen]);
@@ -461,7 +549,8 @@ export default function OpenWorldGame({ onScore }: Props) {
     }
     map.setView([char.pos.lat, char.pos.lng], map.getZoom(), { animate: true, duration: 0.35 });
     refreshEntities();
-  }, [char?.pos.lat, char?.pos.lng, char?.classId, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+    refreshReal();
+  }, [char?.pos.lat, char?.pos.lng, char?.classId, mapReady, refreshReal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GPS inicial se modo gps
   useEffect(() => {
@@ -476,7 +565,7 @@ export default function OpenWorldGame({ onScore }: Props) {
     try {
       if (kind === "sorteios") {
         const { data, error } = await (supabase as unknown as { from: (t: string) => any }).from("raffles")
-          .select("id,title,prize_title,ticket_price,image_url,end_date,total_tickets,sold_tickets")
+          .select("id,slug,title,prize_title,ticket_price,image_url,end_date,total_tickets,sold_tickets")
           .eq("status", "active").order("end_date", { ascending: true }).limit(6);
         if (error) throw error;
         setLiveRaffles((data || []) as LiveRaffle[]);
@@ -644,6 +733,7 @@ export default function OpenWorldGame({ onScore }: Props) {
       {/* dock inferior de atalhos */}
       <div className="absolute bottom-0 inset-x-0 z-[800] p-2 flex items-center justify-center gap-1.5 pointer-events-none">
         <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-2xl bg-black/75 border border-white/15 pointer-events-auto overflow-x-auto max-w-full">
+          <DockBtn emoji="📍" label="Perto" tid="dock-perto" onClick={() => setModal("perto")} />
           <DockBtn emoji="📜" label="Missões" tid="dock-quests" onClick={() => setModal("quests")} />
           <DockBtn emoji="🎁" label="Sorteios" tid="dock-sorteios" onClick={() => setModal("sorteios")} />
           <DockBtn emoji="🛒" label="Feira" tid="dock-feira" onClick={() => setModal("feira")} />
@@ -729,6 +819,7 @@ export default function OpenWorldGame({ onScore }: Props) {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-black text-white text-sm">
                   {modal === "quests" && "📜 Quadro de Missões de Hoje"}
+                  {modal === "perto" && "📍 Perto de ti — da plataforma"}
                   {modal === "sorteios" && "🎁 Mural de Sorteios — ao vivo"}
                   {modal === "feira" && "🛒 Feira de Vendas da Plataforma"}
                   {modal === "arena" && "🏆 Arena de Torneios"}
@@ -737,6 +828,37 @@ export default function OpenWorldGame({ onScore }: Props) {
                 </h3>
                 <button onClick={() => setModal(null)} data-testid="modal-close" className="p-1.5 rounded-lg bg-white/10 text-white"><X className="h-4 w-4" /></button>
               </div>
+
+              {modal === "perto" && (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-muted-foreground">Ofertas, sorteios, concursos e cupões REAIS da plataforma perto de ti. Toca para abrir a ficha.</p>
+                  {[...realFixed.map((e) => ({ e, d: haversineM(char.pos.lat, char.pos.lng, e.lat, e.lng) })),
+                    ...realScope.map((e) => ({ e, d: haversineM(char.pos.lat, char.pos.lng, e.lat, e.lng) }))]
+                    .sort((a, b) => a.d - b.d).slice(0, 12).map(({ e, d }) => (
+                      <button key={e.key} data-testid={`perto-${e.kind}`} onClick={() => openRealSheet(e)}
+                        className="w-full p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2 text-left active:scale-[0.99]">
+                        <div className="w-11 h-11 rounded-lg flex items-center justify-center text-xl overflow-hidden shrink-0" style={{ background: `${e.color}22`, border: `1px solid ${e.color}55` }}>
+                          {e.img ? <img src={e.img} alt="" className="w-full h-full object-cover" /> : e.emoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-black text-white truncate">{e.title}</div>
+                          <div className="text-[10px] font-bold truncate" style={{ color: e.color }}>{e.sub}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[10px] font-black text-white/80">{d < 1000 ? `${Math.round(d)}m` : `${(d / 1000).toFixed(1)}km`}</div>
+                          <ChevronRight className="h-3.5 w-3.5 text-white/40 inline" />
+                        </div>
+                      </button>
+                    ))}
+                  {realFixed.length === 0 && realScope.length === 0 && (
+                    <div className="p-3 rounded-xl bg-black/20 border border-white/10 text-center">
+                      <p className="text-[11px] text-white/80 font-bold">Ainda não há ofertas perto de ti.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Vende na Feira com localização no mapa, ou publica sorteios e concursos — aparecem aqui e no mapa do jogo!</p>
+                      <button onClick={() => navigate("/marketplace")} className="mt-2 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black">Abrir Sorteios</button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {modal === "quests" && (
                 <div className="space-y-2">
@@ -770,7 +892,7 @@ export default function OpenWorldGame({ onScore }: Props) {
                   {liveErr && <div className="p-2 rounded-lg bg-red-500/15 border border-red-400/30 text-[11px] text-red-200 flex items-center gap-1.5"><WifiOff className="h-3.5 w-3.5" /> {liveErr}</div>}
                   {liveRaffles.length === 0 && !liveErr && <p className="text-[11px] text-muted-foreground text-center py-3">A carregar sorteios reais…</p>}
                   {liveRaffles.map((r) => (
-                    <button key={r.id} onClick={() => navigate("/marketplace")} className="w-full p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2 text-left active:scale-[0.99]">
+                    <button key={r.id} onClick={() => navigate(`/raffle/${r.slug || r.id}`)} className="w-full p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2 text-left active:scale-[0.99]">
                       <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-amber-500/30 to-orange-600/30 flex items-center justify-center text-xl overflow-hidden shrink-0">
                         {r.image_url ? <img src={r.image_url} alt="" className="w-full h-full object-cover" /> : "🎁"}
                       </div>
@@ -792,7 +914,7 @@ export default function OpenWorldGame({ onScore }: Props) {
                   {liveErr && <div className="p-2 rounded-lg bg-red-500/15 border border-red-400/30 text-[11px] text-red-200"><WifiOff className="h-3.5 w-3.5 inline mr-1" />{liveErr}</div>}
                   {liveContests.length === 0 && !liveErr && <p className="text-[11px] text-muted-foreground text-center py-3">A carregar a feira…</p>}
                   {liveContests.map((ct) => (
-                    <button key={ct.id} onClick={() => navigate("/marketplace")} className="w-full p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2 text-left">
+                    <button key={ct.id} onClick={() => navigate(`/concursos/${ct.id}`)} className="w-full p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-center gap-2 text-left">
                       <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-fuchsia-500/30 to-purple-600/30 flex items-center justify-center text-xl overflow-hidden shrink-0">
                         {ct.image_url ? <img src={ct.image_url} alt="" className="w-full h-full object-cover" /> : "🖼️"}
                       </div>
@@ -895,6 +1017,49 @@ export default function OpenWorldGame({ onScore }: Props) {
             </motion.div>
           </motion.div>
         )}
+
+        {realSheet && (
+          <motion.div key="real" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[1000] bg-black/70 flex items-end sm:items-center justify-center p-3"
+            onClick={(e) => { if (e.target === e.currentTarget) setRealSheet(null); }}>
+            <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
+              className="w-full max-w-md rounded-2xl bg-[#101830] border border-white/15 overflow-hidden shadow-2xl" data-testid="real-sheet">
+              <div className="h-28 relative shrink-0" style={{ background: `linear-gradient(135deg, ${realSheet.color}44, rgba(16,24,48,0.9))` }}>
+                {realSheet.img ? <img src={realSheet.img} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center text-5xl">{realSheet.emoji}</div>}
+                <button onClick={() => setRealSheet(null)} data-testid="real-close" className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white"><X className="h-4 w-4" /></button>
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black text-black" style={{ background: realSheet.color }}>
+                  {realSheet.kind === "listing" ? "FEIRA · À VENDA" : realSheet.kind === "raffle" ? "SORTEIO REAL" : realSheet.kind === "contest" ? "CONCURSO REAL" : "CUPÃO DE DESCONTO"}
+                </span>
+              </div>
+              <div className="p-4 space-y-2">
+                <div className="font-black text-white text-base leading-tight">{realSheet.title}</div>
+                <div className="text-[12px] font-bold" style={{ color: realSheet.color }}>{realSheet.sub}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  📍 {(() => {
+                    const d = haversineM(posRef.current.lat, posRef.current.lng, realSheet.lat, realSheet.lng);
+                    return d < 1000 ? `${Math.round(d)}m de ti` : `${(d / 1000).toFixed(1)}km de ti`;
+                  })()}
+                </div>
+                {realSheet.kind === "coupon" && realSheet.code && (
+                  <button onClick={() => { try { navigator.clipboard?.writeText(realSheet.code!); notify("📋 Código copiado!"); } catch { /* noop */ } }}
+                    className="w-full py-2.5 rounded-xl border-2 border-dashed border-purple-400/60 text-purple-200 font-black tracking-widest text-sm active:scale-[0.99]">
+                    {realSheet.code} · TOCA PARA COPIAR
+                  </button>
+                )}
+                <button onClick={() => navigate(realSheet.to)} data-testid="real-open"
+                  className="w-full py-3 rounded-xl text-white font-black text-sm shadow-lg active:scale-[0.99]"
+                  style={{ background: `linear-gradient(90deg, ${realSheet.color}, ${realSheet.color}cc)` }}>
+                  {realSheet.kind === "listing" ? "🛒 Ver na Feira →" : realSheet.kind === "raffle" ? "🎟️ Participar no Sorteio →" : realSheet.kind === "contest" ? "🏆 Participar no Concurso →" : "🎟️ Usar nos Sorteios →"}
+                </button>
+                <button onClick={() => claimVisit(realSheet)} data-testid="real-visit"
+                  className="w-full py-2 rounded-xl bg-white/10 border border-white/15 text-white font-black text-[11px]">
+                  👀 Marcar visita (+10 ouro, +6 XP)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* estilos do jogo */}
@@ -904,6 +1069,8 @@ export default function OpenWorldGame({ onScore }: Props) {
           display: flex; align-items: center; justify-content: center; font-size: 17px; }
         .ow-portal { animation: owspin 4s linear infinite; }
         @keyframes owspin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+        .ow-real { animation: owreal 2.2s ease-in-out infinite; }
+        @keyframes owreal { 0%,100% { transform: scale(1);} 50% { transform: scale(1.14);} }
         .ow-avatar { width: 100%; height: 100%; border-radius: 9999px; border: 2.5px solid var(--owc, #22c55e);
           background: rgba(10,14,28,0.9); display: flex; align-items: center; justify-content: center;
           font-size: 20px; box-shadow: 0 0 0 3px rgba(255,255,255,0.08), 0 0 16px var(--owc, #22c55e);

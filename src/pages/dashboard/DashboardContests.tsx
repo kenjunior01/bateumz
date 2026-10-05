@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trophy, Trash2, Check, X, Eye, ThumbsUp, Video, Users, Calendar, ArrowLeft, ArrowRight, Sparkles, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CONTEST_CATEGORIES, getCategory, PHASE_TEMPLATES } from "@/lib/contestCategories";
+import { getRegions } from "@/lib/regions";
 import ImageUploadField from "@/components/ImageUploadField";
 
 interface Contest {
@@ -65,6 +66,7 @@ const initialForm = {
   phases: [] as { name: string; description: string; durationDays: number; type: string }[],
   sponsor_name: "", sponsor_logo_url: "",
   entry_fee: 0, max_participants: "",
+  map_scope: "nacional" as "nacional" | "provincia", province: "",
 };
 
 export default function DashboardContests() {
@@ -144,13 +146,21 @@ export default function DashboardContests() {
       sponsor_logo_url: form.sponsor_logo_url || null,
       entry_fee: form.entry_fee || 0,
       max_participants: form.max_participants ? parseInt(form.max_participants as string) : null,
+      map_scope: form.map_scope,
+      province: form.map_scope === "provincia" ? (form.province || null) : null,
     };
     try {
       if (editContest) {
-        await supabase.from("contests").update(payload).eq("id", editContest.id);
+        await supabase.from("contests").update(payload as any).eq("id", editContest.id);
         toast({ title: "Concurso atualizado!" });
       } else {
-        await supabase.from("contests").insert({ ...payload, created_by: user.id });
+        let ins = await supabase.from("contests").insert({ ...payload, created_by: user.id } as any);
+        if (ins.error) {
+          // fallback: BD ainda sem map_scope (migração 20261004 pendente)
+          const { map_scope: _m, province: _p, ...rest } = payload as any;
+          ins = await supabase.from("contests").insert({ ...rest, created_by: user.id } as any);
+        }
+        if (ins.error) throw ins.error;
         toast({ title: "Concurso criado!", description: "Está disponível na secção /concursos" });
       }
       setShowCreate(false);
@@ -204,6 +214,8 @@ export default function DashboardContests() {
       sponsor_logo_url: (c as any).sponsor_logo_url || "",
       entry_fee: (c as any).entry_fee || 0,
       max_participants: (c as any).max_participants?.toString() || "",
+      map_scope: ((c as any).map_scope === "provincia" ? "provincia" : "nacional") as "nacional" | "provincia",
+      province: (c as any).province || "",
     });
     setStep("details");
     setShowCreate(true);
@@ -426,6 +438,31 @@ export default function DashboardContests() {
                     <div className="grid grid-cols-2 gap-3">
                       <div><Label className="text-xs">Taxa de inscrição (MZN)</Label><Input type="number" min={0} value={form.entry_fee} onChange={(e) => setForm({ ...form, entry_fee: parseFloat(e.target.value) || 0 })} /></div>
                       <div><Label className="text-xs">Máx. participantes</Label><Input type="number" min={0} placeholder="Ilimitado" value={form.max_participants} onChange={(e) => setForm({ ...form, max_participants: e.target.value })} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Âmbito no Mundo Aberto GO 🎮</Label>
+                        <Select value={form.map_scope} onValueChange={(v) => setForm((f) => ({ ...f, map_scope: v as "nacional" | "provincia", province: "" }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="nacional">🌍 Todo o país</SelectItem>
+                            <SelectItem value="provincia">📍 Uma província</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Província {form.map_scope === "provincia" ? "*" : "(não aplicável)"}</Label>
+                        <Select value={form.province || "_none"} disabled={form.map_scope !== "provincia"}
+                          onValueChange={(v) => setForm((f) => ({ ...f, province: v === "_none" ? "" : v }))}>
+                          <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">—</SelectItem>
+                            {[...getRegions("MZ").map((p) => ({ v: p.value, l: `🇲🇿 ${p.label}` })), ...getRegions("AO").map((p) => ({ v: p.value, l: `🇦🇴 ${p.label}` }))].map((p) => (
+                              <SelectItem key={p.v} value={p.v}>{p.l}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 

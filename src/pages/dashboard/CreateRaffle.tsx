@@ -36,6 +36,7 @@ export default function CreateRaffle() {
     province: "",
     city: "",
     draw_mode: "manual" as "manual" | "auto_sold_out",
+    map_scope: "nacional" as "nacional" | "provincia",
     hide_prize_value: false,
     auto_draw_days: "",
     tickets_threshold: "",
@@ -85,6 +86,10 @@ export default function CreateRaffle() {
       toast.error("Defina o número de dias para o sorteio automático.");
       return;
     }
+    if (form.map_scope === "provincia" && !form.province) {
+      toast.error("Escolhe a província do sorteio (âmbito provincial).");
+      return;
+    }
     setSaving(true);
 
     let imageUrl: string | null = null;
@@ -92,7 +97,7 @@ export default function CreateRaffle() {
 
     const thresholdValue = form.tickets_threshold ? Number(form.tickets_threshold) : null;
 
-    const { error } = await supabase.from("raffles").insert({
+    const payload: Record<string, unknown> = {
       business_user_id: user.id,
       title: form.title,
       description: form.description || null,
@@ -108,6 +113,7 @@ export default function CreateRaffle() {
       points_cost: form.raffle_type === "points" ? Number(form.points_cost) || 0 : 0,
       province: form.province || null,
       city: form.city || null,
+      map_scope: form.map_scope,
       draw_mode: form.draw_mode,
       hide_prize_value: form.hide_prize_value,
       auto_draw_days: form.draw_mode === "auto_sold_out" ? Number(form.auto_draw_days) || 1 : null,
@@ -115,7 +121,14 @@ export default function CreateRaffle() {
       social_actions: form.raffle_type === "social" ? form.social_actions : [],
       max_winners: Number(form.max_winners) || 1,
       max_tickets_per_user: form.max_tickets_per_user ? Number(form.max_tickets_per_user) : null,
-    } as any);
+    };
+    let { error } = await supabase.from("raffles").insert(payload as any);
+    if (error) {
+      // fallback: BD ainda sem a coluna map_scope (migração 20261004 pendente)
+      const { map_scope: _ignored, ...rest } = payload;
+      const retry = await supabase.from("raffles").insert(rest as any);
+      error = retry.error;
+    }
     setSaving(false);
     if (error) { toast.error("Erro ao criar sorteio: " + error.message); return; }
     toast.success("Sorteio criado! Aguarde a aprovação do administrador.");
@@ -468,6 +481,20 @@ export default function CreateRaffle() {
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Localização (Opcional)</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">Restrinja o sorteio a um país, região ou cidade específica</p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Âmbito no Mundo Aberto GO 🎮</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setForm({ ...form, map_scope: "nacional" })}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${form.map_scope === "nacional" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary/50"}`}>
+                  🌍 Todo o país
+                </button>
+                <button type="button" onClick={() => setForm({ ...form, map_scope: "provincia" })}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${form.map_scope === "provincia" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary/50"}`}>
+                  📍 Uma província
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">Com “Todo o país” o sorteio aparece no mapa do jogo para todos os jogadores; com “Uma província”, só para quem estiver nessa província.</p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">País</label>

@@ -750,8 +750,8 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
   const updateMining = useCallback((dt: number) => {
     const pickMult = PICKS[saveRef.current.pick]?.mult ?? 1;
     let target: { x: number; y: number } | null = null;
-    if (actRef.pointer && aimRef.current && reachOf(aimRef.current.x, aimRef.current.y)) target = aimRef.current;
-    else if (actRef.mine) { const fc = frontCell(); if (fc && reachOf(fc.x, fc.y)) target = fc; }
+    if (actRef.current.pointer && aimRef.current && reachOf(aimRef.current.x, aimRef.current.y)) target = aimRef.current;
+    else if (actRef.current.mine) { const fc = frontCell(); if (fc && reachOf(fc.x, fc.y)) target = fc; }
 
     if (!target) { mineRef.current = null; return; }
     const b = getBlock(target.x, target.y);
@@ -1060,7 +1060,7 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       }
     }
     // contorno do alvo
-    const aimNow = (actRef.pointer || actRef.mine) ? (actRef.pointer && aimRef.current ? aimRef.current : frontCell()) : (aimRef.current);
+    const aimNow = (actRef.current.pointer || actRef.current.mine) ? (actRef.current.pointer && aimRef.current ? aimRef.current : frontCell()) : (aimRef.current);
     if (aimNow && reachOf(aimNow.x, aimNow.y)) {
       ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 2;
       ctx.strokeRect(Math.round(sx(aimNow.x)) + 1, Math.round(sy(aimNow.y)) + 1, TILE - 2, TILE - 2);
@@ -1390,12 +1390,12 @@ export default function VoxelWorld({ playerName, classColor, level, atk, onRewar
       if (hitMob) { doAttack(); return; }
       const cell = { x: Math.floor(wx), y: Math.floor(wy) };
       aimRef.current = cell;
-      actRef.pointer = true;
+      actRef.current.pointer = true;
     } else if (phase === "move") {
-      if (actRef.pointer) aimRef.current = { x: Math.floor(wx), y: Math.floor(wy) };
+      if (actRef.current.pointer) aimRef.current = { x: Math.floor(wx), y: Math.floor(wy) };
       else aimRef.current = { x: Math.floor(wx), y: Math.floor(wy) };
     } else {
-      actRef.pointer = false;
+      actRef.current.pointer = false;
       aimRef.current = null;
     }
   }, [doAttack]);

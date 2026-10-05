@@ -112,8 +112,8 @@ async function testViewport(browser, label, viewport, isTouch) {
   // ---- 4. HUD ----
   const hudTxt = await page.evaluate(() => document.body.innerText);
   ok('HUD presente (ouro/bilhetes/nível)', /Nível 1/.test(hudTxt) && /ExploraMZ|Ouro|Bilhete/i.test(hudTxt));
-  ok('dock de atalhos (Missões/Sorteios/Feira/Arena/Bestiário)',
-    /Missões/i.test(hudTxt) && /Sorteios/i.test(hudTxt) && /Feira/i.test(hudTxt) && /Arena/i.test(hudTxt) && /Bestiário/i.test(hudTxt));
+  ok('dock de atalhos (Perto/Missões/Sorteios/Feira/Arena/Bestiário)',
+    /Missões/i.test(hudTxt) && /Sorteios/i.test(hudTxt) && /Feira/i.test(hudTxt) && /Arena/i.test(hudTxt) && /Bestiário/i.test(hudTxt) && /Perto/i.test(hudTxt));
   const exploradorOk = await page.evaluate(() => /Explorador/i.test(document.body.innerText) && !!document.querySelector('.ow-avatar'));
   ok('modo Explorador (joystick) ativo por omissão', exploradorOk);
 
@@ -305,6 +305,31 @@ async function testViewport(browser, label, viewport, isTouch) {
     ok('Painel do Aventureiro abre', /Painel do Aventureiro/i.test(pTxt) && /ExploraMZ/i.test(pTxt));
     await closePanel();
   } else ok('Painel do Aventureiro abre', false, '(botão não encontrado)');
+
+  // ---- 7.5 Entidades REAIS da plataforma (Perto de ti + ficha + CTA) ----
+  await openDock('dock-perto');
+  await page.waitForTimeout(2200);
+  const perTxt = await page.evaluate(() => document.body.innerText);
+  ok('Painel Perto de ti abre', /Perto de ti/i.test(perTxt));
+  const realCount = await page.evaluate(() => document.querySelectorAll('[data-testid^="perto-"]').length);
+  ok('conteúdo real da plataforma (itens ou vazio amigável)', realCount > 0 || /Ainda não há ofertas/i.test(perTxt), `(${realCount} itens)`);
+  if (realCount > 0) {
+    await page.evaluate(() => document.querySelector('[data-testid^="perto-"]')?.click());
+    await page.waitForTimeout(1300);
+    const sheetOk = await page.evaluate(() => {
+      const t = (document.body.innerText || '').replace(/\n/g, ' ');
+      return /FEIRA · À VENDA|SORTEIO REAL|CONCURSO REAL|CUPÃO DE DESCONTO/.test(t) && !!document.querySelector('[data-testid="real-open"]');
+    });
+    ok('ficha de entidade real abre (selo + CTA)', sheetOk);
+    const ctaTxt = await page.evaluate(() => document.querySelector('[data-testid="real-open"]')?.innerText || '');
+    ok('CTA aponta para a plataforma', /Feira|Sorteio|Concurso|Cup|Sorteios/i.test(ctaTxt), `("${ctaTxt.trim().slice(0, 30)}")`);
+    await page.evaluate(() => document.querySelector('[data-testid="real-open"]')?.click());
+    await page.waitForTimeout(2600);
+    const navUrl = page.url();
+    ok('CTA navega para a plataforma', /marketplace|raffle|concursos|prestacoes|alienacao/.test(navUrl), `→ ${navUrl.slice(-42)}`);
+  } else {
+    await closePanel();
+  }
 
   // ---- 8. /jogos com o novo nome ----
   await page.goto(`${BASE}/jogos`, { waitUntil: 'domcontentloaded' });

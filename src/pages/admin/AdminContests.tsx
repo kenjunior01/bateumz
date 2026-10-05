@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trophy, Trash2, Check, X, Eye, ThumbsUp, Video } from "lucide-react";
 import ImageUploadField from "@/components/ImageUploadField";
+import { getRegions } from "@/lib/regions";
 import { motion } from "framer-motion";
 
 interface Contest {
@@ -61,6 +62,8 @@ export default function AdminContests() {
     title: "", description: "", prize_description: "", image_url: "",
     status: "draft", evaluation_type: "votes", start_date: "", end_date: "",
     max_submissions_per_user: 1,
+    map_scope: "nacional" as "nacional" | "provincia",
+    province: "",
   });
 
   const loadContests = async () => {
@@ -77,7 +80,7 @@ export default function AdminContests() {
 
   useEffect(() => { loadContests(); }, []);
 
-  const resetForm = () => setForm({ title: "", description: "", prize_description: "", image_url: "", status: "draft", evaluation_type: "votes", start_date: "", end_date: "", max_submissions_per_user: 1 });
+  const resetForm = () => setForm({ title: "", description: "", prize_description: "", image_url: "", status: "draft", evaluation_type: "votes", start_date: "", end_date: "", max_submissions_per_user: 1, map_scope: "nacional", province: "" });
 
   const handleSave = async () => {
     if (!user || !form.title.trim()) return;
@@ -88,15 +91,24 @@ export default function AdminContests() {
           image_url: form.image_url || null, status: form.status, evaluation_type: form.evaluation_type,
           start_date: form.start_date || null, end_date: form.end_date || null,
           max_submissions_per_user: form.max_submissions_per_user,
-        }).eq("id", editContest.id);
+          map_scope: form.map_scope, province: form.map_scope === "provincia" ? (form.province || null) : null,
+        } as any).eq("id", editContest.id);
         toast({ title: "Concurso atualizado!" });
       } else {
-        await supabase.from("contests").insert({
+        const payload: Record<string, unknown> = {
           title: form.title, description: form.description || null, prize_description: form.prize_description || null,
           image_url: form.image_url || null, status: form.status, evaluation_type: form.evaluation_type,
           start_date: form.start_date || null, end_date: form.end_date || null,
           max_submissions_per_user: form.max_submissions_per_user, created_by: user.id,
-        });
+          map_scope: form.map_scope, province: form.map_scope === "provincia" ? (form.province || null) : null,
+        };
+        let ins = await supabase.from("contests").insert(payload as any);
+        if (ins.error) {
+          // fallback: BD ainda sem map_scope (migração 20261004 pendente)
+          const { map_scope: _m, province: _p, ...rest } = payload;
+          ins = await supabase.from("contests").insert(rest as any);
+        }
+        if (ins.error) throw ins.error;
         toast({ title: "Concurso criado!" });
       }
       setShowCreate(false);
@@ -134,6 +146,8 @@ export default function AdminContests() {
       image_url: c.image_url || "", status: c.status, evaluation_type: c.evaluation_type,
       start_date: c.start_date?.slice(0, 16) || "", end_date: c.end_date?.slice(0, 16) || "",
       max_submissions_per_user: c.max_submissions_per_user,
+      map_scope: ((c as any).map_scope === "provincia" ? "provincia" : "nacional") as "nacional" | "provincia",
+      province: (c as any).province || "",
     });
     setShowCreate(true);
   };
@@ -183,6 +197,33 @@ export default function AdminContests() {
                     <SelectContent>
                       <SelectItem value="votes">Votos</SelectItem>
                       <SelectItem value="views">Visualizações de Vídeo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Âmbito no Mundo Aberto GO 🎮</Label>
+                  <Select value={form.map_scope} onValueChange={(v) => setForm({ ...form, map_scope: v as "nacional" | "provincia", province: "" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nacional">🌍 Todo o país</SelectItem>
+                      <SelectItem value="provincia">📍 Uma província</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Província {form.map_scope === "provincia" ? "*" : "(não aplicável)"}</Label>
+                  <Select
+                    value={form.province || "_none"}
+                    disabled={form.map_scope !== "provincia"}
+                    onValueChange={(v) => setForm({ ...form, province: v === "_none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">—</SelectItem>
+                      {[...getRegions("MZ").map((p) => ({ v: p.value, l: `🇲🇿 ${p.label}` })), ...getRegions("AO").map((p) => ({ v: p.value, l: `🇦🇴 ${p.label}` }))].map((p) => (
+                        <SelectItem key={p.v} value={p.v}>{p.l}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

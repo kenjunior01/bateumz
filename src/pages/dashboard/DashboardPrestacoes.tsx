@@ -38,7 +38,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { PROVINCES } from "@/lib/provinces";
+import { getRegions } from "@/lib/regions";
+import MapLocationPicker from "@/components/MapLocationPicker";
 import { toast } from "sonner";
 import {
   CATEGORY_DEFAULTS,
@@ -61,6 +62,8 @@ type Product = {
   images: string[];
   province: string | null;
   city: string | null;
+  lat?: number | null;
+  lng?: number | null;
   brand: string | null;
   model: string | null;
   year: number | null;
@@ -100,6 +103,8 @@ type FormState = {
   images: string;
   province: string;
   city: string;
+  lat: number | null;
+  lng: number | null;
   brand: string;
   model: string;
   year: string;
@@ -122,6 +127,8 @@ function emptyForm(category: PrestacaoCategory = "outros"): FormState {
     images: "",
     province: "",
     city: "",
+    lat: null,
+    lng: null,
     brand: "",
     model: "",
     year: "",
@@ -200,6 +207,8 @@ export default function DashboardPrestacoes() {
       images: (p.images ?? []).join("\n"),
       province: p.province ?? "",
       city: p.city ?? "",
+      lat: p.lat ?? null,
+      lng: p.lng ?? null,
       brand: p.brand ?? "",
       model: p.model ?? "",
       year: p.year ? String(p.year) : "",
@@ -249,6 +258,8 @@ export default function DashboardPrestacoes() {
       description: parsed.data.description || null,
       province: parsed.data.province || null,
       city: parsed.data.city || null,
+      lat: form.lat,
+      lng: form.lng,
       brand: parsed.data.brand || null,
       model: parsed.data.model || null,
       business_user_id: user.id,
@@ -568,7 +579,7 @@ export default function DashboardPrestacoes() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none">—</SelectItem>
-                      {PROVINCES.map((p) => (
+                      {(getRegions("MZ").length ? getRegions("MZ") : []).map((p) => (
                         <SelectItem key={p.value} value={p.label}>
                           {p.label}
                         </SelectItem>
@@ -582,6 +593,16 @@ export default function DashboardPrestacoes() {
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Localização no mapa (aparece no Mundo Aberto GO)</Label>
+                  <div className="mt-1.5">
+                    <MapLocationPicker
+                      lat={form.lat}
+                      lng={form.lng}
+                      onChange={(v) => setForm({ ...form, lat: v?.lat ?? null, lng: v?.lng ?? null })}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label>Marca</Label>

@@ -51,6 +51,7 @@ import {
 } from "@/lib/alienacao";
 import { ImagePlus, X as XIcon } from "lucide-react";
 import { uploadImageToBucket } from "@/components/ImageUploadField";
+import MapLocationPicker from "@/components/MapLocationPicker";
 import type { AlienacaoCategory, AlienacaoModality, AlienacaoStatus } from "@/lib/alienacao";
 
 type Asset = {
@@ -69,6 +70,8 @@ type Asset = {
   images: string[];
   province: string | null;
   city: string | null;
+  lat?: number | null;
+  lng?: number | null;
   condition: string;
   brand: string | null;
   model: string | null;
@@ -116,6 +119,8 @@ const emptyForm = (category: AlienacaoCategory = "viaturas"): FormState => ({
   images: [],
   province: "",
   city: "",
+  lat: null,
+  lng: null,
   condition: "usado",
   brand: "",
   model: "",
@@ -144,6 +149,8 @@ type FormState = {
   images: string[];
   province: string;
   city: string;
+  lat: number | null;
+  lng: number | null;
   condition: string;
   brand: string;
   model: string;
@@ -214,6 +221,8 @@ const DashboardAlienacao = () => {
       images: a.images || [],
       province: a.province || "",
       city: a.city || "",
+      lat: a.lat ?? null,
+      lng: a.lng ?? null,
       condition: a.condition,
       brand: a.brand || "",
       model: a.model || "",
@@ -256,6 +265,8 @@ const DashboardAlienacao = () => {
         images: form.images,
         province: form.province.trim() || null,
         city: form.city.trim() || null,
+        lat: form.lat,
+        lng: form.lng,
         condition: form.condition,
         brand: form.brand.trim() || null,
         model: form.model.trim() || null,
@@ -600,6 +611,16 @@ const DashboardAlienacao = () => {
               <div>
                 <Label>Província</Label>
                 <Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Localização no mapa (aparece no Mundo Aberto GO)</Label>
+                <div className="mt-1.5">
+                  <MapLocationPicker
+                    lat={form.lat}
+                    lng={form.lng}
+                    onChange={(v) => setForm({ ...form, lat: v?.lat ?? null, lng: v?.lng ?? null })}
+                  />
+                </div>
               </div>
               <div>
                 <Label>Garantia (meses)</Label>
