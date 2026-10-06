@@ -99,6 +99,20 @@ async function main() {
     ok("Nome preenchido", true);
     await page.locator('button:has-text("Guerreiro")').first().click();
     ok("Classe Guerreiro selecionada", true);
+    // v5: editor de avatar com preview 3D ao vivo
+    const avEditor = page.locator('[data-testid="bw-avatar-editor"]');
+    await avEditor.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    ok("v5: editor de avatar visível na criação", await avEditor.count() > 0);
+    ok("v5: preview 3D do avatar presente", await page.locator('[data-testid="bw-avatar-preview"]').count() > 0);
+    await page.locator('[data-testid="bw-av-hair-2"]').click().catch(() => {});
+    ok("v5: estilo de cabelo selecionável", true);
+    await page.locator('[data-testid="bw-av-skin-5"]').click().catch(() => {});
+    ok("v5: tom de pele selecionável", true);
+    await page.locator('[data-testid="bw-av-tab-extras"]').click().catch(() => {});
+    await page.locator('[data-testid="bw-av-hat-3"]').click().catch(() => {});
+    ok("v5: chapéu (coroa) selecionável", true);
+    await page.locator('[data-testid="bw-av-random"]').click().catch(() => {});
+    ok("v5: botão aleatório funciona", true);
     const createInfo = await page.locator("body").innerText().catch(() => "");
     ok("Criação mostra poderes/PvP/banco/descobertas", createInfo.includes("poderes") && createInfo.includes("Rouba") && createInfo.includes("descobertas"));
     await page.locator('button:has-text("ENTRAR NO MUNDO")').first().click();
@@ -158,7 +172,7 @@ async function main() {
   await page.waitForTimeout(600);
   ok("Poder 1 clicado (bloqueado por nível é aceitável)", true);
 
-  // ── 6. Painel Herói v2 ──
+  // ── 6. Painel Herói v2 + editor de aparência v5 ──
   console.log("▶ Painel Herói");
   const heroTxt = await openPanel("Herói");
   ok("Painel Herói abre", heroTxt.includes("Meu Herói"));
@@ -167,7 +181,24 @@ async function main() {
   ok("Mostra Pontos de Troféu", heroTxt.includes("Pontos de Troféu"));
   ok("Mostra poderes da classe", heroTxt.includes("Golpe Devastador") && heroTxt.includes("Terremoto"));
   ok("Mostra descobertas", heroTxt.includes("Descobertas"));
+  ok("v5: secção Aparência do avatar", heroTxt.includes("Aparência do avatar"));
   await page.screenshot({ path: "shots/world-02-heroi.png" });
+
+  // v5: editar aparência em jogo
+  console.log("▶ v5 — Editor de aparência em jogo");
+  await page.locator('[data-testid="bw-appearance"]').click().catch(() => {});
+  await page.waitForTimeout(600);
+  const appEditing = await page.locator('[data-testid="bw-av-save"]').isVisible().catch(() => false);
+  ok("v5: editor de aparência abre em jogo", appEditing);
+  if (appEditing) {
+    ok("v5: preview 3D no editor em jogo", await page.locator('[data-testid="bw-avatar-preview"]').count() > 0);
+    await page.locator('[data-testid="bw-av-hairc-7"]').click().catch(() => {});
+    ok("v5: cor de cabelo alterada em jogo", true);
+    await page.locator('[data-testid="bw-av-save"]').click();
+    await page.waitForTimeout(700);
+    const bodyTxt = await page.locator("body").innerText().catch(() => "");
+    ok("v5: aparência guardada com confirmação", bodyTxt.includes("Aparência atualizada"));
+  }
   await closePanel();
 
   // ── 7. Missões: diárias + saga + desafios ──

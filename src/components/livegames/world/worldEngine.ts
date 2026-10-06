@@ -8,6 +8,9 @@
 // qualidade adaptativa, loot com raridades, pet companheiro,
 // ARENA DAS ONDAS (sobrevivência), combo de mortes, estrelas
 // cadentes, paleta de pôr-do-sol e modo foto.
+// v5: AVATARES articulados e customizáveis (pele, cabelo,
+// traje, capa, chapéu) com preview 3D, animação de caminhada,
+// aparência sincronizada entre jogadores e emotes visuais.
 // ============================================================
 
 import * as THREE from "three";
@@ -18,6 +21,10 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { supabase } from "@/integrations/supabase/client";
 import { worldAudio } from "./worldAudio";
+import {
+  buildAvatar, animateAvatar, defaultAvatar, avatarKey, parseAvatarKey,
+  type AvatarConfig, type AvatarParts,
+} from "./avatar";
 
 export interface EngineStats {
   atk: number;
@@ -31,6 +38,7 @@ export interface EngineOpts {
   level: number;
   uid: string;
   stats: EngineStats;
+  avatar?: AvatarConfig;
   onEvent: (ev: { type: string; [k: string]: any }) => void;
 }
 
@@ -198,6 +206,12 @@ interface RemotePlayer {
   hp: number;
   maxHp: number;
   shield: boolean;
+  // v5: avatar customizável do outro jogador
+  parts: AvatarParts | null;
+  walkT: number;
+  avKey: string;
+  emoteSpr: THREE.Sprite | null;
+  emoteUntil: number;
 }
 
 interface Projectile {
@@ -429,6 +443,10 @@ export class WorldEngine {
   // v3 — herói (arma/capa/aura)
   private weaponPivot: THREE.Group | null = null;
   private capeMesh: THREE.Mesh | null = null;
+  // v5: avatar articulado do jogador
+  private avParts: AvatarParts | null = null;
+  private avCfg: AvatarConfig = defaultAvatar(0);
+  private avKey = "";
   private swingT = 0;             // 0..1 animação de golpe
   private landSquash = 0;
   private classAura!: THREE.PointLight;
@@ -505,6 +523,9 @@ export class WorldEngine {
     this.buildLandmarks();
     this.buildArena();
     this.buildNature();
+    // v5: configuração do avatar antes de construir o corpo
+    if (this.opts.avatar) this.avCfg = this.opts.avatar;
+    this.avKey = avatarKey(this.avCfg);
     this.buildPlayer();
     this.buildMobs();
     this.buildNet();
@@ -1335,85 +1356,19 @@ export class WorldEngine {
   // ── Jogador ─────────────────────────────────────────────────
 
   private buildPlayer(): void {
-    const g = new THREE.Group();
+    // ── v5: avatar humanoide articulado e customizável ──
     const color = CLASS_COLORS[this.opts.classId] ?? 0xef4444;
-    const body = new THREE.Mesh(this.geoBody, new THREE.MeshLambertMaterial({ color }));
-    body.position.y = 1.05;
-    body.name = "body";
-    const head = new THREE.Mesh(this.geoHead, new THREE.MeshLambertMaterial({ color: 0xf5d0a9 }));
-    head.position.y = 1.95;
-    const visor = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.09, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0x111827 })
-    );
-    visor.position.set(0, 2.0, 0.28);
-
-    // ── v3: arma da classe (pivot no ombro direito) ──
-    const pivot = new THREE.Group();
-    pivot.position.set(0.42, 1.55, 0.1);
-    const wMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
-    const hMat = new THREE.MeshLambertMaterial({ color: 0x7c4a21 });
-    const cls = this.opts.classId;
-    if (cls === 0) {
-      // Espada
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.95, 0.03), wMat);
-      blade.position.y = 0.55;
-      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.06), new THREE.MeshLambertMaterial({ color: 0xfbbf24 }));
-      guard.position.y = 0.12;
-      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.24, 6), hMat);
-      grip.position.y = -0.02;
-      pivot.add(blade, guard, grip);
-    } else if (cls === 1) {
-      // Cajado com orbe
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.15, 6), hMat);
-      shaft.position.y = 0.5;
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshBasicMaterial({ color: 0xa78bfa }));
-      orb.position.y = 1.12;
-      pivot.add(shaft, orb);
-    } else if (cls === 2) {
-      // Arco
-      const bow = new THREE.Mesh(
-        new THREE.TorusGeometry(0.42, 0.035, 6, 14, Math.PI),
-        new THREE.MeshLambertMaterial({ color: 0x8b5e3c })
-      );
-      bow.rotation.z = -Math.PI / 2;
-      bow.rotation.y = Math.PI / 2;
-      pivot.add(bow);
-      const str = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 4), new THREE.MeshBasicMaterial({ color: 0xe5e7eb }));
-      str.position.set(0, 0.02, 0);
-      pivot.add(str);
-    } else {
-      // Tótém de cura
-      const totem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0x0d9488 }));
-      totem.position.y = 0.35;
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), new THREE.MeshBasicMaterial({ color: 0x6ee7b7 }));
-      gem.position.y = 0.82;
-      pivot.add(totem, gem);
-    }
-    // ombro esquerdo em espelho
-    const pivotL = pivot.clone();
-    pivotL.position.x = -0.42;
-    pivotL.visible = cls === 2; // arqueiro segura o arco à esquerda
-    if (cls === 2) { pivot.visible = false; }
-    g.add(pivot, pivotL);
-    this.weaponPivot = cls === 2 ? pivotL : pivot;
-    if (cls === 2) this.weaponPivot.name = "weapon";
-
-    // ── v3: capa que esvoaça ──
-    const cape = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.62, 0.95, 1, 4),
-      new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
-    );
-    cape.position.set(0, 1.35, -0.3);
-    cape.rotation.x = 0.16;
-    g.add(cape);
-    this.capeMesh = cape;
+    const parts = buildAvatar(this.avCfg, { classColor: color, withWeapon: true, classId: this.opts.classId });
+    this.avParts = parts;
+    this.buildClassWeapon(parts.weaponSlot);
+    this.weaponPivot = parts.armR;
+    const g = parts.root;
 
     const nameSpr = makeTextSprite(`${this.opts.name} · Nv${this.opts.level}`, { size: 30, bg: true });
     nameSpr.scale.set(3.6, 0.9, 1);
-    nameSpr.position.y = 2.9;
+    nameSpr.position.y = 2.95;
     nameSpr.name = "nameTag";
-    g.add(body, head, visor, nameSpr);
+    g.add(nameSpr);
     this.player = g;
     this.scene.add(g);
     this.playerShadow = this.addShadow(this.pos.x, 0, this.pos.z, 1.1);
@@ -1431,6 +1386,80 @@ export class WorldEngine {
     myRing.name = "myShield";
     g.add(myRing);
     this.classAura = pLight;
+    this.capeMesh = parts.cape;
+  }
+
+  /** v5: arma da classe empunhada na mão direita do avatar. */
+  private buildClassWeapon(slot: THREE.Group): void {
+    const wMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
+    const hMat = new THREE.MeshLambertMaterial({ color: 0x7c4a21 });
+    const cls = this.opts.classId;
+    if (cls === 0) {
+      // Espada com ponta afiada
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.9, 0.03), wMat);
+      blade.position.y = 0.48;
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.18, 4), wMat);
+      tip.position.y = 1.0;
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.06), new THREE.MeshLambertMaterial({ color: 0xfbbf24 }));
+      guard.position.y = 0.03;
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.22, 6), hMat);
+      grip.position.y = -0.1;
+      slot.add(blade, tip, guard, grip);
+      slot.rotation.x = Math.PI / 2.15; // lâmina aponta para a frente
+    } else if (cls === 1) {
+      // Cajado com orbe luminoso
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.2, 6), hMat);
+      shaft.position.y = 0.4;
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshBasicMaterial({ color: 0xa78bfa }));
+      orb.position.y = 1.08;
+      slot.add(shaft, orb);
+    } else if (cls === 2) {
+      // Arco vertical na mão
+      const bow = new THREE.Mesh(
+        new THREE.TorusGeometry(0.42, 0.035, 6, 14, Math.PI),
+        new THREE.MeshLambertMaterial({ color: 0x8b5e3c })
+      );
+      bow.rotation.z = -Math.PI / 2;
+      bow.rotation.y = Math.PI / 2;
+      slot.add(bow);
+      const str = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 4), new THREE.MeshBasicMaterial({ color: 0xe5e7eb }));
+      slot.add(str);
+    } else {
+      // Tótém de cura
+      const totem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0x0d9488 }));
+      totem.position.y = 0.25;
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), new THREE.MeshBasicMaterial({ color: 0x6ee7b7 }));
+      gem.position.y = 0.72;
+      slot.add(totem, gem);
+    }
+  }
+
+  /** v5: aplica novo avatar em jogo (editor de aparência). */
+  applyAvatar(cfg: AvatarConfig): void {
+    const pos = this.player.position.clone();
+    const rotY = this.player.rotation.y;
+    this.scene.remove(this.player);
+    this.avCfg = cfg;
+    this.avKey = avatarKey(cfg);
+    this.buildPlayer();
+    this.player.position.copy(pos);
+    this.player.rotation.y = rotY;
+    this.broadcastPos();
+  }
+
+  /** v5: mostra balão de emote sobre outro jogador sincronizado. */
+  showRemoteEmote(name: string, emoji: string): void {
+    for (const [, r] of this.remotes) {
+      if (r.name !== name) continue;
+      if (r.emoteSpr) { r.group.remove(r.emoteSpr); r.emoteSpr = null; }
+      const spr = makeIconSprite(emoji);
+      spr.scale.set(1.5, 1.5, 1);
+      spr.position.y = 3.4;
+      r.group.add(spr);
+      r.emoteSpr = spr;
+      r.emoteUntil = performance.now() + 2200;
+      break;
+    }
   }
 
   // ── v3: efeitos de progressão (level-up / descoberta) ───────
@@ -1829,6 +1858,8 @@ export class WorldEngine {
         this.upsertRemote(payload);
       });
       ch.on("broadcast", { event: "chat" }, ({ payload }: any) => {
+        // v5: emotes aparecem como balão sobre o outro jogador
+        if (payload?.n && payload?.emote) this.showRemoteEmote(payload.n, payload.m);
         if (payload?.n) this.opts.onEvent({ type: "chat", name: payload.n, msg: payload.m });
       });
       ch.on("broadcast", { event: "pvphit" }, ({ payload }: any) => {
@@ -1902,21 +1933,36 @@ export class WorldEngine {
     r.hpTex.needsUpdate = true;
   }
 
-  private upsertRemote(p: { id: string; n: string; cl?: number; lv?: number; x: number; z: number; ry?: number; mv?: boolean; hp?: number; mhp?: number; sh?: boolean }): void {
+  private upsertRemote(p: { id: string; n: string; cl?: number; lv?: number; x: number; z: number; ry?: number; mv?: boolean; hp?: number; mhp?: number; sh?: boolean; av?: string }): void {
     let r = this.remotes.get(p.id);
     if (!r) {
       const g = new THREE.Group();
       const color = CLASS_COLORS[p.cl ?? 0] ?? 0x888888;
-      const body = new THREE.Mesh(this.geoBody, new THREE.MeshLambertMaterial({ color }));
-      body.position.y = 1.05;
-      const head = new THREE.Mesh(this.geoHead, new THREE.MeshLambertMaterial({ color: 0xf5d0a9 }));
-      head.position.y = 1.95;
+      // v5: avatar completo do outro jogador (ou cápsula legado)
+      let parts: AvatarParts | null = null;
+      let key = "";
+      if (p.av) {
+        const cfg = parseAvatarKey(p.av);
+        if (cfg) {
+          parts = buildAvatar(cfg, { classColor: color });
+          parts.root.name = "avatarBody";
+          g.add(parts.root);
+          key = avatarKey(cfg);
+        }
+      }
+      if (!parts) {
+        const body = new THREE.Mesh(this.geoBody, new THREE.MeshLambertMaterial({ color }));
+        body.position.y = 1.05;
+        const head = new THREE.Mesh(this.geoHead, new THREE.MeshLambertMaterial({ color: 0xf5d0a9 }));
+        head.position.y = 1.95;
+        g.add(body, head);
+      }
       const nameSpr = makeTextSprite(`${(p.n || "Jogador").slice(0, 14)} · Nv${p.lv ?? 1}`, { size: 30, bg: true });
       nameSpr.scale.set(3.6, 0.9, 1);
-      nameSpr.position.y = 2.9;
+      nameSpr.position.y = 2.95;
       nameSpr.name = "nameTag";
       const { bar, canvas, tex } = this.makeRemoteHpBar();
-      g.add(body, head, nameSpr, bar);
+      g.add(nameSpr, bar);
       // anel de proteção (escudo)
       const shieldRing = new THREE.Mesh(
         new THREE.TorusGeometry(0.7, 0.05, 6, 20),
@@ -1933,12 +1979,25 @@ export class WorldEngine {
         target: new THREE.Vector3(p.x, 0, p.z), targetRy: p.ry ?? 0, moving: !!p.mv,
         lastSeen: performance.now(), name: p.n,
         hp: p.hp ?? 100, maxHp: p.mhp ?? 100, shield: !!p.sh,
+        parts, walkT: 0, avKey: key, emoteSpr: null, emoteUntil: 0,
       };
       g.position.set(p.x, groundY(p.x, p.z), p.z);
       this.remotes.set(p.id, r);
       this.drawRemoteHp(r);
       worldAudio.play("join");
       this.opts.onEvent({ type: "playerjoin", name: r.name });
+    } else if (p.av && p.av !== r.avKey) {
+      // v5: o jogador mudou de aparência — reconstruir avatar
+      const old = r.group.children.find((c) => c.name === "avatarBody");
+      if (old) r.group.remove(old);
+      const cfg = parseAvatarKey(p.av);
+      if (cfg) {
+        const color = CLASS_COLORS[p.cl ?? 0] ?? 0x888888;
+        r.parts = buildAvatar(cfg, { classColor: color });
+        r.parts.root.name = "avatarBody";
+        r.group.add(r.parts.root);
+        r.avKey = avatarKey(cfg);
+      }
     }
     // nome/nível/escudo atualizam-se se mudaram
     const wantText = `${(p.n || "Jogador").slice(0, 14)} · Nv${p.lv ?? 1}${p.sh ? " 🛡️" : ""}`;
@@ -1966,6 +2025,7 @@ export class WorldEngine {
       ry: +this.player.rotation.y.toFixed(2), mv: this.isMoving(),
       hp: Math.round(this.hp), mhp: Math.round(this.opts.stats.maxHp),
       sh: performance.now() < this.pvpShieldUntil,
+      av: this.avKey, // v5: aparência do avatar
     };
     try { this.chan.send({ type: "broadcast", event: "pos", payload }); } catch { /* ignore */ }
   }
@@ -3171,6 +3231,15 @@ export class WorldEngine {
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       g.rotation.y += diff * Math.min(1, dt * 8);
+      // v5: animação de caminhada + emote dos avatares remotos
+      if (r.parts) {
+        if (r.moving) r.walkT += dt * 10;
+        animateAvatar(r.parts, r.walkT, r.moving, 0, now);
+      }
+      if (r.emoteSpr && now > r.emoteUntil) {
+        r.group.remove(r.emoteSpr);
+        r.emoteSpr = null;
+      }
     }
   }
 
@@ -3295,30 +3364,21 @@ export class WorldEngine {
   // ── v3: herói vivo (arma, capa, escudo, emote) ──────────────
 
   private updateHeroV3(dt: number): void {
-    // animação de golpe da arma (rotação rápida com easing)
+    // v5: animação completa do avatar — caminhada, golpe, capa,
+    // respiração em idle e squash ao aterrar
     if (this.swingT > 0) {
       this.swingT += dt * 5.2;
-      if (this.swingT >= 1) { this.swingT = 0; }
-      else if (this.weaponPivot) {
-        const e = Math.sin(this.swingT * Math.PI);
-        this.weaponPivot.rotation.x = -e * 2.1;
+      if (this.swingT >= 1) this.swingT = 0;
+    }
+    if (this.avParts) {
+      animateAvatar(this.avParts, this.bob, this.isMoving(), this.swingT, performance.now());
+      if (this.landSquash > 0) {
+        this.landSquash = Math.max(0, this.landSquash - dt * 4.5);
+        const s = this.landSquash;
+        this.avParts.bodyRoot.scale.set(1 + s * 0.16, 1 - s * 0.2, 1 + s * 0.16);
+      } else if (this.avParts.bodyRoot.scale.y !== 1) {
+        this.avParts.bodyRoot.scale.set(1, 1, 1);
       }
-    } else if (this.weaponPivot) {
-      // posição de repouso com leve balanço ao andar
-      const rest = this.isMoving() ? Math.sin(this.bob) * 0.14 : Math.sin(performance.now() / 600) * 0.05;
-      this.weaponPivot.rotation.x = rest;
-    }
-    // capa esvoaçante
-    if (this.capeMesh) {
-      const mv = this.isMoving() ? 1 : 0.4;
-      this.capeMesh.rotation.x = 0.16 + Math.sin(performance.now() / 140) * 0.09 * mv + (this.isMoving() ? 0.3 : 0);
-    }
-    // squash ao aterrar (escala Y comprimida que recupera)
-    if (this.landSquash > 0) {
-      this.landSquash = Math.max(0, this.landSquash - dt * 4.5);
-      const s = this.landSquash;
-      const body = this.player.children.find((c) => c.name === "body") as THREE.Mesh | undefined;
-      if (body) body.scale.set(1 + s * 0.18, 1 - s * 0.22, 1 + s * 0.18);
     }
     // anel de escudo: roda e apaga quando expira
     const myRing = this.player.children.find((c) => c.name === "myShield") as THREE.Mesh | undefined;

@@ -1,5 +1,5 @@
 // ============================================================
-// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v4
+// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v5
 // Níveis, poderes por classe, missões/saga/desafios, PvP com
 // roubo de cupões e pontos, Banco de Pontos (moeda da
 // plataforma), descobertas, partículas e transições.
@@ -7,6 +7,9 @@
 // ONDAS (sobrevivência), combo de mortes com XP bónus, pet
 // companheiro, definições de qualidade gráfica, música
 // ambiente e MODO FOTO para partilhar o mundo.
+// v5: AVATARES customizáveis (pele, cabelo, traje, capa,
+// chapéu) com preview 3D ao vivo, editor de aparência dentro
+// do jogo e visual sincronizado entre todos os jogadores.
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -20,6 +23,8 @@ import {
 import confetti from "canvas-confetti";
 import { WorldEngine, SKILLS, LANDMARKS, PVP_SAFE_RADIUS, RARITY_META, type LootItem } from "./worldEngine";
 import { worldAudio } from "./worldAudio";
+import { AvatarPreview, AvatarSwatches } from "./AvatarEditor";
+import { defaultAvatar, randomAvatar, parseAvatarKey, type AvatarConfig } from "./avatar";
 import {
   fetchPlatformData, upsertCharacter, setCharacterOffline,
   worldRoute, fmtMZN, voucherLabel, MODALITY_LABEL, exchangeWorldPoints,
@@ -65,9 +70,12 @@ interface Char {
   equipped: { arma: LootItem | null; armadura: LootItem | null; amuleto: LootItem | null };
   pet: boolean;
   wavesBest: number;
+  // v5
+  avatar: AvatarConfig;
 }
 
-const LS_KEY = "bateu_world_char_v4";
+const LS_KEY = "bateu_world_char_v5";
+const LS_KEY_V4 = "bateu_world_char_v4";
 const LS_KEY_V3 = "bateu_world_char_v3";
 const CLASSES = [
   { name: "Guerreiro", emoji: "⚔️", color: "#ef4444", grad: "from-red-500 to-rose-600", desc: "Combate corpo a corpo, vida alta" },
@@ -97,7 +105,7 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function newChar(name: string, classId: number): Char {
+function newChar(name: string, classId: number, avatar?: AvatarConfig): Char {
   return {
     uid: "bw_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
     name: name.slice(0, 14), classId, level: 1, xp: 0, gold: 50, points: 0,
@@ -111,10 +119,11 @@ function newChar(name: string, classId: number): Char {
     stolenFrom: 0, lostTo: 0, shieldUntil: 0,
     inv: [], equipped: { arma: null, armadura: null, amuleto: null },
     pet: false, wavesBest: 0,
+    avatar: avatar ?? defaultAvatar(classId),
   };
 }
 
-function migrateV3(old: any): Char {
+function migrateBase(old: any): Char {
   const c = newChar(old.name || "Herói", old.classId ?? 0);
   Object.assign(c, {
     uid: old.uid, level: old.level ?? 1, xp: old.xp ?? 0, gold: old.gold ?? 50,
@@ -132,13 +141,33 @@ function migrateV3(old: any): Char {
   return c;
 }
 
+function migrateV4(old: any): Char {
+  const c = migrateBase(old);
+  // v4 guardava inventário, equipamento, pet e ondas — preservar
+  if (Array.isArray(old.inv)) c.inv = old.inv;
+  if (old.equipped) c.equipped = old.equipped;
+  if (typeof old.pet === "boolean") c.pet = old.pet;
+  if (typeof old.wavesBest === "number") c.wavesBest = old.wavesBest;
+  if (old.chal) c.chal = { ...c.chal, ...old.chal };
+  // v5: avatar (v4 não tinha — parse da chave ou por defeito)
+  c.avatar = parseAvatarKey(old.avKey) ?? defaultAvatar(c.classId);
+  return c;
+}
+
 function loadChar(): Char | null {
   try {
     let raw = localStorage.getItem(LS_KEY);
     if (!raw) {
+      // v5: migrar primeiro v4 (tem v4: inventário/pet), depois v3
+      const v4Raw = localStorage.getItem(LS_KEY_V4);
+      if (v4Raw) {
+        const c = migrateV4(JSON.parse(v4Raw));
+        localStorage.setItem(LS_KEY, JSON.stringify(c));
+        return c;
+      }
       const oldRaw = localStorage.getItem(LS_KEY_V3);
       if (oldRaw) {
-        const c = migrateV3(JSON.parse(oldRaw));
+        const c = migrateV4(JSON.parse(oldRaw));
         localStorage.setItem(LS_KEY, JSON.stringify(c));
         return c;
       }
@@ -160,6 +189,10 @@ function loadChar(): Char | null {
     c.equipped = c.equipped || { arma: null, armadura: null, amuleto: null };
     c.pet = !!c.pet;
     c.wavesBest = c.wavesBest || 0;
+    // v5: garantir avatar em qualquer save
+    if (!c.avatar || typeof c.avatar.skin !== "number") {
+      c.avatar = defaultAvatar(c.classId ?? 0);
+    }
     return c;
   } catch { return null; }
 }
@@ -207,6 +240,9 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [char, setChar] = useState<Char | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [pickClass, setPickClass] = useState(0);
+  // v5: editor de aparência (criação + em jogo)
+  const [avDraft, setAvDraft] = useState<AvatarConfig>(() => defaultAvatar(0));
+  const [avEditing, setAvEditing] = useState(false);
   const [platform, setPlatform] = useState<PlatformData | null>(null);
   const [bootMsg, setBootMsg] = useState("A preparar o mundo...");
 
@@ -532,6 +568,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     const eng = new WorldEngine(canvasRef.current, {
       name: c.name, classId: c.classId, level: c.level, uid: c.uid,
       stats: calcStats(c),
+      avatar: c.avatar,
       onEvent: (ev) => {
         const cur = charRef.current;
         if (!cur) return;
@@ -1030,10 +1067,34 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             <b style={{ color: sel.color }}>{sel.emoji} {sel.name}</b> — 3 poderes próprios que desbloqueiam nos níveis 3, 7 e 12
           </motion.div>
 
+          {/* v5: editor de avatar com preview 3D ao vivo */}
+          <div className="w-full max-w-lg rounded-2xl border border-violet-400/25 bg-black/40 p-3 backdrop-blur" data-testid="bw-avatar-editor">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="mx-auto shrink-0 sm:mx-0">
+                <AvatarPreview
+                  cfg={avDraft}
+                  classColor={parseInt(sel.color.slice(1), 16)}
+                  className="h-44 w-36 rounded-xl border border-white/15 bg-gradient-to-b from-slate-800 to-slate-950"
+                />
+                <button
+                  data-testid="bw-av-random"
+                  onClick={() => { setAvDraft(randomAvatar(pickClass)); worldAudio.play("click"); }}
+                  className="mt-1.5 w-full rounded-lg border border-white/20 bg-white/10 py-1.5 text-[10px] font-bold text-white hover:bg-white/20"
+                >
+                  🎲 Aleatório
+                </button>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="mb-1.5 text-[11px] font-bold text-violet-200">✨ Personaliza o teu avatar — visível para todos os jogadores</p>
+                <AvatarSwatches cfg={avDraft} onChange={setAvDraft} />
+              </div>
+            </div>
+          </div>
+
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && nameInput.trim()) enterWorld(newChar(nameInput, pickClass)); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && nameInput.trim()) enterWorld(newChar(nameInput, pickClass, avDraft)); }}
             placeholder="Nome do teu herói"
             maxLength={14}
             className="w-full max-w-lg rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-center font-bold placeholder:text-white/40 outline-none focus:border-rose-400 transition-colors"
@@ -1041,7 +1102,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.96 }}
-            onClick={() => nameInput.trim() && enterWorld(newChar(nameInput, pickClass))}
+            onClick={() => nameInput.trim() && enterWorld(newChar(nameInput, pickClass, avDraft))}
             className="relative w-full max-w-lg overflow-hidden rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-6 py-3.5 font-display font-black text-lg shadow-lg shadow-rose-500/30"
           >
             <motion.span
@@ -1625,6 +1686,57 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               <StatRow icon={<Zap className="h-4 w-4 text-amber-400" />} label="Velocidade" value={stats.spd.toFixed(1)} disabled={char.points <= 0} onAdd={() => allocate("spd")} />
             </div>
 
+            {/* v5: editor de aparência dentro do jogo */}
+            <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold flex items-center gap-1"><User className="h-3.5 w-3.5 text-violet-300" /> Aparência do avatar</p>
+                <button
+                  data-testid="bw-appearance"
+                  onClick={() => { setAvDraft(char.avatar); setAvEditing(!avEditing); worldAudio.play("click"); }}
+                  className="rounded-lg bg-violet-500 px-3 py-1.5 text-[10px] font-black text-white hover:bg-violet-400"
+                >
+                  {avEditing ? "Fechar" : "Personalizar"}
+                </button>
+              </div>
+              {avEditing && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="overflow-hidden">
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                    <div className="mx-auto shrink-0 sm:mx-0">
+                      <AvatarPreview
+                        cfg={avDraft}
+                        classColor={parseInt(CLASSES[char.classId]?.color?.slice(1) || "ef4444", 16)}
+                        className="h-40 w-32 rounded-xl border border-white/15 bg-gradient-to-b from-slate-800 to-slate-950"
+                      />
+                      <button
+                        data-testid="bw-av-random-2"
+                        onClick={() => setAvDraft(randomAvatar(char.classId))}
+                        className="mt-1.5 w-full rounded-lg border border-white/20 bg-white/10 py-1.5 text-[10px] font-bold hover:bg-white/20"
+                      >
+                        🎲 Aleatório
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <AvatarSwatches cfg={avDraft} onChange={setAvDraft} />
+                    </div>
+                  </div>
+                  <button
+                    data-testid="bw-av-save"
+                    onClick={() => {
+                      setChar((p) => (p ? { ...p, avatar: avDraft } : p));
+                      engineRef.current?.applyAvatar(avDraft);
+                      setAvEditing(false);
+                      pushToast("✨ Aparência atualizada — todos os jogadores já te veem assim!", "good");
+                      showBanner({ kind: "discover", emoji: "✨", title: "APARÊNCIA", sub: "Novo visual aplicado ao teu avatar" });
+                      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: ["#a78bfa", "#fbbf24"] });
+                    }}
+                    className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/25"
+                  >
+                    GUARDAR APARÊNCIA
+                  </button>
+                </motion.div>
+              )}
+            </div>
+
             <div className="mt-3">
               <p className="mb-1.5 text-xs font-bold flex items-center gap-1"><Sparkles className="h-3 w-3 text-amber-400" /> Poderes ({CLS_NAMES[char.classId]})</p>
               <div className="space-y-1.5">
@@ -1669,7 +1781,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             <div className="mt-3 flex gap-2 text-[10px] text-muted-foreground">
               <span>🔥 Streak: {char.streak}d</span>
               <span>💀 Mortes: {char.deaths}</span>
-              <button className="underline hover:text-foreground" onClick={() => { if (confirm("Recomeçar personagem do zero?")) { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY_V3); window.location.reload(); } }}>
+              <button className="underline hover:text-foreground" onClick={() => { if (confirm("Recomeçar personagem do zero?")) { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY_V4); localStorage.removeItem(LS_KEY_V3); window.location.reload(); } }}>
                 Recomeçar
               </button>
             </div>
