@@ -1,8 +1,11 @@
 // ============================================================
-// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v2
+// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v3
 // Níveis, poderes por classe, missões/saga/desafios, PvP com
 // roubo de cupões e pontos, Banco de Pontos (moeda da
 // plataforma), descobertas, partículas e transições.
+// v3: HUD em vidro, barras de chefe e buffs, rastreador de
+// objetivos, banners cinematográficos, emotes, áudio sintetizado
+// e ecrã de criação redesenhado.
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -10,10 +13,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Swords, Sparkles, ArrowUp, User, ScrollText, Trophy, MessageSquare,
   X, Copy, Coins, Heart, Zap, Crown, ExternalLink, Check, Wifi, Users,
-  Landmark, Map, Shield, Flame,
+  Landmark, Map, Shield, Flame, Volume2, VolumeX, MapPin, Smile, Target,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WorldEngine, SKILLS, LANDMARKS, PVP_SAFE_RADIUS } from "./worldEngine";
+import { worldAudio } from "./worldAudio";
 import {
   fetchPlatformData, upsertCharacter, setCharacterOffline,
   worldRoute, fmtMZN, voucherLabel, MODALITY_LABEL, exchangeWorldPoints,
@@ -208,12 +212,78 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [skillState, setSkillState] = useState<{ locked: boolean; cd: number }>({ locked: true, cd: 0 });
   const [skillCds, setSkillCds] = useState([0, 0, 0]);
 
+  // v3 — HUD cinematográfico
+  const [muted, setMuted] = useState(worldAudio.isMuted);
+  const [bossBar, setBossBar] = useState<{ name: string; pct: number } | null>(null);
+  const [buffs, setBuffs] = useState({ atk: 0, hot: 0 });
+  const [banner, setBanner] = useState<{ kind: "discover" | "levelup"; emoji: string; title: string; sub: string } | null>(null);
+  const [emoteOpen, setEmoteOpen] = useState(false);
+  const [tipIdx, setTipIdx] = useState(0);
+  const bannerTimer = useRef<any>(null);
+
+  const EMOTES = ["👋", "😄", "❤️", "😤", "🎉", "🙏"];
+  const TIPS = [
+    "💡 Aproxima-te de um baú e prime E (ou toca no botão) para abrir",
+    "⚔️ Clique no mundo = atacar. Perto de jogadores = PvP com roubo!",
+    "🗺️ Explore o mapa para descobrir 11 marcos — cada um dá XP e pontos",
+    "🏦 Reúne Pontos de Troféu e troca por cupões ou moeda real no Banco",
+    "👑 Os chefes Bug Rei e Rainha Sombria guardam os cantos do mapa",
+    "🛡️ Foste roubado? Tens 3 minutos de escudo — usa bem o tempo",
+    "❤️ A Fonte da Vida (junto ao Banco) cura-te de graça",
+    "🔥 Entra todos os dias: o streak aumenta o bónus de presença",
+  ];
+
   const toastId = useRef(0);
   const pushToast = useCallback((msg: string, tone = "info") => {
     const id = ++toastId.current;
     setToasts((t) => [...t.slice(-3), { id, msg, tone }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
   }, []);
+
+  // ── v3: banner cinematográfico (descoberta / level-up) ─────
+  const showBanner = useCallback((b: { kind: "discover" | "levelup"; emoji: string; title: string; sub: string }) => {
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    setBanner(b);
+    bannerTimer.current = setTimeout(() => setBanner(null), b.kind === "levelup" ? 1900 : 2600);
+  }, []);
+
+  // v3: desbloquear áudio no primeiro gesto + atalho M para mute
+  useEffect(() => {
+    const unlock = () => { worldAudio.ensure(); };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key.toLowerCase() === "m") setMuted(worldAudio.toggleMute());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  // v3: polling de chefe + buffs (300ms)
+  useEffect(() => {
+    if (phase !== "world") return;
+    const iv = setInterval(() => {
+      const eng = engineRef.current;
+      if (!eng) return;
+      const bb = eng.getBossBar?.() || null;
+      setBossBar(bb ? { name: bb.name, pct: bb.pct } : null);
+      const bf = eng.getBuffs?.() || { atk: 0, hot: 0 };
+      setBuffs(bf);
+    }, 300);
+    return () => clearInterval(iv);
+  }, [phase]);
+
+  // v3: dicas rotativas
+  useEffect(() => {
+    if (phase !== "world") return;
+    const iv = setInterval(() => setTipIdx((i) => (i + 1) % TIPS.length), 7000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   // ── Boot ───────────────────────────────────────────────────
   useEffect(() => {
@@ -289,6 +359,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     if (leveled) {
       confetti({ particleCount: 130, spread: 80, origin: { y: 0.6 }, colors: ["#f43f5e", "#fbbf24", "#38bdf8"] });
       pushToast(`🎉 Subiste para o nível ${level}! ${titleFor(level)} · +3 pontos`, "good");
+      showBanner({ kind: "levelup", emoji: "⚡", title: `NÍVEL ${level}`, sub: `${titleFor(level)} · +3 pontos de atributo` });
+      engineRef.current?.levelFx();
       scoreRef.current?.("Bateu World", level * 1000);
       setTimeout(() => {
         const s = calcStats({ ...p, level });
@@ -297,7 +369,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       }, 30);
     }
     return { ...p, xp, level, points };
-  }, [pushToast]);
+  }, [pushToast, showBanner]);
 
   // ── Entrada no mundo ───────────────────────────────────────
   const enterWorld = useCallback((c: Char) => {
@@ -429,7 +501,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               const n = applyXp({ ...p, pts: p.pts + 10, discoveries: [...p.discoveries, ev.id], saga: { ...p.saga, discovers: p.saga.discovers + 1 } }, ev.xp);
               return n;
             });
-            pushToast(`${ev.emoji} Descoberta: ${ev.name}! +60 XP · +10 pts`, "good");
+            showBanner({ kind: "discover", emoji: ev.emoji, title: ev.name, sub: "Descoberta! +60 XP · +10 pts" });
             confetti({ particleCount: 60, spread: 60, origin: { y: 0.55 }, colors: ["#fbbf24", "#38bdf8"] });
             break;
           }
@@ -457,6 +529,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 return n;
               });
               pushToast(`💀 Roubaste ${ev.pts} pts a ${ev.victim}${ev.coupon ? ` + cupão ${ev.coupon.code}!` : "!"}`, "good");
+              worldAudio.play("steal");
               confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: ["#f43f5e", "#fbbf24"] });
             } else if (ev.action === "death") {
               // Fui roubado — calcula perdas e transmite
@@ -701,55 +774,122 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   // ── Render ─────────────────────────────────────────────────
   if (phase === "boot") {
     return (
-      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center gap-4 text-white">
-        <div className="text-5xl animate-bounce">🌍</div>
-        <p className="font-display font-bold text-xl">Bateu World</p>
+      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center gap-4 text-white">
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(circle at 50% 60%, rgba(244,63,94,0.12) 0%, transparent 55%), radial-gradient(circle at 30% 30%, rgba(56,189,248,0.1) 0%, transparent 45%)" }} />
+        <motion.div className="text-5xl" animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }} transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}>🌍</motion.div>
+        <p className="font-display font-bold text-xl bg-gradient-to-r from-rose-300 to-amber-200 bg-clip-text text-transparent">Bateu World</p>
         <div className="flex items-center gap-2 text-sm text-white/70">
           <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
           {bootMsg}
+        </div>
+        <div className="h-1 w-40 overflow-hidden rounded-full bg-white/10">
+          <motion.div className="h-full w-1/3 rounded-full bg-gradient-to-r from-rose-400 to-amber-300" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }} />
         </div>
       </div>
     );
   }
 
   if (phase === "create") {
+    const sel = CLASSES[pickClass];
     return (
-      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 overflow-hidden text-white">
-        <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 70% 20%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 20% 80%, #38bdf8 0%, transparent 40%)" }} />
-        <div className="relative h-full overflow-y-auto p-5 md:p-8 flex flex-col items-center justify-center gap-5">
+      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden text-white bg-slate-950" data-testid="bateu-create">
+        {/* fundo animado v3 */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
+        <motion.div
+          className="absolute inset-0 opacity-30"
+          animate={{ background: [
+            "radial-gradient(circle at 70% 20%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 20% 80%, #38bdf8 0%, transparent 40%)",
+            "radial-gradient(circle at 30% 70%, #8b5cf6 0%, transparent 45%), radial-gradient(circle at 80% 30%, #fbbf24 0%, transparent 40%)",
+            "radial-gradient(circle at 70% 20%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 20% 80%, #38bdf8 0%, transparent 40%)",
+          ] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+        />
+        {/* estrelas decorativas */}
+        {[[12, 18], [30, 8], [55, 14], [78, 22], [88, 60], [8, 70], [45, 82], [70, 88]].map(([l, t], i) => (
+          <motion.span
+            key={i}
+            className="absolute h-1 w-1 rounded-full bg-white/70"
+            style={{ left: `${l}%`, top: `${t}%` }}
+            animate={{ opacity: [0.15, 0.9, 0.15], scale: [1, 1.6, 1] }}
+            transition={{ duration: 2.4 + i * 0.5, repeat: Infinity, delay: i * 0.4 }}
+          />
+        ))}
+
+        <div className="relative h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center justify-center gap-3 md:gap-4">
           <div className="text-center">
-            <p className="text-4xl md:text-5xl mb-1">🌍</p>
-            <h2 className="font-display text-2xl md:text-3xl font-black tracking-tight">BATEU WORLD 3D</h2>
-            <p className="text-white/70 text-sm">O MMO da plataforma — luta, sobe de nível, rouba cupões e troca pontos por moeda real</p>
+            <motion.div
+              className="mx-auto mb-1 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/30 to-amber-500/30 border border-white/20 text-3xl shadow-lg shadow-rose-500/20"
+              animate={{ y: [0, -6, 0], rotate: [-3, 3, -3] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >🌍</motion.div>
+            <h2 className="font-display text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-rose-300 via-amber-200 to-sky-300 bg-clip-text text-transparent">BATEU WORLD 3D</h2>
+            <p className="text-white/70 text-xs md:text-sm mt-0.5">O MMO da plataforma — luta, sobe de nível, rouba cupões e troca pontos por moeda real</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 w-full max-w-md">
+
+          {/* classes com anel de seleção v3 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 w-full max-w-lg">
             {CLASSES.map((cl, i) => (
-              <button
+              <motion.button
                 key={cl.name}
-                onClick={() => setPickClass(i)}
-                className={`rounded-xl border-2 p-3 text-center transition-all ${pickClass === i ? "border-rose-400 bg-white/10 scale-105" : "border-white/15 bg-white/5 hover:border-white/40"}`}
+                onClick={() => { setPickClass(i); worldAudio.play("click"); }}
+                whileTap={{ scale: 0.94 }}
+                className={`relative rounded-2xl border-2 p-3 text-center transition-all overflow-hidden ${pickClass === i ? "border-white/70 bg-white/15 scale-[1.04]" : "border-white/15 bg-white/5 hover:border-white/40"}`}
               >
-                <div className="text-3xl mb-1">{cl.emoji}</div>
-                <p className="font-bold text-sm">{cl.name}</p>
-                <p className="text-[10px] text-white/60 leading-tight mt-0.5">{cl.desc}</p>
-              </button>
+                {pickClass === i && (
+                  <motion.div
+                    className="absolute inset-0 rounded-2xl"
+                    style={{ background: `radial-gradient(circle at 50% 0%, ${cl.color}55 0%, transparent 70%)` }}
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                )}
+                <motion.div
+                  className={`relative text-3xl mb-1 ${pickClass === i ? "" : "opacity-80"}`}
+                  animate={pickClass === i ? { scale: [1, 1.14, 1] } : {}}
+                  transition={{ duration: 1.6, repeat: Infinity }}
+                >{cl.emoji}</motion.div>
+                <p className="relative font-bold text-sm">{cl.name}</p>
+                <p className="relative text-[10px] text-white/60 leading-tight mt-0.5">{cl.desc}</p>
+                <div className="relative mt-1.5 flex justify-center gap-1">
+                  {[0, 1, 2].map((s) => (
+                    <span key={s} className={`h-1 w-4 rounded-full ${s === 0 ? "bg-rose-400" : s === 1 ? "bg-emerald-400" : "bg-sky-400"} ${pickClass === i ? "" : "opacity-40"}`} />
+                  ))}
+                </div>
+              </motion.button>
             ))}
           </div>
+
+          <motion.div
+            key={sel.name}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-lg rounded-xl border border-white/15 bg-black/30 px-4 py-2 text-center text-[11px] text-white/80 backdrop-blur"
+          >
+            <b style={{ color: sel.color }}>{sel.emoji} {sel.name}</b> — 3 poderes próprios que desbloqueiam nos níveis 3, 7 e 12
+          </motion.div>
+
           <input
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && nameInput.trim()) enterWorld(newChar(nameInput, pickClass)); }}
             placeholder="Nome do teu herói"
             maxLength={14}
-            className="w-full max-w-md rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-center font-bold placeholder:text-white/40 outline-none focus:border-rose-400"
+            className="w-full max-w-lg rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-center font-bold placeholder:text-white/40 outline-none focus:border-rose-400 transition-colors"
           />
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => nameInput.trim() && enterWorld(newChar(nameInput, pickClass))}
-            className="w-full max-w-md rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-6 py-3.5 font-display font-black text-lg shadow-lg shadow-rose-500/30 hover:scale-[1.02] active:scale-95 transition-transform"
+            className="relative w-full max-w-lg overflow-hidden rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-6 py-3.5 font-display font-black text-lg shadow-lg shadow-rose-500/30"
           >
-            ENTRAR NO MUNDO →
-          </button>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-md text-[11px] text-white/70">
+            <motion.span
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+              animate={{ x: ["-120%", "120%"] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "linear" }}
+            />
+            <span className="relative">ENTRAR NO MUNDO →</span>
+          </motion.button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-lg text-[11px] text-white/70">
             <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">⚔️ 3 poderes por classe</div>
             <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">💀 Rouba cupões no PvP</div>
             <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">🏦 Pontos → moeda real</div>
@@ -848,29 +988,93 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         {hud.hit > 0 && (
           <motion.div key={`hit-${hud.hit}`} className="pointer-events-none absolute inset-0 bg-red-600/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />
         )}
+        {/* v3: vinheta permanente subtil para foco */}
+        <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 90px 20px rgba(2,6,23,0.55)" }} />
         {deathFx && (
-          <motion.div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-red-950/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.p className="font-display text-3xl font-black text-red-300" initial={{ scale: 0.6, rotate: -6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}>
+          <motion.div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-2 bg-red-950/70 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.p className="font-display text-3xl md:text-4xl font-black text-red-300 drop-shadow-[0_0_18px_rgba(248,113,113,0.8)]" initial={{ scale: 0.6, rotate: -6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}>
               💀 Derrotado
             </motion.p>
+            <motion.p className="text-xs font-bold text-white/70" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}>
+              A renascer na Praça Bateu...
+            </motion.p>
+          </motion.div>
+        )}
+        {/* v3: banner cinematográfico (descoberta / level-up) */}
+        <AnimatePresence>
+          {banner && (
+            <motion.div
+              key={`banner-${banner.title}`}
+              className="pointer-events-none absolute left-0 right-0 top-[26%] z-30 flex flex-col items-center"
+              initial={{ opacity: 0, y: 26, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -18, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 220, damping: 20 }}
+            >
+              <motion.div
+                className={`flex items-center gap-3 rounded-2xl border px-6 py-3 shadow-2xl backdrop-blur-md ${banner.kind === "levelup" ? "border-amber-300/60 bg-gradient-to-r from-amber-500/25 via-yellow-400/20 to-amber-500/25" : "border-sky-300/60 bg-gradient-to-r from-sky-500/25 via-cyan-400/20 to-sky-500/25"}`}
+                animate={{ boxShadow: banner.kind === "levelup" ? ["0 0 24px rgba(251,191,36,0.35)", "0 0 48px rgba(251,191,36,0.6)", "0 0 24px rgba(251,191,36,0.35)"] : ["0 0 24px rgba(56,189,248,0.35)", "0 0 48px rgba(56,189,248,0.6)", "0 0 24px rgba(56,189,248,0.35)"] }}
+                transition={{ duration: 1.4, repeat: Infinity }}
+              >
+                <motion.span className="text-4xl" animate={{ rotate: banner.kind === "discover" ? [0, -12, 12, 0] : [0, 8, -8, 0], scale: [1, 1.2, 1] }} transition={{ duration: 1.2, repeat: Infinity }}>
+                  {banner.emoji}
+                </motion.span>
+                <div className="text-center">
+                  <p className={`font-display text-xl font-black tracking-wide ${banner.kind === "levelup" ? "text-amber-200" : "text-sky-200"}`}>{banner.title}</p>
+                  <p className="text-[11px] font-bold text-white/80">{banner.sub}</p>
+                </div>
+              </motion.div>
+              {/* raios laterais */}
+              <motion.div
+                className="mt-1 h-px w-2/3"
+                style={{ background: banner.kind === "levelup" ? "linear-gradient(90deg, transparent, #fbbf24, transparent)" : "linear-gradient(90deg, transparent, #38bdf8, transparent)" }}
+                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.5 }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </AnimatePresence>
+
+      {/* v3: barra de CHEFE / guardião */}
+      <AnimatePresence>
+        {bossBar && (
+          <motion.div
+            key="bossbar"
+            initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -14 }}
+            className="pointer-events-none absolute left-1/2 top-14 z-20 w-[260px] -translate-x-1/2"
+            data-testid="bw-bossbar"
+          >
+            <div className="rounded-xl border border-red-500/40 bg-black/70 px-3 py-1.5 backdrop-blur">
+              <div className="mb-1 flex items-center justify-between text-[10px] font-black">
+                <span className="flex items-center gap-1 text-red-300"><Crown className="h-3 w-3" /> {bossBar.name}</span>
+                <span className="text-white/60">{Math.ceil(bossBar.pct * 100)}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <motion.div className="h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-orange-400" animate={{ width: `${bossBar.pct * 100}%` }} transition={{ duration: 0.25 }} />
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* HUD topo-esquerda */}
-      <div className="pointer-events-none absolute left-2 top-2 w-[200px] rounded-xl bg-black/55 backdrop-blur-sm p-2.5 text-white">
+      {/* HUD topo-esquerda v3 (vidro + anel de classe + buffs) */}
+      <div className="pointer-events-none absolute left-2 top-2 w-[214px] rounded-2xl border border-white/15 bg-black/55 p-2.5 text-white shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" style={{ background: CLASSES[char!.classId]?.color + "33", border: `1px solid ${CLASSES[char!.classId]?.color}` }}>
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl text-lg" style={{ background: CLASSES[char!.classId]?.color + "33", border: `1.5px solid ${CLASSES[char!.classId]?.color}` }}>
             {CLS_EMOJIS[char!.classId]}
+            {char!.points > 0 && <motion.span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-400" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold">{char!.name} <span className="text-white/60">· Nv{char!.level}</span></p>
-            <p className="text-[9px] font-bold text-amber-300/90 -mt-0.5">{titleFor(char!.level)}</p>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full rounded-full bg-gradient-to-r from-rose-500 to-red-400 transition-all" style={{ width: `${hpPct}%` }} />
+            <p className="text-[9px] font-bold tracking-wide text-amber-300/90 -mt-0.5">{titleFor(char!.level)}</p>
+            {/* HP com brilho v3 */}
+            <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-white/15">
+              <motion.div className="h-full rounded-full bg-gradient-to-r from-rose-600 via-red-500 to-rose-400" animate={{ width: `${hpPct}%` }} transition={{ duration: 0.3 }} />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 to-transparent" />
+              {hpPct < 30 && <motion.div className="absolute inset-0 rounded-full bg-red-500/40" animate={{ opacity: [0.2, 0.7, 0.2] }} transition={{ duration: 0.9, repeat: Infinity }} />}
             </div>
-            <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all" style={{ width: `${xpPct}%` }} />
+            <div className="relative mt-0.5 h-1.5 overflow-hidden rounded-full bg-white/15">
+              <motion.div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300" animate={{ width: `${xpPct}%` }} transition={{ duration: 0.4 }} />
             </div>
           </div>
         </div>
@@ -878,24 +1082,106 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3 text-rose-400" />{hud.hp}/{hud.maxHp}</span>
           <span className="inline-flex items-center gap-1"><Coins className="h-3 w-3 text-amber-400" />{char!.gold}</span>
           <span className="inline-flex items-center gap-1 font-black text-yellow-300">🏆 {char!.pts}</span>
-          {char!.points > 0 && <span className="rounded-full bg-emerald-500/90 px-1.5 font-bold text-white">+{char!.points}</span>}
         </div>
-        {shieldActive && (
-          <div className="mt-1 flex items-center gap-1 rounded-md bg-sky-500/25 px-1.5 py-0.5 text-[9px] font-bold text-sky-200 w-fit">
-            <Shield className="h-2.5 w-2.5" /> Escudo ativo
+        {/* v3: chips de buffs ativos */}
+        {(shieldActive || buffs.atk > 0 || buffs.hot > 0) && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {shieldActive && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/25 px-1.5 py-0.5 text-[9px] font-bold text-sky-200">
+                <Shield className="h-2.5 w-2.5" /> Escudo {Math.ceil(((char!.shieldUntil || 0) - Date.now()) / 60000)}m
+              </span>
+            )}
+            {buffs.atk > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-red-500/25 px-1.5 py-0.5 text-[9px] font-bold text-red-200">
+                <Swords className="h-2.5 w-2.5" /> +50% {Math.ceil(buffs.atk / 1000)}s
+              </span>
+            )}
+            {buffs.hot > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/25 px-1.5 py-0.5 text-[9px] font-bold text-emerald-200">
+                <Sparkles className="h-2.5 w-2.5" /> Regen {Math.ceil(buffs.hot / 1000)}s
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* topo-direita: online + minimapa */}
-      <div className="absolute right-2 top-2 flex flex-col items-end gap-1.5">
-        <div className="pointer-events-none flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-          <Users className="h-3 w-3 text-sky-400" /> {online} online
-          {platform?.live && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+      {/* v3: rastreador de objetivos (saga + diária) sob o HUD */}
+      {char && SAGA[char.sagaIdx] && (
+        <motion.button
+          onClick={() => setPanel("quests")}
+          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+          className="absolute left-2 top-[118px] z-10 w-[214px] rounded-xl border border-amber-400/30 bg-black/50 p-2 text-left text-white backdrop-blur-md hover:bg-black/70 transition-colors"
+          data-testid="bw-tracker"
+        >
+          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-amber-300"><Target className="h-2.5 w-2.5" /> Objetivo da Saga</p>
+          <p className="truncate text-[11px] font-bold">{SAGA[char.sagaIdx].title}</p>
+          {(() => {
+            const step = SAGA[char.sagaIdx];
+            const prog = Math.min(step.prog(char), step.goal);
+            return (
+              <div className="mt-1">
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all" style={{ width: `${(prog / step.goal) * 100}%` }} />
+                </div>
+                <p className="mt-0.5 text-[9px] text-white/60">{step.desc} · {prog}/{step.goal}</p>
+              </div>
+            );
+          })()}
+        </motion.button>
+      )}
+
+      {/* topo-direita: online + som + minimapa + emotes */}
+      <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
+        <div className="flex items-center gap-1.5">
+          {/* v3: som on/off */}
+          <button
+            onClick={() => setMuted(worldAudio.toggleMute())}
+            className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-black/75 transition-colors"
+            data-testid="bw-sound"
+            title={muted ? "Ligar som (M)" : "Desligar som (M)"}
+          >
+            {muted ? <VolumeX className="h-3 w-3 text-red-300" /> : <Volume2 className="h-3 w-3 text-emerald-300" />}
+          </button>
+          <div className="pointer-events-none flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+            <Users className="h-3 w-3 text-sky-400" /> {online} online
+            {platform?.live && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          </div>
         </div>
-        <canvas id="bw-minimap" width={100} height={100} className="rounded-lg border border-white/20 shadow-lg" />
+        <div className="relative">
+          <canvas id="bw-minimap" width={100} height={100} className="rounded-xl border border-white/25 shadow-lg" />
+          <span className="pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-[7px] font-black text-white/80">N</span>
+        </div>
         <div className="pointer-events-none rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold text-white/80 backdrop-blur-sm">
-          🗺️ {char!.discoveries.length}/{LANDMARKS.length} descobertas
+          <MapPin className="mr-0.5 inline h-2.5 w-2.5 text-amber-300" />{char!.discoveries.length}/{LANDMARKS.length} descobertas
+        </div>
+        {/* v3: roda de emotes */}
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={() => setEmoteOpen((o) => !o)}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur transition-colors ${emoteOpen ? "bg-white text-slate-900" : "bg-black/55 text-white hover:bg-black/75"}`}
+            data-testid="bw-emote-btn"
+          >
+            <Smile className="h-3 w-3" /> Emotes
+          </button>
+          <AnimatePresence>
+            {emoteOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                className="grid grid-cols-3 gap-1 rounded-xl border border-white/15 bg-black/70 p-1.5 backdrop-blur"
+                data-testid="bw-emotes"
+              >
+                {EMOTES.map((em) => (
+                  <button
+                    key={em}
+                    onClick={() => { engineRef.current?.emote(em); }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-base transition-transform hover:scale-110 hover:bg-white/20 active:scale-90"
+                  >
+                    {em}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -986,12 +1272,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       {/* joystick (mobile) */}
       <Joystick onMove={(x, y) => engineRef.current?.setJoystick(x, y)} />
 
-      {/* barra de poderes + botões de combate (direita) */}
+      {/* barra de poderes + botões de combate v3 (cooldown radial) */}
       <div className="absolute bottom-14 right-3 z-10 flex items-end gap-2">
         <div className="flex flex-col items-center gap-2">
           {mySkills.map((sk, i) => {
             const locked = char!.level < sk.lvl;
             const cd = skillCds[i] || 0;
+            const cdTotal = sk.cd || 1;
+            const cdPct = cd > 0 ? cd / cdTotal : 0;
             return (
               <button
                 key={sk.name}
@@ -999,10 +1287,16 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 disabled={locked || cd > 0}
                 data-testid={`bw-skill-${i}`}
                 title={`${sk.name} — ${sk.desc}${locked ? ` (Nv${sk.lvl})` : ""}`}
-                className={`relative flex h-11 w-11 items-center justify-center rounded-full text-lg font-black shadow-lg transition-all active:scale-90 ${locked ? "bg-slate-800/85 text-white/35" : cd > 0 ? "bg-slate-700/85 text-white/50" : "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-amber-500/40"}`}
+                className={`relative flex h-12 w-12 items-center justify-center rounded-full text-xl font-black shadow-lg transition-all active:scale-90 ${locked ? "bg-slate-800/85 text-white/35" : cd > 0 ? "bg-slate-700/85 text-white/50" : "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-amber-500/40 hover:scale-105"}`}
               >
+                {!locked && cd <= 0 && <motion.span className="absolute inset-0 rounded-full border-2 border-white/60" animate={{ scale: [1, 1.12, 1], opacity: [0.7, 0, 0.7] }} transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }} />}
                 {locked ? "🔒" : sk.emoji}
-                {cd > 0 && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-sm font-black">{cd}</span>}
+                {cd > 0 && (
+                  <>
+                    <span className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(rgba(0,0,0,0.72) ${cdPct * 360}deg, transparent 0deg)` }} />
+                    <span className="absolute inset-0 flex items-center justify-center text-sm font-black">{cd}</span>
+                  </>
+                )}
                 {!locked && <span className="absolute -top-1 -right-1 h-3.5 min-w-3.5 rounded-full bg-slate-900 px-0.5 text-[8px] font-black text-amber-300 flex items-center justify-center border border-amber-400/50">{i + 1}</span>}
               </button>
             );
@@ -1011,9 +1305,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         <div className="flex flex-col items-center gap-2">
           <button
             onClick={() => engineRef.current?.attack()}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-lg shadow-rose-600/40 transition-all hover:scale-105 active:scale-90"
+            className="relative flex h-[68px] w-[68px] items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-lg shadow-rose-600/40 transition-all hover:scale-105 active:scale-90"
             data-testid="bw-attack"
           >
+            <motion.span
+              className="absolute inset-0 rounded-full border-2 border-white/50"
+              animate={{ scale: [1, 1.14, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+            />
             <Swords className="h-7 w-7" />
           </button>
           <button
@@ -1025,9 +1324,20 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* dicas desktop */}
-      <div className="pointer-events-none absolute bottom-1 left-1/2 hidden -translate-x-1/2 text-[10px] text-white/40 md:block">
-        WASD mover · rato girar · clique/F atacar (jogadores perto = PvP!) · 1/2/3 poderes · E interagir · espaço saltar
+      {/* v3: dica rotativa + atalhos (desktop) */}
+      <div className="pointer-events-none absolute bottom-1 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-0.5 md:flex">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={tipIdx}
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            className="rounded-full bg-black/45 px-3 py-1 text-[10px] font-bold text-white/70 backdrop-blur-sm"
+          >
+            {TIPS[tipIdx]}
+          </motion.p>
+        </AnimatePresence>
+        <p className="text-[9px] text-white/40">
+          WASD mover · rato girar · clique/F atacar (jogadores perto = PvP!) · 1/2/3 poderes · E interagir · M som
+        </p>
       </div>
 
       {/* ── Painéis ── */}
@@ -1159,7 +1469,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-[10px] text-muted-foreground">{prog}/{step.goal} · {step.reward}</p>
                         {prog >= step.goal && (
-                          <button onClick={claimSaga} className="rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-black text-slate-900 hover:bg-amber-300">Receber</button>
+                          <button onClick={claimSaga} className="animate-pulse rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-black text-slate-900 shadow-lg shadow-amber-400/30 hover:bg-amber-300">Receber</button>
                         )}
                       </div>
                     </div>
@@ -1289,7 +1599,8 @@ function Panel({ title, onClose, children }: { title: string; onClose: () => voi
       exit={{ opacity: 0, y: 20, scale: 0.97 }}
       data-testid="bw-panel"
     >
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+      <div className="relative flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-rose-400/70 to-transparent" />
         <p className="font-display text-sm font-black">{title}</p>
         <button onClick={onClose} className="rounded-lg p-1 hover:bg-white/10"><X className="h-4 w-4" /></button>
       </div>
@@ -1324,7 +1635,7 @@ function QuestRow({ emoji, title, progress, done, canClaim, reward, onClaim }: {
         <p className="text-[10px] text-muted-foreground">{progress} · {reward}</p>
       </div>
       {done ? <Check className="h-5 w-5 text-emerald-400" /> : canClaim ? (
-        <button onClick={onClaim} className="rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-black text-slate-900 hover:bg-amber-300">Receber</button>
+        <button onClick={onClaim} className="animate-pulse rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-black text-slate-900 shadow-lg shadow-amber-400/30 hover:bg-amber-300">Receber</button>
       ) : (
         <span className="text-[10px] text-white/30">...</span>
       )}
@@ -1357,15 +1668,20 @@ function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
       ref={baseRef}
       data-testid="bw-joystick"
       className="absolute bottom-4 left-4 z-10 h-24 w-24 touch-none rounded-full border-2 border-white/25 bg-black/35 backdrop-blur-sm"
-      style={{ touchAction: "none" }}
-      onPointerDown={(e) => { active.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); handle(e); }}
+      style={{ touchAction: "none", boxShadow: "0 0 24px rgba(56,189,248,0.18), inset 0 0 18px rgba(255,255,255,0.06)" }}
+      onPointerDown={(e) => { active.current = true; worldAudio.play("click"); (e.target as HTMLElement).setPointerCapture(e.pointerId); handle(e); }}
       onPointerMove={(e) => { if (active.current) handle(e); }}
       onPointerUp={() => { active.current = false; setKnob({ x: 0, y: 0 }); onMove(0, 0); }}
       onPointerCancel={() => { active.current = false; setKnob({ x: 0, y: 0 }); onMove(0, 0); }}
     >
+      {/* marcações direcionais */}
+      <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[8px] text-white/40">▲</span>
+      <span className="pointer-events-none absolute left-1/2 bottom-1 -translate-x-1/2 text-[8px] text-white/40">▼</span>
+      <span className="pointer-events-none absolute top-1/2 left-1 -translate-y-1/2 text-[8px] text-white/40">◀</span>
+      <span className="pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 text-[8px] text-white/40">▶</span>
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-10 w-10 rounded-full bg-white/80 shadow-lg"
-        style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))` }}
+        style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))`, boxShadow: "0 0 14px rgba(255,255,255,0.5)" }}
       />
     </div>
   );

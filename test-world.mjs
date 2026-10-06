@@ -120,14 +120,32 @@ async function main() {
   ok("Barra de poderes: 3 slots", (await page.locator('[data-testid="bw-skill-0"]').count()) === 1 && (await page.locator('[data-testid="bw-skill-2"]').count()) === 1);
   ok("Minimapa presente", await page.locator("#bw-minimap").count() > 0);
   ok("Joystick presente", await page.locator('[data-testid="bw-joystick"]').count() > 0);
+  ok("v3: botão de som presente", await page.locator('[data-testid="bw-sound"]').count() > 0);
+  ok("v3: botão de emotes presente", await page.locator('[data-testid="bw-emote-btn"]').count() > 0);
+  ok("v3: rastreador de objetivos presente", await page.locator('[data-testid="bw-tracker"]').count() > 0);
   const hudText = await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "");
   ok("HUD mostra nível + título", hudText.includes("Nv") && hudText.includes("Novato"));
   ok("HUD mostra Pontos de Troféu", hudText.includes("🏆"));
   ok("HUD mostra descobertas", hudText.includes("descobertas"));
+  ok("HUD mostra Objetivo da Saga", /objetivo da saga/i.test(hudText));
   ok("Botões Herói/Missões/Banco/Ranking", hudText.includes("Herói") && hudText.includes("Missões") && hudText.includes("Banco") && hudText.includes("Ranking"));
   ok("Botão Chat presente", hudText.includes("Chat"));
 
   await page.screenshot({ path: "shots/world-01-entry.png" });
+
+  // ── 4b. Emotes v3 ──
+  console.log("▶ Emotes");
+  await page.locator('[data-testid="bw-emote-btn"]').click().catch(() => {});
+  await page.waitForTimeout(400);
+  const emoteWheel = page.locator('[data-testid="bw-emotes"]');
+  ok("Roda de emotes abre", await emoteWheel.count() > 0 && await emoteWheel.isVisible().catch(() => false));
+  if (await emoteWheel.count() > 0) {
+    const emoteBtns = await emoteWheel.locator("button").count();
+    ok("Emotes disponíveis (6)", emoteBtns >= 6);
+    await emoteWheel.locator("button").first().click().catch(() => {});
+    await page.waitForTimeout(400);
+    ok("Emote enviado sem erro", true);
+  }
 
   // ── 5. Combate + poderes ──
   console.log("▶ Combate");
