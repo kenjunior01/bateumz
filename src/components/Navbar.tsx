@@ -228,8 +228,7 @@ const Navbar = () => {
         cta: t("nav.spotlight.cta.live"),
       },
       items: [
-        { label: "🏙️ Bateu Life", href: "/life", icon: Globe, desc: "Mundo social da plataforma — avatar, quarto e prémios reais", badge: "🔥 NOVO" },
-        { label: "🌍 Bateu World 3D", href: "/world", icon: Globe, desc: "MMO 3D em tempo real — luta, cresce e ganha prémios reais", badge: "3D" },
+        { label: "🌍 Bateu World 3D", href: "/world", icon: Globe, desc: "O MMO oficial — níveis, poderes, PvP com roubo de cupões e prémios reais", badge: "🔥 TOP", trending: true },
         { label: t("nav.games"), href: "/jogos", icon: Gamepad2, desc: t("nav.games.desc"), badge: "Hot", trending: true },
         { label: t("nav.tournaments"), href: "/tournaments", icon: Swords, desc: t("nav.tournaments.desc"), badge: t("nav.badge.new") },
         { label: t("nav.livedraw"), href: "/lives-agora", icon: Radio, desc: t("nav.livedraw.desc"), live: true },

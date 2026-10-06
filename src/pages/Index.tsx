@@ -436,13 +436,37 @@ export default function Index() {
           </motion.p>
 
           {/* CTA Buttons */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.5 }} className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.5 }} className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
             <Button size="lg" onClick={() => { sfx.buttonClick(); setConfettiActive(true); setTimeout(() => setConfettiActive(false), 100); navigate("/register"); }} className="text-base font-bold px-8 py-6 rounded-xl h-auto shadow-lg transition-all duration-300 hover:scale-105" style={{ background: `linear-gradient(135deg, ${CYAN}, ${DEEP_PURPLE})`, boxShadow: `0 0 30px ${CYAN}30, 0 8px 32px rgba(0,0,0,0.4)` }}>
               <Rocket className="mr-2 h-5 w-5" /> Começar Agora — É Grátis
             </Button>
             <Button size="lg" variant="outline" onClick={() => { sfx.whoosh(); navigate("/jogos"); }} className="text-base font-semibold px-8 py-6 rounded-xl h-auto border-zinc-700 text-zinc-300 hover:bg-zinc-800/50 hover:text-white transition-all duration-300">
               <Play className="mr-2 h-5 w-5" /> Explorar Jogos
             </Button>
+          </motion.div>
+
+          {/* ⭐ CTA central — entrar direto no jogo principal (Bateu World 3D) */}
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7, duration: 0.5 }} className="flex justify-center mb-12">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              animate={{ boxShadow: ["0 0 24px rgba(244,63,94,0.45)", "0 0 48px rgba(251,191,36,0.6)", "0 0 24px rgba(244,63,94,0.45)"] }}
+              onClick={() => { sfx.whoosh(); navigate("/lives?game=mmorpg"); }}
+              data-testid="home-cta-jogar-central"
+              className="relative overflow-hidden rounded-2xl px-8 sm:px-12 py-4 sm:py-5 font-display font-black text-lg sm:text-2xl text-white tracking-wide transition-colors"
+              style={{ background: "linear-gradient(120deg, #e11d48 0%, #f97316 55%, #fbbf24 100%)" }}
+            >
+              <motion.span
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: "linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%)" }}
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "linear" }}
+              />
+              <span className="relative z-10 flex items-center gap-3">
+                <span className="text-2xl sm:text-3xl">🌍</span> JOGAR AGORA — BATEU WORLD 3D
+                <span className="text-2xl sm:text-3xl">▶</span>
+              </span>
+            </motion.button>
           </motion.div>
 
           {/* ── Gateway Cards ── */}
@@ -809,7 +833,7 @@ export default function Index() {
                 border: `1px solid ${PURPLE}25`,
                 boxShadow: `0 0 60px ${PURPLE}15, 0 0 120px ${CYAN}08, 0 20px 60px rgba(0,0,0,0.5)`,
               }}
-              onClick={() => { sfx.buttonClick(); navigate("/life"); }}
+              onClick={() => { sfx.buttonClick(); navigate("/lives?game=mmorpg"); }}
             >
               {/* Animated glow border */}
               <motion.div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ border: `2px solid ${PURPLE}` }} animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 3, repeat: Infinity }} />
@@ -830,17 +854,17 @@ export default function Index() {
                     <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full" style={{ background: `${GREEN}20`, color: GREEN, border: `1px solid ${GREEN}30` }}>MUNDO REAL</span>
                   </div>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3 leading-tight">
-                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Bateu Life</span>
+                    <span style={{ background: `linear-gradient(135deg, #fff, ${GOLD}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Bateu World 3D</span>
                   </h2>
                   <p className="text-sm sm:text-base text-zinc-400 max-w-lg mb-5 leading-relaxed">
-                    O mundo social da Bateu! Cria o teu avatar com capulana, decora o teu quarto, encontra amigos na praça ao vivo, abre baús com cupões verdadeiros, participa em sorteios reais no palco e salta para os mini-jogos da plataforma a partir do portal.
+                    O MMO oficial da Bateu! Entra num mundo 3D ao vivo: sobe de nível, desbloqueia poderes, derrota monstros e outros jogadores para roubar os cupões deles, troca pontos por moeda da plataforma, explora terras secretas e participa em sorteios reais.
                   </p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mb-5">
                     {[
-                      { icon: Users, label: "Praça ao Vivo", color: CYAN },
-                      { icon: Swords, label: "Quarto Decorável", color: PURPLE },
-                      { icon: Coins, label: "Loja de Moda", color: GOLD },
-                      { icon: Globe, label: "Prémios Reais", color: GREEN },
+                      { icon: Swords, label: "Níveis & Poderes", color: GOLD },
+                      { icon: Users, label: "Jogadores ao Vivo", color: CYAN },
+                      { icon: Coins, label: "Pontos → Moeda", color: GREEN },
+                      { icon: Globe, label: "Exploração", color: PURPLE },
                     ].map((f) => {
                       const FIcon = f.icon;
                       return (

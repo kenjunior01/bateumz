@@ -70,8 +70,7 @@ const ALL_GAMES: GameDef[] = [
   { id: "emoji", label: "Batalha de Emojis", emoji: "💥", desc: "Vote ao vivo, vencedores entram no sorteio!", grad: "from-pink-500 to-rose-500", category: "Social", players: "Multi", icon: Vote, hasBot: false },
   { id: "keyword", label: "Caca a Palavra", emoji: "🔎", desc: "Audiencia adivinha a palavra-chave secreta!", grad: "from-amber-500 to-orange-500", category: "Social", players: "Multi", icon: Search, hasBot: false },
   { id: "truthordare", label: "Verdade ou Desafio", emoji: "🔥", desc: "Verdades picantes e desafios engracados!", grad: "from-rose-500 to-red-600", category: "Social", players: "Multi", icon: Heart, hasBot: false },
-  { id: "bateulife", label: "🏙️ Bateu Life", emoji: "🏙️", desc: "Mundo social da Bateu — cria o teu avatar com capulana, decora o quarto, abre baús com cupões reais e encontra amigos na praça!", grad: "from-fuchsia-600 to-cyan-500", category: "Vida Social", players: "Multiplayer", icon: Globe, hasBot: false },
-  { id: "mmorpg", label: "🌍 Bateu World 3D", emoji: "🌍", desc: "MMO 3D estilo Hordes.io — combate em tempo real, jogadores ao vivo, sorteios e cupões reais no mundo!", grad: "from-rose-600 to-indigo-700", category: "MMORPG", players: "Multiplayer", icon: Globe, hasBot: false },
+  { id: "mmorpg", label: "🌍 Bateu World 3D", emoji: "🌍", desc: "O MMO oficial da Bateu — combate em tempo real, níveis e poderes, rouba cupões a outros jogadores, troca pontos por moeda da plataforma e descobre um mundo ao vivo!", grad: "from-rose-600 via-orange-500 to-amber-500", category: "MMORPG", players: "Multiplayer", icon: Globe, hasBot: false },
   { id: "punishment", label: "Roleta de Castigos", emoji: "💀", desc: "Gire a roleta e cumpra o castigo!", grad: "from-red-600 to-rose-700", category: "Social", players: "Multi", icon: Skull, hasBot: false },
   { id: "guessEmoji", label: "Adivinhe o Emoji", emoji: "😎", desc: "Decifre a frase a partir dos emojis!", grad: "from-yellow-500 to-amber-600", category: "Quiz", players: "Multi", icon: SmilePlus, hasBot: false },
   { id: "quickdraw", label: "Desenho Rapido", emoji: "🎨", desc: "Desenhe e deixe o publico adivinhar!", grad: "from-emerald-500 to-teal-600", category: "Social", players: "Multi", icon: Pencil, hasBot: false },
@@ -271,18 +270,18 @@ const AllGames = () => {
       </div>
 
       <div className="container mx-auto px-4 pt-4 pb-2 relative z-20">
-        {/* ⭐ Bateu Life — destaque permanente no topo da página de jogos */}
+        {/* ⭐ Bateu World — destaque permanente no topo da página de jogos */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-          onClick={() => { sfx.whoosh(); navigate("/lives?game=bateulife"); }}
-          data-testid="jogos-destaque-bateu-life"
+          onClick={() => { sfx.whoosh(); navigate("/lives?game=mmorpg"); }}
+          data-testid="jogos-destaque-bateu-world"
           className="relative overflow-hidden rounded-2xl mb-5 cursor-pointer"
-          style={{ background: "linear-gradient(120deg, #4a044e 0%, #701a75 45%, #164e63 100%)", border: "1px solid rgba(232,121,249,0.4)", boxShadow: "0 0 40px rgba(232,121,249,0.25), 0 12px 32px rgba(0,0,0,0.4)" }}
+          style={{ background: "linear-gradient(120deg, #4c0519 0%, #7c2d12 45%, #713f12 100%)", border: "1px solid rgba(251,113,133,0.45)", boxShadow: "0 0 40px rgba(244,63,94,0.3), 0 12px 32px rgba(0,0,0,0.4)" }}
         >
           <motion.div
             className="absolute inset-0 pointer-events-none"
-            style={{ background: "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.18), transparent 50%), radial-gradient(circle at 90% 85%, rgba(250,204,21,0.2), transparent 45%)" }}
+            style={{ background: "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.18), transparent 50%), radial-gradient(circle at 90% 85%, rgba(250,204,21,0.25), transparent 45%)" }}
             animate={{ opacity: [0.5, 0.85, 0.5] }}
             transition={{ duration: 4, repeat: Infinity }}
           />
@@ -296,14 +295,14 @@ const AllGames = () => {
             </motion.div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-display text-lg sm:text-xl font-black text-white leading-none">🏙️ BATEU LIFE</span>
-                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white text-[9px] font-black animate-pulse">MUNDO SOCIAL · JOGO EM DESTAQUE</span>
+                <span className="font-display text-lg sm:text-xl font-black text-white leading-none">🌍 BATEU WORLD 3D</span>
+                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-amber-400 text-white text-[9px] font-black animate-pulse">MMO DA PLATAFORMA · JOGO EM DESTAQUE</span>
               </div>
               <p className="text-[11px] sm:text-xs font-semibold text-white/80 mt-1 leading-snug">
-                O mundo social da Bateu: avatar com capulana, quarto decorável, praça com amigos ao vivo, baús com cupões reais, palco de sorteios e portal de mini-jogos.
+                Níveis, poderes, missões e exploração num mundo 3D ao vivo — derrota jogadores e rouba os cupões deles, troca pontos por moeda da plataforma e ganha prémios reais.
               </p>
             </div>
-            <div className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white font-black text-[11px] sm:text-xs shadow-lg">
+            <div className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-white font-black text-[11px] sm:text-xs shadow-lg">
               JOGAR AGORA ▶
             </div>
           </div>

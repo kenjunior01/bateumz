@@ -230,3 +230,28 @@ export async function setCharacterOffline(guestId: string): Promise<void> {
     /* silencioso */
   }
 }
+
+// ─── Banco de Pontos: troca por moeda real da plataforma ────
+// Devolve "ok" (creditado), "no-auth" (sem sessão) ou "pending"
+// (RPC ainda não ativa — o pedido fica registado no cliente).
+
+export async function exchangeWorldPoints(points: number, guestId: string): Promise<"ok" | "no-auth" | "pending"> {
+  try {
+    const { data: auth } = await sb.auth.getUser();
+    if (!auth?.user) {
+      // guarda pedido pendente para sincronizar após login
+      try {
+        const pend = JSON.parse(localStorage.getItem("bateu_world_pending_exchange") || "[]");
+        pend.push({ points, guestId, at: new Date().toISOString() });
+        localStorage.setItem("bateu_world_pending_exchange", JSON.stringify(pend.slice(-20)));
+      } catch { /* ignore */ }
+      return "no-auth";
+    }
+    const { data, error } = await sb.rpc("exchange_world_points", { p_points: points, p_ref: guestId });
+    if (error) return "pending";
+    const r = data as { ok?: boolean; amount?: number } | null;
+    return r?.ok ? "ok" : "pending";
+  } catch {
+    return "pending";
+  }
+}
