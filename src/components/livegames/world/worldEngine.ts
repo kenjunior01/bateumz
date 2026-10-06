@@ -30,6 +30,7 @@ export interface EngineStats {
   atk: number;
   maxHp: number;
   spd: number;
+  def: number; // v6: defesa — reduz o dano recebido (até ~60%)
 }
 
 export interface EngineOpts {
@@ -45,13 +46,14 @@ export interface EngineOpts {
 // ── Loot: raridades e geração de itens ──────────────────────
 export interface LootItem {
   id: string;
-  slot: "arma" | "armadura" | "amuleto";
+  slot: "arma" | "armadura" | "amuleto" | "escudo"; // v6: + escudo
   name: string;
   emoji: string;
   rarity: 0 | 1 | 2 | 3; // 0 Comum · 1 Raro · 2 Épico · 3 Lendário
   atk: number;
   hp: number;
   spd: number;
+  def: number; // v6: pontos de defesa (redução de dano)
 }
 
 export const RARITY_META = [
@@ -71,11 +73,13 @@ const LOOT_BASE: Record<LootItem["slot"], string[]> = {
   arma: ["Lâmina", "Machado", "Cajado", "Arco", "Punhal", "Martelo"],
   armadura: ["Peitoral", "Manto", "Couraça", "Capa", "Elmo"],
   amuleto: ["Talismã", "Anel", "Colar", "Gema", "Totem"],
+  escudo: ["Broquel", "Adarga", "Pavês", "Escudo", "Égide"],
 };
 const LOOT_EMOJI: Record<LootItem["slot"], string[]> = {
   arma: ["🗡️", "🪓", "🪄", "🏹", "🔨"],
-  armadura: ["🛡️", "🥋", "🪖"],
+  armadura: ["🥋", "🪖", "🦺"],
   amuleto: ["💎", "💍", "📿", "🔷"],
+  escudo: ["🛡️", "⛨", "🛡"],
 };
 
 export function rollLoot(tier: number, isBoss: boolean, isGuard: boolean, level: number): LootItem | null {
@@ -84,7 +88,7 @@ export function rollLoot(tier: number, isBoss: boolean, isGuard: boolean, level:
   // raridade pesada pelo tier
   const roll = Math.random() + tier * 0.08 + (isBoss ? 0.3 : 0) + (isGuard ? 0.12 : 0);
   const rarity: LootItem["rarity"] = roll > 1.05 ? 3 : roll > 0.82 ? 2 : roll > 0.5 ? 1 : 0;
-  const slots: LootItem["slot"][] = ["arma", "armadura", "amuleto"];
+  const slots: LootItem["slot"][] = ["arma", "armadura", "amuleto", "escudo"]; // v6: + escudo
   const slot = slots[Math.floor(Math.random() * slots.length)];
   const bases = LOOT_BASE[slot];
   const emojis = LOOT_EMOJI[slot];
@@ -100,8 +104,9 @@ export function rollLoot(tier: number, isBoss: boolean, isGuard: boolean, level:
     emoji: emojis[Math.floor(Math.random() * emojis.length)],
     rarity,
     atk: slot === "arma" ? stat(3) : rarity >= 2 ? stat(1) : 0,
-    hp: slot === "armadura" ? stat(9) : rarity >= 2 ? stat(4) : 0,
+    hp: slot === "armadura" ? stat(9) : slot === "escudo" ? stat(6) : rarity >= 2 ? stat(4) : 0,
     spd: slot === "amuleto" ? stat(0.6) : 0,
+    def: slot === "escudo" ? stat(2.4) : slot === "armadura" ? Math.max(1, stat(1.1)) : 0,
   };
 }
 
@@ -142,19 +147,26 @@ export const SKILLS: SkillDef[][] = [
 ];
 
 // ── Descobertas do mundo ─────────────────────────────────────
-export const LANDMARKS: { id: string; name: string; x: number; z: number; r: number; emoji: string }[] = [
-  { id: "obelisco", name: "Obelisco da Praça", x: 0, z: 0, r: 12, emoji: "🗿" },
-  { id: "templo", name: "Templo dos Sorteios", x: 0, z: -52, r: 13, emoji: "🎁" },
-  { id: "feira", name: "Feira Bateu", x: 52, z: 0, r: 13, emoji: "🛒" },
-  { id: "torre", name: "Torre dos Concursos", x: -52, z: 0, r: 13, emoji: "🏆" },
-  { id: "cofre", name: "Cofre de Cupões", x: 0, z: 52, r: 13, emoji: "🎟️" },
-  { id: "banco", name: "Banco de Pontos", x: -14, z: -14, r: 8, emoji: "🏦" },
-  { id: "fonte", name: "Fonte da Vida", x: 14, z: -14, r: 7, emoji: "⛲" },
-  { id: "ruinas", name: "Ruínas Antigas", x: -100, z: -60, r: 10, emoji: "🏛️" },
-  { id: "lago", name: "Lago Misterioso", x: 95, z: 70, r: 11, emoji: "🌊" },
-  { id: "caverna", name: "Caverna de Cristais", x: -90, z: 85, r: 10, emoji: "💎" },
-  { id: "baoba", name: "Baobá Gigante", x: 60, z: -100, r: 10, emoji: "🌳" },
-  { id: "arena", name: "Arena das Ondas", x: 112, z: 0, r: 13, emoji: "🏟️" },
+export const LANDMARKS: { id: string; name: string; x: number; z: number; r: number; emoji: string; desc: string }[] = [
+  { id: "obelisco", name: "Obelisco da Praça", x: 0, z: 0, r: 12, emoji: "🗿", desc: "Coração do mundo — renasces aqui quando cais em combate" },
+  { id: "templo", name: "Templo dos Sorteios", x: 0, z: -52, r: 13, emoji: "🎁", desc: "Abre baús com bilhetes de sorteios REAIS da plataforma" },
+  { id: "feira", name: "Feira Bateu", x: 52, z: 0, r: 13, emoji: "🛒", desc: "Bens reais em venda e leasing — viaturas, lojas, equipamentos" },
+  { id: "torre", name: "Torre dos Concursos", x: -52, z: 0, r: 13, emoji: "🏆", desc: "Concursos ativos da comunidade — participa e ganha prémios" },
+  { id: "cofre", name: "Cofre de Cupões", x: 0, z: 52, r: 13, emoji: "🎟️", desc: "Baús guardam cupões de desconto reais para as tuas compras" },
+  { id: "banco", name: "Banco de Pontos", x: -14, z: -14, r: 8, emoji: "🏦", desc: "Troca Pontos de Troféu por cupões e moeda REAL da carteira" },
+  { id: "fonte", name: "Fonte da Vida", x: 14, z: -14, r: 7, emoji: "⛲", desc: "Cura gratuita e total — o teu ponto de descanso seguro" },
+  { id: "ruinas", name: "Ruínas Antigas", x: -100, z: -60, r: 10, emoji: "🏛️", desc: "Restos de uma civilização perdida — chefes espreitam as pedras" },
+  { id: "lago", name: "Lago Misterioso", x: 95, z: 70, r: 11, emoji: "🌊", desc: "Águas que brilham à noite — dizem que guardam um segredo" },
+  { id: "caverna", name: "Caverna de Cristais", x: -90, z: 85, r: 10, emoji: "💎", desc: "Cristais luminosos — ninho de bugs gélidos e tesouros raros" },
+  { id: "baoba", name: "Baobá Gigante", x: 60, z: -100, r: 10, emoji: "🌳", desc: "A árvore-mãe do mundo — mil anos de histórias nas raízes" },
+  { id: "arena", name: "Arena das Ondas", x: 112, z: 0, r: 13, emoji: "🏟️", desc: "Sobrevive a ondas de inimigos e ganha pontos e ouro sem fim" },
+  // v6 — novos marcos do mundo expandido
+  { id: "vigia", name: "Torre de Vigia", x: -140, z: 20, r: 10, emoji: "🗼", desc: "Vê o mundo lá do alto — o melhor ponto para planear rotas" },
+  { id: "aldeia", name: "Aldeia Capulana", x: 40, z: 140, r: 11, emoji: "🏘️", desc: "Aldeia acolhedora de jogadores — zona calma sem perigos" },
+  { id: "desejos", name: "Pedra dos Desejos", x: -35, z: -150, r: 9, emoji: "🪨", desc: "Monólito antigo que sussurra aos exploradores corajosos" },
+  { id: "cacamp", name: "Acampamento dos Caçadores", x: 150, z: 90, r: 10, emoji: "⛺", desc: "Base dos heróis no deserto — fogueira com bónus de XP" },
+  { id: "eclipse", name: "Portal do Eclipse", x: -150, z: -140, r: 11, emoji: "🌀", desc: "Portal instável — por aqui entram os bugs mais perigosos" },
+  { id: "eco", name: "Gruta do Eco", x: 155, z: -70, r: 9, emoji: "🕳️", desc: "Cada golpe ressoa sete vezes — treina os teus poderes aqui" },
 ];
 
 export const ARENA_CENTER = new THREE.Vector3(112, 0, 0);
@@ -289,7 +301,27 @@ const MOB_TIERS = [
 ];
 
 const CLASS_COLORS = [0xef4444, 0x8b5cf6, 0x22c55e, 0x06b6d4];
-const WORLD_RADIUS = 148;
+const WORLD_RADIUS = 230;
+
+// ── v6: Regiões nomeadas do mundo expandido ──────────────
+export interface RegionDef {
+  id: string;
+  name: string;
+  desc: string;
+  cx: number;
+  cz: number;
+  r: number;
+  color: string;
+}
+export const REGIONS: RegionDef[] = [
+  { id: "planicie", name: "Planície Central", desc: "Zona inicial segura — a Praça, o Banco e a Fonte", cx: 0, cz: 0, r: 70, color: "#4ade80" },
+  { id: "floresta", name: "Floresta Ancestral", desc: "Árvores milenares a oeste — bugs sombrios nas sombras", cx: -120, cz: -40, r: 85, color: "#15803d" },
+  { id: "dunas", name: "Dunas Escaldantes", desc: "Deserto do norte — calor extremo e bugs de elite", cx: -40, cz: -150, r: 85, color: "#f59e0b" },
+  { id: "litoral", name: "Litoral das Ondas", desc: "Costa a leste — a Arena e o Lago Misterioso", cx: 130, cz: 20, r: 85, color: "#38bdf8" },
+  { id: "pantano", name: "Pântano Sombrio", desc: "Terras húmidas do sul — o perigo espreita na névoa", cx: 40, cz: 150, r: 85, color: "#7c3aed" },
+  { id: "montanhas", name: "Montanhas Negras", desc: "Picos rochosos a sudoeste — cavernas de cristais", cx: -120, cz: 130, r: 85, color: "#64748b" },
+  { id: "vulcanicas", name: "Terras Vulcânicas", desc: "O canto mais hostil do mundo — só para lendas", cx: 170, cz: -140, r: 75, color: "#dc2626" },
+];
 const DAY_LEN = 240000; // ms
 
 function groundY(x: number, z: number): number {
@@ -403,6 +435,7 @@ export class WorldEngine {
   private invulnUntil = 0;
   private dead = false;
   private near: Interactable | null = null;
+  private nearLm: string | null = null; // v6: marco próximo (nome — significado)
   private bob = 0;
   private raf = 0;
   private lastT = 0;
@@ -443,6 +476,16 @@ export class WorldEngine {
   // v3 — herói (arma/capa/aura)
   private weaponPivot: THREE.Group | null = null;
   private capeMesh: THREE.Mesh | null = null;
+  // v6 — defesa: escudo equipado na mão esquerda + modo guarda
+  private guarding = false;
+  private guardT = 0;          // 0..1 animação suave de erguer/abaixar
+  private shieldMesh: THREE.Group | null = null;
+  private shieldGlow: THREE.Mesh | null = null;
+  private guardFlash = 0;      // flash dourado ao bloquear
+  // v6 — waypoint do mapa grande + região atual
+  private waypoint: THREE.Vector3 | null = null;
+  private waypointBeam: THREE.Group | null = null;
+  private lastRegion = "";
   // v5: avatar articulado do jogador
   private avParts: AvatarParts | null = null;
   private avCfg: AvatarConfig = defaultAvatar(0);
@@ -504,9 +547,9 @@ export class WorldEngine {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87ceeb);
-    this.scene.fog = new THREE.FogExp2(0x9bd0e8, 0.0075);
+    this.scene.fog = new THREE.FogExp2(0x9bd0e8, 0.0052); // v6: mundo maior — névoa mais longe
 
-    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 560);
 
     this.hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3d6b35, 0.95);
     this.scene.add(this.hemi);
@@ -1171,21 +1214,24 @@ export class WorldEngine {
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
     const leafGeo = new THREE.ConeGeometry(1.5, 3.4, 7);
     const leafMat = new THREE.MeshLambertMaterial({ color: 0x2d6a4f });
-    const N = 150;
+    const N = 260; // v6: mundo maior — mais árvores
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
     const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N);
     const dummy = new THREE.Object3D();
     let placed = 0;
     let guard = 0;
-    while (placed < N && guard++ < 900) {
+    while (placed < N && guard++ < 1800) {
       const a = Math.random() * Math.PI * 2;
-      const r = 24 + Math.random() * 118;
+      const r = 26 + Math.random() * 196;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       if (Math.abs(x) < 6 || Math.abs(z) < 6) continue;
       if (Math.hypot(x, z - 52) < 16 || Math.hypot(x - 52, z) < 16 || Math.hypot(x + 52, z) < 16) continue;
       if (Math.hypot(x + 100, z + 60) < 12 || Math.hypot(x - 95, z - 70) < 14 || Math.hypot(x + 90, z - 85) < 10 || Math.hypot(x - 60, z + 100) < 12) continue;
       if (Math.hypot(x - 112, z) < 30) continue; // v4: arena limpa de árvores
+      // v6: marcos novos livres de árvores
+      if (Math.hypot(x + 140, z - 20) < 11 || Math.hypot(x - 40, z - 140) < 12 || Math.hypot(x + 35, z + 150) < 10) continue;
+      if (Math.hypot(x - 150, z - 90) < 11 || Math.hypot(x + 150, z + 140) < 12 || Math.hypot(x - 155, z + 70) < 10) continue;
       const y = groundY(x, z);
       const s = 0.8 + Math.random() * 0.7;
       dummy.position.set(x, y + 1.1 * s, z);
@@ -1204,10 +1250,10 @@ export class WorldEngine {
 
     const rockGeo = new THREE.IcosahedronGeometry(0.9, 0);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x7d8590 });
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 60);
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 110); // v6: mais rochas
     let rp = 0;
     guard = 0;
-    while (rp < 60 && guard++ < 600) {
+    while (rp < 110 && guard++ < 900) {
       const a = Math.random() * Math.PI * 2;
       const r = 26 + Math.random() * 110;
       const x = Math.cos(a) * r;
@@ -1225,10 +1271,10 @@ export class WorldEngine {
 
     const bushGeo = new THREE.IcosahedronGeometry(0.55, 0);
     const bushMat = new THREE.MeshLambertMaterial({ color: 0x40916c });
-    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 50);
+    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 95); // v6: mais arbustos
     let bp = 0;
     guard = 0;
-    while (bp < 50 && guard++ < 500) {
+    while (bp < 95 && guard++ < 800) {
       const a = Math.random() * Math.PI * 2;
       const r = 14 + Math.random() * 130;
       const x = Math.cos(a) * r;
@@ -1274,7 +1320,7 @@ export class WorldEngine {
 
     // ── v3: flores coloridas ──
     const flowerColors = [0xf472b6, 0xfbbf24, 0xf87171, 0xa78bfa, 0xffffff];
-    const F = 150;
+    const F = 260; // v6: mais flores no mundo grande
     const flowerGeo = new THREE.SphereGeometry(0.09, 5, 4);
     const flowers = new THREE.InstancedMesh(flowerGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), F);
     const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 4);
@@ -1319,7 +1365,7 @@ export class WorldEngine {
     for (let i = 0; i < 22; i++) {
       const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: bfTex, transparent: true, depthWrite: false, opacity: 0 }));
       const a = Math.random() * Math.PI * 2;
-      const rr = 16 + Math.random() * 90;
+      const rr = 16 + Math.random() * 185;
       this.butterflies.push({
         spr, a, r: rr, s: 0.03 + Math.random() * 0.06,
         y0: groundY(Math.cos(a) * rr, Math.sin(a) * rr) + 1 + Math.random() * 1.6,
@@ -1339,10 +1385,10 @@ export class WorldEngine {
     fctx.fillStyle = grd;
     fctx.fillRect(0, 0, 32, 32);
     const ffTex = new THREE.CanvasTexture(ffCanvas);
-    for (let i = 0; i < 36; i++) {
+    for (let i = 0; i < 52; i++) {
       const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: ffTex, transparent: true, depthWrite: false, opacity: 0 }));
       const a = Math.random() * Math.PI * 2;
-      const r = 20 + Math.random() * 110;
+      const r = 20 + Math.random() * 190;
       this.fireflies.push({
         spr, a, r, s: 0.02 + Math.random() * 0.05,
         y0: groundY(Math.cos(a) * r, Math.sin(a) * r) + 0.8 + Math.random() * 2,
@@ -1387,7 +1433,68 @@ export class WorldEngine {
     g.add(myRing);
     this.classAura = pLight;
     this.capeMesh = parts.cape;
+    this.buildHeroShield(parts.armL);
   }
+
+  /** v6: escudo do herói — criado no braço esquerdo, visível quando equipado. */
+  private buildHeroShield(armL: THREE.Group): void {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.34, 0.34, 0.06, 18),
+      new THREE.MeshLambertMaterial({ color: 0x8b5e3c })
+    );
+    body.rotation.x = Math.PI / 2;
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.34, 0.045, 6, 18),
+      new THREE.MeshLambertMaterial({ color: 0xfbbf24 })
+    );
+    const boss = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshLambertMaterial({ color: 0xfacc15 })
+    );
+    boss.position.z = 0.06;
+    g.add(body, rim, boss);
+    g.position.set(0, -0.55, 0.12);
+    g.rotation.x = Math.PI / 2;
+    g.visible = false;
+    g.name = "heroShield";
+    armL.add(g);
+    this.shieldMesh = g;
+    // brilho que pulsa quando bloqueia
+    const glow = new THREE.Mesh(
+      new THREE.RingGeometry(0.42, 0.56, 20),
+      new THREE.MeshBasicMaterial({ color: 0xfde68a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+    );
+    glow.position.set(0, -0.55, 0.2);
+    glow.visible = false;
+    armL.add(glow);
+    this.shieldGlow = glow;
+  }
+
+  /** v6: mostrar/esconder o escudo equipado (cor pela raridade do item). */
+  setShieldMesh(rarity: number | null): void {
+    if (!this.shieldMesh) return;
+    if (rarity === null) {
+      this.shieldMesh.visible = false;
+      return;
+    }
+    const cols = [0x9ca3af, 0x38bdf8, 0xa855f7, 0xfbbf24];
+    const rimMat = (this.shieldMesh.children[1] as THREE.Mesh)?.material as THREE.MeshLambertMaterial;
+    if (rimMat) rimMat.color.setHex(cols[rarity] ?? 0xfbbf24);
+    this.shieldMesh.visible = true;
+  }
+
+  /** v6: modo guarda — ergue o escudo e reduz o dano; move mais devagar. */
+  setGuard(on: boolean): void {
+    if (this.dead) on = false;
+    if (this.guarding === on) return;
+    this.guarding = on;
+    worldAudio.play(on ? "shield" : "click");
+    this.opts.onEvent({ type: "guard", on });
+  }
+
+  toggleGuard(): void { this.setGuard(!this.guarding); }
+  isGuarding(): boolean { return this.guarding; }
 
   /** v5: arma da classe empunhada na mão direita do avatar. */
   private buildClassWeapon(slot: THREE.Group): void {
@@ -1538,16 +1645,22 @@ export class WorldEngine {
   }
 
   private buildMobs(): void {
+    // v6: mundo 230 → mais inimigos em todas as faixas + 2 chefes e
+    // 2 guardas extra nas terras distantes (Portal do Eclipse / Gruta do Eco)
     const defs: { tier: number; count: number; boss?: boolean; guard?: boolean; pos?: [number, number] }[] = [
-      { tier: 0, count: 12 },
-      { tier: 1, count: 9 },
-      { tier: 2, count: 6 },
-      { tier: 3, count: 4 },
-      { tier: 4, count: 3 },
+      { tier: 0, count: 26 },
+      { tier: 1, count: 20 },
+      { tier: 2, count: 14 },
+      { tier: 3, count: 10 },
+      { tier: 4, count: 7 },
       { tier: 2, count: 1, boss: true, pos: [112, -112] },
       { tier: 4, count: 1, boss: true, pos: [-112, 112] },
+      { tier: 4, count: 1, boss: true, pos: [-150, -140] },  // Portal do Eclipse
+      { tier: 3, count: 1, boss: true, pos: [155, -70] },    // Gruta do Eco
       { tier: 2, count: 1, guard: true, pos: [0, -45] },
       { tier: 2, count: 1, guard: true, pos: [0, 45] },
+      { tier: 3, count: 1, guard: true, pos: [-140, 20] },   // Torre de Vigia
+      { tier: 3, count: 1, guard: true, pos: [150, 90] },    // Acampamento
     ];
     for (const d of defs) {
       for (let i = 0; i < d.count; i++) {
@@ -1555,11 +1668,11 @@ export class WorldEngine {
         if (d.pos) { [x, z] = d.pos; }
         else {
           const a = Math.random() * Math.PI * 2;
-          const r = d.tier === 0 ? 30 + Math.random() * 26
-            : d.tier === 1 ? 62 + Math.random() * 40
-            : d.tier === 2 ? 108 + Math.random() * 30
-            : d.tier === 3 ? 92 + Math.random() * 44
-            : 122 + Math.random() * 22;
+          const r = d.tier === 0 ? 30 + Math.random() * 40
+            : d.tier === 1 ? 66 + Math.random() * 55
+            : d.tier === 2 ? 108 + Math.random() * 62
+            : d.tier === 3 ? 92 + Math.random() * 80
+            : 122 + Math.random() * 95;
           x = Math.cos(a) * r;
           z = Math.sin(a) * r;
         }
@@ -2175,6 +2288,8 @@ export class WorldEngine {
     if (e.key === "1") this.skill(0);
     if (e.key === "2") this.skill(1);
     if (e.key === "3") this.skill(2);
+    // v6: Shift = erguer/abaixar o escudo (modo guarda)
+    if (e.key === "Shift") { e.preventDefault(); this.toggleGuard(); }
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -2850,6 +2965,16 @@ export class WorldEngine {
         this.opts.onEvent({ type: "discover", id: l.id, name: l.name, emoji: l.emoji, xp: 60 });
       }
     }
+    // v6: entrada numa nova região — banner com nome e significado
+    const reg = this.currentRegion();
+    if (reg.id !== this.lastRegion) {
+      const first = this.lastRegion === "";
+      this.lastRegion = reg.id;
+      if (!first) {
+        worldAudio.play("region");
+        this.opts.onEvent({ type: "region", id: reg.id, name: reg.name, desc: reg.desc, emoji: "🗺️" });
+      }
+    }
   }
 
   // ── Loop ────────────────────────────────────────────────────
@@ -2953,7 +3078,7 @@ export class WorldEngine {
     const len = Math.hypot(ix, iy);
     if (len > 1) { ix /= len; iy /= len; }
 
-    const speed = (4 + this.opts.stats.spd * 0.35) * (this.dead ? 0 : 1);
+    const speed = (4 + this.opts.stats.spd * 0.35) * (this.dead ? 0 : 1) * (this.guarding ? 0.45 : 1);
     const fwd = new THREE.Vector3(-Math.sin(this.camYaw), 0, -Math.cos(this.camYaw));
     const right = new THREE.Vector3(fwd.z * -1, 0, fwd.x);
     const move = new THREE.Vector3()
@@ -3089,12 +3214,25 @@ export class WorldEngine {
 
   private hurtPlayer(rawDmg: number, m: Mob): void {
     if (this.dead || performance.now() < this.invulnUntil) return;
-    const dmg = Math.max(1, Math.round(rawDmg * 0.9));
+    // v6: DEFESA — def reduz o dano (3% por ponto, máx 60%);
+    // o modo GUARDA bloqueia +40% extra (máx total 78%)
+    const defPct = Math.min(0.6, (this.opts.stats.def || 0) * 0.03);
+    const guardPct = this.guarding ? 0.4 : 0;
+    const mitig = Math.min(0.78, defPct + guardPct);
+    const dmg = Math.max(1, Math.round(rawDmg * 0.9 * (1 - mitig)));
     this.hp -= dmg;
     this.lastHitAt = performance.now();
-    worldAudio.play("hurt");
-    this.opts.onEvent({ type: "hp", hp: Math.max(0, this.hp), maxHp: this.opts.stats.maxHp, hit: true });
-    this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), `-${dmg}`, "#f87171", 1.1);
+    if (this.guarding) {
+      // golpe absorvido pelo escudo — clang dourado + faísca
+      worldAudio.play("block");
+      this.guardFlash = 1;
+      this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), mitig >= 0.5 ? "BLOQUEADO!" : "BLOQUEADO", "#fde68a", 1.15);
+      this.burst(this.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 0xfde68a, 6, 1.4, 0.8, 0.05, 2.2);
+    } else {
+      worldAudio.play("hurt");
+    }
+    this.opts.onEvent({ type: "hp", hp: Math.max(0, this.hp), maxHp: this.opts.stats.maxHp, hit: true, blocked: this.guarding });
+    this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), `-${dmg}`, this.guarding ? "#fbbf24" : "#f87171", 1.1);
     this.shake(0.1);
     if (this.hp <= 0) {
       this.dead = true;
@@ -3209,10 +3347,104 @@ export class WorldEngine {
       const d = Math.hypot(this.pos.x - it.pos.x, this.pos.z - it.pos.z);
       if (d < bestD) { bestD = d; best = it; }
     }
-    if (best !== this.near) {
-      this.near = best;
-      this.opts.onEvent({ type: "near", label: best ? best.label : null });
+    // v6: perto de um MARCO? — mostra nome + significado (descobertos)
+    let lmLabel: string | null = null;
+    for (const l of LANDMARKS) {
+      if (!this.discovered.has(l.id)) continue;
+      const d = Math.hypot(this.pos.x - l.x, this.pos.z - l.z);
+      if (d <= Math.max(9, l.r * 0.8)) { lmLabel = `${l.emoji} ${l.name} — ${l.desc}`; break; }
     }
+    const nearChanged = best !== this.near || lmLabel !== this.nearLm;
+    if (nearChanged) {
+      this.near = best;
+      this.nearLm = lmLabel;
+      this.opts.onEvent({ type: "near", label: best ? best.label : lmLabel });
+    } else if (this.near && lmLabel) {
+      // interativo tem prioridade sobre o marco
+      this.opts.onEvent({ type: "near", label: best ? best.label : lmLabel });
+    }
+  }
+
+  // ── v6: Waypoint, bússola, mapa e regiões ──────────────────
+
+  /** Marca um destino no mundo (do mapa grande). Feixe vertical visível. */
+  setWaypoint(x: number, z: number): void {
+    this.waypoint = new THREE.Vector3(x, 0, z);
+    if (!this.waypointBeam) {
+      const g = new THREE.Group();
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 0.55, 26, 10, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0xfde68a, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
+      );
+      beam.position.y = 13;
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.1, 1.5, 24),
+        new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.15;
+      g.add(beam, ring);
+      g.visible = false;
+      this.scene.add(g);
+      this.waypointBeam = g;
+    }
+    const gy = groundY(x, z);
+    this.waypointBeam.position.set(x, gy, z);
+    this.waypointBeam.visible = true;
+    worldAudio.play("waypoint");
+    this.opts.onEvent({ type: "notify", msg: "🧭 Destino marcado no mapa — segue a bússola!", tone: "info" });
+  }
+
+  clearWaypoint(): void {
+    this.waypoint = null;
+    if (this.waypointBeam) this.waypointBeam.visible = false;
+  }
+
+  getWaypoint(): { x: number; z: number } | null {
+    return this.waypoint ? { x: this.waypoint.x, z: this.waypoint.z } : null;
+  }
+
+  /** Bússola: ângulo relativo à câmara (0=frente) + distância ao destino. */
+  getCompass(): { angle: number; dist: number } | null {
+    if (!this.waypoint) return null;
+    const dx = this.waypoint.x - this.pos.x;
+    const dz = this.waypoint.z - this.pos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 4) return { angle: 0, dist: 0 };
+    const worldAng = Math.atan2(dx, dz);
+    // camYaw roda a vista; subtrair para dar ângulo relativo ao ecrã
+    const rel = worldAng - this.camYaw + Math.PI;
+    return { angle: rel, dist };
+  }
+
+  /** Região atual pela posição (a mais próxima cujo centro cobre o jogador). */
+  currentRegion(): RegionDef {
+    let best = REGIONS[0];
+    let bestD = Infinity;
+    for (const r of REGIONS) {
+      const d = Math.hypot(this.pos.x - r.cx, this.pos.z - r.cz);
+      const eff = d - r.r;
+      if (eff < bestD) { bestD = eff; best = r; }
+    }
+    return best;
+  }
+
+  /** Dados para o MAPA GRANDE (posições vivas — marcos vêm dos exports). */
+  getMapData(): {
+    px: number; pz: number; yaw: number;
+    players: { x: number; z: number }[];
+    region: string;
+    waypoint: { x: number; z: number } | null;
+    mobs: { x: number; z: number; t: number }[];
+  } {
+    const reg = this.currentRegion();
+    return {
+      px: this.pos.x, pz: this.pos.z, yaw: this.camYaw,
+      players: [...this.remotes.values()].map((r) => ({ x: r.group.position.x, z: r.group.position.z })),
+      region: reg.id,
+      waypoint: this.waypoint ? { x: this.waypoint.x, z: this.waypoint.z } : null,
+      mobs: this.mobs.filter((m) => m.state !== "dead" && !m.arena).slice(0, 90).map((m) => ({ x: m.group.position.x, z: m.group.position.z, t: m.tier })),
+    };
   }
 
   private updateRemotes(dt: number): void {
@@ -3364,6 +3596,18 @@ export class WorldEngine {
   // ── v3: herói vivo (arma, capa, escudo, emote) ──────────────
 
   private updateHeroV3(dt: number): void {
+    // v6: transição suave do escudo (erguer/abaixar) + flash de bloqueio
+    const gTarget = this.guarding && !this.dead ? 1 : 0;
+    this.guardT += (gTarget - this.guardT) * Math.min(1, dt * 10);
+    if (this.shieldMesh) this.shieldMesh.visible = this.guardT > 0.02 || this.shieldMesh.visible;
+    if (this.guardFlash > 0) {
+      this.guardFlash = Math.max(0, this.guardFlash - dt * 2.6);
+      if (this.shieldGlow) {
+        (this.shieldGlow.material as THREE.MeshBasicMaterial).opacity = this.guardFlash * 0.85;
+        this.shieldGlow.visible = this.guardFlash > 0.02;
+        this.shieldGlow.scale.setScalar(1 + (1 - this.guardFlash) * 0.7);
+      }
+    }
     // v5: animação completa do avatar — caminhada, golpe, capa,
     // respiração em idle e squash ao aterrar
     if (this.swingT > 0) {
@@ -3371,7 +3615,7 @@ export class WorldEngine {
       if (this.swingT >= 1) this.swingT = 0;
     }
     if (this.avParts) {
-      animateAvatar(this.avParts, this.bob, this.isMoving(), this.swingT, performance.now());
+      animateAvatar(this.avParts, this.bob, this.isMoving(), this.swingT, performance.now(), this.guardT);
       if (this.landSquash > 0) {
         this.landSquash = Math.max(0, this.landSquash - dt * 4.5);
         const s = this.landSquash;

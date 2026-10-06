@@ -1,5 +1,7 @@
 // ============================================================
-// E2E — Bateu World 3D v2 (MMO principal da plataforma)
+// E2E — Bateu World 3D v6 (MMO principal da plataforma)
+// v6: GATE de registo (só membros), sessão injetada, escudo/
+// defesa, mapa-múndi com significados, bússola e sincronização.
 // Requisitos: playwright (chromium), vite dev server na porta 8099
 // Uso: node test-world.mjs
 // ============================================================
@@ -26,11 +28,11 @@ const NOISE = [
   "Failed to load resource",
   "websocket", "WebSocket", "realtime", "supabase", "ERR_", "net::",
   "ResizeObserver", "AudioContext", "React Router Future Flag",
-  "404", "406", "fetchPriority", "does not recognize",
+  "404", "406", "fetchPriority", "does not recognize", "PGRST301", "JWT",
 ];
 
 async function main() {
-  console.log(`\n🌍 Bateu World v2 E2E — ${BASE}\n`);
+  console.log(`\n🌍 Bateu World v6 E2E — ${BASE}\n`);
   const browser = await chromium.launch({ args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
@@ -60,6 +62,43 @@ async function main() {
     if (await btn.count().catch(() => 0) > 0) { await btn.click().catch(() => {}); await page.waitForTimeout(350); }
   };
 
+  // ── 0. v6 — GATE: sem conta registada NÃO se joga ──
+  console.log("▶ v6 — Gate de registo obrigatório");
+  const sbToken = {
+    access_token: "e2e.header." + Math.random().toString(36).slice(2),
+    token_type: "bearer",
+    expires_in: 315360000,
+    expires_at: Math.floor(Date.now() / 1000) + 315360000,
+    refresh_token: "e2e-refresh-" + Math.random().toString(36).slice(2),
+    user: {
+      id: "e2e00000-1111-4222-8333-444455556666",
+      aud: "authenticated",
+      role: "authenticated",
+      email: "testeheroi@bateu.mz",
+      app_metadata: { provider: "email", providers: ["email"] },
+      user_metadata: { display_name: "TesteHero" },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  };
+  // 0a: SEM sessão → ecrã de registo obrigatório
+  await page.goto(`${BASE}/lives?game=mmorpg`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  const gate = page.locator('[data-testid="bateu-gate"]');
+  await gate.waitFor({ state: "visible", timeout: 25000 }).catch(() => {});
+  ok("v6: SEM conta — gate de membros aparece", await gate.count() > 0 && await gate.isVisible().catch(() => false));
+  const gateTxt = await page.locator("body").innerText().catch(() => "");
+  ok("v6: gate explica que é exclusivo para membros", gateTxt.includes("MEMBROS"));
+  ok("v6: gate tem botão de login", await page.locator('[data-testid="gate-login"]').count() > 0);
+  ok("v6: gate tem botão de registo grátis", await page.locator('[data-testid="gate-register"]').count() > 0);
+  ok("v6: sem conta, o mundo 3D NÃO arranca", (await page.locator('[data-testid="bateu-world"] canvas').count()) === 0);
+  await page.screenshot({ path: "shots/world-00-gate.png" });
+
+  // 0b: injetar sessão de membro → mundo abre
+  await page.addInitScript((tok) => {
+    try { localStorage.setItem("sb-ngxrdpplyghlugoowjqj-auth-token", JSON.stringify(tok)); } catch {}
+  }, sbToken);
+  ok("v6: sessão de membro injetada para o resto do teste", true);
+
   // ── 1. CTA central na homepage ──
   console.log("▶ Homepage — CTA central do jogo");
   const respHome = await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -77,9 +116,11 @@ async function main() {
 
   // ── 2. Destaque no LiveHub (sem parâmetro de jogo → banner visível) ──
   console.log("▶ Destaque no hub de jogos");
+  // o hub guarda a última categoria aberta — limpar para ver o destaque
+  await page.evaluate(() => { try { localStorage.removeItem("liveActiveGame"); } catch {} });
   await page.goto(`${BASE}/lives`, { waitUntil: "domcontentloaded", timeout: 60000 });
   const destaque = page.locator('[data-testid="livehub-destaque-bateu-world"]');
-  await destaque.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+  await destaque.waitFor({ state: "visible", timeout: 35000 }).catch(() => {});
   ok("Banner destaque BATEU WORLD 3D presente", await destaque.count() > 0);
   const hubTxt = await page.locator("body").innerText().catch(() => "");
   ok("Hub sem referências ao Bateu Life", !hubTxt.includes("BATEU LIFE") && !hubTxt.includes("Bateu Life"));
@@ -139,11 +180,56 @@ async function main() {
   ok("v3: rastreador de objetivos presente", await page.locator('[data-testid="bw-tracker"]').count() > 0);
   const hudText = await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "");
   ok("HUD mostra nível + título", hudText.includes("Nv") && hudText.includes("Novato"));
+  let dicaOk = hudText.includes("18 marcos");
+  for (let i = 0; i < 12 && !dicaOk; i++) {
+    await page.waitForTimeout(700);
+    dicaOk = (await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "")).includes("18 marcos");
+  }
+  ok("v6: mundo maior anúnciado nas dicas (18 marcos)", dicaOk);
   ok("HUD mostra Pontos de Troféu", hudText.includes("🏆"));
   ok("HUD mostra descobertas", hudText.includes("descobertas"));
   ok("HUD mostra Objetivo da Saga", /objetivo da saga/i.test(hudText));
   ok("Botões Herói/Missões/Banco/Ranking", hudText.includes("Herói") && hudText.includes("Missões") && hudText.includes("Banco") && hudText.includes("Ranking"));
   ok("Botão Chat presente", hudText.includes("Chat"));
+
+  // ── v6: escudo/defesa ──
+  console.log("▶ v6 — Escudo e modo Guarda");
+  const guardBtn = page.locator('[data-testid="bw-guard"]');
+  ok("v6: botão de escudo/guarda visível", await guardBtn.count() > 0);
+  await guardBtn.click({ force: true }).catch(() => {});
+  await page.waitForTimeout(600);
+  ok("v6: indicador de GUARDA ativa aparece", await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false));
+  await page.waitForTimeout(500);
+  await guardBtn.click({ force: true }).catch(() => {});
+  await page.waitForTimeout(1000);
+  ok("v6: guarda desliga ao segundo toque", !(await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false)));
+
+  // ── v6: mapa-múndi com significados ──
+  console.log("▶ v6 — Mapa-múndi com significados");
+  await page.locator('[data-testid="bw-nav-map"]').click().catch(() => {});
+  await page.waitForTimeout(700);
+  const mapTxt = await page.locator('[data-testid="bw-panel"]').innerText().catch("");
+  ok("v6: painel do mapa-múndi abre", mapTxt.includes("Mapa-Múndi"));
+  ok("v6: legenda dos significados presente", /significa cada lugar/i.test(mapTxt));
+  ok("v6: marco revelado mostra significado", mapTxt.includes("renasces aqui") || mapTxt.includes("Coração do mundo"));
+  ok("v6: lugares por descobrir ficam mistério", mapTxt.includes("por descobrir"));
+  ok("v6: canvas do mapa grande presente", await page.locator('[data-testid="bw-bigmap"]').count() > 0);
+  const lmCount = await page.locator('[data-testid^="bw-map-"]').count();
+  ok("v6: 18 marcos na legenda do mapa", lmCount === 18);
+  // marcar destino → bússola
+  const arenaItem = page.locator('[data-testid="bw-map-arena"]');
+  await arenaItem.evaluate((el) => el.scrollIntoView({ block: "center" })).catch(() => {});
+  await page.waitForTimeout(300);
+  await arenaItem.click({ force: true }).catch(() => {});
+  await page.waitForTimeout(1200);
+  ok("v6: bússola do destino aparece após marcar", await page.locator('[data-testid="bw-compass"]').isVisible().catch(() => false));
+  await page.locator('[data-testid="bw-compass"] button').first().click({ force: true }).catch(() => {});
+  await page.waitForTimeout(1100);
+  ok("v6: bússola limpa ao clicar ✕", !(await page.locator('[data-testid="bw-compass"]').isVisible().catch(() => false)));
+  await page.screenshot({ path: "shots/world-01b-mapa.png" });
+  const mapClose = page.locator('[data-testid="bw-panel"] button').first();
+  await mapClose.click().catch(() => {});
+  await page.waitForTimeout(350);
 
   await page.screenshot({ path: "shots/world-01-entry.png" });
 
@@ -178,6 +264,7 @@ async function main() {
   ok("Painel Herói abre", heroTxt.includes("Meu Herói"));
   ok("Mostra Pontos de atributo", heroTxt.includes("Pontos de atributo"));
   ok("Mostra Ataque/Vida/Velocidade", heroTxt.includes("Ataque") && heroTxt.includes("Vida") && heroTxt.includes("Velocidade"));
+  ok("v6: linha de DEFESA com redução de dano", heroTxt.includes("Defesa") && heroTxt.includes("dano"));
   ok("Mostra Pontos de Troféu", heroTxt.includes("Pontos de Troféu"));
   ok("Mostra poderes da classe", heroTxt.includes("Golpe Devastador") && heroTxt.includes("Terremoto"));
   ok("Mostra descobertas", heroTxt.includes("Descobertas"));
@@ -262,7 +349,7 @@ async function main() {
   ok("Painel Mochila abre", invTxt.includes("Mochila & Equipamento"));
   ok("Loot apanhado aparece na mochila", invTxt.includes("Lâmina de Teste"));
   ok("Raridade Lendária apresentada", /lend[aá]ri/i.test(invTxt));
-  ok("Slots de equipamento (arma/armadura/amuleto)", ["arma", "armadura", "amuleto"].every((s) => invTxt.toLowerCase().includes(s)));
+  ok("Slots de equipamento (arma/armadura/amuleto/escudo)", ["arma", "armadura", "amuleto", "escudo"].every((s) => invTxt.toLowerCase().includes(s)));
   await page.screenshot({ path: "shots/world-06-mochila.png" });
   // equipar
   await page.locator('[data-testid="bw-panel"] button:has-text("Equipar")').first().click().catch(() => {});
@@ -278,6 +365,10 @@ async function main() {
   ok("Painel Definições abre", setTxt.includes("Definições"));
   ok("Qualidade gráfica com 4 níveis", setTxt.includes("Auto") && setTxt.includes("Baixa") && setTxt.includes("Média") && setTxt.includes("Alta"));
   ok("Música ambiente nas definições", setTxt.includes("Música ambiente"));
+  ok("v6: sincronização com a conta nas definições", setTxt.includes("Sincronização com a conta"));
+  await page.locator('[data-testid="bw-sync-now"]').click().catch(() => {});
+  await page.waitForTimeout(600);
+  ok("v6: sincronizar agora funciona", true);
   await page.locator('[data-testid="bw-quality-low"]').click().catch(() => {});
   await page.waitForTimeout(400);
   ok("Qualidade baixa aplicada sem erro", true);

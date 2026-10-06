@@ -502,7 +502,8 @@ export function animateAvatar(
   phase: number,          // ciclo de passos (avançar com dt quando em movimento)
   moving: boolean,
   swingT: number,         // 0..1 durante golpe (arma/ataque)
-  tMs: number             // performance.now()
+  tMs: number,            // performance.now()
+  guardT = 0              // v6: 0..1 — erguer escudo (modo guarda)
 ): void {
   const sway = moving ? Math.sin(phase) : 0;
   const idle = Math.sin(tMs / 620) * 0.06;
@@ -510,14 +511,27 @@ export function animateAvatar(
   // braços e pernas alternados
   parts.legL.rotation.x = sway * amp;
   parts.legR.rotation.x = -sway * amp;
-  if (swingT > 0) {
+  if (guardT > 0.01) {
+    // v6: modo guarda — braço esquerdo ergue o escudo à frente;
+    // pernas continuam a andar, braço direito mantém a arma pronta
+    parts.armL.rotation.x = -1.25 * guardT + idle * (1 - guardT);
+    parts.armL.rotation.y = 0.55 * guardT;
+    if (swingT > 0) {
+      const e = Math.sin(swingT * Math.PI);
+      parts.armR.rotation.x = -e * 2.2;
+    } else {
+      parts.armR.rotation.x = -sway * amp * 0.8 + idle;
+    }
+  } else if (swingT > 0) {
     // durante o golpe, braço direito levanta e desce
     const e = Math.sin(swingT * Math.PI);
     parts.armR.rotation.x = -e * 2.2;
     parts.armL.rotation.x = idle;
+    parts.armL.rotation.y = 0;
   } else {
     parts.armR.rotation.x = -sway * amp * 0.8 + idle;
     parts.armL.rotation.x = sway * amp * 0.8 + idle;
+    parts.armL.rotation.y = 0;
   }
   // balanço vertical do corpo + respiração
   const bobY = moving ? Math.abs(Math.sin(phase)) * 0.07 : Math.sin(tMs / 620) * 0.012;

@@ -197,6 +197,86 @@ async function fetchPlatformDataInner(): Promise<PlatformData> {
   return out;
 }
 
+// ── v6: Super-sincronização com a CONTA da plataforma ─────
+// O progresso vive na conta (não no dispositivo): o personagem é
+// carregado do servidor ao entrar, as trocas pendentes são
+// processadas após login e os cupões ficam guardados na conta.
+
+export interface ServerChar {
+  level: number;
+  xp: number;
+  gold: number;
+  total_kills: number;
+}
+
+export async function fetchServerChar(guestId: string): Promise<ServerChar | null> {
+  try {
+    const { data, error } = await sb
+      .from("rpg_characters")
+      .select("level,xp,gold,total_kills")
+      .eq("guest_id", guestId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { level: data.level ?? 1, xp: data.xp ?? 0, gold: data.gold ?? 0, total_kills: data.total_kills ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** Processa trocas pedidas sem sessão — chamado após login. */
+export async function flushPendingExchanges(): Promise<number> {
+  try {
+    const pend = JSON.parse(localStorage.getItem("bateu_world_pending_exchange") || "[]");
+    if (!Array.isArray(pend) || pend.length === 0) return 0;
+    const { data: auth } = await sb.auth.getUser();
+    if (!auth?.user) return 0;
+    let ok = 0;
+    for (const p of pend.slice(-5)) {
+      const res = await exchangeWorldPoints(p.points || 0, p.guestId || "flush");
+      if (res === "ok") ok += 1;
+    }
+    localStorage.removeItem("bateu_world_pending_exchange");
+    return ok;
+  } catch {
+    return 0;
+  }
+}
+
+/** Guarda um cupão ganho no mundo na CONTA da plataforma.
+ *  Tabela world_vouchers (RLS: só o dono vê/escreve).
+ *  Falha silenciosamente se a migração ainda não correu. */
+export async function claimWorldVoucher(voucherId: string, code: string, label: string): Promise<boolean> {
+  try {
+    const { data: auth } = await sb.auth.getUser();
+    if (!auth?.user) return false;
+    const { error } = await sb.from("world_vouchers").upsert(
+      { user_id: auth.user.id, voucher_id: voucherId, code, label },
+      { onConflict: "user_id,voucher_id" }
+    );
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/** Lista os cupões guardados na conta do utilizador. */
+export async function fetchAccountVouchers(): Promise<{ id: string; code: string; label: string }[]> {
+  try {
+    const { data: auth } = await sb.auth.getUser();
+    if (!auth?.user) return [];
+    const { data, error } = await sb
+      .from("world_vouchers")
+      .select("voucher_id,code,label")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (error || !data) return [];
+    return data.map((x: any) => ({ id: x.voucher_id, code: x.code, label: x.label }));
+  } catch {
+    return [];
+  }
+}
+
 // ─── Persistência do personagem (tabela rpg_characters) ──────
 
 export interface CharRow {
@@ -253,5 +333,36 @@ export async function exchangeWorldPoints(points: number, guestId: string): Prom
     return r?.ok ? "ok" : "pending";
   } catch {
     return "pending";
+  }
+}
+
+// ── v6: Espelho completo do herói (world_progress) ──────────
+// Para além do rpg_characters, grava dados ricos na tabela
+// world_progress (ranking global + avatar + defesa).
+
+export interface WorldProgressRow {
+  guest_id: string;
+  user_id?: string | null;
+  name: string;
+  class_id: number;
+  level: number;
+  points: number;
+  kills: number;
+  discoveries: string[];
+  xp?: number;
+  gold?: number;
+  deaths?: number;
+  def?: number;
+  avatar?: any;
+  vouchers_count?: number;
+  waves_best?: number;
+}
+
+export async function upsertWorldProgress(row: WorldProgressRow): Promise<boolean> {
+  try {
+    const { error } = await sb.from("world_progress").upsert(row, { onConflict: "guest_id" });
+    return !error;
+  } catch {
+    return false;
   }
 }

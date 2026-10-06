@@ -1,5 +1,5 @@
 // ============================================================
-// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v5
+// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v6
 // Níveis, poderes por classe, missões/saga/desafios, PvP com
 // roubo de cupões e pontos, Banco de Pontos (moeda da
 // plataforma), descobertas, partículas e transições.
@@ -10,6 +10,11 @@
 // v5: AVATARES customizáveis (pele, cabelo, traje, capa,
 // chapéu) com preview 3D ao vivo, editor de aparência dentro
 // do jogo e visual sincronizado entre todos os jogadores.
+// v6: SÓ MEMBROS REGISTADOS jogam (conta da plataforma),
+// ESCUDO + DEFESA (stat DEF, modo Guarda, loot de escudos),
+// MUNDO 55% MAIOR com 7 regiões nomeadas e 18 marcos com
+// SIGNIFICADO, MAPA GRANDE com legenda e bússola de destino,
+// e super-sincronização com a conta (progresso na nuvem).
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -18,18 +23,20 @@ import {
   Swords, Sparkles, ArrowUp, User, ScrollText, Trophy, MessageSquare,
   X, Copy, Coins, Heart, Zap, Crown, ExternalLink, Check, Wifi, Users,
   Landmark, Map, Shield, Flame, Volume2, VolumeX, MapPin, Smile, Target,
-  Backpack, Settings, Camera, Music, PawPrint,
+  Backpack, Settings, Camera, Music, PawPrint, Cloud,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { WorldEngine, SKILLS, LANDMARKS, PVP_SAFE_RADIUS, RARITY_META, type LootItem } from "./worldEngine";
+import { WorldEngine, SKILLS, LANDMARKS, REGIONS, PVP_SAFE_RADIUS, RARITY_META, type LootItem } from "./worldEngine";
 import { worldAudio } from "./worldAudio";
 import { AvatarPreview, AvatarSwatches } from "./AvatarEditor";
 import { defaultAvatar, randomAvatar, parseAvatarKey, type AvatarConfig } from "./avatar";
 import {
   fetchPlatformData, upsertCharacter, setCharacterOffline,
   worldRoute, fmtMZN, voucherLabel, MODALITY_LABEL, exchangeWorldPoints,
+  fetchServerChar, flushPendingExchanges, claimWorldVoucher, upsertWorldProgress,
   type PlatformData,
 } from "./platformSync";
+import { useAuth } from "@/contexts/AuthContext";
 
 // @ts-nocheck
 
@@ -67,14 +74,17 @@ interface Char {
   shieldUntil: number;
   // v4
   inv: LootItem[];
-  equipped: { arma: LootItem | null; armadura: LootItem | null; amuleto: LootItem | null };
+  equipped: { arma: LootItem | null; armadura: LootItem | null; amuleto: LootItem | null; escudo: LootItem | null };
   pet: boolean;
   wavesBest: number;
   // v5
   avatar: AvatarConfig;
+  // v6
+  allocDef: number;    // pontos em defesa (redução de dano)
 }
 
-const LS_KEY = "bateu_world_char_v5";
+const LS_KEY = "bateu_world_char_v6";
+const LS_KEY_V5 = "bateu_world_char_v5";
 const LS_KEY_V4 = "bateu_world_char_v4";
 const LS_KEY_V3 = "bateu_world_char_v3";
 const CLASSES = [
@@ -109,7 +119,7 @@ function newChar(name: string, classId: number, avatar?: AvatarConfig): Char {
   return {
     uid: "bw_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
     name: name.slice(0, 14), classId, level: 1, xp: 0, gold: 50, points: 0,
-    allocAtk: 0, allocHp: 0, allocSpd: 0,
+    allocAtk: 0, allocHp: 0, allocSpd: 0, allocDef: 0,
     kills: 0, deaths: 0, streak: 0,
     lastDaily: "", vouchers: [],
     quests: { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false },
@@ -117,7 +127,7 @@ function newChar(name: string, classId: number, avatar?: AvatarConfig): Char {
     saga: { kills: 0, bosses: 0, chests: 0, steals: 0, discovers: 0 },
     chal: { date: todayStr(), c1: false, c2: false },
     stolenFrom: 0, lostTo: 0, shieldUntil: 0,
-    inv: [], equipped: { arma: null, armadura: null, amuleto: null },
+    inv: [], equipped: { arma: null, armadura: null, amuleto: null, escudo: null },
     pet: false, wavesBest: 0,
     avatar: avatar ?? defaultAvatar(classId),
   };
@@ -154,20 +164,35 @@ function migrateV4(old: any): Char {
   return c;
 }
 
+function migrateV6(old: any): Char {
+  // v5 → v6: mantém tudo, garante allocDef e slot de escudo
+  const c = migrateV4(old);
+  if (typeof old.allocDef === "number") c.allocDef = old.allocDef;
+  else c.allocDef = 0;
+  if (c.equipped && !("escudo" in c.equipped)) c.equipped.escudo = null;
+  return c;
+}
+
 function loadChar(): Char | null {
   try {
     let raw = localStorage.getItem(LS_KEY);
     if (!raw) {
-      // v5: migrar primeiro v4 (tem v4: inventário/pet), depois v3
+      // v6: migrar v5 → v4 → v3 (progresso nunca se perde)
+      const v5Raw = localStorage.getItem(LS_KEY_V5);
+      if (v5Raw) {
+        const c = migrateV6(JSON.parse(v5Raw));
+        localStorage.setItem(LS_KEY, JSON.stringify(c));
+        return c;
+      }
       const v4Raw = localStorage.getItem(LS_KEY_V4);
       if (v4Raw) {
-        const c = migrateV4(JSON.parse(v4Raw));
+        const c = migrateV6(JSON.parse(v4Raw));
         localStorage.setItem(LS_KEY, JSON.stringify(c));
         return c;
       }
       const oldRaw = localStorage.getItem(LS_KEY_V3);
       if (oldRaw) {
-        const c = migrateV4(JSON.parse(oldRaw));
+        const c = migrateV6(JSON.parse(oldRaw));
         localStorage.setItem(LS_KEY, JSON.stringify(c));
         return c;
       }
@@ -184,9 +209,11 @@ function loadChar(): Char | null {
     c.saga = c.saga || { kills: 0, bosses: 0, chests: 0, steals: 0, discovers: 0 };
     c.discoveries = c.discoveries || [];
     c.pts = c.pts || 0;
-    // v4: garantir campos novos em saves já v4
+    c.allocDef = c.allocDef || 0;
+    // v4/v5: garantir campos novos em saves antigos
     c.inv = Array.isArray(c.inv) ? c.inv : [];
-    c.equipped = c.equipped || { arma: null, armadura: null, amuleto: null };
+    c.equipped = c.equipped || { arma: null, armadura: null, amuleto: null, escudo: null };
+    if (!c.equipped.escudo) c.equipped.escudo = null;
     c.pet = !!c.pet;
     c.wavesBest = c.wavesBest || 0;
     // v5: garantir avatar em qualquer save
@@ -199,13 +226,15 @@ function loadChar(): Char | null {
 
 function calcStats(c: Char) {
   const baseAtk = [12, 11, 10, 9][c.classId] ?? 11;
-  const eq = c.equipped || { arma: null, armadura: null, amuleto: null };
-  const bonus = (k: "atk" | "hp" | "spd") =>
-    (eq.arma?.[k] || 0) + (eq.armadura?.[k] || 0) + (eq.amuleto?.[k] || 0);
+  const baseDef = [3, 1, 2, 2][c.classId] ?? 2; // v6: Guerreiro resiste mais
+  const eq = c.equipped || { arma: null, armadura: null, amuleto: null, escudo: null };
+  const bonus = (k: "atk" | "hp" | "spd" | "def") =>
+    ((eq.arma as any)?.[k] || 0) + ((eq.armadura as any)?.[k] || 0) + ((eq.amuleto as any)?.[k] || 0) + ((eq.escudo as any)?.[k] || 0);
   return {
     atk: baseAtk + c.allocAtk + Math.floor((c.level - 1) * 1.2) + bonus("atk"),
     maxHp: 100 + (c.level - 1) * 10 + c.allocHp * 12 + bonus("hp"),
     spd: 6 + c.allocSpd * 0.6 + bonus("spd"),
+    def: baseDef + c.allocDef * 2 + bonus("def"), // v6: até 60% de redução
   };
 }
 
@@ -236,7 +265,8 @@ const EXCHANGES = [
 ];
 
 export default function BateuWorld({ onScore, onNavigate }: Props) {
-  const [phase, setPhase] = useState<"boot" | "create" | "world">("boot");
+  const { user, profile, loading: authLoading } = useAuth();
+  const [phase, setPhase] = useState<"boot" | "gate" | "create" | "world">("boot");
   const [char, setChar] = useState<Char | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [pickClass, setPickClass] = useState(0);
@@ -258,7 +288,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [near, setNear] = useState<string | null>(null);
   const [online, setOnline] = useState(1);
   const [toasts, setToasts] = useState<{ id: number; msg: string; tone: string }[]>([]);
-  const [panel, setPanel] = useState<"none" | "char" | "quests" | "rank" | "bank" | "inv" | "set">("none");
+  const [panel, setPanel] = useState<"none" | "char" | "quests" | "rank" | "bank" | "inv" | "set" | "map">("none");
   const [questTab, setQuestTab] = useState<"daily" | "saga" | "chal">("daily");
   const [card, setCard] = useState<{ kind: string; id: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -278,6 +308,11 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [tipIdx, setTipIdx] = useState(0);
   const bannerTimer = useRef<any>(null);
 
+  // v6 — guarda, bússola, sincronização
+  const [guardOn, setGuardOn] = useState(false);
+  const [compass, setCompass] = useState<{ angle: number; dist: number } | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+
   // v4 — combo, arena, modo foto, qualidade
   const [combo, setCombo] = useState(0);
   const [arenaHud, setArenaHud] = useState<{ wave: number; alive: number } | null>(null);
@@ -292,9 +327,12 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
 
   const EMOTES = ["👋", "😄", "❤️", "😤", "🎉", "🙏"];
   const TIPS = [
+    "🗺️ Mundo gigante: 18 marcos com significado — TAB abre o MAPA-MÚNDI",
+    "🛡️ Segura SHIFT (ou o botão de escudo) para DEFENDER — bloqueia 40% do dano!",
+    "🧭 No mapa grande, toca num lugar para marcar o destino — a bússola guia-te",
     "💡 Aproxima-te de um baú e prime E (ou toca no botão) para abrir",
     "⚔️ Clique no mundo = atacar. Perto de jogadores = PvP com roubo!",
-    "🗺️ Explora o mapa para descobrir 12 marcos — cada um dá XP e pontos",
+    "🗺️ Explora o mundo gigante: 18 marcos com significado — cada descoberta dá XP e pontos",
     "🏟️ A Arena das Ondas (este do mapa) paga pontos e ouro por onda",
     "🎒 Inimigos e chefes dropam equipamento — equipa na Mochila!",
     "🔥 Combo de mortes em menos de 4s = até +50% de XP",
@@ -330,6 +368,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key.toLowerCase() === "m") setMuted(worldAudio.toggleMute());
       if (e.key.toLowerCase() === "p" && phase === "world") togglePhoto();
+      if (e.key === "Tab" && phase === "world") { e.preventDefault(); setPanel((p) => (p === "map" ? "none" : "map")); }
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -377,6 +416,10 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       setBossBar(bb ? { name: bb.name, pct: bb.pct } : null);
       const bf = eng.getBuffs?.() || { atk: 0, hot: 0 };
       setBuffs(bf);
+      // v6: bússola do waypoint
+      const cp = eng.getCompass?.() || null;
+      setCompass(cp && cp.dist > 3 ? { angle: cp.angle, dist: cp.dist } : null);
+      setGuardOn(eng.isGuarding?.() || false);
     }, 300);
     return () => clearInterval(iv);
   }, [phase]);
@@ -389,11 +432,37 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // ── Boot ───────────────────────────────────────────────────
+  // ── Boot (v6: SÓ MEMBROS REGISTADOS entram no mundo) ───────
   useEffect(() => {
+    if (authLoading) return; // espera pela sessão da plataforma
+    if (!user) {
+      // sem conta → ecrã de registo obrigatório
+      setPhase("gate");
+      return;
+    }
     const c = loadChar();
-    if (c) { persist(c); setChar(c); setPhase("world"); }
-    else setPhase("create");
+    if (c) {
+      // v6: progresso ligado à CONTA da plataforma (não ao dispositivo)
+      c.uid = "bw_" + user.id;
+      if (!c.name || c.name === "Herói") c.name = (profile?.display_name || user.email?.split("@")[0] || "Herói").slice(0, 14);
+      persist(c);
+      setChar(c);
+      setPhase("world");
+      // v6: merge com o servidor — o nível mais alto vence (multi-dispositivo)
+      (async () => {
+        const srv = await fetchServerChar(c.uid);
+        if (srv && srv.level > c.level) {
+          const merged: Char = { ...c, level: srv.level, xp: Math.max(c.xp, srv.xp || 0), gold: Math.max(c.gold, srv.gold || 0), kills: Math.max(c.kills, srv.total_kills || 0) };
+          persist(merged);
+          setChar(merged);
+          pushToast(`☁️ Progresso da conta restaurado — nível ${srv.level}!`, "good");
+        }
+        const flushed = await flushPendingExchanges();
+        if (flushed > 0) pushToast(`☁️ ${flushed} troca(s) pendente(s) processada(s) na tua conta!`, "good");
+      })();
+    } else {
+      setPhase("create");
+    }
     let alive = true;
     (async () => {
       setBootMsg("A carregar sorteios, feira e cupões...");
@@ -412,7 +481,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id]);
 
   // ── Persistência ───────────────────────────────────────────
   const persist = useCallback((c: Char) => {
@@ -441,6 +511,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         gold: c.gold, hp: s.maxHp, max_hp: s.maxHp, atk: s.atk, spd: Math.round(s.spd),
         total_kills: c.kills, is_online: true,
       });
+      // v6: espelho completo do herói na conta (ranking global + avatar)
+      upsertWorldProgress({
+        guest_id: c.uid, user_id: user?.id || null, name: c.name, class_id: c.classId,
+        level: c.level, points: c.pts, kills: c.kills, discoveries: c.discoveries,
+        xp: c.xp, gold: c.gold, deaths: c.deaths, def: s.def,
+        avatar: c.avatar, vouchers_count: c.vouchers.length, waves_best: c.wavesBest,
+      });
+      setLastSync(new Date());
     }, 20000);
     return () => {
       clearInterval(iv);
@@ -492,6 +570,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   // ── Entrada no mundo ───────────────────────────────────────
   const enterWorld = useCallback((c: Char) => {
     const today = todayStr();
+    // v6: identidade da CONTA — o progresso segue-te em qualquer dispositivo
+    if (user) c.uid = "bw_" + user.id;
     if (c.lastDaily !== today) {
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       c.streak = c.lastDaily === yesterday ? c.streak + 1 : 1;
@@ -504,7 +584,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     persist(c);
     setChar(c);
     setPhase("world");
-  }, [persist, pushToast]);
+  }, [persist, pushToast, user]);
 
   // ── Ações do Banco de Pontos ───────────────────────────────
   const doExchange = useCallback(async (id: string) => {
@@ -539,6 +619,10 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           n.vouchers = [...p.vouchers, { id: v.id, code: v.code, label }];
           pushToast(`🎟️ Cupão real ${v.code} é teu!`, "good");
           confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+          // v6: o cupão fica GUARDADO NA CONTA da plataforma (não só no dispositivo)
+          claimWorldVoucher(v.id, v.code, label).then((okk) => {
+            if (okk) pushToast("☁️ Cupão sincronizado com a tua conta!", "good");
+          });
         } else {
           n.gold += 300;
           pushToast("Sem cupões novos disponíveis — +300 de ouro como alternativa!", "info");
@@ -683,6 +767,13 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             }
             break;
           }
+          case "guard":
+            setGuardOn(!!ev.on);
+            break;
+          case "region":
+            showBanner({ kind: "discover", emoji: ev.emoji || "🗺️", title: (ev.name || "").toUpperCase(), sub: ev.desc || "" });
+            pushToast(`🗺️ ${ev.name}: ${ev.desc}`, "info");
+            break;
           case "pvphitby":
             pushToast(`⚔️ ${ev.name} atacou-te (-${ev.dmg})!`, "bad");
             break;
@@ -697,6 +788,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 if (ev.coupon) n.vouchers = [...p.vouchers, ev.coupon];
                 return n;
               });
+              if (ev.coupon) {
+                (async () => {
+                  try {
+                    const { supabase: sbs } = await import("@/integrations/supabase/client");
+                    await sbs.rpc("world_steal_voucher", { p_victim_guest: ev.victimId || "", p_code: ev.coupon.code, p_label: ev.coupon.label, p_voucher_id: ev.coupon.id });
+                  } catch { /* silencioso */ }
+                })();
+              }
               pushToast(`💀 Roubaste ${ev.pts} pts a ${ev.victim}${ev.coupon ? ` + cupão ${ev.coupon.code}!` : "!"}`, "good");
               worldAudio.play("steal");
               confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: ["#f43f5e", "#fbbf24"] });
@@ -784,6 +883,10 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         setChar((p) => (p ? { ...p, vouchers: [...p.vouchers, { id: v.id, code: v.code, label }], gold: p.gold + 25 } : p));
         setCard({ kind, id });
         pushToast(`🎟️ Cupão ${v.code} guardado no teu perfil!`, "good");
+        // v6: sincroniza o cupão com a conta da plataforma
+        claimWorldVoucher(v.id, v.code, label).then((okk) => {
+          if (okk) pushToast("☁️ Cupão sincronizado com a tua conta!", "good");
+        });
       } else if (v) {
         setCard({ kind, id });
       } else {
@@ -803,12 +906,19 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     return () => clearTimeout(t);
   }, [skillCds]);
 
-  // sincroniza stats com o motor
+  // sincroniza stats com o motor (v6: inclui DEFESA)
   useEffect(() => {
     if (!char || phase !== "world") return;
     const s = calcStats(char);
     engineRef.current?.syncStats(s, char.level);
-  }, [char?.allocAtk, char?.allocHp, char?.allocSpd, char?.level, phase]);
+  }, [char?.allocAtk, char?.allocHp, char?.allocSpd, char?.allocDef, char?.level, phase]);
+
+  // v6: escudo equipado visível na mão esquerda do herói
+  useEffect(() => {
+    if (!char || phase !== "world") return;
+    const es = char.equipped?.escudo || null;
+    engineRef.current?.setShieldMesh(es ? es.rarity : null);
+  }, [char?.equipped?.escudo?.id, phase]);
 
   // minimapa
   useEffect(() => {
@@ -866,13 +976,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   }, [phase]);
 
   // ── Ações ──────────────────────────────────────────────────
-  const allocate = (kind: "atk" | "hp" | "spd") => {
+  const allocate = (kind: "atk" | "hp" | "spd" | "def") => {
     setChar((p) => {
       if (!p || p.points <= 0) return p;
       const n = { ...p, points: p.points - 1 };
       if (kind === "atk") n.allocAtk += 1;
       if (kind === "hp") n.allocHp += 1;
       if (kind === "spd") n.allocSpd += 1;
+      if (kind === "def") n.allocDef += 1; // v6: defesa
       return n;
     });
   };
@@ -983,6 +1094,61 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         </div>
         <div className="h-1 w-40 overflow-hidden rounded-full bg-white/10">
           <motion.div className="h-full w-1/3 rounded-full bg-gradient-to-r from-rose-400 to-amber-300" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── v6: GATE — só membros registados entram no Bateu World ──
+  if (phase === "gate") {
+    return (
+      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video overflow-hidden rounded-2xl bg-slate-950 text-white" data-testid="bateu-gate">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
+        <motion.div
+          className="absolute inset-0 opacity-25"
+          animate={{ background: [
+            "radial-gradient(circle at 25% 25%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #38bdf8 0%, transparent 45%)",
+            "radial-gradient(circle at 75% 25%, #8b5cf6 0%, transparent 45%), radial-gradient(circle at 25% 75%, #fbbf24 0%, transparent 45%)",
+            "radial-gradient(circle at 25% 25%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #38bdf8 0%, transparent 45%)",
+          ] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+        />
+        <div className="relative h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <motion.div
+            className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-4xl shadow-xl shadow-rose-500/20"
+            animate={{ y: [0, -8, 0], rotate: [-4, 4, -4] }}
+            transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
+          >🔒</motion.div>
+          <h2 className="font-display text-2xl md:text-3xl font-black bg-gradient-to-r from-rose-300 via-amber-200 to-sky-300 bg-clip-text text-transparent">
+            MUNDO EXCLUSIVO PARA MEMBROS
+          </h2>
+          <p className="max-w-md text-sm text-white/70">
+            O Bateu World é o MMO oficial da plataforma Bateu. Para garantir PvP justo, economia real
+            e progresso seguro na nuvem, <b className="text-white">só joga quem tem conta registada</b>.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-xl text-[11px] text-white/75">
+            <div className="rounded-xl border border-white/15 bg-white/5 p-2">☁️ Progresso na tua conta</div>
+            <div className="rounded-xl border border-white/15 bg-white/5 p-2">🎟️ Cupões e prémios REAIS</div>
+            <div className="rounded-xl border border-white/15 bg-white/5 p-2">💵 Pontos → moeda da carteira</div>
+            <div className="rounded-xl border border-white/15 bg-white/5 p-2">⚔️ PvP com roubo de tesouros</div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 mt-1">
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => go("/login")}
+              data-testid="gate-login"
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-7 py-3 font-display font-black shadow-lg shadow-rose-500/30"
+            >ENTRAR NA CONTA</motion.button>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => go("/register")}
+              data-testid="gate-register"
+              className="rounded-xl border-2 border-amber-300/60 bg-amber-400/10 px-7 py-3 font-display font-black text-amber-200"
+            >CRIAR CONTA GRÁTIS</motion.button>
+          </div>
+          <p className="text-[10px] text-white/40 max-w-sm">A tua conta é a mesma de toda a plataforma — sorteios, carteira, perfil. O progresso do mundo fica guardado nela.</p>
         </div>
       </div>
     );
@@ -1124,7 +1290,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     );
   }
 
-  const stats = char ? calcStats(char) : { atk: 0, maxHp: 100, spd: 6 };
+  const stats = char ? calcStats(char) : { atk: 0, maxHp: 100, spd: 6, def: 2 };
   const hpPct = Math.max(0, Math.min(100, (hud.hp / Math.max(1, hud.maxHp)) * 100));
   const xpPct = char ? Math.min(100, (char.xp / xpNeeded(char.level)) * 100) : 0;
   const q = char?.quests;
@@ -1547,6 +1713,41 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         )}
       </AnimatePresence>
 
+      {/* v6: bússola do destino marcado */}
+      <AnimatePresence>
+        {compass && (
+          <motion.div
+            initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
+            className="absolute left-2 top-14 z-10 flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 px-3 py-1.5 backdrop-blur"
+            data-testid="bw-compass"
+          >
+            <span className="relative flex h-7 w-7 items-center justify-center">
+              <motion.span
+                className="text-lg leading-none"
+                style={{ rotate: compass.angle * 180 / Math.PI }}
+                animate={{ rotate: compass.angle * 180 / Math.PI }}
+                transition={{ type: "tween", duration: 0.25 }}
+              >🧭</motion.span>
+            </span>
+            <span className="text-[10px] font-black text-amber-300">{compass.dist > 999 ? `${(compass.dist / 1000).toFixed(1)}km` : `${Math.round(compass.dist)}m`}</span>
+            <button onClick={() => engineRef.current?.clearWaypoint()} className="text-[9px] text-white/40 hover:text-white">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* v6: indicador de GUARDA ativa */}
+      <AnimatePresence>
+        {guardOn && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="absolute left-2 top-24 z-10 rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-1 text-[10px] font-black text-amber-200 backdrop-blur"
+            data-testid="bw-guard-indicator"
+          >
+            🛡️ GUARDA — bloqueando 40%
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* painel de navegação superior */}
       <div className="absolute top-2 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
         {([
@@ -1555,6 +1756,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           ["quests", <ScrollText key="q" className="h-4 w-4" />, "Missões"],
           ["bank", <Landmark key="b" className="h-4 w-4" />, "Banco"],
           ["rank", <Trophy key="r" className="h-4 w-4" />, "Ranking"],
+          ["map", <Map key="m" className="h-4 w-4" />, "Mapa"],
           ["set", <Settings key="s" className="h-4 w-4" />, "Definições"],
         ] as const).map(([id, icon, label]) => (
           <button
@@ -1617,12 +1819,24 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             />
             <Swords className="h-7 w-7" />
           </button>
-          <button
-            onClick={() => engineRef.current?.jump()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-600/90 text-white shadow-lg active:scale-90"
-          >
-            <ArrowUp className="h-5 w-5" />
-          </button>
+          <div className="flex gap-2">
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              onClick={() => engineRef.current?.toggleGuard()}
+              data-testid="bw-guard"
+              title="Modo Guarda (Shift) — bloqueia 40% do dano"
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full shadow-lg active:scale-90 ${guardOn ? "bg-gradient-to-br from-amber-300 to-yellow-500 text-slate-900 ring-2 ring-white" : "bg-slate-700/90 text-white"}`}
+            >
+              {guardOn && <motion.span className="absolute inset-0 rounded-full border-2 border-amber-200" animate={{ scale: [1, 1.25, 1], opacity: [0.8, 0, 0.8] }} transition={{ duration: 1.2, repeat: Infinity }} />}
+              <Shield className="h-5 w-5" />
+            </motion.button>
+            <button
+              onClick={() => engineRef.current?.jump()}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-600/90 text-white shadow-lg active:scale-90"
+            >
+              <ArrowUp className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1684,6 +1898,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               <StatRow icon={<Swords className="h-4 w-4 text-rose-400" />} label="Ataque" value={stats.atk} disabled={char.points <= 0} onAdd={() => allocate("atk")} />
               <StatRow icon={<Heart className="h-4 w-4 text-red-400" />} label="Vida" value={stats.maxHp} addLabel="+12" disabled={char.points <= 0} onAdd={() => allocate("hp")} />
               <StatRow icon={<Zap className="h-4 w-4 text-amber-400" />} label="Velocidade" value={stats.spd.toFixed(1)} disabled={char.points <= 0} onAdd={() => allocate("spd")} />
+              <StatRow icon={<Shield className="h-4 w-4 text-sky-400" />} label={`Defesa (−${Math.min(60, stats.def * 3)}% dano)`} value={stats.def} addLabel="+2" disabled={char.points <= 0} onAdd={() => allocate("def")} />
             </div>
 
             {/* v5: editor de aparência dentro do jogo */}
@@ -1920,8 +2135,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         {panel === "inv" && char && (
           <Panel title="🎒 Mochila & Equipamento" onClose={() => setPanel("none")}>
             {/* equipado */}
-            <div className="mb-3 grid grid-cols-3 gap-1.5">
-              {(["arma", "armadura", "amuleto"] as const).map((slot) => {
+            <div className="mb-3 grid grid-cols-4 gap-1.5">
+              {(["arma", "armadura", "amuleto", "escudo"] as const).map((slot) => {
                 const it = char.equipped[slot];
                 const meta = it ? RARITY_META[it.rarity] : null;
                 return (
@@ -1931,7 +2146,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                     {it ? (
                       <>
                         <p className="truncate text-[9px] font-bold" style={{ color: meta!.color }}>{it.name}</p>
-                        <p className="text-[8px] text-white/50">+{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡</p>
+                        <p className="text-[8px] text-white/50">+{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡{it.def ? ` +${it.def}🛡` : ""}</p>
                         <button onClick={() => equipItem(it)} className="mt-1 rounded bg-white/10 px-1.5 py-0.5 text-[8px] font-bold hover:bg-white/20">Remover</button>
                       </>
                     ) : (
@@ -1942,7 +2157,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               })}
             </div>
             <div className="mb-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 px-2 py-1.5 text-[10px] font-bold text-emerald-300">
-              Bónus total: +{stats.atk - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null } }).atk)}⚔️ · +{stats.maxHp - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null } }).maxHp)}❤️ · +{stats.spd.toFixed(1)}⚡
+              Bónus total: +{stats.atk - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null, escudo: null } }).atk)}⚔️ · +{stats.maxHp - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null, escudo: null } }).maxHp)}❤️ · +{stats.spd.toFixed(1)}⚡ · +{stats.def - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null, escudo: null } }).def)}🛡️
             </div>
             <p className="mb-1.5 text-xs font-bold flex items-center gap-1"><Backpack className="h-3 w-3 text-sky-400" /> Mochila ({char.inv.length})</p>
             {char.inv.length === 0 && (
@@ -1958,7 +2173,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                     <span className="text-xl">{it.emoji}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[11px] font-bold" style={{ color: meta.color }}>{it.name} <span className="text-[8px] font-black uppercase">{meta.name}</span></p>
-                      <p className="text-[9px] text-white/60">{it.slot} · +{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡</p>
+                      <p className="text-[9px] text-white/60">{it.slot} · +{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡{it.def ? ` +${it.def}🛡` : ""}</p>
                     </div>
                     <button onClick={() => equipItem(it)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-black text-white hover:bg-emerald-400">Equipar</button>
                     <button onClick={() => sellItem(it)} className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-black text-white/70 hover:bg-white/20">{[40, 120, 320, 800][it.rarity]}💰</button>
@@ -1968,6 +2183,45 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             </div>
           </Panel>
         )}
+
+        {panel === "map" && char && (
+            <Panel title="🗺️ Mapa-Múndi do Bateu World" onClose={() => setPanel("none")}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative mx-auto shrink-0">
+                  <BigMap
+                    discoveries={char.discoveries}
+                    onPick={(x, z) => { engineRef.current?.setWaypoint(x, z); }}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 max-h-64 overflow-y-auto sm:max-h-none">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-white/50">O que significa cada lugar</p>
+                  <div className="space-y-1">
+                    {LANDMARKS.map((l) => {
+                      const found = char.discoveries.includes(l.id);
+                      return (
+                        <button
+                          key={l.id}
+                          onClick={() => { engineRef.current?.setWaypoint(l.x, l.z); }}
+                          className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${found ? "bg-amber-500/10 hover:bg-amber-500/20" : "bg-white/[0.03] hover:bg-white/10"}`}
+                          data-testid={`bw-map-${l.id}`}
+                        >
+                          <span className="text-base leading-none">{found ? l.emoji : "❓"}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className={`block text-[11px] font-bold ${found ? "text-amber-200" : "text-white/40"}`}>{found ? l.name : "Lugar por descobrir"}</span>
+                            <span className={`block text-[9px] leading-snug ${found ? "text-white/60" : "text-white/25"}`}>{found ? l.desc : "Explora o mundo para revelares o seu significado!"}</span>
+                          </span>
+                          <span className="text-[8px] text-white/30">🧭</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 rounded-lg bg-sky-500/10 border border-sky-500/25 px-2 py-1.5 text-[9px] text-sky-200">
+                    💡 Toca num lugar (na lista ou no mapa) para marcar o destino — a bússola dourada no ecrã aponta o caminho.
+                  </p>
+                </div>
+              </div>
+            </Panel>
+          )}
 
         {panel === "set" && (
           <Panel title="⚙️ Definições" onClose={() => setPanel("none")}>
@@ -2006,8 +2260,30 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 <span className="flex-1 text-xs font-bold">Modo foto</span>
                 <button onClick={togglePhoto} className="rounded-lg bg-sky-500 px-2.5 py-1 text-[10px] font-black text-white">Capturar</button>
               </div>
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2" data-testid="bw-set-sync">
+                <Cloud className="h-4 w-4 text-emerald-400" />
+                <span className="flex-1 text-xs font-bold">
+                  Sincronização com a conta
+                  <span className="block text-[9px] font-normal text-emerald-300/80">
+                    {user ? `✔ ${profile?.display_name || user.email?.split("@")[0] || "conta"} · a cada 20s` : "a sincronizar..."}
+                  </span>
+                </span>
+                <button
+                  onClick={() => {
+                    const c = charRef.current;
+                    if (!c) return;
+                    const s = calcStats(c);
+                    upsertCharacter({ guest_id: c.uid, name: c.name, class_id: c.classId, level: c.level, xp: c.xp, gold: c.gold, hp: s.maxHp, max_hp: s.maxHp, atk: s.atk, spd: Math.round(s.spd), total_kills: c.kills, is_online: true });
+                    setLastSync(new Date());
+                    worldAudio.play("coin");
+                    pushToast("☁️ Progresso sincronizado com a conta!", "good");
+                  }}
+                  className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-black text-white"
+                  data-testid="bw-sync-now"
+                >Sincronizar</button>
+              </div>
             </div>
-            <p className="mt-3 text-[10px] text-muted-foreground">Teclas: WASD mover · F/clique atacar · 1/2/3 poderes · E interagir · M som · P foto.</p>
+            <p className="mt-3 text-[10px] text-muted-foreground">Teclas: WASD mover · F/clique atacar · 1/2/3 poderes · E interagir · Shift escudo · Tab mapa · M som · P foto.</p>
           </Panel>
         )}
       </AnimatePresence>
@@ -2184,5 +2460,141 @@ function Joystick({ onMove }: { onMove: (x: number, y: number) => void }) {
         style={{ transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))`, boxShadow: "0 0 14px rgba(255,255,255,0.5)" }}
       />
     </div>
+  );
+}
+
+
+// ── v6: MAPA-MÚNDI grande com regiões, marcos e waypoint ───
+function BigMap({ discoveries, onPick }: { discoveries: string[]; onPick: (x: number, z: number) => void }) {
+  const cvRef = useRef<HTMLCanvasElement>(null);
+  const engRef = useRef<any>(null);
+
+  useEffect(() => {
+    engRef.current = (window as any).__bw || null;
+  });
+
+  useEffect(() => {
+    let alive = true;
+    const S = 260;
+    const draw = () => {
+      if (!alive) return;
+      const cv = cvRef.current;
+      if (!cv) return;
+      const ctx = cv.getContext("2d");
+      if (!ctx) return;
+      const eng = engRef.current;
+      const d = eng?.getMapData?.() || null;
+      const R = 230; // WORLD_RADIUS
+      const toMap = (x: number, z: number) => [S / 2 + (x / (R + 12)) * (S / 2 - 8), S / 2 + (z / (R + 12)) * (S / 2 - 8)];
+
+      ctx.clearRect(0, 0, S, S);
+      // oceano
+      ctx.fillStyle = "#0b1626";
+      ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.fill();
+      // o mundo
+      const [wx, wy] = toMap(0, 0);
+      const wr = ((R + 12) / (R + 12)) * (S / 2 - 8);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = "#123524";
+      ctx.fillRect(0, 0, S, S);
+      // regiões
+      for (const r of REGIONS) {
+        const [rx, ry] = toMap(r.cx, r.cz);
+        const rr = (r.r / (R + 12)) * (S / 2 - 8);
+        const grd = ctx.createRadialGradient(rx, ry, rr * 0.2, rx, ry, rr);
+        grd.addColorStop(0, r.color + "66");
+        grd.addColorStop(1, r.color + "22");
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.fill();
+      }
+      // mobs (pontinhos vermelhos suaves)
+      if (d) {
+        for (const m of d.mobs || []) {
+          const [mx, my] = toMap(m.x, m.z);
+          ctx.fillStyle = m.t >= 4 ? "#f43f5e" : m.t >= 2 ? "#fb923c" : "#fca5a5aa";
+          ctx.fillRect(mx - 1, my - 1, 2, 2);
+        }
+      }
+      // marcos
+      for (const l of LANDMARKS) {
+        const [lx, ly] = toMap(l.x, l.z);
+        const found = discoveries.includes(l.id);
+        ctx.font = "12px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(found ? l.emoji : "❓", lx, ly + 4);
+        if (found) {
+          ctx.font = "bold 6.5px system-ui";
+          ctx.fillStyle = "#fde68a";
+          ctx.fillText(l.name.split(" ")[0], lx, ly + 14);
+        }
+      }
+      // waypoint
+      if (d?.waypoint) {
+        const [tpx, tpy] = toMap(d.waypoint.x, d.waypoint.z);
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(tpx, tpy, 5 + Math.sin(Date.now() / 300) * 1.6, 0, Math.PI * 2); ctx.stroke();
+      }
+      // outros jogadores
+      for (const p of d?.players || []) {
+        const [ppx, ppy] = toMap(p.x, p.z);
+        ctx.fillStyle = "#60a5fa";
+        ctx.beginPath(); ctx.arc(ppx, ppy, 2.5, 0, 7); ctx.fill();
+      }
+      // eu (seta)
+      if (d) {
+        const [px, py] = toMap(d.px, d.pz);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(d.yaw);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.moveTo(0, -6); ctx.lineTo(4.4, 4.4); ctx.lineTo(0, 2.2); ctx.lineTo(-4.4, 4.4);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+      // moldura
+      ctx.strokeStyle = "rgba(253,230,138,0.5)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.stroke();
+    };
+    draw();
+    const iv = setInterval(draw, 700);
+    return () => { alive = false; clearInterval(iv); };
+  }, [discoveries]);
+
+  const click = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const cv = cvRef.current;
+    if (!cv) return;
+    const rect = cv.getBoundingClientRect();
+    const S = 260, R = 230;
+    const cx = ((e.clientX - rect.left) / rect.width) * S;
+    const cy = ((e.clientY - rect.top) / rect.height) * S;
+    const scale = (S / 2 - 8) / (R + 12);
+    const wx = (cx - S / 2) / scale;
+    const wz = (cy - S / 2) / scale;
+    if (Math.hypot(wx, wz) > R) return;
+    // pega no marco mais próximo (até 14 unidades) — senão marca ponto livre
+    let best = null, bestD = 14;
+    for (const l of LANDMARKS) {
+      const dd = Math.hypot(l.x - wx, l.z - wz);
+      if (dd < bestD) { bestD = dd; best = l; }
+    }
+    if (best) onPick(best.x, best.z);
+    else onPick(wx, wz);
+  };
+
+  return (
+    <canvas
+      ref={cvRef}
+      width={260}
+      height={260}
+      onClick={click}
+      data-testid="bw-bigmap"
+      className="cursor-crosshair rounded-xl border border-amber-400/30 bg-slate-950 shadow-lg"
+      style={{ width: 260, height: 260 }}
+    />
   );
 }

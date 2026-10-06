@@ -11,7 +11,9 @@ type SfxName =
   | "coin" | "chest" | "skill" | "steal" | "shield" | "heal" | "join"
   | "boss" | "deny" | "swing"
   // v4
-  | "wave" | "loot" | "combo" | "pet" | "photo";
+  | "wave" | "loot" | "combo" | "pet" | "photo"
+  // v6 — defesa e mapa
+  | "block" | "waypoint" | "region";
 
 class WorldAudio {
   private ctx: AudioContext | null = null;
@@ -159,6 +161,22 @@ class WorldAudio {
         // obturador
         this.noise(0.05, 0.14, 4000);
         this.noise(0.04, 0.1, 2500, 0.09);
+        break;
+      // ── v6 ──
+      case "block":
+        // clang metálico do escudo a aguentar o golpe
+        this.tone(1180, 0.16, "square", 0.13, 620);
+        this.tone(760, 0.2, "triangle", 0.09, 500, 0.02);
+        this.noise(0.1, 0.12, 3000);
+        break;
+      case "waypoint":
+        // ping de destino marcado
+        this.tone(880, 0.1, "sine", 0.1);
+        this.tone(1320, 0.14, "sine", 0.09, undefined, 0.09);
+        break;
+      case "region":
+        // chegada a uma região — acorde grave majestoso
+        [131, 196, 262].forEach((f, i) => this.tone(f, 0.5, "triangle", 0.08, undefined, i * 0.06));
         break;
     }
   }

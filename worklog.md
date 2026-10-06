@@ -158,3 +158,38 @@ Stage Summary:
 - 21 ficheiros alterados, 5911 inserções
 - 2 novos módulos completos (Alienação + Stories 2.0) com 9 novas tabelas SQL
 - Versão web + APK Android via Capacitor prontos para gerar
+
+---
+Task ID: 15
+Agent: Main Agent (Super Z)
+Task: v6 — Bateu World: só membros, escudo/defesa, mundo gigante com significados, mapa-múndi e super-sincronização com a conta
+
+Work Log:
+- Corrigido erro de sintaxe na linha 605 do BateuWorld.tsx (confetti colors corrompido; confirmado por tsc + esbuild)
+- worldAudio.ts: novos SFX sintetizados "block" (clang do escudo), "waypoint" (ping do destino) e "region" (acorde de chegada)
+- worldEngine.ts — MUNDO MAIOR: WORLD_RADIUS 148 → 230 (+55%); 260 árvores, 110 rochas, 95 arbustos, 260 flores, 52 vaga-lumes; névoa mais longe (0.0052) e câmara far 560
+- worldEngine.ts — 18 MARCOS com campo desc (significado): 12 existentes + Torre de Vigia, Aldeia Capulana, Pedra dos Desejos, Acampamento dos Caçadores, Portal do Eclipse, Gruta do Eco; dica de proximidade mostra "Nome — significado"
+- worldEngine.ts — 7 REGIÕES nomeadas (REGIONS export): Planície Central, Floresta Ancestral, Dunas Escaldantes, Litoral das Ondas, Pântano Sombrio, Montanhas Negras, Terras Vulcânicas; entrada em região nova dispara banner + acorde (evento "region")
+- worldEngine.ts — DEFESA: EngineStats.def; hurtPlayer aplica redução (3%/ponto de DEF, máx 60%) + modo GUARDA (Shift) bloqueia +40% (máx 78%), floatText "BLOQUEADO", faíscas douradas, flash no escudo; velocidade 45% em guarda
+- worldEngine.ts — escudo 3D no braço esquerdo do avatar (buildHeroShield), cor da aro pela raridade (setShieldMesh), animação suave guardT no animateAvatar (avatar.ts: parâmetro guardT ergue o braço)
+- worldEngine.ts — loot: novo slot "escudo" (Broquel/Adarga/Pavês/Escudo/Égide) com def + hp; armadura também dá def pequena
+- worldEngine.ts — mobs densificados (26/20/14/10/7) + 2 chefes novos (Portal do Eclipse Nv4, Gruta do Eco Nv3) + 2 guardas novos (Torre de Vigia, Acampamento); raios de spawn expandidos
+- worldEngine.ts — WAYPOINT + BÚSSOLA: setWaypoint cria feixe dourado vertical no mundo; getCompass dá ângulo relativo à câmara + distância; getMapData alimenta o mapa grande (jogadores, mobs, região, waypoint); currentRegion()
+- platformSync.ts — SUPER-SINCRONIZAÇÃO: fetchServerChar (restaura progresso do servidor, nível mais alto vence), flushPendingExchanges (trocas pedidas sem sessão são processadas após login), claimWorldVoucher (cupões guardados na CONTA), fetchAccountVouchers, upsertWorldProgress (espelho completo: xp/gold/deaths/def/avatar/vouchers/waves)
+- Migração SQL 20261006_world_v6_sync.sql: tabela world_vouchers (RLS por owner, UNIQUE user_id+voucher_id+code), colunas extra em world_progress, RPC world_steal_voucher (ladrão recebe cupão REAL na conta, vítima perde posse)
+- BateuWorld.tsx — GATE DE MEMBROS: fase "gate" quando não há sessão (AuthContext); ecrã cinematográfico "MUNDO EXCLUSIVO PARA MEMBROS" com benefícios + botões ENTRAR NA CONTA (/login) e CRIAR CONTA GRÁTIS (/register); sem conta o mundo não arranca
+- BateuWorld.tsx — identidade da conta: uid = "bw_"+user.id (progresso multi-dispositivo); nome do perfil da plataforma como fallback; migração LS v5→v6 (allocDef + slot escudo) preservando v4/v3
+- BateuWorld.tsx — UI defesa: linha Defesa (−% dano) no Herói com alocação +2/ponto; slot escudo na mochila (4 slots); bónus total inclui 🛡️; botão GUARDAR (bw-guard) com anel pulsante + indicador "GUARDA — bloqueando 40%"
+- BateuWorld.tsx — MAPA GRANDE (tecla TAB ou botão 🗺️): componente BigMap (canvas 260px) com regiões coloridas, 18 marcos (emoji se descoberto, ❓ se não), mobs, outros jogadores, seta do jogador com rotação da câmara, waypoint pulsante; clique no mapa = marca destino; legenda lateral "O que significa cada lugar" com nome+desc (toca = marca destino); teste bw-map-*
+- BateuWorld.tsx — BÚSSOLA HUD (bw-compass): 🧭 roda para o destino + distância (m/km) + ✕ para limpar; indicador de região no switch do motor
+- BateuWorld.tsx — sincronização visível: linha "Sincronização com a conta" nas Definições com nome do perfil + botão "Sincronizar agora" (bw-sync-now); intervalo 20s grava rpg_characters + world_progress e atualiza lastSync
+- BateuWorld.tsx — cupões reais na conta: Banco e baús chamam claimWorldVoucher; roubo PvP chama RPC world_steal_voucher
+- TIPS reordenadas (mundo gigante 18 marcos em 1º) + teclado Shift/Tab nos atalhos
+- E2E test-world.mjs: gate sem conta, sessão de membro injetada (sb-*-auth-token), guarda on/off, mapa grande (legenda, 18 marcos, bússola), defesa no herói, 4 slots, sync nas definições, dica 18 marcos com polling, NOISE PGRST301/JWT (sessão fake); liveActiveGame limpo antes do teste do destaque
+- E2E FINAL: 104/104 ✅ (porta 8099)
+- tsc --noEmit 0 erros; build de produção OK (com sw.js PWA; *.gz/*.br removidos dos assets Android para resolver "Duplicate resources" do gradle)
+- cap sync android; assembleDebug + assembleRelease + bundleRelease → bateu-v2.6-world-{debug.apk,release.apk,.aab} em /home/z/my-project/download/
+
+Stage Summary:
+- Bateu World v6 entregue: mundo 55% maior com 7 regiões e 18 marcos com significado, escudo/defesa com modo Guarda, mapa-múndi com legenda e bússola de destino, gate de membros registados e progresso/cupões/trocas ligados à conta da plataforma
+- E2E 104/104 verde; 3 artefactos Android v2.6 gerados; migração SQL para super-sincronização pronta a aplicar
