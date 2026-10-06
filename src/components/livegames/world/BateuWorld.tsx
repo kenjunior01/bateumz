@@ -1,11 +1,12 @@
 // ============================================================
-// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v3
+// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v4
 // Níveis, poderes por classe, missões/saga/desafios, PvP com
 // roubo de cupões e pontos, Banco de Pontos (moeda da
 // plataforma), descobertas, partículas e transições.
-// v3: HUD em vidro, barras de chefe e buffs, rastreador de
-// objetivos, banners cinematográficos, emotes, áudio sintetizado
-// e ecrã de criação redesenhado.
+// v4: MOCHILA com loot de raridades + equipamento, ARENA DAS
+// ONDAS (sobrevivência), combo de mortes com XP bónus, pet
+// companheiro, definições de qualidade gráfica, música
+// ambiente e MODO FOTO para partilhar o mundo.
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -14,9 +15,10 @@ import {
   Swords, Sparkles, ArrowUp, User, ScrollText, Trophy, MessageSquare,
   X, Copy, Coins, Heart, Zap, Crown, ExternalLink, Check, Wifi, Users,
   Landmark, Map, Shield, Flame, Volume2, VolumeX, MapPin, Smile, Target,
+  Backpack, Settings, Camera, Music, PawPrint,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { WorldEngine, SKILLS, LANDMARKS, PVP_SAFE_RADIUS } from "./worldEngine";
+import { WorldEngine, SKILLS, LANDMARKS, PVP_SAFE_RADIUS, RARITY_META, type LootItem } from "./worldEngine";
 import { worldAudio } from "./worldAudio";
 import {
   fetchPlatformData, upsertCharacter, setCharacterOffline,
@@ -48,7 +50,7 @@ interface Char {
   streak: number;
   lastDaily: string;
   vouchers: { id: string; code: string; label: string }[];
-  quests: { date: string; kills: number; chest: number; visit: number; steal: number; cK: boolean; cC: boolean; cV: boolean; cS: boolean };
+  quests: { date: string; kills: number; chest: number; visit: number; steal: number; waves: number; cK: boolean; cC: boolean; cV: boolean; cS: boolean; cW: boolean };
   // v2
   pts: number;         // Pontos de Troféu (economia do mundo)
   discoveries: string[];
@@ -58,10 +60,15 @@ interface Char {
   stolenFrom: number;
   lostTo: number;
   shieldUntil: number;
+  // v4
+  inv: LootItem[];
+  equipped: { arma: LootItem | null; armadura: LootItem | null; amuleto: LootItem | null };
+  pet: boolean;
+  wavesBest: number;
 }
 
-const LS_KEY = "bateu_world_char_v3";
-const LS_KEY_V2 = "bateu_world_char_v2";
+const LS_KEY = "bateu_world_char_v4";
+const LS_KEY_V3 = "bateu_world_char_v3";
 const CLASSES = [
   { name: "Guerreiro", emoji: "⚔️", color: "#ef4444", grad: "from-red-500 to-rose-600", desc: "Combate corpo a corpo, vida alta" },
   { name: "Mago", emoji: "🔮", color: "#8b5cf6", grad: "from-violet-500 to-purple-600", desc: "Explosões arcanas e meteoros" },
@@ -97,15 +104,17 @@ function newChar(name: string, classId: number): Char {
     allocAtk: 0, allocHp: 0, allocSpd: 0,
     kills: 0, deaths: 0, streak: 0,
     lastDaily: "", vouchers: [],
-    quests: { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, cK: false, cC: false, cV: false, cS: false },
+    quests: { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false },
     pts: 0, discoveries: [], sagaIdx: 0,
     saga: { kills: 0, bosses: 0, chests: 0, steals: 0, discovers: 0 },
     chal: { date: todayStr(), c1: false, c2: false },
     stolenFrom: 0, lostTo: 0, shieldUntil: 0,
+    inv: [], equipped: { arma: null, armadura: null, amuleto: null },
+    pet: false, wavesBest: 0,
   };
 }
 
-function migrateV2(old: any): Char {
+function migrateV3(old: any): Char {
   const c = newChar(old.name || "Herói", old.classId ?? 0);
   Object.assign(c, {
     uid: old.uid, level: old.level ?? 1, xp: old.xp ?? 0, gold: old.gold ?? 50,
@@ -113,9 +122,12 @@ function migrateV2(old: any): Char {
     allocSpd: old.allocSpd ?? 0, kills: old.kills ?? 0, deaths: old.deaths ?? 0,
     streak: old.streak ?? 0, lastDaily: old.lastDaily ?? "",
     vouchers: Array.isArray(old.vouchers) ? old.vouchers : [],
+    pts: old.pts ?? 0, discoveries: Array.isArray(old.discoveries) ? old.discoveries : [],
+    sagaIdx: old.sagaIdx ?? 0, stolenFrom: old.stolenFrom ?? 0, lostTo: old.lostTo ?? 0,
   });
+  if (old.saga) c.saga = { ...c.saga, ...old.saga };
   if (old.quests?.date === todayStr()) {
-    c.quests = { ...c.quests, ...old.quests, steal: 0, cS: false };
+    c.quests = { ...c.quests, ...old.quests, waves: 0, cW: false };
   }
   return c;
 }
@@ -124,9 +136,9 @@ function loadChar(): Char | null {
   try {
     let raw = localStorage.getItem(LS_KEY);
     if (!raw) {
-      const oldRaw = localStorage.getItem(LS_KEY_V2);
+      const oldRaw = localStorage.getItem(LS_KEY_V3);
       if (oldRaw) {
-        const c = migrateV2(JSON.parse(oldRaw));
+        const c = migrateV3(JSON.parse(oldRaw));
         localStorage.setItem(LS_KEY, JSON.stringify(c));
         return c;
       }
@@ -135,7 +147,7 @@ function loadChar(): Char | null {
     const c = JSON.parse(raw) as Char;
     if (!c?.name || !c?.uid) return null;
     if (c.quests?.date !== todayStr()) {
-      c.quests = { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, cK: false, cC: false, cV: false, cS: false };
+      c.quests = { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false };
     }
     if (c.chal?.date !== todayStr()) {
       c.chal = { date: todayStr(), c1: false, c2: false };
@@ -143,16 +155,24 @@ function loadChar(): Char | null {
     c.saga = c.saga || { kills: 0, bosses: 0, chests: 0, steals: 0, discovers: 0 };
     c.discoveries = c.discoveries || [];
     c.pts = c.pts || 0;
+    // v4: garantir campos novos em saves já v4
+    c.inv = Array.isArray(c.inv) ? c.inv : [];
+    c.equipped = c.equipped || { arma: null, armadura: null, amuleto: null };
+    c.pet = !!c.pet;
+    c.wavesBest = c.wavesBest || 0;
     return c;
   } catch { return null; }
 }
 
 function calcStats(c: Char) {
   const baseAtk = [12, 11, 10, 9][c.classId] ?? 11;
+  const eq = c.equipped || { arma: null, armadura: null, amuleto: null };
+  const bonus = (k: "atk" | "hp" | "spd") =>
+    (eq.arma?.[k] || 0) + (eq.armadura?.[k] || 0) + (eq.amuleto?.[k] || 0);
   return {
-    atk: baseAtk + c.allocAtk + Math.floor((c.level - 1) * 1.2),
-    maxHp: 100 + (c.level - 1) * 10 + c.allocHp * 12,
-    spd: 6 + c.allocSpd * 0.6,
+    atk: baseAtk + c.allocAtk + Math.floor((c.level - 1) * 1.2) + bonus("atk"),
+    maxHp: 100 + (c.level - 1) * 10 + c.allocHp * 12 + bonus("hp"),
+    spd: 6 + c.allocSpd * 0.6 + bonus("spd"),
   };
 }
 
@@ -202,7 +222,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [near, setNear] = useState<string | null>(null);
   const [online, setOnline] = useState(1);
   const [toasts, setToasts] = useState<{ id: number; msg: string; tone: string }[]>([]);
-  const [panel, setPanel] = useState<"none" | "char" | "quests" | "rank" | "bank">("none");
+  const [panel, setPanel] = useState<"none" | "char" | "quests" | "rank" | "bank" | "inv" | "set">("none");
   const [questTab, setQuestTab] = useState<"daily" | "saga" | "chal">("daily");
   const [card, setCard] = useState<{ kind: string; id: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -214,23 +234,40 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
 
   // v3 — HUD cinematográfico
   const [muted, setMuted] = useState(worldAudio.isMuted);
+  const [musicOff, setMusicOff] = useState(worldAudio.isMusicOff);
   const [bossBar, setBossBar] = useState<{ name: string; pct: number } | null>(null);
   const [buffs, setBuffs] = useState({ atk: 0, hot: 0 });
-  const [banner, setBanner] = useState<{ kind: "discover" | "levelup"; emoji: string; title: string; sub: string } | null>(null);
+  const [banner, setBanner] = useState<{ kind: "discover" | "levelup" | "wave"; emoji: string; title: string; sub: string } | null>(null);
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [tipIdx, setTipIdx] = useState(0);
   const bannerTimer = useRef<any>(null);
+
+  // v4 — combo, arena, modo foto, qualidade
+  const [combo, setCombo] = useState(0);
+  const [arenaHud, setArenaHud] = useState<{ wave: number; alive: number } | null>(null);
+  const [arenaEnd, setArenaEnd] = useState<{ wave: number; kills: number; pts: number; gold: number; xp: number } | null>(null);
+  const [photoMode, setPhotoMode] = useState(false);
+  const [quality, setQuality] = useState<"auto" | "low" | "medium" | "high">(
+    () => (localStorage.getItem("bateu_world_quality") as any) || "auto"
+  );
+  const comboTimer = useRef<any>(null);
+  const photoTimer = useRef<any>(null);
+  const petToastDone = useRef(false);
 
   const EMOTES = ["👋", "😄", "❤️", "😤", "🎉", "🙏"];
   const TIPS = [
     "💡 Aproxima-te de um baú e prime E (ou toca no botão) para abrir",
     "⚔️ Clique no mundo = atacar. Perto de jogadores = PvP com roubo!",
-    "🗺️ Explore o mapa para descobrir 11 marcos — cada um dá XP e pontos",
+    "🗺️ Explora o mapa para descobrir 12 marcos — cada um dá XP e pontos",
+    "🏟️ A Arena das Ondas (este do mapa) paga pontos e ouro por onda",
+    "🎒 Inimigos e chefes dropam equipamento — equipa na Mochila!",
+    "🔥 Combo de mortes em menos de 4s = até +50% de XP",
     "🏦 Reúne Pontos de Troféu e troca por cupões ou moeda real no Banco",
-    "👑 Os chefes Bug Rei e Rainha Sombria guardam os cantos do mapa",
+    "📸 Modo Foto (tecla P): esconde a HUD e captura o mundo",
+    "🐾 Nível 5: o teu companheiro alado une-se a ti (+8% ataque)",
     "🛡️ Foste roubado? Tens 3 minutos de escudo — usa bem o tempo",
+    "⚙️ Ajusta a qualidade gráfica nas Definições se o jogo abrandar",
     "❤️ A Fonte da Vida (junto ao Banco) cura-te de graça",
-    "🔥 Entra todos os dias: o streak aumenta o bónus de presença",
   ];
 
   const toastId = useRef(0);
@@ -240,14 +277,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
   }, []);
 
-  // ── v3: banner cinematográfico (descoberta / level-up) ─────
-  const showBanner = useCallback((b: { kind: "discover" | "levelup"; emoji: string; title: string; sub: string }) => {
+  // v3: banner cinematográfico (descoberta / level-up / onda) ─────
+  const showBanner = useCallback((b: { kind: "discover" | "levelup" | "wave"; emoji: string; title: string; sub: string }) => {
     if (bannerTimer.current) clearTimeout(bannerTimer.current);
     setBanner(b);
-    bannerTimer.current = setTimeout(() => setBanner(null), b.kind === "levelup" ? 1900 : 2600);
+    bannerTimer.current = setTimeout(() => setBanner(null), b.kind === "levelup" ? 1900 : b.kind === "wave" ? 2200 : 2600);
   }, []);
 
-  // v3: desbloquear áudio no primeiro gesto + atalho M para mute
+  // v3: desbloquear áudio no primeiro gesto + atalhos M (mute) e P (foto)
   useEffect(() => {
     const unlock = () => { worldAudio.ensure(); };
     window.addEventListener("pointerdown", unlock, { once: true });
@@ -256,12 +293,43 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key.toLowerCase() === "m") setMuted(worldAudio.toggleMute());
+      if (e.key.toLowerCase() === "p" && phase === "world") togglePhoto();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // v4: MODO FOTO — esconde a HUD, captura e descarrega PNG
+  const togglePhoto = useCallback(() => {
+    setPhotoMode((on) => {
+      if (!on) {
+        worldAudio.play("photo");
+        photoTimer.current = setTimeout(() => {
+          try {
+            const url = engineRef.current?.snapshot();
+            if (url) {
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `bateu-world-${Date.now()}.png`;
+              a.click();
+              pushToast("📸 Foto capturada e descarregada!", "good");
+            }
+          } catch { /* ignore */ }
+          setTimeout(() => setPhotoMode(false), 900);
+        }, 320);
+      }
+      return !on;
+    });
+  }, [pushToast]);
+
+  // v4: aplicar qualidade ao motor quando muda
+  useEffect(() => {
+    try { localStorage.setItem("bateu_world_quality", quality); } catch { /* ignore */ }
+    engineRef.current?.setQuality(quality);
+  }, [quality, phase]);
 
   // v3: polling de chefe + buffs (300ms)
   useEffect(() => {
@@ -357,16 +425,30 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       leveled = true;
     }
     if (leveled) {
-      confetti({ particleCount: 130, spread: 80, origin: { y: 0.6 }, colors: ["#f43f5e", "#fbbf24", "#38bdf8"] });
-      pushToast(`🎉 Subiste para o nível ${level}! ${titleFor(level)} · +3 pontos`, "good");
-      showBanner({ kind: "levelup", emoji: "⚡", title: `NÍVEL ${level}`, sub: `${titleFor(level)} · +3 pontos de atributo` });
-      engineRef.current?.levelFx();
-      scoreRef.current?.("Bateu World", level * 1000);
+      // v4: os efeitos colaterais do level-up são ADIADOS para fora da fase
+      // de render (updaters têm de ser puros — evita o aviso do React e
+      // atualizações cruzadas de componentes durante o render)
       setTimeout(() => {
+        confetti({ particleCount: 130, spread: 80, origin: { y: 0.6 }, colors: ["#f43f5e", "#fbbf24", "#38bdf8"] });
+        pushToast(`🎉 Subiste para o nível ${level}! ${titleFor(level)} · +3 pontos`, "good");
+        showBanner({ kind: "levelup", emoji: "⚡", title: `NÍVEL ${level}`, sub: `${titleFor(level)} · +3 pontos de atributo` });
+        engineRef.current?.levelFx();
+        scoreRef.current?.("Bateu World", level * 1000);
+        // v4: o companheiro alado junta-se no nível 5
+        if (level >= 5 && !petToastDone.current) {
+          petToastDone.current = true;
+          setChar((p2) => (p2 && !p2.pet ? { ...p2, pet: true } : p2));
+          engineRef.current?.setPet(true);
+          setTimeout(() => {
+            pushToast("🐾 Um companheiro alado juntou-se a ti! +8% de ataque", "good");
+            showBanner({ kind: "discover", emoji: "🐾", title: "COMPANHEIRO!", sub: "Alado fiel · +8% de ataque" });
+            confetti({ particleCount: 70, spread: 70, origin: { y: 0.5 }, colors: ["#fde68a", "#fbbf24"] });
+          }, 1500);
+        }
         const s = calcStats({ ...p, level });
         engineRef.current?.syncStats(s, level);
         engineRef.current?.healFull();
-      }, 30);
+      }, 40);
     }
     return { ...p, xp, level, points };
   }, [pushToast, showBanner]);
@@ -477,17 +559,67 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             if (ev.boss) pushToast(`👑 Derrotaste o ${ev.name}! +${ev.pts} pts`, "good");
             break;
           }
+          case "loot": {
+            const it = ev.item as LootItem;
+            setChar((p) => (p ? { ...p, inv: [...p.inv, it] } : p));
+            const meta = RARITY_META[it.rarity];
+            pushToast(`${it.emoji} ${meta.name}: ${it.name} (+${it.atk}⚔️ +${it.hp}❤️ +${it.spd}⚡)`, it.rarity >= 2 ? "good" : "info");
+            if (it.rarity >= 2) {
+              confetti({ particleCount: it.rarity === 3 ? 150 : 90, spread: 80, origin: { y: 0.55 }, colors: [meta.color, "#fbbf24"] });
+              showBanner({ kind: "discover", emoji: it.emoji, title: meta.name.toUpperCase(), sub: it.name });
+            }
+            break;
+          }
+          case "combo": {
+            setCombo(ev.n);
+            if (comboTimer.current) clearTimeout(comboTimer.current);
+            comboTimer.current = setTimeout(() => setCombo(0), 4200);
+            break;
+          }
+          case "arena": {
+            if (ev.action === "start") {
+              setArenaHud({ wave: 0, alive: 0 });
+              showBanner({ kind: "wave", emoji: "🏟️", title: "ARENA DAS ONDAS", sub: "Sobrevive o máximo de ondas que conseguires!" });
+            } else if (ev.action === "wave") {
+              setArenaHud({ wave: ev.wave, alive: ev.count });
+              showBanner({ kind: "wave", emoji: ev.boss ? "👑" : "⚔️", title: `ONDA ${ev.wave}`, sub: ev.boss ? "ONDA DE CHEFE — cuidado!" : `${ev.count} inimigos entraram na arena` });
+            } else if (ev.action === "cleared") {
+              setArenaHud((h) => (h ? { ...h, alive: 0 } : h));
+              pushToast(`✅ Onda ${ev.wave} limpa! +${ev.pts} pts · +${ev.gold} ouro`, "good");
+              setChar((p) => {
+                if (!p) return p;
+                const q = { ...p.quests };
+                if (q.date === todayStr()) q.waves += 1; else { q.date = todayStr(); q.waves = 1; }
+                return { ...p, wavesBest: Math.max(p.wavesBest, ev.wave), quests: q };
+              });
+            } else if (ev.action === "end") {
+              setArenaHud(null);
+              if (ev.wave > 0) {
+                setArenaEnd({ wave: ev.wave, kills: ev.kills, pts: ev.pts, gold: ev.gold, xp: ev.xp });
+                setChar((p) => {
+                  if (!p) return p;
+                  const n = applyXp({ ...p, gold: p.gold + ev.gold, pts: p.pts + ev.pts, wavesBest: Math.max(p.wavesBest, ev.wave) }, ev.xp);
+                  return n;
+                });
+              }
+            }
+            break;
+          }
           case "near":
             setNear(ev.label);
             break;
           case "open":
-            handleOpen(ev.kind, ev.id);
+            if (ev.kind === "arena") {
+              setCard({ kind: "arena", id: "arena" });
+            } else {
+              handleOpen(ev.kind, ev.id);
+            }
             break;
           case "quest":
             setChar((p) => {
               if (!p) return p;
               const q = { ...p.quests };
-              if (q.date !== todayStr()) { q.date = todayStr(); q.kills = 0; q.chest = 0; q.visit = 0; q.steal = 0; }
+              if (q.date !== todayStr()) { q.date = todayStr(); q.kills = 0; q.chest = 0; q.visit = 0; q.steal = 0; q.waves = 0; }
               const saga = { ...p.saga };
               if (ev.kind === "chest") { q.chest += 1; saga.chests += 1; }
               if (ev.kind === "visit") q.visit += 1;
@@ -583,6 +715,13 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     });
     engineRef.current = eng;
     (window as any).__bw = eng; // debug hook
+    // v4: pet já desbloqueado em saves antigos
+    if (c.level >= 5 && !petToastDone.current) {
+      petToastDone.current = true;
+      eng.setPet(true);
+    } else if (charRef.current?.pet) {
+      eng.setPet(true);
+    }
     if (platformRef.current) {
       eng.spawnPlatformObjects({
         raffles: platformRef.current.raffles.map((r) => ({ id: r.id, title: r.title, prizeTitle: r.prizeTitle })),
@@ -701,22 +840,23 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     });
   };
 
-  const claimQuest = (k: "K" | "C" | "V" | "S") => {
+  const claimQuest = (k: "K" | "C" | "V" | "S" | "W") => {
     setChar((p) => {
       if (!p) return p;
       const q = { ...p.quests };
-      const key = k === "K" ? "cK" : k === "C" ? "cC" : k === "V" ? "cV" : "cS";
+      const key = k === "K" ? "cK" : k === "C" ? "cC" : k === "V" ? "cV" : k === "S" ? "cS" : "cW";
       if (q[key]) return p;
-      const done = k === "K" ? q.kills >= 10 : k === "C" ? q.chest >= 1 : k === "V" ? q.visit >= 1 : q.steal >= 1;
+      const done = k === "K" ? q.kills >= 10 : k === "C" ? q.chest >= 1 : k === "V" ? q.visit >= 1 : k === "S" ? q.steal >= 1 : q.waves >= 3;
       if (!done) return p;
       q[key] = true;
-      let { gold, xp } = p;
+      let { gold, xp, pts } = p;
       if (k === "K") { gold += 250; }
       if (k === "C") { xp += 120; }
       if (k === "V") { xp += 80; }
       if (k === "S") { gold += 150; }
-      const n = applyXp({ ...p, gold, xp, quests: q }, 0);
-      pushToast(k === "K" ? "✅ Missão: +250 ouro" : k === "S" ? "✅ Missão de ladrão: +150 ouro" : "✅ Missão concluída: +XP", "good");
+      if (k === "W") { gold += 350; pts += 20; }
+      const n = applyXp({ ...p, gold, xp, pts, quests: q }, 0);
+      pushToast(k === "K" ? "✅ Missão: +250 ouro" : k === "S" ? "✅ Missão de ladrão: +150 ouro" : k === "W" ? "✅ Missão de arena: +350 ouro · +20 pts" : "✅ Missão concluída: +XP", "good");
       return n;
     });
   };
@@ -769,6 +909,28 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       navigator.clipboard.writeText(code);
       pushToast("📋 Código copiado!", "good");
     } catch { /* ignore */ }
+  };
+
+  // v4: equipar / vender itens da mochila
+  const equipItem = (item: LootItem) => {
+    setChar((p) => {
+      if (!p) return p;
+      const old = p.equipped[item.slot];
+      const inv = p.inv.filter((x) => x.id !== item.id);
+      if (old) inv.push(old);
+      const equipped = { ...p.equipped, [item.slot]: item };
+      pushToast(`✅ Equipaste ${item.name}!`, "good");
+      return { ...p, inv, equipped };
+    });
+  };
+
+  const sellItem = (item: LootItem) => {
+    const price = [40, 120, 320, 800][item.rarity] ?? 40;
+    setChar((p) => {
+      if (!p) return p;
+      pushToast(`💰 Vendeste ${item.name} por ${price} de ouro`, "good");
+      return { ...p, inv: p.inv.filter((x) => x.id !== item.id), gold: p.gold + price };
+    });
   };
 
   // ── Render ─────────────────────────────────────────────────
@@ -892,9 +1054,10 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-lg text-[11px] text-white/70">
             <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">⚔️ 3 poderes por classe</div>
             <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">💀 Rouba cupões no PvP</div>
-            <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">🏦 Pontos → moeda real</div>
-            <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">🗺️ 11 descobertas</div>
+            <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">🎒 Loot lendário + mochila</div>
+            <div className="rounded-lg bg-white/5 border border-white/10 p-2 text-center">🏟️ Arena das Ondas</div>
           </div>
+          <p className="max-w-lg text-center text-[10px] text-white/45">12 descobertas no mapa · pet companheiro no nível 5 · combo de mortes com XP bónus · troca pontos por moeda real no Banco</p>
         </div>
       </div>
     );
@@ -976,6 +1139,22 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           </button>
         </>
       );
+    } else if (card.kind === "arena") {
+      cardData = (
+        <>
+          <div className="text-4xl mb-2">🏟️</div>
+          <h3 className="font-display font-black text-lg">Arena das Ondas</h3>
+          <p className="text-sm text-muted-foreground">Sobrevivência infinita: ondas cada vez mais difíceis, chefe a cada 5 ondas. Ganhos por onda limpa e bónus final por ondas+mortes.</p>
+          <p className="text-xs text-muted-foreground mt-1">O teu recorde: <b className="text-amber-300">onda {char?.wavesBest || 0}</b></p>
+          <button
+            onClick={() => { setCard(null); engineRef.current?.startArena(); }}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-5 py-2.5 font-bold text-white hover:brightness-110"
+            data-testid="bw-arena-start"
+          >
+            <Swords className="h-4 w-4" /> ENTRAR NA ARENA
+          </button>
+        </>
+      );
     }
   }
 
@@ -1000,6 +1179,47 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             </motion.p>
           </motion.div>
         )}
+        {/* v4: HUD da ARENA — ondas */}
+        <AnimatePresence>
+          {arenaHud && (
+            <motion.div
+              key="arena-hud"
+              initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+              className="pointer-events-none absolute left-1/2 top-9 z-20 -translate-x-1/2"
+              data-testid="bw-arena-hud"
+            >
+              <div className="flex items-center gap-2 rounded-full border border-orange-400/50 bg-black/75 px-4 py-1.5 backdrop-blur">
+                <Swords className="h-3.5 w-3.5 text-orange-300" />
+                <span className="text-xs font-black text-orange-200">ONDA {arenaHud.wave}</span>
+                <span className="h-3 w-px bg-white/25" />
+                <span className="text-xs font-bold text-white/85">{arenaHud.alive > 0 ? `${arenaHud.alive} restantes` : "prepara..."}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* v4: COMBO — contador central direito */}
+        <AnimatePresence>
+          {combo >= 2 && (
+            <motion.div
+              key="combo"
+              initial={{ opacity: 0, scale: 0.5, rotate: -8 }}
+              animate={{ opacity: 1, scale: [1.15, 1], rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              className="pointer-events-none absolute right-[16%] top-[30%] z-20"
+              data-testid="bw-combo"
+            >
+              <motion.p
+                className="font-display text-4xl font-black italic drop-shadow-[0_2px_0_rgba(0,0,0,0.6)]"
+                style={{ color: combo >= 8 ? "#fde047" : combo >= 5 ? "#fb923c" : "#f87171" }}
+                animate={{ scale: combo >= 2 ? [1, 1.18, 1] : 1 }}
+                transition={{ duration: 0.28 }}
+              >
+                x{combo}!
+              </motion.p>
+              <p className="text-center text-[10px] font-black tracking-widest text-white/80">COMBO</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* v3: banner cinematográfico (descoberta / level-up) */}
         <AnimatePresence>
           {banner && (
@@ -1057,6 +1277,9 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         )}
       </AnimatePresence>
 
+      {/* ── HUD principal (esconde-se no modo foto) ── */}
+      {!photoMode && (
+        <>
       {/* HUD topo-esquerda v3 (vidro + anel de classe + buffs) */}
       <div className="pointer-events-none absolute left-2 top-2 w-[214px] rounded-2xl border border-white/15 bg-black/55 p-2.5 text-white shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-2">
@@ -1084,8 +1307,13 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <span className="inline-flex items-center gap-1 font-black text-yellow-300">🏆 {char!.pts}</span>
         </div>
         {/* v3: chips de buffs ativos */}
-        {(shieldActive || buffs.atk > 0 || buffs.hot > 0) && (
+        {(shieldActive || buffs.atk > 0 || buffs.hot > 0 || char!.pet) && (
           <div className="mt-1.5 flex flex-wrap gap-1">
+            {char!.pet && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
+                <PawPrint className="h-2.5 w-2.5" /> Companheiro +8%
+              </span>
+            )}
             {shieldActive && (
               <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/25 px-1.5 py-0.5 text-[9px] font-bold text-sky-200">
                 <Shield className="h-2.5 w-2.5" /> Escudo {Math.ceil(((char!.shieldUntil || 0) - Date.now()) / 60000)}m
@@ -1133,6 +1361,15 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       {/* topo-direita: online + som + minimapa + emotes */}
       <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1.5">
         <div className="flex items-center gap-1.5">
+          {/* v4: modo foto */}
+          <button
+            onClick={togglePhoto}
+            className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-black/75 transition-colors"
+            data-testid="bw-photo"
+            title="Modo Foto (P)"
+          >
+            <Camera className="h-3 w-3 text-sky-300" />
+          </button>
           {/* v3: som on/off */}
           <button
             onClick={() => setMuted(worldAudio.toggleMute())}
@@ -1253,18 +1490,22 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       <div className="absolute top-2 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
         {([
           ["char", <User key="u" className="h-4 w-4" />, "Herói"],
+          ["inv", <Backpack key="i" className="h-4 w-4" />, "Mochila"],
           ["quests", <ScrollText key="q" className="h-4 w-4" />, "Missões"],
           ["bank", <Landmark key="b" className="h-4 w-4" />, "Banco"],
           ["rank", <Trophy key="r" className="h-4 w-4" />, "Ranking"],
+          ["set", <Settings key="s" className="h-4 w-4" />, "Definições"],
         ] as const).map(([id, icon, label]) => (
           <button
             key={id}
             onClick={() => setPanel((p) => (p === id ? "none" : id))}
-            className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold backdrop-blur transition-colors ${panel === id ? "bg-white text-slate-900" : "bg-black/55 text-white hover:bg-black/75"}`}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-bold backdrop-blur transition-colors ${panel === id ? "bg-white text-slate-900" : "bg-black/55 text-white hover:bg-black/75"}`}
+            data-testid={`bw-nav-${id}`}
           >
             {icon} {label}
             {id === "char" && char!.points > 0 && <span className="ml-0.5 h-2 w-2 rounded-full bg-emerald-400" />}
             {id === "quests" && <span className="ml-0.5 h-2 w-2 rounded-full bg-amber-400" />}
+            {id === "inv" && char!.inv.length > 0 && <span className="ml-0.5 rounded-full bg-sky-400 px-1 text-[8px] font-black text-slate-900">{char!.inv.length}</span>}
           </button>
         ))}
       </div>
@@ -1428,7 +1669,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             <div className="mt-3 flex gap-2 text-[10px] text-muted-foreground">
               <span>🔥 Streak: {char.streak}d</span>
               <span>💀 Mortes: {char.deaths}</span>
-              <button className="underline hover:text-foreground" onClick={() => { if (confirm("Recomeçar personagem do zero?")) { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY_V2); window.location.reload(); } }}>
+              <button className="underline hover:text-foreground" onClick={() => { if (confirm("Recomeçar personagem do zero?")) { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY_V3); window.location.reload(); } }}>
                 Recomeçar
               </button>
             </div>
@@ -1449,6 +1690,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 <QuestRow emoji="🎟️" title="Abre 1 baú de cupões" progress={`${Math.min(q.chest, 1)}/1`} done={q.cC} canClaim={q.chest >= 1 && !q.cC} reward="+120 XP" onClaim={() => claimQuest("C")} />
                 <QuestRow emoji="🎁" title="Visita um sorteio/concurso/bem" progress={`${Math.min(q.visit, 1)}/1`} done={q.cV} canClaim={q.visit >= 1 && !q.cV} reward="+80 XP" onClaim={() => claimQuest("V")} />
                 <QuestRow emoji="💀" title="Rouba pontos a 1 jogador (PvP)" progress={`${Math.min(q.steal, 1)}/1`} done={q.cS} canClaim={q.steal >= 1 && !q.cS} reward="+150 ouro" onClaim={() => claimQuest("S")} />
+                <QuestRow emoji="🏟️" title="Limpa 3 ondas na Arena" progress={`${Math.min(q.waves, 3)}/3`} done={q.cW} canClaim={q.waves >= 3 && !q.cW} reward="+350 ouro · +20 pts" onClaim={() => claimQuest("W")} />
                 <p className="mt-3 text-[10px] text-muted-foreground">As missões diárias reiniciam todos os dias. PvP ativo fora da praça — jogadores abaixo do Nv3 estão protegidos.</p>
               </>
             )}
@@ -1562,6 +1804,100 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             })()}
           </Panel>
         )}
+
+        {panel === "inv" && char && (
+          <Panel title="🎒 Mochila & Equipamento" onClose={() => setPanel("none")}>
+            {/* equipado */}
+            <div className="mb-3 grid grid-cols-3 gap-1.5">
+              {(["arma", "armadura", "amuleto"] as const).map((slot) => {
+                const it = char.equipped[slot];
+                const meta = it ? RARITY_META[it.rarity] : null;
+                return (
+                  <div key={slot} className={`rounded-lg border p-2 text-center ${meta ? "bg-white/5" : "border-dashed border-white/15 bg-white/[0.03]"}`} style={meta ? { borderColor: meta.color + "88" } : undefined}>
+                    <p className="text-[9px] uppercase tracking-wider text-white/40">{slot}</p>
+                    <p className="my-0.5 text-xl">{it ? it.emoji : "➖"}</p>
+                    {it ? (
+                      <>
+                        <p className="truncate text-[9px] font-bold" style={{ color: meta!.color }}>{it.name}</p>
+                        <p className="text-[8px] text-white/50">+{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡</p>
+                        <button onClick={() => equipItem(it)} className="mt-1 rounded bg-white/10 px-1.5 py-0.5 text-[8px] font-bold hover:bg-white/20">Remover</button>
+                      </>
+                    ) : (
+                      <p className="text-[8px] text-white/30">vazio</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mb-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 px-2 py-1.5 text-[10px] font-bold text-emerald-300">
+              Bónus total: +{stats.atk - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null } }).atk)}⚔️ · +{stats.maxHp - (calcStats({ ...char, equipped: { arma: null, armadura: null, amuleto: null } }).maxHp)}❤️ · +{stats.spd.toFixed(1)}⚡
+            </div>
+            <p className="mb-1.5 text-xs font-bold flex items-center gap-1"><Backpack className="h-3 w-3 text-sky-400" /> Mochila ({char.inv.length})</p>
+            {char.inv.length === 0 && (
+              <p className="rounded-lg border border-dashed border-white/15 bg-white/[0.03] p-3 text-center text-[10px] text-muted-foreground">
+                Derrota inimigos, chefes e guardiões para ganhares equipamento com raridades (Comum → Lendário).
+              </p>
+            )}
+            <div className="space-y-1.5">
+              {char.inv.map((it) => {
+                const meta = RARITY_META[it.rarity];
+                return (
+                  <div key={it.id} className="flex items-center gap-2 rounded-lg border bg-white/5 p-2" style={{ borderColor: meta.color + "55" }}>
+                    <span className="text-xl">{it.emoji}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-bold" style={{ color: meta.color }}>{it.name} <span className="text-[8px] font-black uppercase">{meta.name}</span></p>
+                      <p className="text-[9px] text-white/60">{it.slot} · +{it.atk}⚔️ +{it.hp}❤️ +{it.spd}⚡</p>
+                    </div>
+                    <button onClick={() => equipItem(it)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-black text-white hover:bg-emerald-400">Equipar</button>
+                    <button onClick={() => sellItem(it)} className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-black text-white/70 hover:bg-white/20">{[40, 120, 320, 800][it.rarity]}💰</button>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        )}
+
+        {panel === "set" && (
+          <Panel title="⚙️ Definições" onClose={() => setPanel("none")}>
+            <p className="mb-1.5 text-xs font-bold">Qualidade gráfica</p>
+            <div className="mb-3 grid grid-cols-4 gap-1.5">
+              {(["auto", "low", "medium", "high"] as const).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => { setQuality(q); worldAudio.play("click"); }}
+                  className={`rounded-lg py-1.5 text-[10px] font-black capitalize transition-colors ${quality === q ? "bg-rose-500 text-white" : "bg-white/10 text-white/60 hover:bg-white/20"}`}
+                  data-testid={`bw-quality-${q}`}
+                >
+                  {q === "auto" ? "Auto" : q === "low" ? "Baixa" : q === "medium" ? "Média" : "Alta"}
+                </button>
+              ))}
+            </div>
+            <p className="mb-3 text-[10px] text-muted-foreground">Auto escolhe pelo teu dispositivo. Baixa desliga o brilho cinematográfico (bloom) e corre melhor em telemóveis mais antigos.</p>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-2">
+                <Volume2 className="h-4 w-4 text-emerald-400" />
+                <span className="flex-1 text-xs font-bold">Efeitos sonoros</span>
+                <button onClick={() => setMuted(worldAudio.toggleMute())} className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${muted ? "bg-white/10 text-white/50" : "bg-emerald-500 text-white"}`} data-testid="bw-set-sfx">
+                  {muted ? "Desligado" : "Ligado"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-2">
+                <Music className="h-4 w-4 text-violet-400" />
+                <span className="flex-1 text-xs font-bold">Música ambiente</span>
+                <button onClick={() => setMusicOff(worldAudio.toggleMusic())} className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${musicOff ? "bg-white/10 text-white/50" : "bg-emerald-500 text-white"}`} data-testid="bw-set-music">
+                  {musicOff ? "Desligada" : "Ligada"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-2">
+                <Camera className="h-4 w-4 text-sky-400" />
+                <span className="flex-1 text-xs font-bold">Modo foto</span>
+                <button onClick={togglePhoto} className="rounded-lg bg-sky-500 px-2.5 py-1 text-[10px] font-black text-white">Capturar</button>
+              </div>
+            </div>
+            <p className="mt-3 text-[10px] text-muted-foreground">Teclas: WASD mover · F/clique atacar · 1/2/3 poderes · E interagir · M som · P foto.</p>
+          </Panel>
+        )}
       </AnimatePresence>
 
       {/* card de plataforma */}
@@ -1581,6 +1917,58 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               {cardData}
               <button onClick={() => setCard(null)} className="mt-3 block w-full rounded-xl bg-white/10 py-2 text-sm font-bold hover:bg-white/20">Fechar</button>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </>) }
+
+      {/* v4: resumo da arena */}
+      <AnimatePresence>
+        {arenaEnd && (
+          <motion.div
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            data-testid="bw-arena-end"
+          >
+            <motion.div
+              initial={{ scale: 0.85, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-xs rounded-2xl border border-orange-400/40 bg-slate-900/95 p-5 text-center text-white shadow-2xl"
+            >
+              <p className="text-3xl">🏟️</p>
+              <h3 className="font-display mt-1 text-lg font-black text-orange-300">Fim da sessão!</h3>
+              <p className="text-xs text-muted-foreground">Sobreviveste <b className="text-white">{arenaEnd.wave}</b> ondas com <b className="text-white">{arenaEnd.kills}</b> abates</p>
+              <div className="my-3 grid grid-cols-3 gap-1.5 text-center">
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-1.5"><p className="text-sm font-black text-amber-300">+{arenaEnd.pts}</p><p className="text-[8px] text-muted-foreground">Pontos</p></div>
+                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-1.5"><p className="text-sm font-black text-emerald-300">+{arenaEnd.gold}</p><p className="text-[8px] text-muted-foreground">Ouro</p></div>
+                <div className="rounded-lg bg-sky-500/10 border border-sky-500/30 p-1.5"><p className="text-sm font-black text-sky-300">+{arenaEnd.xp}</p><p className="text-[8px] text-muted-foreground">XP</p></div>
+              </div>
+              <button
+                onClick={() => setArenaEnd(null)}
+                className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 py-2.5 text-sm font-black shadow-lg shadow-rose-500/25"
+              >
+                Continuar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* v4: overlay do modo foto */}
+      <AnimatePresence>
+        {photoMode && (
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-50 flex items-start justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            data-testid="bw-photo-overlay"
+          >
+            <div className="mt-4 flex items-center gap-2 rounded-full bg-black/60 px-4 py-1.5 text-[11px] font-bold text-white backdrop-blur">
+              <Camera className="h-3.5 w-3.5 text-sky-300" />
+              <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity }}>
+                📸 A capturar o mundo...
+              </motion.span>
+            </div>
+            {/* moldura de foto */}
+            <div className="pointer-events-none absolute inset-3 rounded-xl border-2 border-white/30" />
           </motion.div>
         )}
       </AnimatePresence>

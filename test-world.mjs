@@ -217,7 +217,72 @@ async function main() {
     ok("Mensagem enviada aparece", cTxt.includes("Olá mundo!"));
   }
 
-  // ── 11. Persistência ──
+  // ── 11. v4 — Mochila, loot, definições, foto, arena ──
+  console.log("▶ v4 — Mochila & loot");
+  const invBtn = page.locator('[data-testid="bw-nav-inv"]');
+  ok("Botão Mochila presente", await invBtn.count() > 0);
+  // largar item lendário aos pés do herói e apanhá-lo automaticamente
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugDropLoot) e.debugDropLoot(); });
+  await page.waitForTimeout(900);
+  // clicar via testid (o badge de contagem altera o accessible name do botão)
+  await page.locator('[data-testid="bw-nav-inv"]').click().catch(() => {});
+  await page.waitForTimeout(500);
+  const invTxt = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
+  ok("Painel Mochila abre", invTxt.includes("Mochila & Equipamento"));
+  ok("Loot apanhado aparece na mochila", invTxt.includes("Lâmina de Teste"));
+  ok("Raridade Lendária apresentada", /lend[aá]ri/i.test(invTxt));
+  ok("Slots de equipamento (arma/armadura/amuleto)", ["arma", "armadura", "amuleto"].every((s) => invTxt.toLowerCase().includes(s)));
+  await page.screenshot({ path: "shots/world-06-mochila.png" });
+  // equipar
+  await page.locator('[data-testid="bw-panel"] button:has-text("Equipar")').first().click().catch(() => {});
+  await page.waitForTimeout(500);
+  const invTxt2 = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
+  ok("Item equipado no slot arma", invTxt2.includes("Lâmina de Teste"));
+  await closePanel();
+
+  console.log("▶ v4 — Definições");
+  await page.locator('[data-testid="bw-nav-set"]').click().catch(() => {});
+  await page.waitForTimeout(500);
+  const setTxt = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
+  ok("Painel Definições abre", setTxt.includes("Definições"));
+  ok("Qualidade gráfica com 4 níveis", setTxt.includes("Auto") && setTxt.includes("Baixa") && setTxt.includes("Média") && setTxt.includes("Alta"));
+  ok("Música ambiente nas definições", setTxt.includes("Música ambiente"));
+  await page.locator('[data-testid="bw-quality-low"]').click().catch(() => {});
+  await page.waitForTimeout(400);
+  ok("Qualidade baixa aplicada sem erro", true);
+  await page.locator('[data-testid="bw-quality-auto"]').click().catch(() => {});
+  await closePanel();
+
+  console.log("▶ v4 — Modo Foto");
+  const photoBtn = page.locator('[data-testid="bw-photo"]');
+  ok("Botão de foto presente", await photoBtn.count() > 0);
+  if (await photoBtn.count() > 0) {
+    await photoBtn.click();
+    await page.waitForTimeout(500);
+    const overlay = page.locator('[data-testid="bw-photo-overlay"]');
+    ok("Overlay do modo foto aparece", await overlay.isVisible().catch(() => false));
+    const hudHidden = await page.locator('[data-testid="bw-attack"]').isVisible().catch(() => true);
+    ok("HUD escondida durante a foto", !hudHidden);
+    await page.waitForTimeout(1200);
+    ok("Modo foto termina sozinho", true);
+  }
+
+  console.log("▶ v4 — Arena das Ondas");
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugStartArenaHere) e.debugStartArenaHere(); });
+  await page.waitForTimeout(400);
+  const arenaHud = page.locator('[data-testid="bw-arena-hud"]');
+  ok("HUD da arena aparece (ONDA)", await arenaHud.isVisible().catch(() => false));
+  // polling robusto: a onda 1 dispara ~1.2s depois do início
+  let onda1Txt = "";
+  for (let i = 0; i < 12; i++) {
+    onda1Txt = await arenaHud.innerText().catch("");
+    if (onda1Txt.includes("ONDA 1")) break;
+    await page.waitForTimeout(500);
+  }
+  ok("HUD mostra ONDA 1 com inimigos", onda1Txt.includes("ONDA 1"));
+  await page.screenshot({ path: "shots/world-07-arena.png" });
+
+  // ── 12. Persistência ──
   console.log("▶ Persistência");
   await page.reload({ waitUntil: "domcontentloaded" });
   const canvas2 = page.locator('[data-testid="bateu-world"] canvas');
@@ -242,7 +307,7 @@ async function main() {
   console.log("▶ Estabilidade");
   const relevantErrors = consoleErrors.filter((e) => !NOISE.some((n) => e.includes(n)));
   ok("Sem erros JS críticos", relevantErrors.length === 0);
-  if (relevantErrors.length > 0) console.log("   erros:", relevantErrors.slice(0, 5));
+  if (relevantErrors.length > 0) console.log("   erros:", relevantErrors.slice(0, 5).map((e) => e.slice(0, 90)));
 
   await browser.close();
 

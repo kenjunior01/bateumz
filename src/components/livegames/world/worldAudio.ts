@@ -1,27 +1,38 @@
 // ============================================================
-// BATEU WORLD — Áudio sintetizado (WebAudio, zero assets)
+// BATEU WORLD — Áudio sintetizado (WebAudio, zero assets) · v4
 // SFX de combate, progressão, economia e ambiente do mundo.
-// Mute persistente em localStorage (bateu_world_audio).
+// v4: MÚSICA ambiente procedural (pad harmónico que muda de
+// dia para noite), novos SFX (ondas, loot, combo, pet, foto)
+// e canais separados (música vs efeitos) com mute próprio.
 // ============================================================
 
 type SfxName =
   | "click" | "hit" | "crit" | "hurt" | "death" | "levelup" | "discover"
   | "coin" | "chest" | "skill" | "steal" | "shield" | "heal" | "join"
-  | "boss" | "deny" | "swing";
+  | "boss" | "deny" | "swing"
+  // v4
+  | "wave" | "loot" | "combo" | "pet" | "photo";
 
 class WorldAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private ambientGain: GainNode | null = null;
+  private musicGain: GainNode | null = null;
   private ambientStarted = false;
+  private musicStarted = false;
+  private musicTimer: any = null;
   private muted = false;
+  private musicOff = false;
   private lastAt: Record<string, number> = {};
+  private chordIdx = 0;
 
   constructor() {
     try { this.muted = localStorage.getItem("bateu_world_audio") === "off"; } catch { /* ignore */ }
+    try { this.musicOff = localStorage.getItem("bateu_world_music") === "off"; } catch { /* ignore */ }
   }
 
   get isMuted(): boolean { return this.muted; }
+  get isMusicOff(): boolean { return this.musicOff; }
 
   toggleMute(): boolean {
     this.muted = !this.muted;
@@ -31,6 +42,14 @@ class WorldAudio {
     }
     if (!this.muted) this.ensure();
     return this.muted;
+  }
+
+  toggleMusic(): boolean {
+    this.musicOff = !this.musicOff;
+    try { localStorage.setItem("bateu_world_music", this.musicOff ? "off" : "on"); } catch { /* ignore */ }
+    if (this.musicOff) this.stopMusic();
+    else { this.ensure(); this.startMusic(); }
+    return this.musicOff;
   }
 
   // Chamar no primeiro gesto do utilizador (política dos browsers)
@@ -49,7 +68,7 @@ class WorldAudio {
     } catch { /* ignore */ }
   }
 
-  private tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0): void {
+  private tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0, dest?: GainNode): void {
     if (!this.ctx || !this.master || this.muted) return;
     const t0 = this.ctx.currentTime + delay;
     const osc = this.ctx.createOscillator();
@@ -60,7 +79,7 @@ class WorldAudio {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(g); g.connect(this.master);
+    osc.connect(g); g.connect(dest || this.master);
     osc.start(t0); osc.stop(t0 + dur + 0.05);
   }
 
@@ -88,7 +107,7 @@ class WorldAudio {
     if (!this.ctx) return;
     // throttling anti-espam
     const now = performance.now();
-    const minGap: Partial<Record<SfxName, number>> = { hit: 70, coin: 60, swing: 120, hurt: 120 };
+    const minGap: Partial<Record<SfxName, number>> = { hit: 70, coin: 60, swing: 120, hurt: 120, combo: 220, loot: 150 };
     const gap = minGap[name] ?? 0;
     if (gap && now - (this.lastAt[name] || 0) < gap) return;
     this.lastAt[name] = now;
@@ -116,8 +135,44 @@ class WorldAudio {
       case "join": this.tone(523, 0.08, "sine", 0.08); this.tone(659, 0.1, "sine", 0.08, undefined, 0.07); break;
       case "boss": this.tone(110, 0.5, "sawtooth", 0.16, 70); this.tone(116, 0.5, "square", 0.1, 74); break;
       case "deny": this.tone(220, 0.1, "square", 0.08, 160); break;
+      // ── v4 ──
+      case "wave":
+        // corneta grave de início de onda
+        this.tone(98, 0.55, "sawtooth", 0.16, 62);
+        this.tone(147, 0.4, "square", 0.09, 98, 0.12);
+        this.noise(0.3, 0.08, 500);
+        break;
+      case "loot":
+        // brilho arpejado de item
+        [1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.1, "sine", 0.09, undefined, i * 0.06));
+        break;
+      case "combo":
+        // blip ascendente por cada elo de combo
+        this.tone(600 + Math.min(900, this.comboN() * 90), 0.08, "square", 0.09, 900);
+        break;
+      case "pet":
+        // trinado alegre do companheiro
+        this.tone(1200, 0.07, "sine", 0.08, 1800);
+        this.tone(1800, 0.09, "sine", 0.07, 1400, 0.09);
+        break;
+      case "photo":
+        // obturador
+        this.noise(0.05, 0.14, 4000);
+        this.noise(0.04, 0.1, 2500, 0.09);
+        break;
     }
   }
+
+  private comboN(): number {
+    // contexto simples: cada chamada consecutiva soa mais alto
+    const now = performance.now();
+    this._comboCtx = now - (this._comboCtx || 0) < 1500 ? Math.min(10, (this._comboCtxN || 1) + 1) : 1;
+    this._comboCtx = now;
+    this._comboCtxN = this._comboCtx;
+    return this._comboCtxN;
+  }
+  private _comboCtx = 0;
+  private _comboCtxN = 1;
 
   // Ambiente: vento suave contínuo + pássaros de dia / grilos de noite
   startAmbient(): void {
@@ -163,6 +218,82 @@ class WorldAudio {
       };
       setTimeout(chirp, 4000);
     } catch { /* ignore */ }
+  }
+
+  // ── v4: MÚSICA procedural — pads que mudam de dia para noite ──
+  // Progressões: dia (jazzoso e claro) · noite (escura e lenta).
+  startMusic(): void {
+    if (this.musicStarted || this.musicOff || this.muted || !this.ctx || !this.master) return;
+    this.musicStarted = true;
+    try {
+      const ctx = this.ctx!;
+      this.musicGain = ctx.createGain();
+      this.musicGain.gain.value = 0.05;
+      const musFilter = ctx.createBiquadFilter();
+      musFilter.type = "lowpass";
+      musFilter.frequency.value = 1400;
+      this.musicGain.connect(musFilter);
+      musFilter.connect(this.master);
+    } catch { this.musicStarted = false; return; }
+
+    const DAY_CHORDS = [
+      [261.6, 329.6, 392.0, 493.9],   // Cmaj7
+      [220.0, 261.6, 329.6, 392.0],   // Am7
+      [174.6, 220.0, 261.6, 329.6],   // Fmaj7
+      [196.0, 246.9, 293.7, 349.2],   // G
+    ];
+    const NIGHT_CHORDS = [
+      [220.0, 261.6, 329.6, 415.3],   // Am(maj7) sombrio
+      [174.6, 207.7, 261.6, 311.1],   // Fm
+      [146.8, 174.6, 220.0, 261.6],   // Dm
+      [130.8, 155.6, 196.0, 233.1],   // Cm
+    ];
+
+    const scheduleChord = () => {
+      if (!this.ctx || !this.musicGain || this.muted) {
+        this.musicTimer = setTimeout(scheduleChord, 4000);
+        return;
+      }
+      const hourish = new Date().getHours();
+      const day = hourish >= 6 && hourish < 20;
+      const chords = day ? DAY_CHORDS : NIGHT_CHORDS;
+      const chord = chords[this.chordIdx % chords.length];
+      this.chordIdx++;
+      const dur = day ? 7.5 : 9.5;
+      chord.forEach((freq, i) => {
+        // duas vozes desafinadas por nota = pad largo
+        this.padNote(freq, dur, i === 0 ? 0.05 : 0.032);
+        this.padNote(freq * 1.004, dur, i === 0 ? 0.04 : 0.026);
+        if (i === 3) this.padNote(freq * 2, dur * 0.6, 0.012); // brilho
+      });
+      this.musicTimer = setTimeout(scheduleChord, dur * 1000 - 400);
+    };
+    scheduleChord();
+  }
+
+  stopMusic(): void {
+    if (this.musicTimer) { clearTimeout(this.musicTimer); this.musicTimer = null; }
+    this.musicStarted = false;
+    if (this.musicGain && this.ctx) {
+      try { this.musicGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3); } catch { /* ignore */ }
+      const g = this.musicGain;
+      setTimeout(() => { try { g.disconnect(); } catch { /* ignore */ } }, 1500);
+      this.musicGain = null;
+    }
+  }
+
+  private padNote(freq: number, dur: number, vol: number): void {
+    if (!this.ctx || !this.musicGain) return;
+    const t0 = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + dur * 0.35);   // ataque lento
+    g.gain.linearRampToValueAtTime(0.0001, t0 + dur);       // release longo
+    osc.connect(g); g.connect(this.musicGain);
+    osc.start(t0); osc.stop(t0 + dur + 0.1);
   }
 }
 

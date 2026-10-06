@@ -1,15 +1,21 @@
 // ============================================================
-// BATEU WORLD — Motor 3D em tempo real (estilo Hordes.io) · v3
+// BATEU WORLD — Motor 3D em tempo real (estilo Hordes.io) · v4
 // Three.js: mundo aberto low-poly, combate em tempo real,
 // multiplayer via Supabase Realtime (broadcast + presence),
 // PvP com roubo de cupões/pontos, poderes por classe,
 // partículas, descobertas, missões, bancos e natureza viva.
-// v3: céu dinâmico com estrelas/nuvens, relva e flores, herói
-// com arma e capa animadas, chefes com coroa e aura, áudio
-// sintetizado, emotes, barra de chefe e efeitos cinematográficos.
+// v4: PÓS-PROCESSAMENTO cinematográfico (bloom/vinheta/ACES),
+// qualidade adaptativa, loot com raridades, pet companheiro,
+// ARENA DAS ONDAS (sobrevivência), combo de mortes, estrelas
+// cadentes, paleta de pôr-do-sol e modo foto.
 // ============================================================
 
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { supabase } from "@/integrations/supabase/client";
 import { worldAudio } from "./worldAudio";
 
@@ -26,6 +32,69 @@ export interface EngineOpts {
   uid: string;
   stats: EngineStats;
   onEvent: (ev: { type: string; [k: string]: any }) => void;
+}
+
+// ── Loot: raridades e geração de itens ──────────────────────
+export interface LootItem {
+  id: string;
+  slot: "arma" | "armadura" | "amuleto";
+  name: string;
+  emoji: string;
+  rarity: 0 | 1 | 2 | 3; // 0 Comum · 1 Raro · 2 Épico · 3 Lendário
+  atk: number;
+  hp: number;
+  spd: number;
+}
+
+export const RARITY_META = [
+  { name: "Comum", color: "#9ca3af", glow: 0x9ca3af },
+  { name: "Raro", color: "#38bdf8", glow: 0x38bdf8 },
+  { name: "Épico", color: "#a855f7", glow: 0xa855f7 },
+  { name: "Lendário", color: "#fbbf24", glow: 0xfbbf24 },
+];
+
+const LOOT_PREFIX = [
+  ["Gasto", "Simples", "Comum", "Desgastado"],
+  ["Afiado", "Enferrujada"],
+  ["Épico", "Arcano"],
+  ["Lendário", "Divino", "Mítico"],
+];
+const LOOT_BASE: Record<LootItem["slot"], string[]> = {
+  arma: ["Lâmina", "Machado", "Cajado", "Arco", "Punhal", "Martelo"],
+  armadura: ["Peitoral", "Manto", "Couraça", "Capa", "Elmo"],
+  amuleto: ["Talismã", "Anel", "Colar", "Gema", "Totem"],
+};
+const LOOT_EMOJI: Record<LootItem["slot"], string[]> = {
+  arma: ["🗡️", "🪓", "🪄", "🏹", "🔨"],
+  armadura: ["🛡️", "🥋", "🪖"],
+  amuleto: ["💎", "💍", "📿", "🔷"],
+};
+
+export function rollLoot(tier: number, isBoss: boolean, isGuard: boolean, level: number): LootItem | null {
+  const chance = isBoss ? 1 : isGuard ? 0.4 : [0.09, 0.11, 0.13, 0.15, 0.18][tier] ?? 0.1;
+  if (Math.random() > chance) return null;
+  // raridade pesada pelo tier
+  const roll = Math.random() + tier * 0.08 + (isBoss ? 0.3 : 0) + (isGuard ? 0.12 : 0);
+  const rarity: LootItem["rarity"] = roll > 1.05 ? 3 : roll > 0.82 ? 2 : roll > 0.5 ? 1 : 0;
+  const slots: LootItem["slot"][] = ["arma", "armadura", "amuleto"];
+  const slot = slots[Math.floor(Math.random() * slots.length)];
+  const bases = LOOT_BASE[slot];
+  const emojis = LOOT_EMOJI[slot];
+  const base = bases[Math.floor(Math.random() * bases.length)];
+  const pool = LOOT_PREFIX[rarity];
+  const prefix = pool[Math.floor(Math.random() * pool.length)];
+  const mult = 1 + level * 0.12 + rarity * 0.55 + (isBoss ? 0.4 : 0);
+  const stat = (base3: number) => Math.max(1, Math.round(base3 * mult * (0.75 + Math.random() * 0.5)));
+  return {
+    id: "lt_" + Math.random().toString(36).slice(2, 9),
+    slot,
+    name: `${prefix} ${base}`, // raro usa "de" quando soa melhor
+    emoji: emojis[Math.floor(Math.random() * emojis.length)],
+    rarity,
+    atk: slot === "arma" ? stat(3) : rarity >= 2 ? stat(1) : 0,
+    hp: slot === "armadura" ? stat(9) : rarity >= 2 ? stat(4) : 0,
+    spd: slot === "amuleto" ? stat(0.6) : 0,
+  };
 }
 
 export interface SkillDef {
@@ -77,7 +146,11 @@ export const LANDMARKS: { id: string; name: string; x: number; z: number; r: num
   { id: "lago", name: "Lago Misterioso", x: 95, z: 70, r: 11, emoji: "🌊" },
   { id: "caverna", name: "Caverna de Cristais", x: -90, z: 85, r: 10, emoji: "💎" },
   { id: "baoba", name: "Baobá Gigante", x: 60, z: -100, r: 10, emoji: "🌳" },
+  { id: "arena", name: "Arena das Ondas", x: 112, z: 0, r: 13, emoji: "🏟️" },
 ];
+
+export const ARENA_CENTER = new THREE.Vector3(112, 0, 0);
+export const ARENA_RADIUS = 26;
 
 export const PVP_SAFE_RADIUS = 21;
 const PVP_MIN_LEVEL = 3;
@@ -109,6 +182,7 @@ interface Mob {
   stunUntil: number;
   slowUntil: number;
   name: string;
+  arena?: boolean;
 }
 
 interface RemotePlayer {
@@ -141,6 +215,7 @@ interface Orb {
   t: number;
   gold: number;
   xp: number;
+  mult: number;
   from: THREE.Vector3;
 }
 
@@ -161,13 +236,33 @@ interface FloatText {
 
 interface Interactable {
   group: THREE.Group;
-  kind: "raffle" | "contest" | "voucher" | "asset" | "games" | "bank" | "fountain";
+  kind: "raffle" | "contest" | "voucher" | "asset" | "games" | "bank" | "fountain" | "arena";
   id: string;
   label: string;
   pos: THREE.Vector3;
   used: boolean;
   lid?: THREE.Mesh;
   icon?: THREE.Sprite;
+}
+
+// v4 — loot no chão
+interface GroundLoot {
+  group: THREE.Group;
+  item: LootItem;
+  t: number;
+}
+
+// v4 — estado da Arena das Ondas
+interface ArenaState {
+  active: boolean;
+  wave: number;
+  alive: number;
+  kills: number;
+  pts: number;
+  gold: number;
+  xp: number;
+  nextWaveAt: number;
+  cooldown: boolean;
 }
 
 // ── Balanceamento v2: 5 tiers + guardiões + 2 chefes ─────────
@@ -188,9 +283,9 @@ function groundY(x: number, z: number): number {
     1.5 * Math.sin(x * 0.045) * Math.cos(z * 0.038) +
     0.7 * Math.sin(x * 0.11 + 2) * Math.sin(z * 0.09 + 1) +
     0.4 * Math.sin((x + z) * 0.02);
-  // Zonas planas: praça + POIs + marcos
+  // Zonas planas: praça + POIs + marcos + arena
   const pois: [number, number][] = [[0, 0], [0, -52], [52, 0], [-52, 0], [0, 52],
-    [-100, -60], [95, 70], [-90, 85], [60, -100], [-14, -14], [14, -14]];
+    [-100, -60], [95, 70], [-90, 85], [60, -100], [-14, -14], [14, -14], [112, 0]];
   let f = 1;
   for (const [px, pz] of pois) {
     const d = Math.hypot(x - px, z - pz);
@@ -345,6 +440,24 @@ export class WorldEngine {
   private emoteSprite: THREE.Sprite | null = null;
   private emoteUntil = 0;
 
+  // ── v4: pós-processamento e qualidade ──
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  private vignettePass: ShaderPass | null = null;
+  private quality: "auto" | "low" | "medium" | "high" = "auto";
+  private pq = { bloom: true, vignette: true, pixelRatio: 1.5 };
+
+  // ── v4: loot, pet, arena, combo ──
+  private groundLoot: GroundLoot[] = [];
+  private pet: THREE.Group | null = null;
+  private petT = 0;
+  private hasPet = false;
+  private arena: ArenaState = { active: false, wave: 0, alive: 0, kills: 0, pts: 0, gold: 0, xp: 0, nextWaveAt: 0, cooldown: false };
+  private arenaRing: THREE.Mesh | null = null;
+  private combo = 0;
+  private comboUntil = 0;
+  private shootStars: { spr: THREE.Sprite; active: boolean; t: number; dur: number; from: THREE.Vector3; to: THREE.Vector3; next: number }[] = [];
+
   // geometrias partilhadas
   private geoBody!: THREE.CapsuleGeometry;
   private geoHead!: THREE.SphereGeometry;
@@ -370,7 +483,6 @@ export class WorldEngine {
       antialias: !isTouch,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87ceeb);
@@ -391,12 +503,15 @@ export class WorldEngine {
     this.buildPlaza();
     this.buildPOIs();
     this.buildLandmarks();
+    this.buildArena();
     this.buildNature();
     this.buildPlayer();
     this.buildMobs();
     this.buildNet();
     worldAudio.startAmbient();
+    worldAudio.startMusic();
 
+    this.setupPostFx(isTouch);
     this.bindInput();
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.canvas.parentElement || this.canvas);
@@ -405,6 +520,72 @@ export class WorldEngine {
     this.lastT = performance.now();
     this.loop(this.lastT);
     this.opts.onEvent({ type: "ready" });
+  }
+
+  // ── v4: pipeline de pós-processamento + qualidade ──────
+
+  private setupPostFx(isTouch: boolean): void {
+    try {
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.08;
+      const size = new THREE.Vector2();
+      this.renderer.getSize(size);
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloomPass = new UnrealBloomPass(size, 0.42, 0.6, 0.82);
+      this.composer.addPass(this.bloomPass);
+      // vinheta + saturação suave (film look)
+      this.vignettePass = new ShaderPass({
+        uniforms: {
+          tDiffuse: { value: null },
+          offset: { value: 1.12 },
+          darkness: { value: 0.62 },
+          saturation: { value: 1.07 },
+        },
+        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+        fragmentShader: `
+          uniform sampler2D tDiffuse; uniform float offset; uniform float darkness; uniform float saturation;
+          varying vec2 vUv;
+          void main(){
+            vec4 c = texture2D(tDiffuse, vUv);
+            float d = distance(vUv, vec2(0.5));
+            c.rgb *= 1.0 - smoothstep(0.35, 0.85, d * offset) * darkness;
+            float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+            c.rgb = mix(vec3(l), c.rgb, saturation);
+            gl_FragColor = c;
+          }`,
+      });
+      this.composer.addPass(this.vignettePass);
+      this.composer.addPass(new OutputPass());
+      this.applyQuality(this.quality, isTouch);
+    } catch (e) {
+      console.warn("[BateuWorld] pós-processamento indisponível:", e);
+      this.composer = null;
+    }
+  }
+
+  /** Aplica um nível de qualidade (auto decide pelo dispositivo). */
+  setQuality(q: "auto" | "low" | "medium" | "high"): void {
+    this.applyQuality(q, window.matchMedia("(pointer: coarse)").matches);
+  }
+
+  private applyQuality(q: "auto" | "low" | "medium" | "high", isTouch: boolean): void {
+    this.quality = q;
+    const autoTier: "low" | "medium" | "high" = isTouch ? (window.devicePixelRatio > 2 ? "medium" : "high") : "high";
+    const tier = q === "auto" ? autoTier : q;
+    if (tier === "low") this.pq = { bloom: false, vignette: false, pixelRatio: 1 };
+    else if (tier === "medium") this.pq = { bloom: true, vignette: false, pixelRatio: Math.min(window.devicePixelRatio || 1, 1.25) };
+    else this.pq = { bloom: true, vignette: true, pixelRatio: Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2) };
+    this.renderer.setPixelRatio(this.pq.pixelRatio);
+    if (this.bloomPass) this.bloomPass.enabled = this.pq.bloom;
+    if (this.vignettePass) this.vignettePass.enabled = this.pq.vignette;
+    if (this.composer) this.composer.setSize(this.canvas.parentElement?.clientWidth || window.innerWidth, this.canvas.parentElement?.clientHeight || window.innerHeight);
+  }
+
+  /** Fotografia do mundo (modo foto) — devolve dataURL PNG. */
+  snapshot(): string {
+    this.renderFrame();
+    try { return this.renderer.domElement.toDataURL("image/png"); } catch { return ""; }
   }
 
   private buildTerrain(): void {
@@ -519,6 +700,24 @@ export class WorldEngine {
       g.position.set(Math.cos(a) * rr, 42 + Math.random() * 22, Math.sin(a) * rr);
       this.scene.add(g);
       this.clouds.push({ g, spd: 0.4 + Math.random() * 0.7 });
+    }
+
+    // v4: estrelas cadentes (faíscas brancas que riscam o céu à noite)
+    const ssCanvas = document.createElement("canvas");
+    ssCanvas.width = 64; ssCanvas.height = 16;
+    const sctx = ssCanvas.getContext("2d")!;
+    const sg = sctx.createLinearGradient(0, 0, 64, 0);
+    sg.addColorStop(0, "rgba(255,255,255,0)");
+    sg.addColorStop(0.75, "rgba(255,255,255,0.9)");
+    sg.addColorStop(1, "rgba(190,220,255,1)");
+    sctx.fillStyle = sg;
+    sctx.fillRect(0, 6, 64, 4);
+    const ssTex = new THREE.CanvasTexture(ssCanvas);
+    for (let i = 0; i < 3; i++) {
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: ssTex, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+      spr.scale.set(9, 2.2, 1);
+      this.scene.add(spr);
+      this.shootStars.push({ spr, active: false, t: 0, dur: 1, from: new THREE.Vector3(), to: new THREE.Vector3(), next: 2500 + Math.random() * 8000 });
     }
   }
 
@@ -809,6 +1008,141 @@ export class WorldEngine {
     this.scene.add(baoba);
   }
 
+  // ── v4: ARENA DAS ONDAS (sobrevivência) ───────────────────
+
+  private buildArena(): void {
+    const g = new THREE.Group();
+    // piso de areia escura
+    const floor = new THREE.Mesh(
+      new THREE.CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS + 1.5, 0.5, 36),
+      new THREE.MeshLambertMaterial({ color: 0x8c6d4f })
+    );
+    floor.position.set(ARENA_CENTER.x, 0.25, ARENA_CENTER.z);
+    g.add(floor);
+    // anel de energia (fica pulsante quando o modo está ativo)
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(ARENA_RADIUS - 1, 0.22, 8, 48),
+      new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.75 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(ARENA_CENTER.x, 0.55, ARENA_CENTER.z);
+    this.arenaRing = ring;
+    g.add(ring);
+    // pilares nas bordas
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const px = ARENA_CENTER.x + Math.cos(a) * (ARENA_RADIUS - 3);
+      const pz = ARENA_CENTER.z + Math.sin(a) * (ARENA_RADIUS - 3);
+      const pil = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.7, 0.9, 5 + (i % 2) * 1.6, 8),
+        new THREE.MeshLambertMaterial({ color: 0x57493c })
+      );
+      pil.position.set(px, 2.6, pz);
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(0.36, 0.9, 6),
+        new THREE.MeshBasicMaterial({ color: i % 2 ? 0xfb923c : 0xf43f5e })
+      );
+      flame.position.set(px, 5.6 + (i % 2) * 1.6, pz);
+      g.add(pil, flame);
+    }
+    // portal de entrada
+    const portalRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.9, 0.3, 10, 28),
+      new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+    );
+    portalRing.position.set(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 2.3, ARENA_CENTER.z);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.7, 22),
+      new THREE.MeshBasicMaterial({ color: 0x7f1d1d, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+    );
+    disc.position.copy(portalRing.position);
+    const aIcon = makeIconSprite("🏟️");
+    aIcon.scale.set(1.5, 1.5, 1);
+    aIcon.position.set(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 4.6, ARENA_CENTER.z);
+    const aLab = makeTextSprite("ARENA DAS ONDAS", { size: 30, bg: true, accent: "#f87171" });
+    aLab.scale.set(6, 1.5, 1);
+    aLab.position.set(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 6.4, ARENA_CENTER.z);
+    g.add(portalRing, disc, aIcon, aLab);
+    // interactable do portal
+    const portalPos = new THREE.Vector3(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 0, ARENA_CENTER.z);
+    this.interactables.push({
+      group: new THREE.Group(), kind: "arena", id: "arena",
+      label: "🏟️ Entrar na Arena das Ondas",
+      pos: portalPos, used: false, icon: aIcon,
+    });
+    const light = new THREE.PointLight(0xf43f5e, 44, 30);
+    light.position.set(ARENA_CENTER.x, 4, ARENA_CENTER.z);
+    g.add(light);
+    this.scene.add(g);
+  }
+
+  /** Inicia o modo sobrevivência na Arena das Ondas. */
+  startArena(): void {
+    if (this.arena.active) return;
+    this.arena = { active: true, wave: 0, alive: 0, kills: 0, pts: 0, gold: 0, xp: 0, nextWaveAt: performance.now() + 1200, cooldown: false };
+    this.pos.set(ARENA_CENTER.x - 6, 0, ARENA_CENTER.z);
+    this.hp = Math.min(this.opts.stats.maxHp, this.hp + this.opts.stats.maxHp * 0.5);
+    this.opts.onEvent({ type: "hp", hp: this.hp, maxHp: this.opts.stats.maxHp });
+    this.ringEffectAt(ARENA_CENTER.clone(), 0xf43f5e, 10);
+    this.shake(0.3);
+    worldAudio.play("wave");
+    this.opts.onEvent({ type: "arena", action: "start" });
+  }
+
+  private endArena(reason: "death" | "exit" | "quit"): void {
+    if (!this.arena.active) return;
+    this.arena.active = false;
+    // remove mobs da arena
+    for (const m of this.mobs) {
+      if (m.arena && m.state !== "dead") {
+        m.state = "dead";
+        m.respawnAt = Number.MAX_SAFE_INTEGER;
+        m.group.visible = false;
+      }
+    }
+    if (reason === "exit") {
+      this.pos.set(0, 0, 6);
+      this.opts.onEvent({ type: "notify", msg: "Saíste da arena — de volta à praça.", tone: "info" });
+    }
+    if (this.arenaRing) (this.arenaRing.material as THREE.MeshBasicMaterial).color.setHex(0xf43f5e);
+    this.opts.onEvent({
+      type: "arena", action: "end", reason,
+      wave: this.arena.wave, kills: this.arena.kills,
+      pts: this.arena.pts, gold: this.arena.gold, xp: this.arena.xp,
+    });
+  }
+
+  getArena(): { active: boolean; wave: number; alive: number } {
+    return { active: this.arena.active, wave: this.arena.wave, alive: this.arena.alive };
+  }
+
+  private arenaNextWave(): void {
+    this.arena.wave += 1;
+    const w = this.arena.wave;
+    const count = Math.min(14, 3 + Math.floor(w * 1.4));
+    const maxTier = Math.min(4, Math.floor(w / 2));
+    const isBossWave = w % 5 === 0;
+    let spawned = 0;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = 8 + Math.random() * (ARENA_RADIUS - 12);
+      const tier = Math.min(maxTier, Math.max(0, Math.floor(Math.random() * (maxTier + 1))));
+      this.spawnMob(tier, ARENA_CENTER.x + Math.cos(a) * rr, ARENA_CENTER.z + Math.sin(a) * rr, false, false, true);
+      spawned++;
+    }
+    if (isBossWave) {
+      this.spawnMob(Math.min(4, 2 + Math.floor(w / 8)), ARENA_CENTER.x, ARENA_CENTER.z + 10, true, false, true);
+      spawned++;
+    }
+    this.arena.alive = spawned;
+    this.arena.cooldown = false;
+    if (this.arenaRing) (this.arenaRing.material as THREE.MeshBasicMaterial).color.setHex(0xfb923c);
+    worldAudio.play("wave");
+    this.shake(0.18);
+    this.ringEffectAt(ARENA_CENTER.clone(), 0xfb923c, 8);
+    this.opts.onEvent({ type: "arena", action: "wave", wave: w, count: spawned, boss: isBossWave });
+  }
+
   // ── Natureza ────────────────────────────────────────────────
 
   private buildNature(): void {
@@ -830,6 +1164,7 @@ export class WorldEngine {
       if (Math.abs(x) < 6 || Math.abs(z) < 6) continue;
       if (Math.hypot(x, z - 52) < 16 || Math.hypot(x - 52, z) < 16 || Math.hypot(x + 52, z) < 16) continue;
       if (Math.hypot(x + 100, z + 60) < 12 || Math.hypot(x - 95, z - 70) < 14 || Math.hypot(x + 90, z - 85) < 10 || Math.hypot(x - 60, z + 100) < 12) continue;
+      if (Math.hypot(x - 112, z) < 30) continue; // v4: arena limpa de árvores
       const y = groundY(x, z);
       const s = 0.8 + Math.random() * 0.7;
       dummy.position.set(x, y + 1.1 * s, z);
@@ -965,7 +1300,7 @@ export class WorldEngine {
       const a = Math.random() * Math.PI * 2;
       const rr = 16 + Math.random() * 90;
       this.butterflies.push({
-        spr, a, rr, s: 0.03 + Math.random() * 0.06,
+        spr, a, r: rr, s: 0.03 + Math.random() * 0.06,
         y0: groundY(Math.cos(a) * rr, Math.sin(a) * rr) + 1 + Math.random() * 1.6,
       });
       spr.position.set(Math.cos(a) * rr, 0, Math.sin(a) * rr);
@@ -1204,7 +1539,7 @@ export class WorldEngine {
     }
   }
 
-  private spawnMob(tier: number, x: number, z: number, boss = false, isGuard = false): void {
+  private spawnMob(tier: number, x: number, z: number, boss = false, isGuard = false, isArena = false): void {
     const t = MOB_TIERS[tier];
     const g = new THREE.Group();
     const scale = boss ? 2.4 : isGuard ? t.scale * 1.35 : t.scale;
@@ -1287,6 +1622,7 @@ export class WorldEngine {
     const mob: Mob = {
       group: g, hpBar, hpCanvas, hpTex,
       tier, isBoss: boss, isGuard,
+      arena: isArena,
       hp: Math.round(t.hp * mult), maxHp: Math.round(t.hp * mult),
       atk: Math.round(t.atk * (boss ? 3 : isGuard ? 1.5 : 1)),
       xp: Math.round(t.xp * mult), gold: Math.round(t.gold * mult), pts: Math.round(t.pts * (boss ? 10 : isGuard ? 3 : 1)),
@@ -1612,7 +1948,6 @@ export class WorldEngine {
       const newMat = makeTextSprite(wantText, { size: 30, bg: true });
       tag.material.dispose();
       tag.material = newMat.material;
-      (tag as any).map = newMat.map;
     }
     const ring = r.group.children.find((c) => c.name === "shieldRing") as THREE.Mesh | undefined;
     if (ring) ring.visible = !!p.sh;
@@ -1663,7 +1998,8 @@ export class WorldEngine {
 
   private effAtk(): number {
     const buff = performance.now() < this.atkBuffUntil ? 1.5 : 1;
-    return this.opts.stats.atk * buff;
+    const petBonus = this.hasPet ? 1.08 : 1; // v4: o companheiro incentiva o ataque
+    return this.opts.stats.atk * buff * petBonus;
   }
 
   private receivePvpHit(p: { a: string; an: string; d: number }): void {
@@ -2078,11 +2414,31 @@ export class WorldEngine {
 
   private killMob(m: Mob): void {
     m.state = "dead";
-    m.respawnAt = performance.now() + (m.isBoss ? 30000 : 8000);
+    m.respawnAt = m.arena ? Number.MAX_SAFE_INTEGER : performance.now() + (m.isBoss ? 30000 : 8000);
     const gold = Math.round(m.gold * (0.7 + Math.random() * 0.7));
-    this.spawnOrbs(m.group.position.clone(), gold, m.xp, m.isBoss ? 5 : 3);
+    // v4: multiplicador de combo calculado antes das esferas
+    const nowK = performance.now();
+    if (nowK < this.comboUntil) this.combo += 1; else this.combo = 1;
+    this.comboUntil = nowK + 4200;
+    if (this.combo >= 2) {
+      this.opts.onEvent({ type: "combo", n: this.combo });
+      worldAudio.play("combo");
+    }
+    const comboMult = 1 + Math.min(0.5, (this.combo - 1) * 0.1);
+    this.spawnOrbs(m.group.position.clone(), gold, m.xp, m.isBoss ? 5 : 3, comboMult);
     this.burst(m.group.position.clone().add(new THREE.Vector3(0, 0.9, 0)), m.isBoss ? 0xdc2626 : m.isGuard ? 0xfacc15 : MOB_TIERS[m.tier].color, m.isBoss ? 40 : 16, 4.5, 0.7, 0.12, 6);
     if (m.isBoss || m.isGuard) this.shake(0.3);
+    // v4: loot com raridades
+    const loot = rollLoot(m.tier, m.isBoss, m.isGuard, this.opts.level);
+    if (loot) this.dropLoot(m.group.position.clone(), loot);
+    // v4: contabilidade da arena
+    if (m.arena && this.arena.active) {
+      this.arena.alive = Math.max(0, this.arena.alive - 1);
+      this.arena.kills += 1;
+      this.arena.pts += m.pts;
+      this.arena.gold += gold;
+      this.arena.xp += m.xp;
+    }
     // v3: animação de morte (encolher e afundar) em vez de desaparecer
     const g = m.group;
     const t0 = performance.now();
@@ -2098,16 +2454,136 @@ export class WorldEngine {
     };
     anim();
     worldAudio.play(m.isBoss ? "death" : "hit");
-    this.opts.onEvent({ type: "kill", tier: m.tier, gold, xp: m.xp, pts: m.pts, boss: m.isBoss, guard: m.isGuard, name: m.name });
+    this.opts.onEvent({ type: "kill", tier: m.tier, gold, xp: m.xp, pts: m.pts, boss: m.isBoss, guard: m.isGuard, name: m.name, combo: this.combo, comboMult, arena: !!m.arena });
   }
 
-  private spawnOrbs(at: THREE.Vector3, gold: number, xp: number, n: number): void {
+  private spawnOrbs(at: THREE.Vector3, gold: number, xp: number, n: number, mult = 1): void {
     for (let i = 0; i < n; i++) {
       const mesh = new THREE.Mesh(this.geoOrb, new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xfbbf24 : 0x4ade80 }));
       mesh.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * 1.4, 0.6, (Math.random() - 0.5) * 1.4));
       this.scene.add(mesh);
-      this.orbs.push({ mesh, t: 0, gold: Math.round(gold / n), xp: Math.round(xp / n), from: mesh.position.clone() });
+      this.orbs.push({ mesh, t: 0, gold: Math.round(gold / n), xp: Math.round(xp / n), mult, from: mesh.position.clone() });
     }
+  }
+
+  // ── v4: LOOT no chão ──────────────────────────────────────
+
+  private dropLoot(at: THREE.Vector3, item: LootItem): void {
+    const meta = RARITY_META[item.rarity];
+    const g = new THREE.Group();
+    const glow = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.34),
+      new THREE.MeshBasicMaterial({ color: meta.glow, transparent: true, opacity: 0.95 })
+    );
+    glow.position.y = 0.7;
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.16, 1.6, 6),
+      new THREE.MeshBasicMaterial({ color: meta.glow, transparent: true, opacity: 0.3, depthWrite: false })
+    );
+    beam.position.y = 0.8;
+    const icon = makeIconSprite(item.emoji);
+    icon.scale.set(0.8, 0.8, 1);
+    icon.position.y = 1.5;
+    const lab = makeTextSprite(`${meta.name} · ${item.name}`, { size: 22, bg: true, accent: meta.color });
+    lab.scale.set(3.6, 0.9, 1);
+    lab.position.y = 2.3;
+    g.add(glow, beam, icon, lab);
+    g.position.copy(at);
+    this.scene.add(g);
+    this.groundLoot.push({ group: g, item, t: 0 });
+    worldAudio.play("loot");
+    if (item.rarity >= 2) {
+      this.ringEffectAt(at, meta.glow, 3.5);
+      this.opts.onEvent({ type: "notify", msg: `${item.emoji} ${meta.name} dropou: ${item.name}!`, tone: "good" });
+    }
+  }
+
+  private updateLoot(dt: number): void {
+    for (let i = this.groundLoot.length - 1; i >= 0; i--) {
+      const gl = this.groundLoot[i];
+      gl.t += dt;
+      gl.group.children[0].rotation.y += dt * 2.4;
+      gl.group.children[0].position.y = 0.7 + Math.sin(gl.t * 2.6) * 0.12;
+      const d = Math.hypot(this.pos.x - gl.group.position.x, this.pos.z - gl.group.position.z);
+      if (d < 1.6) {
+        // apanhar: efeito + evento para o React
+        this.burst(gl.group.position.clone().add(new THREE.Vector3(0, 0.8, 0)), RARITY_META[gl.item.rarity].glow, 14, 3, 0.5, 0.08, 4);
+        this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), `+ ${gl.item.name}`, RARITY_META[gl.item.rarity].color, 1.05);
+        this.opts.onEvent({ type: "loot", item: gl.item });
+        this.scene.remove(gl.group);
+        this.groundLoot.splice(i, 1);
+      }
+    }
+  }
+
+  // ── v4: PET companheiro ───────────────────────────────────
+
+  setPet(on: boolean): void {
+    if (on === this.hasPet) return;
+    this.hasPet = on;
+    if (on && !this.pet) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 10, 8),
+        new THREE.MeshLambertMaterial({ color: 0xfde68a })
+      );
+      const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), new THREE.MeshBasicMaterial({ color: 0x111827 }));
+      eye1.position.set(-0.1, 0.08, 0.26);
+      const eye2 = eye1.clone();
+      eye2.position.x = 0.1;
+      const wingGeo = new THREE.ConeGeometry(0.1, 0.34, 4);
+      const wingMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+      const w1 = new THREE.Mesh(wingGeo, wingMat);
+      w1.rotation.z = Math.PI / 2.4;
+      w1.position.set(0.3, 0.14, 0);
+      const w2 = new THREE.Mesh(wingGeo, wingMat);
+      w2.rotation.z = -Math.PI / 2.4;
+      w2.position.set(-0.3, 0.14, 0);
+      const light = new THREE.PointLight(0xfde68a, 6, 6);
+      g.add(body, eye1, eye2, w1, w2, light);
+      this.scene.add(g);
+      this.pet = g;
+    }
+    if (this.pet) this.pet.visible = on;
+    if (on) {
+      worldAudio.play("pet");
+      this.burst(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), 0xfde68a, 16, 3, 0.7, 0.08, 3);
+    }
+  }
+
+  private updatePet(dt: number): void {
+    if (!this.pet || !this.hasPet) return;
+    this.petT += dt;
+    const t = this.petT;
+    // orbita suave à volta do herói
+    const ox = Math.cos(t * 0.9) * 1.5;
+    const oz = Math.sin(t * 0.9) * 1.5;
+    const target = new THREE.Vector3(this.pos.x + ox, this.pos.y + 2.5 + Math.sin(t * 2.2) * 0.22, this.pos.z + oz);
+    this.pet.position.lerp(target, Math.min(1, dt * 4));
+    this.pet.rotation.y += dt * 1.5;
+    // asas batem
+    const flap = Math.sin(t * 14) * 0.5;
+    (this.pet.children[3] as THREE.Mesh).rotation.x = flap;
+    (this.pet.children[4] as THREE.Mesh).rotation.x = -flap;
+  }
+
+  get hasPetActive(): boolean {
+    return this.hasPet;
+  }
+
+  /** v4: debug/testes — largar um item lendário aos pés do herói. */
+  debugDropLoot(): void {
+    const item: LootItem = {
+      id: "lt_debug_" + Date.now().toString(36),
+      slot: "arma", name: "Lâmina de Teste", emoji: "🗡️",
+      rarity: 3, atk: 5, hp: 0, spd: 0,
+    };
+    this.dropLoot(this.pos.clone(), item);
+  }
+
+  /** v4: debug/testes — dispara uma onda de arena sem teletransporte. */
+  debugStartArenaHere(): void {
+    this.startArena();
   }
 
   // ── Efeitos ─────────────────────────────────────────────────
@@ -2237,6 +2713,12 @@ export class WorldEngine {
       this.burst(this.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 0x34d399, 18, 3, 0.7, 0.1, 3);
     } else if (it.kind === "bank") {
       this.opts.onEvent({ type: "open", kind: "bank", id: "bank" });
+    } else if (it.kind === "arena") {
+      if (this.arena.active) {
+        this.endArena("quit");
+      } else {
+        this.opts.onEvent({ type: "open", kind: "arena", id: "arena" });
+      }
     } else {
       if (it.kind !== "games") this.opts.onEvent({ type: "quest", kind: "visit" });
       this.opts.onEvent({ type: "open", kind: it.kind, id: it.id });
@@ -2287,7 +2769,7 @@ export class WorldEngine {
       pois: [
         { x: 0, z: -52, k: "raffle" }, { x: 52, z: 0, k: "asset" },
         { x: -52, z: 0, k: "contest" }, { x: 0, z: 52, k: "voucher" }, { x: 8, z: 8, k: "games" },
-        { x: -14, z: -14, k: "bank" },
+        { x: -14, z: -14, k: "bank" }, { x: 112, z: 0, k: "arena" },
       ],
       players: [...this.remotes.values()].map((r) => ({ x: r.group.position.x, z: r.group.position.z })),
       marks: LANDMARKS.map((l) => ({ id: l.id, x: l.x, z: l.z, found: this.discovered.has(l.id) })),
@@ -2335,6 +2817,9 @@ export class WorldEngine {
     this.updateDayNight(t, dt);
     this.updateSkyV3(t, dt);
     this.updateHeroV3(dt);
+    this.updatePet(dt);
+    this.updateLoot(dt);
+    this.updateArena(t);
     this.updateCamera(dt);
     this.checkDiscoveries(t);
 
@@ -2365,8 +2850,39 @@ export class WorldEngine {
       this.opts.onEvent({ type: "hp", hp: this.hp, maxHp: this.opts.stats.maxHp });
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.renderFrame();
   };
+
+  /** Renderiza um frame (composer quando disponível). */
+  private renderFrame(): void {
+    if (this.composer) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
+  }
+
+  // ── v4: atualização da arena ─────────────────────────────
+
+  private updateArena(t: number): void {
+    if (!this.arena.active) return;
+    // sair da arena pelo limite
+    const d = Math.hypot(this.pos.x - ARENA_CENTER.x, this.pos.z - ARENA_CENTER.z);
+    if (d > ARENA_RADIUS + 8) { this.endArena("exit"); return; }
+    if (this.arena.cooldown) {
+      if (t >= this.arena.nextWaveAt) this.arenaNextWave();
+    } else if (this.arena.alive <= 0 && this.arena.wave > 0) {
+      // onda limpa — recompensa e prepara a próxima
+      const bonusPts = 5 + this.arena.wave * 3;
+      const bonusGold = 60 + this.arena.wave * 40;
+      this.arena.pts += bonusPts;
+      this.arena.gold += bonusGold;
+      this.arena.cooldown = true;
+      this.arena.nextWaveAt = t + 2600;
+      if (this.arenaRing) (this.arenaRing.material as THREE.MeshBasicMaterial).color.setHex(0x4ade80);
+      this.ringEffectAt(ARENA_CENTER.clone(), 0x4ade80, 9);
+      this.opts.onEvent({ type: "arena", action: "cleared", wave: this.arena.wave, pts: bonusPts, gold: bonusGold });
+    } else if (this.arena.wave === 0 && t >= this.arena.nextWaveAt) {
+      this.arenaNextWave();
+    }
+  }
 
   private updatePlayer(dt: number): void {
     const k = this.keys;
@@ -2446,11 +2962,14 @@ export class WorldEngine {
       m.bob += dt * 4;
       const gp = m.group.position;
       const distP = Math.hypot(this.pos.x - gp.x, this.pos.z - gp.z);
-      const aggro = m.isBoss ? 13 : m.isGuard ? 10 : 8.5;
+      const aggro = m.arena ? 200 : m.isBoss ? 13 : m.isGuard ? 10 : 8.5;
       const spd = now < m.slowUntil ? m.speed * 0.4 : m.speed;
 
       if (m.state === "idle") {
-        if (distP < aggro && !this.dead && Math.hypot(this.pos.x, this.pos.z) > (m.isGuard ? 12 : PVP_SAFE_RADIUS)) {
+        if (m.arena) {
+          // mobs da arena nascem já agressivos
+          m.state = "chase";
+        } else if (distP < aggro && !this.dead && Math.hypot(this.pos.x, this.pos.z) > (m.isGuard ? 12 : PVP_SAFE_RADIUS)) {
           m.state = "chase";
           // v3: anel de aviso + som quando o inimigo te nota
           this.ringEffectAt(m.group.position.clone().add(new THREE.Vector3(0, 0.15, 0)), m.isBoss ? 0xdc2626 : 0xf97316, m.isBoss ? 4.5 : 2.8);
@@ -2462,7 +2981,7 @@ export class WorldEngine {
       }
 
       if (m.state === "chase") {
-        if (this.dead || distP > aggro + 9 || Math.hypot(gp.x, gp.z) < (m.isGuard ? 13 : 20)) {
+        if (!m.arena && (this.dead || distP > aggro + 9 || Math.hypot(gp.x, gp.z) < (m.isGuard ? 13 : 20))) {
           m.state = "return";
         } else if (distP < 1.7) {
           // atacar
@@ -2521,6 +3040,8 @@ export class WorldEngine {
       this.dead = true;
       this.shake(0.4);
       worldAudio.play("death");
+      // v4: morte na arena termina a sessão de ondas
+      if (this.arena.active) this.endArena("death");
       this.opts.onEvent({ type: "death", by: m.name });
       setTimeout(() => {
         if (this.disposed) return;
@@ -2572,7 +3093,7 @@ export class WorldEngine {
       const o = this.orbs[i];
       o.t += dt * 2.2;
       if (o.t >= 1) {
-        this.opts.onEvent({ type: "gain", gold: o.gold, xp: o.xp });
+        this.opts.onEvent({ type: "gain", gold: o.gold, xp: Math.round(o.xp * o.mult) });
         worldAudio.play("coin");
         this.burst(o.mesh.position.clone(), 0xfbbf24, 3, 1.2, 0.3, 0.05, 2);
         this.scene.remove(o.mesh);
@@ -2656,11 +3177,27 @@ export class WorldEngine {
   private updateDayNight(t: number, dt: number): void {
     const phase = (t % DAY_LEN) / DAY_LEN; // 0..1
     const dayAmt = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2); // 1=meio-dia, 0=meia-noite
-    const sky = new THREE.Color(0x0b1026).lerp(new THREE.Color(0x87ceeb), dayAmt);
+    // v4: paleta em 4 fases (dia / entardecer / noite / amanhecer)
+    const cNoon = new THREE.Color(0x87ceeb);
+    const cDusk = new THREE.Color(0xf59e6b);
+    const cNight = new THREE.Color(0x0b1026);
+    const cDawn = new THREE.Color(0xf9a8d4);
+    const sky = new THREE.Color();
+    if (dayAmt > 0.55) {
+      sky.copy(cDusk).lerp(cNoon, smooth01((dayAmt - 0.55) / 0.45));
+    } else if (dayAmt > 0.3) {
+      sky.copy(cNight).lerp(cDusk, smooth01((dayAmt - 0.3) / 0.25));
+    } else {
+      // entre noite funda e amanhecer rosado
+      const dawnW = Math.max(0, Math.sin((0.5 - Math.abs(dayAmt - 0.24) * 6)) * 0.5 + 0.5);
+      sky.copy(cNight).lerp(cDawn, smooth01(dawnW * 0.5) * smooth01((dayAmt + 0.15) / 0.3));
+    }
     this.scene.background = sky;
     (this.scene.fog as THREE.FogExp2).color.copy(sky);
     this.hemi.intensity = 0.35 + dayAmt * 0.65;
     this.sun.intensity = 0.25 + dayAmt * 0.95;
+    // luz do sol aquecida ao entardecer
+    this.sun.color.setHex(dayAmt < 0.55 && dayAmt > 0.2 ? 0xffb27a : 0xfff3d6);
     const ang = phase * Math.PI * 2;
     this.sun.position.set(Math.cos(ang) * 80, 30 + dayAmt * 60, Math.sin(ang) * 80);
     // v3: sol e lua seguem o ciclo
@@ -2678,7 +3215,33 @@ export class WorldEngine {
       this.stars.rotation.y = t * 0.00002;
     }
     // v3: domo do céu acompanha o jogador (dá sensação de infinito)
-    if (this.skyDome) this.skyDome.position.set(this.pos.x, 0, this.pos.z);
+    if (this.skyDome) {
+      this.skyDome.position.set(this.pos.x, 0, this.pos.z);
+      const u = (this.skyDome.material as THREE.ShaderMaterial).uniforms;
+      u.top.value.copy(sky).lerp(new THREE.Color(0x1b4c8c), dayAmt * 0.7);
+      u.mid.value.copy(sky);
+      u.bot.value.copy(sky).lerp(new THREE.Color(0xffffff), 0.18);
+    }
+    // v4: estrelas cadentes à noite
+    for (const s of this.shootStars) {
+      if (!s.active) {
+        if (dayAmt < 0.25 && t > s.next) {
+          s.active = true;
+          s.t = 0;
+          s.dur = 0.9 + Math.random() * 0.6;
+          const a = Math.random() * Math.PI * 2;
+          s.from.set(this.pos.x + Math.cos(a) * 120, 90 + Math.random() * 40, this.pos.z + Math.sin(a) * 120);
+          s.to.copy(s.from).add(new THREE.Vector3((Math.random() - 0.5) * 90, -40 - Math.random() * 25, (Math.random() - 0.5) * 90));
+          s.next = t + 4000 + Math.random() * 9000;
+        }
+        continue;
+      }
+      s.t += dt;
+      const k = s.t / s.dur;
+      if (k >= 1) { s.active = false; (s.spr.material as THREE.SpriteMaterial).opacity = 0; continue; }
+      s.spr.position.lerpVectors(s.from, s.to, k);
+      (s.spr.material as THREE.SpriteMaterial).opacity = Math.sin(k * Math.PI) * 0.9;
+    }
     // vaga-lumes só à noite
     const ffOpacity = Math.max(0, 0.9 - dayAmt * 2.2);
     for (const ff of this.fireflies) {

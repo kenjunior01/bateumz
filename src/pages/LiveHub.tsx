@@ -683,7 +683,7 @@ const LiveHub = () => {
                   <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-amber-400 text-white text-[8px] font-black animate-pulse">MMO DA PLATAFORMA · DESTAQUE</span>
                 </div>
                 <p className="text-[10px] font-semibold text-white/80 truncate">
-                  MMO 3D ao vivo: luta, sobe de nível, rouba cupões a outros jogadores, troca pontos por moeda da plataforma e conquista prémios reais!
+                  MMO 3D ao vivo: loot lendário, Arena das Ondas, pet companheiro, rouba cupões no PvP e troca pontos por moeda real!
                 </p>
               </div>
               <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-amber-400 text-white text-[10px] font-black">JOGAR ▶</span>
