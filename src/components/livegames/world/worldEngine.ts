@@ -11,6 +11,14 @@
 // v5: AVATARES articulados e customizáveis (pele, cabelo,
 // traje, capa, chapéu) com preview 3D, animação de caminhada,
 // aparência sincronizada entre jogadores e emotes visuais.
+// v7: MUNDO ESPECTACULAR — terreno com cores por bioma,
+// floresta densa com 6 tipos de árvores (acácias, pinheiros,
+// gigantes, palmeiras, cactos, árvores mortas), cogumelos
+// luminosos, monólitos, lanternas, tendas, fogueira viva,
+// aurora boreal, névoa/poeira/cinzas por região,
+// ACONTECIMENTOS DO MUNDO (meteoros, frenesi de roubos,
+// enxame de elite), roubo de ITENS em PvP e novas missões
+// diárias de caça entre heróis.
 // ============================================================
 
 import * as THREE from "three";
@@ -203,6 +211,7 @@ interface Mob {
   slowUntil: number;
   name: string;
   arena?: boolean;
+  event?: boolean; // v7: mob de Acontecimento (recompensas x2, desaparece no fim)
 }
 
 interface RemotePlayer {
@@ -342,6 +351,31 @@ function groundY(x: number, z: number): number {
   return base * Math.max(0, f);
 }
 
+// ── v7: bioma dominante numa posição (índice de REGIONS) ────
+const BIOME_COLORS = [
+  { base: 0x4e9c40, alt: 0x63b04b },  // 0 planície — verde savana
+  { base: 0x1e6b3c, alt: 0x2d8549 },  // 1 floresta — verde profundo
+  { base: 0xddb06a, alt: 0xecca8f },  // 2 dunas — areia
+  { base: 0x7fb04c, alt: 0x9cc35e },  // 3 litoral — verde claro
+  { base: 0x41584a, alt: 0x52684f },  // 4 pântano — verde sombrio
+  { base: 0x6e7b74, alt: 0x87928c },  // 5 montanhas — cinza-rocha
+  { base: 0x4a3d3a, alt: 0x5c4a44 },  // 6 vulcânicas — cinza incandescente
+];
+const C_SAND = new THREE.Color(0xe4c48c);
+const C_STONE = new THREE.Color(0x9aa0a6);
+const C_ROAD = new THREE.Color(0x8a6a3d);
+
+function biomeOf(x: number, z: number): number {
+  let best = 0;
+  let bestScore = Infinity;
+  for (let i = 0; i < REGIONS.length; i++) {
+    const rg = REGIONS[i];
+    const d = Math.hypot(x - rg.cx, z - rg.cz) / rg.r;
+    if (d < bestScore) { bestScore = d; best = i; }
+  }
+  return best;
+}
+
 function smooth01(t: number): number {
   return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 }
@@ -461,6 +495,18 @@ export class WorldEngine {
 
   // Vaga-lumes noturnos
   private fireflies: { spr: THREE.Sprite; a: number; r: number; s: number; y0: number }[] = [];
+
+  // v7 — atmosfera por bioma + cenário vivo
+  private ambFx: { spr: THREE.Sprite; kind: "mist" | "dust" | "ash"; cx: number; cz: number; a: number; r: number; s: number; y0: number; size: number; phase: number }[] = [];
+  private aurora: THREE.Group | null = null;
+  private cloudMat: THREE.MeshLambertMaterial | null = null;
+  private campfireLight: THREE.PointLight | null = null;
+  private campfireGlow: THREE.Sprite | null = null;
+
+  // v7 — ACONTECIMENTOS DO MUNDO
+  private wEvent: { kind: "" | "meteors" | "frenzy" | "swarm"; until: number; next: number } = { kind: "", until: 0, next: 14000 };
+  private meteors: { x: number; z: number; t0: number; ring: THREE.Mesh; spr: THREE.Sprite; hit: boolean }[] = [];
+  private meteorTimer = 0;
 
   // v3 — céu, clima e vida do mundo
   private skyDome!: THREE.Mesh;
@@ -653,24 +699,34 @@ export class WorldEngine {
   }
 
   private buildTerrain(): void {
-    const geo = new THREE.PlaneGeometry(340, 340, 96, 96);
+    // v7: mundo mais largo + cores por BIOMA (7 regiões visíveis)
+    const geo = new THREE.PlaneGeometry(480, 480, 128, 128);
     geo.rotateX(-Math.PI / 2);
     const posAttr = geo.attributes.position as THREE.BufferAttribute;
     const colors = new Float32Array(posAttr.count * 3);
-    const cGrass1 = new THREE.Color(0x2f7a33);
-    const cGrass2 = new THREE.Color(0x5cb85c);
-    const cDirt = new THREE.Color(0x8a6a3d);
-    const cStone = new THREE.Color(0x9aa0a6);
     const c = new THREE.Color();
+    const cA = new THREE.Color();
     for (let i = 0; i < posAttr.count; i++) {
       const x = posAttr.getX(i);
       const z = posAttr.getZ(i);
       const y = groundY(x, z);
       posAttr.setY(i, y);
       const dCenter = Math.hypot(x, z);
-      if (dCenter < 17) c.copy(cStone);
-      else if (Math.abs(x) < 3.5 || Math.abs(z) < 3.5) c.copy(cDirt);
-      else c.copy(cGrass1).lerp(cGrass2, smooth01((y + 1.5) / 3.5 + 0.5 * Math.abs(Math.sin(x * 0.9) * Math.cos(z * 0.7))));
+      const dLake = Math.hypot(x - 95, z - 70);
+      if (dCenter < 17) c.copy(C_STONE);
+      else if (Math.abs(x) < 3.5 || Math.abs(z) < 3.5) c.copy(C_ROAD);
+      else if (dLake < 12.5) c.copy(C_SAND); // praia do Lago Misterioso
+      else {
+        const b = biomeOf(x, z);
+        const pal = BIOME_COLORS[b];
+        // variação orgânica: manchas suaves + micro-ruído
+        const n = 0.5 + 0.5 * Math.sin(x * 0.11 + Math.sin(z * 0.13) * 2.1) * Math.cos(z * 0.09 + Math.sin(x * 0.07) * 1.7);
+        const micro = ((Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1) * 0.06;
+        cA.setHex(pal.base).lerp(new THREE.Color(pal.alt), n);
+        c.copy(cA).offsetHSL(0, 0, micro - 0.03);
+      }
+      // borda do mundo escurece (falda de montanha inacessível)
+      if (dCenter > 228) c.multiplyScalar(Math.max(0.35, 1 - (dCenter - 228) / 20));
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
     }
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
@@ -747,9 +803,12 @@ export class WorldEngine {
     }));
     this.moonSpr.scale.setScalar(26);
     this.scene.add(this.moonSpr);
+    // v7: textura de meteoro (bola de fogo)
+    this.meteorTex = mkGlow("rgba(255,214,140,1)", "rgba(255,120,40,0)");
 
-    // Nuvens low-poly a derivar
+    // Nuvens low-poly a derivar (v7: material guardado para tint do entardecer)
     const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, fog: false });
+    this.cloudMat = cloudMat;
     for (let i = 0; i < 9; i++) {
       const g = new THREE.Group();
       const puffs = 3 + Math.floor(Math.random() * 3);
@@ -783,6 +842,43 @@ export class WorldEngine {
       this.scene.add(spr);
       this.shootStars.push({ spr, active: false, t: 0, dur: 1, from: new THREE.Vector3(), to: new THREE.Vector3(), next: 2500 + Math.random() * 8000 });
     }
+
+    // ── v7: AURORA BOREAL (fitas que dançam no céu noturno) ──
+    const auroraTex = (c1: string, c2: string) => {
+      const cv = document.createElement("canvas");
+      cv.width = 256; cv.height = 128;
+      const cx = cv.getContext("2d")!;
+      for (let i = 0; i < 3; i++) {
+        const gr = cx.createLinearGradient(0, 20 + i * 30, 0, 70 + i * 30);
+        gr.addColorStop(0, "rgba(0,0,0,0)");
+        gr.addColorStop(0.5, i % 2 ? c2 : c1);
+        gr.addColorStop(1, "rgba(0,0,0,0)");
+        cx.fillStyle = gr;
+        cx.beginPath();
+        cx.moveTo(0, 45 + i * 26);
+        for (let x = 0; x <= 256; x += 16) cx.lineTo(x, 45 + i * 26 + Math.sin(x / 34 + i * 2) * 16);
+        for (let x = 256; x >= 0; x -= 16) cx.lineTo(x, 65 + i * 26 + Math.sin(x / 26 + i) * 14);
+        cx.closePath(); cx.fill();
+      }
+      return new THREE.CanvasTexture(cv);
+    };
+    this.aurora = new THREE.Group();
+    this.aurora.name = "aurora";
+    const bands: [string, string, number, number][] = [
+      ["rgba(52,211,153,0.5)", "rgba(34,211,238,0.35)", -0.32, 0],
+      ["rgba(167,139,250,0.4)", "rgba(52,211,153,0.3)", -0.22, 1],
+    ];
+    for (const [c1, c2, tilt, k] of bands) {
+      const band = new THREE.Mesh(
+        new THREE.PlaneGeometry(430, 120, 1, 1),
+        new THREE.MeshBasicMaterial({ map: auroraTex(c1, c2), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })
+      );
+      band.position.set(0, 95 + k * 26, -240);
+      band.rotation.x = tilt;
+      band.name = "auroraBand" + k;
+      this.aurora.add(band);
+    }
+    this.scene.add(this.aurora);
   }
 
   private buildShared(): void {
@@ -1210,130 +1306,358 @@ export class WorldEngine {
   // ── Natureza ────────────────────────────────────────────────
 
   private buildNature(): void {
-    const trunkGeo = new THREE.CylinderGeometry(0.22, 0.3, 2.2, 6);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
-    const leafGeo = new THREE.ConeGeometry(1.5, 3.4, 7);
-    const leafMat = new THREE.MeshLambertMaterial({ color: 0x2d6a4f });
-    const N = 260; // v6: mundo maior — mais árvores
-    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
-    const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N);
     const dummy = new THREE.Object3D();
-    let placed = 0;
-    let guard = 0;
-    while (placed < N && guard++ < 1800) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 26 + Math.random() * 196;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      if (Math.abs(x) < 6 || Math.abs(z) < 6) continue;
-      if (Math.hypot(x, z - 52) < 16 || Math.hypot(x - 52, z) < 16 || Math.hypot(x + 52, z) < 16) continue;
-      if (Math.hypot(x + 100, z + 60) < 12 || Math.hypot(x - 95, z - 70) < 14 || Math.hypot(x + 90, z - 85) < 10 || Math.hypot(x - 60, z + 100) < 12) continue;
-      if (Math.hypot(x - 112, z) < 30) continue; // v4: arena limpa de árvores
-      // v6: marcos novos livres de árvores
-      if (Math.hypot(x + 140, z - 20) < 11 || Math.hypot(x - 40, z - 140) < 12 || Math.hypot(x + 35, z + 150) < 10) continue;
-      if (Math.hypot(x - 150, z - 90) < 11 || Math.hypot(x + 150, z + 140) < 12 || Math.hypot(x - 155, z + 70) < 10) continue;
-      const y = groundY(x, z);
-      const s = 0.8 + Math.random() * 0.7;
-      dummy.position.set(x, y + 1.1 * s, z);
-      dummy.scale.setScalar(s);
-      dummy.rotation.y = Math.random() * Math.PI;
-      dummy.updateMatrix();
-      trunks.setMatrixAt(placed, dummy.matrix);
-      dummy.position.y = y + 3.4 * s;
-      dummy.updateMatrix();
-      leaves.setMatrixAt(placed, dummy.matrix);
-      placed++;
-    }
-    trunks.count = placed;
-    leaves.count = placed;
-    this.scene.add(trunks, leaves);
+    const col = new THREE.Color();
 
+    // ── zonas protegidas (sem vegetação): POIs, marcos, arena ──
+    const SAFE: [number, number, number][] = [
+      [0, -52, 16], [52, 0, 16], [-52, 0, 16], [0, 52, 16],
+      [-100, -60, 12], [95, 70, 15], [-90, 85, 10], [60, -100, 12], [112, 0, 30],
+      [-140, 20, 11], [40, 140, 13], [-35, -150, 10], [150, 90, 11], [-150, -140, 12], [155, -70, 10],
+    ];
+    const inSafe = (x: number, z: number, pad = 0): boolean => {
+      if (Math.abs(x) < 6 + pad || Math.abs(z) < 6 + pad) return true; // estradas
+      if (Math.hypot(x, z) < 24 + pad) return true; // praça
+      if (Math.hypot(x - 95, z - 70) < 14 + pad) return true; // lago + praia
+      for (const [sx, sz, sr] of SAFE) if (Math.hypot(x - sx, z - sz) < sr + pad) return true;
+      return false;
+    };
+    const spot = (bias?: { x: number; z: number; r: number; w: number }): [number, number] => {
+      for (let g = 0; g < 40; g++) {
+        let x: number, z: number;
+        if (bias && Math.random() < bias.w) {
+          x = bias.x + (Math.random() - 0.5) * bias.r * 2;
+          z = bias.z + (Math.random() - 0.5) * bias.r * 2;
+        } else {
+          const a = Math.random() * Math.PI * 2;
+          const rr = 24 + Math.random() * 198;
+          x = Math.cos(a) * rr; z = Math.sin(a) * rr;
+        }
+        if (!inSafe(x, z)) return [x, z];
+      }
+      return [9999, 9999];
+    };
+
+    // ── v7: FLORESTA RICA — 6 tipos de árvores por bioma ─────
+    const TREE_BY_BIOME: string[][] = [
+      ["acacia", "acacia", "acacia", "acacia", "baoba", "giant", "palm", "pine", "dead"], // planície
+      ["giant", "giant", "giant", "giant", "pine", "pine", "pine", "acacia", "acacia"],   // floresta
+      ["palm", "palm", "dead", "dead", "dead", "dead", "acacia"],                          // dunas (secas)
+      ["palm", "palm", "palm", "palm", "palm", "acacia", "acacia", "pine"],                // litoral
+      ["dead", "dead", "dead", "dead", "pine", "pine", "giant", "giant"],                  // pântano
+      ["pine", "pine", "pine", "pine", "pine", "pine", "dead", "dead", "giant"],           // montanhas
+      ["dead", "dead", "dead", "dead", "dead", "dead", "pine", "pine"],                    // vulcânicas
+    ];
+    const CANOPY: Record<string, number[]> = {
+      acacia: [0x6a994e, 0x86b35a, 0x57883e],
+      giant: [0x2d6a4f, 0x40916c, 0x1b4332, 0x35684a],
+      pine: [0x2f5d3a, 0x3a7248, 0x27512f],
+      palm: [0x58a356, 0x6fbf63, 0x4c9452],
+    };
+    const TRUNK_COL: Record<string, number> = {
+      acacia: 0x6b4a2b, giant: 0x5a3f24, pine: 0x5d4126, palm: 0x8a6642, dead: 0x4a4038, baoba: 0x8d6748,
+    };
+
+    // listas de árvores geradas primeiro (2 passadas → instancing limpo)
+    const trees: { x: number; z: number; y: number; s: number; type: string; tilt: number; rot: number; b: number }[] = [];
+    for (let i = 0; i < 640; i++) {
+      const bias = Math.random() < 0.4 ? { x: -120, z: -40, r: 88, w: 0.85 }
+        : Math.random() < 0.5 ? { x: 150, z: 55, r: 75, w: 0.7 } : undefined;
+      const [x, z] = spot(bias);
+      if (x > 9000) continue;
+      const b = biomeOf(x, z);
+      const pool = TREE_BY_BIOME[b];
+      const type = pool[Math.floor(Math.random() * pool.length)];
+      trees.push({ x, z, y: groundY(x, z), s: 0.85 + Math.random() * 0.75, type, tilt: type === "palm" ? (Math.random() - 0.5) * 0.34 : type === "dead" ? (Math.random() - 0.5) * 0.4 : (Math.random() - 0.5) * 0.1, rot: Math.random() * Math.PI * 2, b });
+    }
+    // cactos nas dunas
+    const cactiList: { x: number; z: number; y: number; s: number }[] = [];
+    for (let i = 0; i < 72; i++) {
+      const [x, z] = spot({ x: -40, z: -150, r: 80, w: 0.9 });
+      if (x > 9000) continue;
+      if (biomeOf(x, z) !== 2) continue;
+      cactiList.push({ x, z, y: groundY(x, z), s: 0.7 + Math.random() * 0.9 });
+    }
+
+    const N = trees.length;
+    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.4, 6);
+    trunkGeo.translate(0, 1.2, 0);
+    const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+    const canSphGeo = new THREE.IcosahedronGeometry(1.35, 0);
+    const canSph = new THREE.InstancedMesh(canSphGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), N * 3 + 8);
+    const canConeGeo = new THREE.ConeGeometry(1.35, 2.5, 7);
+    const canCone = new THREE.InstancedMesh(canConeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), N * 2 + 8);
+    const leafGeo = new THREE.ConeGeometry(0.36, 2.7, 5);
+    leafGeo.scale(1, 1, 0.24);
+    const palmLeaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 420);
+    let ti = 0, si = 0, ci = 0, li = 0;
+
+    const pickCol = (type: string, b: number): THREE.Color => {
+      if (b === 2) return col.setHex(type === "palm" ? 0x9a8f5a : 0x7a8a4a).clone(); // secas
+      if (b === 6 && type === "pine") return col.setHex(0x4a3a30).clone(); // queimado
+      const arr = CANOPY[type] || CANOPY.acacia;
+      return col.setHex(arr[Math.floor(Math.random() * arr.length)]).offsetHSL(0, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.1).clone();
+    };
+
+    for (const t of trees) {
+      const { x, z, y, s, type, tilt, rot, b } = t;
+      // tronco
+      const th = type === "giant" ? 2.5 : type === "pine" ? 1.55 : type === "palm" ? 1.8 : type === "baoba" ? 1.0 : type === "dead" ? 1.15 : 1;
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, rot, tilt);
+      dummy.scale.set(type === "baoba" ? 1.9 * s : type === "giant" ? 1.35 * s : type === "palm" ? 0.62 * s : 0.85 * s, th * s, type === "baoba" ? 1.9 * s : type === "giant" ? 1.35 * s : 0.85 * s);
+      dummy.updateMatrix();
+      trunks.setMatrixAt(ti, dummy.matrix);
+      trunks.setColorAt(ti, col.setHex(TRUNK_COL[type]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.08));
+      const topX = x + Math.sin(tilt) * 2.4 * th * s;
+      const topZ = z;
+      // copas
+      if (type === "acacia") {
+        dummy.position.set(topX, y + 2.5 * th * s, topZ);
+        dummy.rotation.set(0, rot * 2, 0);
+        dummy.scale.set(2.1 * s, 0.72 * s, 2.1 * s);
+        dummy.updateMatrix();
+        canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, pickCol(type, b));
+      } else if (type === "giant") {
+        const layers: [number, number, number][] = [[1.55, 3.9, 1], [1.15, 5.3, 1.25], [0.85, 6.5, 1.6]];
+        for (const [r, yy, sw] of layers) {
+          dummy.position.set(topX + (Math.random() - 0.5) * 0.5, y + yy * s, topZ + (Math.random() - 0.5) * 0.5);
+          dummy.rotation.set(Math.random(), rot * 3, Math.random() * 0.4);
+          dummy.scale.set(r * s * sw, r * 0.85 * s, r * s * sw);
+          dummy.updateMatrix();
+          canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, pickCol(type, b));
+        }
+      } else if (type === "baoba") {
+        for (const [ox, oy, oz] of [[-0.9, 3.4, 0.2], [0.9, 3.7, -0.3]]) {
+          dummy.position.set(topX + ox * s, y + oy * s, topZ + oz * s);
+          dummy.rotation.set(Math.random(), Math.random(), Math.random());
+          dummy.scale.setScalar(1.05 * s);
+          dummy.updateMatrix();
+          canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, col.setHex(0x65a30d).offsetHSL(0, (Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.08).clone());
+        }
+      } else if (type === "pine") {
+        for (const [sc, yy] of [[1.15, 2.7], [0.8, 4.15]]) {
+          dummy.position.set(topX, y + yy * s, topZ);
+          dummy.rotation.set(0, rot * 2, 0);
+          dummy.scale.set(sc * s, sc * s * (b === 5 ? 1.25 : 1), sc * s);
+          dummy.updateMatrix();
+          canCone.setMatrixAt(ci, dummy.matrix); canCone.setColorAt(ci++, pickCol(type, b));
+        }
+      } else if (type === "palm") {
+        const hTop = 2.4 * th * s;
+        for (let lf = 0; lf < 6; lf++) {
+          const la = (lf / 6) * Math.PI * 2 + rot;
+          dummy.position.set(topX + Math.sin(tilt) * 0 + Math.cos(la) * 0.85 * s, y + hTop - 0.15 * s, topZ + Math.sin(la) * 0.85 * s);
+          dummy.rotation.set(0, la, -2.05 + Math.random() * 0.25);
+          dummy.scale.setScalar(s * (0.85 + Math.random() * 0.3));
+          dummy.updateMatrix();
+          if (li < 420) { palmLeaves.setMatrixAt(li, dummy.matrix); palmLeaves.setColorAt(li, pickCol(type, b)); li++; }
+        }
+      }
+      // árvore morta: sem copa (silhueta seca)
+      ti++;
+    }
+    trunks.count = ti; canSph.count = si; canCone.count = ci; palmLeaves.count = li;
+    if (trunks.instanceColor) trunks.instanceColor.needsUpdate = true;
+    if (canSph.instanceColor) canSph.instanceColor.needsUpdate = true;
+    if (canCone.instanceColor) canCone.instanceColor.needsUpdate = true;
+    if (palmLeaves.instanceColor) palmLeaves.instanceColor.needsUpdate = true;
+    this.scene.add(trunks, canSph, canCone, palmLeaves);
+
+    // cactos (dunas) com braços
+    if (cactiList.length) {
+      const cacGeo = new THREE.CapsuleGeometry(0.3, 1.25, 4, 8);
+      cacGeo.translate(0, 0.95, 0);
+      const cacMesh = new THREE.InstancedMesh(cacGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), cactiList.length);
+      const armGeo = new THREE.CapsuleGeometry(0.14, 0.5, 3, 6);
+      armGeo.translate(0, 0.3, 0);
+      const armMesh = new THREE.InstancedMesh(armGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), cactiList.length * 2);
+      let ai = 0;
+      cactiList.forEach((ca, k) => {
+        dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
+        dummy.position.set(ca.x, ca.y, ca.z);
+        dummy.scale.setScalar(ca.s);
+        dummy.updateMatrix();
+        cacMesh.setMatrixAt(k, dummy.matrix);
+        cacMesh.setColorAt(k, col.setHex(Math.random() < 0.5 ? 0x4c8c46 : 0x3e7a3e));
+        if (Math.random() < 0.75) {
+          dummy.position.set(ca.x + 0.42 * ca.s, ca.y + 0.75 * ca.s, ca.z);
+          dummy.rotation.set(0, 0, -0.95); dummy.scale.setScalar(ca.s);
+          dummy.updateMatrix(); armMesh.setMatrixAt(ai, dummy.matrix); armMesh.setColorAt(ai, col.clone()); ai++;
+        }
+        if (Math.random() < 0.5) {
+          dummy.position.set(ca.x - 0.42 * ca.s, ca.y + 0.55 * ca.s, ca.z);
+          dummy.rotation.set(0, 0, 0.95);
+          dummy.updateMatrix(); armMesh.setMatrixAt(ai, dummy.matrix); armMesh.setColorAt(ai, col.clone()); ai++;
+        }
+      });
+      cacMesh.count = cactiList.length; armMesh.count = ai;
+      if (cacMesh.instanceColor) cacMesh.instanceColor.needsUpdate = true;
+      if (armMesh.instanceColor) armMesh.instanceColor.needsUpdate = true;
+      this.scene.add(cacMesh, armMesh);
+    }
+
+    // ── rochas com cor por bioma (obsidiana, areia, musgo) ──
+    const ROCK_COL = [0x7d8590, 0x5f7d54, 0xcbb27e, 0x93a08a, 0x5c6a5e, 0x8a939b, 0x2e2a2e];
     const rockGeo = new THREE.IcosahedronGeometry(0.9, 0);
-    const rockMat = new THREE.MeshLambertMaterial({ color: 0x7d8590 });
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 110); // v6: mais rochas
+    const rocks = new THREE.InstancedMesh(rockGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 170);
     let rp = 0;
-    guard = 0;
-    while (rp < 110 && guard++ < 900) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 26 + Math.random() * 110;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      if (Math.abs(x) < 5 || Math.abs(z) < 5) continue;
-      dummy.position.set(x, groundY(x, z) + 0.3, z);
-      dummy.scale.set(0.6 + Math.random() * 1.2, 0.5 + Math.random() * 0.8, 0.6 + Math.random() * 1.2);
+    let guard = 0;
+    while (rp < 170 && guard++ < 1400) {
+      const [x, z] = spot();
+      if (x > 9000) continue;
+      dummy.position.set(x, groundY(x, z) + 0.25, z);
+      const big = Math.random() < 0.14;
+      dummy.scale.set((0.6 + Math.random() * 1.3) * (big ? 2.2 : 1), (0.5 + Math.random() * 0.9) * (big ? 1.9 : 1), (0.6 + Math.random() * 1.3) * (big ? 2.2 : 1));
       dummy.rotation.set(Math.random(), Math.random() * Math.PI, Math.random());
       dummy.updateMatrix();
       rocks.setMatrixAt(rp, dummy.matrix);
+      const b = biomeOf(x, z);
+      rocks.setColorAt(rp, col.setHex(ROCK_COL[b]).offsetHSL(0, 0, (Math.random() - 0.5) * 0.1));
       rp++;
     }
     rocks.count = rp;
+    if (rocks.instanceColor) rocks.instanceColor.needsUpdate = true;
     this.scene.add(rocks);
 
+    // monólitos das Montanhas Negras
+    const monoMat = new THREE.MeshLambertMaterial({ color: 0x69756e });
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = 12 + Math.random() * 58;
+      const x = -120 + Math.cos(a) * rr;
+      const z = 130 + Math.sin(a) * rr * 0.8;
+      if (inSafe(x, z, 4)) continue;
+      const h = 4.5 + Math.random() * 5;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.4 + Math.random() * 1.2, h, 1.1 + Math.random()), monoMat);
+      m.position.set(x, groundY(x, z) + h / 2 - 0.4, z);
+      m.rotation.set((Math.random() - 0.5) * 0.16, Math.random() * Math.PI, (Math.random() - 0.5) * 0.14);
+      this.scene.add(m);
+      if (Math.random() < 0.4) {
+        const cap = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 0), monoMat);
+        cap.position.set(x, groundY(x, z) + h - 0.2, z);
+        this.scene.add(cap);
+      }
+    }
+
     const bushGeo = new THREE.IcosahedronGeometry(0.55, 0);
-    const bushMat = new THREE.MeshLambertMaterial({ color: 0x40916c });
-    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 95); // v6: mais arbustos
+    const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 150);
+    const BUSH_COL = [0x40916c, 0x2d6a4f, 0x74a352, 0x52796f, 0x4a5d43, 0x607b5e, 0x6a6f4a];
     let bp = 0;
     guard = 0;
-    while (bp < 95 && guard++ < 800) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 14 + Math.random() * 130;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      if (Math.abs(x) < 5 || Math.abs(z) < 5) continue;
+    while (bp < 150 && guard++ < 1000) {
+      const [x, z] = spot();
+      if (x > 9000) continue;
       dummy.position.set(x, groundY(x, z) + 0.22, z);
       dummy.scale.set(0.7 + Math.random() * 0.9, 0.5 + Math.random() * 0.5, 0.7 + Math.random() * 0.9);
       dummy.rotation.set(0, Math.random() * Math.PI, 0);
       dummy.updateMatrix();
       bushes.setMatrixAt(bp, dummy.matrix);
+      bushes.setColorAt(bp, col.setHex(BUSH_COL[biomeOf(x, z)]).offsetHSL(0, (Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.08));
       bp++;
     }
     bushes.count = bp;
+    if (bushes.instanceColor) bushes.instanceColor.needsUpdate = true;
     this.scene.add(bushes);
 
-    // ── v3: tufos de relva (3 lâminas cruzadas por tufo) ──
+    // ── relva DENSA (1500 tufos) com cor por bioma ──
+    const GRASS_COL = [0x4fae43, 0x2f8a4d, 0xcdb26a, 0x77b352, 0x3f6a4c, 0x7e8c84, 0x5a5a48];
     const bladeGeo = new THREE.ConeGeometry(0.05, 0.55, 4);
     bladeGeo.translate(0, 0.27, 0);
-    const bladeMat = new THREE.MeshLambertMaterial({ color: 0x3f9142 });
-    const G = 420;
-    const grass = new THREE.InstancedMesh(bladeGeo, bladeMat, G * 3);
+    const grass = new THREE.InstancedMesh(bladeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 4600);
     let gi = 0;
     guard = 0;
-    while (gi < G && guard++ < 2400) {
-      const a = Math.random() * Math.PI * 2;
-      const rr = 12 + Math.random() * 132;
-      const x = Math.cos(a) * rr;
-      const z = Math.sin(a) * rr;
-      if (Math.abs(x) < 4.2 || Math.abs(z) < 4.2) continue;
-      if (Math.hypot(x, z - 52) < 15 || Math.hypot(x - 52, z) < 15 || Math.hypot(x + 52, z) < 15 || Math.hypot(x, z - 95) < 11) continue;
+    while (gi < 1500 && guard++ < 5200) {
+      const [x, z] = spot();
+      if (x > 9000) continue;
+      const b = biomeOf(x, z);
+      if (b === 2 && Math.random() < 0.72) continue; // dunas quase sem relva
+      if (b === 6 && Math.random() < 0.6) continue;  // vulcânicas queimadas
       const y = groundY(x, z);
-      for (let b = 0; b < 3; b++) {
+      for (let bl = 0; bl < 3; bl++) {
         dummy.position.set(x + (Math.random() - 0.5) * 0.5, y, z + (Math.random() - 0.5) * 0.5);
         dummy.scale.setScalar(0.7 + Math.random() * 0.9);
-        dummy.rotation.set((Math.random() - 0.5) * 0.3, (b / 3) * Math.PI + Math.random(), (Math.random() - 0.5) * 0.3);
+        dummy.rotation.set((Math.random() - 0.5) * 0.3, (bl / 3) * Math.PI + Math.random(), (Math.random() - 0.5) * 0.3);
         dummy.updateMatrix();
-        if (gi * 3 + b < G * 3) grass.setMatrixAt(gi * 3 + b, dummy.matrix);
+        const idx = gi * 3 + bl;
+        if (idx < 4600) {
+          grass.setMatrixAt(idx, dummy.matrix);
+          grass.setColorAt(idx, col.setHex(GRASS_COL[b]).offsetHSL((Math.random() - 0.5) * 0.03, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.12));
+        }
       }
       gi++;
     }
-    grass.count = Math.min(G * 3, gi * 3);
+    grass.count = Math.min(4600, gi * 3);
+    if (grass.instanceColor) grass.instanceColor.needsUpdate = true;
     this.scene.add(grass);
 
-    // ── v3: flores coloridas ──
-    const flowerColors = [0xf472b6, 0xfbbf24, 0xf87171, 0xa78bfa, 0xffffff];
-    const F = 260; // v6: mais flores no mundo grande
+    // ── fetos (floresta/pântano) ──
+    const fernGeo = new THREE.ConeGeometry(0.42, 0.5, 6);
+    fernGeo.translate(0, 0.2, 0);
+    const ferns = new THREE.InstancedMesh(fernGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 120);
+    let fei = 0;
+    guard = 0;
+    while (fei < 120 && guard++ < 700) {
+      const [x, z] = spot({ x: -110, z: -30, r: 90, w: 0.8 });
+      if (x > 9000) continue;
+      const b = biomeOf(x, z);
+      if (b !== 1 && b !== 4) continue;
+      dummy.position.set(x, groundY(x, z), z);
+      dummy.scale.set(0.7 + Math.random() * 0.8, 0.6 + Math.random() * 0.6, 0.7 + Math.random() * 0.8);
+      dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
+      dummy.updateMatrix();
+      ferns.setMatrixAt(fei, dummy.matrix);
+      ferns.setColorAt(fei, col.setHex(b === 4 ? 0x2c5538 : 0x276b3f).offsetHSL(0, 0, (Math.random() - 0.5) * 0.08));
+      fei++;
+    }
+    ferns.count = fei;
+    if (ferns.instanceColor) ferns.instanceColor.needsUpdate = true;
+    this.scene.add(ferns);
+
+    // ── cogumelos LUMINOSOS (pântano/montanhas/floresta) — brilham com bloom ──
+    const mushStemGeo = new THREE.CylinderGeometry(0.06, 0.09, 0.42, 5);
+    mushStemGeo.translate(0, 0.21, 0);
+    const mushStems = new THREE.InstancedMesh(mushStemGeo, new THREE.MeshLambertMaterial({ color: 0xe8e2d0 }), 96);
+    const mushCapGeo = new THREE.ConeGeometry(0.27, 0.32, 7);
+    mushCapGeo.translate(0, 0.5, 0);
+    const MUSH_COL = [0x22d3ee, 0xa855f7, 0xf472b6, 0x4ade80];
+    const mushCaps = new THREE.InstancedMesh(mushCapGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x444444 }), 96);
+    let mi = 0;
+    guard = 0;
+    while (mi < 96 && guard++ < 600) {
+      const [x, z] = spot({ x: -90, z: 85, r: 55, w: 0.55 });
+      if (x > 9000) continue;
+      const b = biomeOf(x, z);
+      if (b !== 4 && b !== 5 && b !== 1) continue;
+      const y = groundY(x, z);
+      dummy.rotation.set(0, Math.random() * Math.PI, 0);
+      dummy.scale.setScalar(0.7 + Math.random() * 1.1);
+      dummy.position.set(x, y, z);
+      dummy.updateMatrix();
+      mushStems.setMatrixAt(mi, dummy.matrix);
+      const mc = col.setHex(MUSH_COL[Math.floor(Math.random() * MUSH_COL.length)]).clone();
+      mushCaps.setMatrixAt(mi, dummy.matrix);
+      mushCaps.setColorAt(mi, mc);
+      mi++;
+    }
+    mushStems.count = mi; mushCaps.count = mi;
+    if (mushCaps.instanceColor) mushCaps.instanceColor.needsUpdate = true;
+    this.scene.add(mushStems, mushCaps);
+
+    // ── flores coloridas (mais espalhadas) ──
+    const flowerColors = [0xf472b6, 0xfbbf24, 0xf87171, 0xa78bfa, 0xffffff, 0x34d399];
+    const F = 330;
     const flowerGeo = new THREE.SphereGeometry(0.09, 5, 4);
     const flowers = new THREE.InstancedMesh(flowerGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), F);
     const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 4);
     const stems = new THREE.InstancedMesh(stemGeo, new THREE.MeshLambertMaterial({ color: 0x2d6a4f }), F);
-    const fCol = new THREE.Color();
     let fi = 0;
     guard = 0;
-    while (fi < F && guard++ < 1400) {
-      const a = Math.random() * Math.PI * 2;
-      const rr = 14 + Math.random() * 120;
-      const x = Math.cos(a) * rr;
-      const z = Math.sin(a) * rr;
-      if (Math.abs(x) < 4.5 || Math.abs(z) < 4.5) continue;
+    while (fi < F && guard++ < 1600) {
+      const [x, z] = spot();
+      if (x > 9000) continue;
+      const b = biomeOf(x, z);
+      if ((b === 2 || b === 6) && Math.random() < 0.7) continue;
       const y = groundY(x, z);
       dummy.position.set(x, y + 0.15, z);
       dummy.scale.setScalar(1);
@@ -1343,14 +1667,171 @@ export class WorldEngine {
       dummy.position.y = y + 0.32;
       dummy.updateMatrix();
       flowers.setMatrixAt(fi, dummy.matrix);
-      fCol.setHex(flowerColors[fi % flowerColors.length]);
-      flowers.setColorAt(fi, fCol);
+      flowers.setColorAt(fi, col.setHex(flowerColors[fi % flowerColors.length]));
       fi++;
     }
     flowers.count = fi;
     stems.count = fi;
     if (flowers.instanceColor) flowers.instanceColor.needsUpdate = true;
     this.scene.add(flowers, stems);
+
+    // ── nenúfares no Lago Misterioso ──
+    const lilyMat = new THREE.MeshLambertMaterial({ color: 0x3f8a4f });
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = Math.random() * 7.2;
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.4 + Math.random() * 0.35, 8), lilyMat);
+      pad.rotateX(-Math.PI / 2);
+      pad.position.set(95 + Math.cos(a) * rr, groundY(95, 70) + 0.16, 70 + Math.sin(a) * rr);
+      this.scene.add(pad);
+      if (i % 3 === 0) {
+        const bl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), new THREE.MeshLambertMaterial({ color: 0xf9a8d4 }));
+        bl.position.set(pad.position.x, pad.position.y + 0.12, pad.position.z);
+        this.scene.add(bl);
+      }
+    }
+
+    // ══ v7: PROPS DE CENÁRIO ════════════════════════════════
+
+    // Lanternas ao longo das estradas (glow captado pelo bloom)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x3f3a35 });
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd66b });
+    const lampGlowTex = (() => {
+      const cv = document.createElement("canvas");
+      cv.width = 64; cv.height = 64;
+      const cx = cv.getContext("2d")!;
+      const g = cx.createRadialGradient(32, 32, 3, 32, 32, 30);
+      g.addColorStop(0, "rgba(255,214,107,0.85)");
+      g.addColorStop(1, "rgba(255,214,107,0)");
+      cx.fillStyle = g; cx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(cv);
+    })();
+    for (const [lx, lz] of [[7.5, 7.5], [-7.5, 7.5], [7.5, -7.5], [-7.5, -7.5], [24, 5], [-24, 5], [24, -5], [-24, -5], [5, 24], [-5, 24], [5, -24], [-5, -24], [46, 5], [-46, -5], [5, 46], [-5, -46]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 3.1, 6), poleMat);
+      pole.position.set(lx, groundY(lx, lz) + 1.55, lz);
+      this.scene.add(pole);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), lampMat);
+      bulb.position.set(lx, groundY(lx, lz) + 3.2, lz);
+      this.scene.add(bulb);
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampGlowTex, transparent: true, depthWrite: false, opacity: 0.9 }));
+      glow.position.copy(bulb.position);
+      glow.scale.setScalar(2.4);
+      this.scene.add(glow);
+    }
+
+    // Arcos de pedra monumentais nas estradas
+    for (const [ax, az, rotY] of [[0, -34, 0], [34, 0, Math.PI / 2], [0, 34, 0], [-34, 0, Math.PI / 2]]) {
+      const arch = new THREE.Group();
+      const aMat = new THREE.MeshLambertMaterial({ color: 0x8f8878 });
+      for (const px of [-3, 3]) {
+        const pil = new THREE.Mesh(new THREE.BoxGeometry(1.1, 5.6, 1.3), aMat);
+        pil.position.set(px, 2.8, 0);
+        arch.add(pil);
+      }
+      const top = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.9, 1.5), aMat);
+      top.position.y = 5.9;
+      arch.add(top);
+      const keystone = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), aMat);
+      keystone.position.y = 6.7;
+      arch.add(keystone);
+      const banner = makeTextSprite("⚔ BATEU WORLD", { size: 26, bg: true, accent: "#f43f5e" });
+      banner.scale.set(3.4, 0.85, 1);
+      banner.position.y = 7.8;
+      arch.add(banner);
+      arch.position.set(ax, 0, az);
+      arch.rotation.y = rotY;
+      this.scene.add(arch);
+    }
+
+    // Aldeia Capulana: cerca colorida + tendas de capulana
+    const aldeia = new THREE.Group();
+    const fenceCols = [0xef476f, 0xf78c6b, 0x06d6a0, 0x118ab2, 0xffd166];
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const fx = Math.cos(a) * 9.5;
+      const fz = Math.sin(a) * 9.5;
+      if (Math.abs(fx) > 8.4 && Math.abs(fz) > 8.4) { /* arco de entrada fica */ }
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.1, 0.16), new THREE.MeshLambertMaterial({ color: fenceCols[i % fenceCols.length] }));
+      post.position.set(fx, 0.55, fz);
+      aldeia.add(post);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 1.7), new THREE.MeshLambertMaterial({ color: 0x8a6642 }));
+      rail.position.set(fx, 0.85, fz);
+      rail.rotation.y = -a;
+      aldeia.add(rail);
+    }
+    for (const [tx, tz, tc] of [[-3, -2, 0xef476f], [3, -1, 0x118ab2], [0.5, 2.5, 0xffd166]]) {
+      const tent = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.3, 6), new THREE.MeshLambertMaterial({ color: tc }));
+      tent.position.set(tx, 1.15, tz);
+      aldeia.add(tent);
+    }
+    aldeia.position.set(40, groundY(40, 140), 140);
+    this.scene.add(aldeia);
+
+    // Acampamento dos Caçadores: tendas + FOGUEIRA VIVA (luz a tremular)
+    const camp = new THREE.Group();
+    for (const [tx, tz, tc] of [[-2.6, -1.6, 0xd9a960], [2.4, -1.2, 0xb0784a], [-0.6, 2.4, 0x9c6b3f]]) {
+      const tent = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.1, 5), new THREE.MeshLambertMaterial({ color: tc }));
+      tent.position.set(tx, 1.05, tz);
+      camp.add(tent);
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), new THREE.MeshLambertMaterial({ color: 0x5a5a5a }));
+      st.position.set(Math.cos(a) * 0.75, 0.12, Math.sin(a) * 0.75);
+      camp.add(st);
+    }
+    const log1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 5), new THREE.MeshLambertMaterial({ color: 0x5d4126 }));
+    log1.rotation.z = Math.PI / 2; log1.position.y = 0.16; camp.add(log1);
+    const log2 = log1.clone(); log2.rotation.y = Math.PI / 2; camp.add(log2);
+    const fireLight = new THREE.PointLight(0xff8c3a, 0, 16);
+    fireLight.position.set(0, 1, 0);
+    camp.add(fireLight);
+    const fireGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: lampGlowTex, color: 0xff9a4a, transparent: true, depthWrite: false, opacity: 0 }));
+    fireGlow.position.set(0, 0.9, 0);
+    fireGlow.scale.setScalar(3.2);
+    camp.add(fireGlow);
+    camp.position.set(150, groundY(150, 90), 90);
+    this.scene.add(camp);
+    this.campfireLight = fireLight;
+    this.campfireGlow = fireGlow;
+
+    // Efeitos atmosféricos: névoa (pântano) · poeira (dunas) · cinzas (vulcânicas)
+    const fxTex = (r: number, g: number, b: number) => {
+      const cv = document.createElement("canvas");
+      cv.width = 64; cv.height = 64;
+      const cx = cv.getContext("2d")!;
+      const gr = cx.createRadialGradient(32, 32, 2, 32, 32, 30);
+      gr.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
+      gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      cx.fillStyle = gr; cx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(cv);
+    };
+    const mistTex = fxTex(190, 210, 200);
+    const dustTex = fxTex(226, 198, 140);
+    const ashTex = fxTex(120, 110, 108);
+    const addFx = (kind: "mist" | "dust" | "ash", cx: number, cz: number, n: number, size: number, yRange: number) => {
+      for (let i = 0; i < n; i++) {
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: kind === "mist" ? mistTex : kind === "dust" ? dustTex : ashTex,
+          transparent: true, depthWrite: false, opacity: 0,
+        }));
+        const a = Math.random() * Math.PI * 2;
+        const rr = kind === "mist" ? Math.random() * 52 : Math.random() * 70;
+        this.ambFx.push({
+          spr, kind, cx, cz,
+          a: Math.random() * Math.PI * 2,
+          r: rr, s: 0.008 + Math.random() * 0.02,
+          y0: kind === "ash" ? 0 : Math.random() * yRange,
+          size: size * (0.7 + Math.random() * 0.7),
+          phase: Math.random() * Math.PI * 2,
+        });
+        spr.scale.setScalar(size * (0.7 + Math.random() * 0.7));
+        this.scene.add(spr);
+      }
+    };
+    addFx("mist", 40, 150, 22, 7, 1.4);   // Pântano Sombrio
+    addFx("dust", -40, -150, 20, 3.2, 1.8); // Dunas Escaldantes
+    addFx("ash", 170, -140, 26, 2.2, 7);  // Terras Vulcânicas
 
     // ── v3: borboletas de dia (como os vaga-lumes de noite) ──
     const bfCanvas = document.createElement("canvas");
@@ -1991,8 +2472,8 @@ export class WorldEngine {
       ch.on("broadcast", { event: "pvpdeath" }, ({ payload }: any) => {
         if (!payload) return;
         if (payload.k === this.myId && payload.v !== this.myId) {
-          // Eu fui o ladrão — recompensa
-          this.opts.onEvent({ type: "pvp", action: "steal", victim: payload.vn, pts: payload.pts || 0, coupon: payload.cpn || null });
+          // Eu fui o ladrão — recompensa (v7: + item roubado + bónus de Frenesi)
+          this.opts.onEvent({ type: "pvp", action: "steal", victim: payload.vn, pts: payload.pts || 0, coupon: payload.cpn || null, item: payload.itm || null, bonus: this.wEvent.kind === "frenzy" ? 25 : 0 });
         } else if (payload.k && payload.v !== this.myId) {
           this.opts.onEvent({ type: "pvp", action: "feed", kn: payload.kn, vn: payload.vn });
         }
@@ -2246,6 +2727,8 @@ export class WorldEngine {
       this.chan?.send({ type: "broadcast", event: "pvphit", payload: { a: this.myId, an: this.opts.name, t: this.remoteIdOf(best), d: dmg } });
     } catch { /* ignore */ }
     this.floatText(best.group.position.clone().add(new THREE.Vector3(0, 2.4, 0)), "⚔️", "#fbbf24", 1.1);
+    // v7: contador para missão "Acerta golpes em heróis"
+    this.opts.onEvent({ type: "pvpatk" });
     return true;
   }
 
@@ -2254,14 +2737,14 @@ export class WorldEngine {
     return "";
   }
 
-  broadcastPvpDeath(killerId: string, killerName: string, stolenPts: number, coupon: { id: string; code: string; label: string } | null): void {
+  broadcastPvpDeath(killerId: string, killerName: string, stolenPts: number, coupon: { id: string; code: string; label: string } | null, item: LootItem | null = null): void {
     try {
       this.chan?.send({
         type: "broadcast", event: "pvpdeath",
         payload: {
           v: this.myId, vn: this.opts.name,
           k: killerId, kn: killerName,
-          pts: stolenPts, cpn: coupon,
+          pts: stolenPts, cpn: coupon, itm: item,
         },
       });
     } catch { /* ignore */ }
@@ -2589,7 +3072,7 @@ export class WorldEngine {
 
   private killMob(m: Mob): void {
     m.state = "dead";
-    m.respawnAt = m.arena ? Number.MAX_SAFE_INTEGER : performance.now() + (m.isBoss ? 30000 : 8000);
+    m.respawnAt = (m.arena || m.event) ? Number.MAX_SAFE_INTEGER : performance.now() + (m.isBoss ? 30000 : 8000);
     const gold = Math.round(m.gold * (0.7 + Math.random() * 0.7));
     // v4: multiplicador de combo calculado antes das esferas
     const nowK = performance.now();
@@ -2759,6 +3242,37 @@ export class WorldEngine {
   /** v4: debug/testes — dispara uma onda de arena sem teletransporte. */
   debugStartArenaHere(): void {
     this.startArena();
+  }
+
+  /** v7: debug/testes — força um Acontecimento do Mundo. */
+  debugForceEvent(kind: "meteors" | "frenzy" | "swarm" = "meteors"): void {
+    if (this.wEvent.kind) this.endWorldEvent(performance.now());
+    this.startWorldEvent(kind, performance.now());
+  }
+
+  /** v7: debug/testes — simula o roubo de um ITEM (como se outro herói tivesse caído). */
+  debugReceiveSteal(): void {
+    this.opts.onEvent({
+      type: "pvp", action: "steal", victim: "Herói Fantasma", pts: 30, bonus: 0,
+      item: {
+        id: "lt_steal_" + Date.now().toString(36), slot: "arma",
+        name: "Lâmina Roubada", emoji: "🗡️", rarity: 1,
+        atk: 6, hp: 0, spd: 0, def: 0,
+      },
+    });
+  }
+
+  /** v7: debug/testes — info do mundo para os testes E2E. */
+  debugWorldInfo(): { aurora: boolean; mobs: number; eventMobs: number; trees: number; event: string } {
+    let eventMobs = 0;
+    for (const m of this.mobs) if (m.event && m.state !== "dead") eventMobs++;
+    return {
+      aurora: !!this.aurora,
+      mobs: this.mobs.length,
+      eventMobs,
+      trees: this.scene.children.length,
+      event: this.wEvent.kind,
+    };
   }
 
   // ── Efeitos ─────────────────────────────────────────────────
@@ -3005,6 +3519,7 @@ export class WorldEngine {
     this.updatePet(dt);
     this.updateLoot(dt);
     this.updateArena(t);
+    this.updateWorldEvent(t, dt);
     this.updateCamera(dt);
     this.checkDiscoveries(t);
 
@@ -3068,6 +3583,132 @@ export class WorldEngine {
       this.arenaNextWave();
     }
   }
+
+  // ── v7: ACONTECIMENTOS DO MUNDO (intensidade + viralidade) ─
+
+  private static EVENT_META: Record<string, { name: string; emoji: string; desc: string; dur: number }> = {
+    meteors: { name: "Chuva de Meteoros", emoji: "☄️", desc: "Meteoros caem do céu! Desvia... ou apanha os orbes de riqueza!", dur: 60000 },
+    frenzy: { name: "Frenesi de Roubos", emoji: "💸", desc: "Todo o roubo em PvP rende +25 pts bónus! Caça outros heróis AGORA!", dur: 90000 },
+    swarm: { name: "Enxame de Elite", emoji: "🐜", desc: "Bugs de elite cercaram-te — recompensas DUPLICADAS!", dur: 75000 },
+  };
+
+  private startWorldEvent(kind: "meteors" | "frenzy" | "swarm", t: number): void {
+    const meta = WorldEngine.EVENT_META[kind];
+    this.wEvent.kind = kind;
+    this.wEvent.until = t + meta.dur;
+    this.wEvent.next = t + meta.dur + 120000 + Math.random() * 180000;
+    this.opts.onEvent({ type: "worldevent", kind, name: meta.name, emoji: meta.emoji, desc: meta.desc, dur: meta.dur });
+    worldAudio.play("event");
+    if (kind === "swarm") {
+      // 5 bugs de elite x2 perto do herói
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 + Math.random() * 0.5;
+        const rr = 9 + Math.random() * 5;
+        const x = Math.max(-220, Math.min(220, this.pos.x + Math.cos(a) * rr));
+        const z = Math.max(-220, Math.min(220, this.pos.z + Math.sin(a) * rr));
+        this.spawnMob(2, x, z);
+        const m = this.mobs[this.mobs.length - 1];
+        m.event = true;
+        m.xp *= 2; m.gold *= 2; m.pts *= 2;
+      }
+      this.ringEffect(0xf43f5e, 7);
+    }
+    if (kind === "meteors") this.meteorTimer = 600;
+  }
+
+  private endWorldEvent(t: number): void {
+    const kind = this.wEvent.kind;
+    const meta = WorldEngine.EVENT_META[kind];
+    this.wEvent.kind = "";
+    this.wEvent.until = 0;
+    this.opts.onEvent({ type: "worldeventend", kind, name: meta?.name || "" });
+    if (kind === "swarm") {
+      // remove mobs de evento vivos (escondem-se; mortos já não renascem)
+      for (const m of this.mobs) {
+        if (m.event && m.state !== "dead") {
+          m.state = "dead";
+          m.respawnAt = Number.MAX_SAFE_INTEGER;
+          m.group.visible = false;
+        }
+      }
+    }
+    // limpa meteoros pendentes
+    for (const me of this.meteors) {
+      this.scene.remove(me.ring);
+      this.scene.remove(me.spr);
+    }
+    this.meteors = [];
+    void t;
+  }
+
+  private updateWorldEvent(t: number, dt: number): void {
+    const w = this.wEvent;
+    if (w.kind) {
+      if (t >= w.until) { this.endWorldEvent(t); return; }
+      if (w.kind === "meteors") {
+        this.meteorTimer -= dt * 1000;
+        if (this.meteorTimer <= 0) {
+          this.meteorTimer = 1300 + Math.random() * 900;
+          const a = Math.random() * Math.PI * 2;
+          const rr = 4 + Math.random() * 13;
+          const x = this.pos.x + Math.cos(a) * rr;
+          const z = this.pos.z + Math.sin(a) * rr;
+          const ring = new THREE.Mesh(
+            new THREE.CircleGeometry(2.3, 20),
+            new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+          );
+          ring.rotateX(-Math.PI / 2);
+          ring.position.set(x, groundY(x, z) + 0.08, z);
+          this.scene.add(ring);
+          const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.meteorTex, transparent: true, depthWrite: false }));
+          spr.scale.setScalar(2.6);
+          spr.position.set(x, groundY(x, z) + 42, z);
+          this.scene.add(spr);
+          this.meteors.push({ x, z, t0: t + 1250, ring, spr, hit: false });
+        }
+        // atualiza quedas
+        for (let i = this.meteors.length - 1; i >= 0; i--) {
+          const me = this.meteors[i];
+          const k = 1 - (me.t0 - t) / 1250;
+          if (k < 1) {
+            const gy = groundY(me.x, me.z);
+            me.spr.position.set(me.x, gy + 42 * (1 - k), me.z);
+            (me.ring.material as THREE.MeshBasicMaterial).opacity = 0.25 + k * 0.55;
+            me.ring.scale.setScalar(0.5 + k * 0.6);
+          } else if (!me.hit) {
+            // IMPACTO
+            me.hit = true;
+            const at = new THREE.Vector3(me.x, groundY(me.x, me.z) + 0.5, me.z);
+            this.burst(at, 0xf97316, 26, 6, 0.8, 0.14, 8);
+            this.burst(at, 0xfde047, 12, 4.5, 0.6, 0.1, 6);
+            this.spawnOrbs(at, 14 + Math.floor(Math.random() * 18), 18 + Math.floor(Math.random() * 22), 3, 2);
+            this.shake(0.35);
+            worldAudio.play("boom");
+            const dP = Math.hypot(this.pos.x - me.x, this.pos.z - me.z);
+            if (!this.dead && dP < 2.8 && performance.now() > this.invulnUntil) {
+              const dmg = Math.round(this.opts.stats.maxHp * 0.08);
+              this.hp -= dmg;
+              this.lastHitAt = performance.now();
+              this.drawPlayerHpEvent(dmg, "Meteoro ☄️");
+              if (this.hp <= 0) {
+                this.dead = true;
+                this.opts.onEvent({ type: "death", by: "Chuva de Meteoros" });
+              }
+            }
+          } else {
+            this.scene.remove(me.ring);
+            this.scene.remove(me.spr);
+            this.meteors.splice(i, 1);
+          }
+        }
+      }
+    } else if (t >= w.next) {
+      const kinds: ("meteors" | "frenzy" | "swarm")[] = ["meteors", "frenzy", "swarm"];
+      this.startWorldEvent(kinds[Math.floor(Math.random() * kinds.length)], t);
+    }
+  }
+
+  private meteorTex!: THREE.SpriteMaterial["map"];
 
   private updatePlayer(dt: number): void {
     const k = this.keys;
@@ -3515,6 +4156,24 @@ export class WorldEngine {
       (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - dayAmt * 1.8);
       this.stars.rotation.y = t * 0.00002;
     }
+    // v7: AURORA BOREAL — só à noite, dança lentamente
+    if (this.aurora) {
+      const nightF = Math.max(0, 1 - dayAmt * 1.9);
+      this.aurora.position.set(this.pos.x, 0, this.pos.z);
+      this.aurora.rotation.y = Math.sin(t * 0.00003) * 0.4;
+      this.aurora.children.forEach((band, i) => {
+        ((band as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = nightF * (0.5 + Math.sin(t * 0.0004 + i * 2.1) * 0.22);
+        band.position.y = 95 + i * 26 + Math.sin(t * 0.00025 + i) * 6;
+      });
+    }
+    // v7: nuvens tingidas pelo céu (rosadas ao entardecer, escuras à noite)
+    if (this.cloudMat) {
+      const tint = new THREE.Color().copy(sky).lerp(new THREE.Color(0xffffff), 0.45);
+      if (dayAmt < 0.2) tint.multiplyScalar(0.42);
+      this.cloudMat.color.lerp(tint, 0.04);
+    }
+    // v7: fogueira do acampamento brilha mais à noite
+    if (this.campfireLight) this.campfireLight.intensity = (10 + Math.sin(t * 0.011) * 4 + Math.sin(t * 0.037) * 3) * (1.35 - dayAmt * 0.7);
     // v3: domo do céu acompanha o jogador (dá sensação de infinito)
     if (this.skyDome) {
       this.skyDome.position.set(this.pos.x, 0, this.pos.z);
@@ -3589,6 +4248,34 @@ export class WorldEngine {
       if (this.particles.length < 340) {
         const at = new THREE.Vector3(14, groundY(14, -14) + 2.5, -14);
         this.burst(at, 0x6ee7b7, 2, 1.1, 0.55, 0.05, 3.4);
+      }
+    }
+    // v7: fogueira — faíscas sobem sempre
+    if (this.campfireGlow && this.campfireLight) {
+      const flick = 0.55 + Math.sin(t * 0.013) * 0.2 + Math.sin(t * 0.047) * 0.14;
+      (this.campfireGlow.material as THREE.SpriteMaterial).opacity = flick;
+      this.campfireGlow.scale.setScalar(2.8 + Math.sin(t * 0.02) * 0.5);
+      if (Math.random() < dt * 6 && this.particles.length < 340) {
+        const fw = this.campfireGlow.getWorldPosition(new THREE.Vector3());
+        this.burst(fw.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.2, (Math.random() - 0.5) * 0.4)), 0xff9a4a, 1, 1.6, 0.7, 0.06, 2.2);
+      }
+    }
+    // v7: atmosfera por bioma — névoa rasteira, poeira rodopiantes, cinzas a subir
+    for (const fx of this.ambFx) {
+      const m = fx.spr.material as THREE.SpriteMaterial;
+      const dHere = Math.hypot(this.pos.x - fx.cx, this.pos.z - fx.cz);
+      const near = Math.max(0, 1 - dHere / 95);
+      m.opacity = near * (fx.kind === "mist" ? 0.34 : fx.kind === "dust" ? 0.42 : 0.5) * (0.7 + Math.sin(t * 0.001 + fx.phase) * 0.3);
+      if (m.opacity <= 0.01) continue;
+      fx.a += fx.s * dt * (fx.kind === "dust" ? 3.4 : 1.1);
+      const x = fx.cx + Math.cos(fx.a) * fx.r;
+      const z = fx.cz + Math.sin(fx.a) * fx.r;
+      if (fx.kind === "ash") {
+        fx.y0 += dt * (0.9 + Math.sin(fx.phase) * 0.4);
+        if (fx.y0 > 8) fx.y0 = 0;
+        fx.spr.position.set(x, groundY(x, z) + fx.y0, z);
+      } else {
+        fx.spr.position.set(x, groundY(x, z) + fx.y0 * (0.4 + Math.sin(t * 0.0006 + fx.phase) * 0.25), z);
       }
     }
   }

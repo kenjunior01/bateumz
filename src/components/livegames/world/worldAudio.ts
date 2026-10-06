@@ -13,7 +13,9 @@ type SfxName =
   // v4
   | "wave" | "loot" | "combo" | "pet" | "photo"
   // v6 — defesa e mapa
-  | "block" | "waypoint" | "region";
+  | "block" | "waypoint" | "region"
+  // v7 — acontecimentos do mundo
+  | "boom" | "event";
 
 class WorldAudio {
   private ctx: AudioContext | null = null;
@@ -177,6 +179,18 @@ class WorldAudio {
       case "region":
         // chegada a uma região — acorde grave majestoso
         [131, 196, 262].forEach((f, i) => this.tone(f, 0.5, "triangle", 0.08, undefined, i * 0.06));
+        break;
+      // ── v7 ──
+      case "boom":
+        // impacto de meteoro: estrondo grave
+        this.tone(60, 0.5, "sine", 0.22, 38);
+        this.noise(0.45, 0.2, 320);
+        this.tone(120, 0.3, "sawtooth", 0.1, 55, 0.02);
+        break;
+      case "event":
+        // fanfarra de acontecimento do mundo
+        [392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.14, "square", 0.1, undefined, i * 0.09));
+        this.noise(0.3, 0.05, 3500, 0.1);
         break;
     }
   }

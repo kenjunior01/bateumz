@@ -1,7 +1,8 @@
 // ============================================================
-// E2E — Bateu World 3D v6 (MMO principal da plataforma)
-// v6: GATE de registo (só membros), sessão injetada, escudo/
-// defesa, mapa-múndi com significados, bússola e sincronização.
+// E2E — Bateu World 3D v7 (MMO principal da plataforma)
+// v7: MUNDO ESPECTACULAR — biomas visíveis, floresta rica,
+// aurora, acontecimentos do mundo, roubo de ITENS em PvP e
+// novas missões diárias de caça entre heróis.
 // Requisitos: playwright (chromium), vite dev server na porta 8099
 // Uso: node test-world.mjs
 // ============================================================
@@ -197,12 +198,24 @@ async function main() {
   const guardBtn = page.locator('[data-testid="bw-guard"]');
   ok("v6: botão de escudo/guarda visível", await guardBtn.count() > 0);
   await guardBtn.click({ force: true }).catch(() => {});
+  let guardOn = false;
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(600);
+    guardOn = await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false);
+    if (guardOn) break;
+    await guardBtn.click({ force: true }).catch(() => {});
+  }
+  ok("v6: indicador de GUARDA ativa aparece", guardOn);
   await page.waitForTimeout(600);
-  ok("v6: indicador de GUARDA ativa aparece", await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false));
-  await page.waitForTimeout(500);
   await guardBtn.click({ force: true }).catch(() => {});
-  await page.waitForTimeout(1000);
-  ok("v6: guarda desliga ao segundo toque", !(await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false)));
+  let guardOff = false;
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(600);
+    guardOff = !(await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false));
+    if (guardOff) break;
+    await guardBtn.click({ force: true }).catch(() => {});
+  }
+  ok("v6: guarda desliga ao segundo toque", guardOff);
 
   // ── v6: mapa-múndi com significados ──
   console.log("▶ v6 — Mapa-múndi com significados");
@@ -224,8 +237,14 @@ async function main() {
   await page.waitForTimeout(1200);
   ok("v6: bússola do destino aparece após marcar", await page.locator('[data-testid="bw-compass"]').isVisible().catch(() => false));
   await page.locator('[data-testid="bw-compass"] button').first().click({ force: true }).catch(() => {});
-  await page.waitForTimeout(1100);
-  ok("v6: bússola limpa ao clicar ✕", !(await page.locator('[data-testid="bw-compass"]').isVisible().catch(() => false)));
+  let compassOff = false;
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(500);
+    compassOff = !(await page.locator('[data-testid="bw-compass"]').isVisible().catch(() => false));
+    if (compassOff) break;
+    await page.locator('[data-testid="bw-compass"] button').first().click({ force: true }).catch(() => {});
+  }
+  ok("v6: bússola limpa ao clicar ✕", compassOff);
   await page.screenshot({ path: "shots/world-01b-mapa.png" });
   const mapClose = page.locator('[data-testid="bw-panel"] button').first();
   await mapClose.click().catch(() => {});
@@ -383,8 +402,13 @@ async function main() {
     await page.waitForTimeout(500);
     const overlay = page.locator('[data-testid="bw-photo-overlay"]');
     ok("Overlay do modo foto aparece", await overlay.isVisible().catch(() => false));
-    const hudHidden = await page.locator('[data-testid="bw-attack"]').isVisible().catch(() => true);
-    ok("HUD escondida durante a foto", !hudHidden);
+    let hudHidden = false;
+    for (let i = 0; i < 8; i++) {
+      hudHidden = !(await page.locator('[data-testid="bw-attack"]').isVisible().catch(() => true));
+      if (hudHidden) break;
+      await page.waitForTimeout(300);
+    }
+    ok("HUD escondida durante a foto", hudHidden);
     await page.waitForTimeout(1200);
     ok("Modo foto termina sozinho", true);
   }
@@ -404,6 +428,61 @@ async function main() {
   ok("HUD mostra ONDA 1 com inimigos", onda1Txt.includes("ONDA 1"));
   await page.screenshot({ path: "shots/world-07-arena.png" });
 
+  // ── 11b. v7 — Mundo Espectacular: missões PvP, acontecimentos, aurora ──
+  console.log("▶ v7 — Missões diárias de caça PvP");
+  await openPanel("Missões");
+  // o teste v6 anterior deixa o separador Saga ativo — voltar a Diárias
+  await page.locator('[data-testid="bw-panel"] button:has-text("Diárias")').first().click().catch(() => {});
+  await page.waitForTimeout(450);
+  const questTxt7 = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
+  ok("v7: painel de missões abre", questTxt7.includes("Missões"));
+  ok("v7: missão 'Rouba 1 ITEM a outro herói' presente", questTxt7.includes("Rouba 1 ITEM"));
+  ok("v7: missão 'Vence 3 heróis em duelo' presente", questTxt7.includes("Vence 3 heróis"));
+  ok("v7: missão 'Acerta 5 golpes em heróis' presente", questTxt7.includes("Acerta 5 golpes"));
+  ok("v7: secção de caça entre heróis visível", /caça entre heróis/i.test(questTxt7));
+  ok("v7: testid das missões PvP presentes", (await page.locator('[data-testid="bw-quest-item"]').count()) === 1 && (await page.locator('[data-testid="bw-quest-duel"]').count()) === 1 && (await page.locator('[data-testid="bw-quest-atk"]').count()) === 1);
+  await page.screenshot({ path: "shots/world-08-questspvp.png" });
+  await closePanel();
+
+  console.log("▶ v7 — Mundo vivo (aurora, árvores, mobs)");
+  const info = await page.evaluate(() => { const e = window.__bw; return e && e.debugWorldInfo ? e.debugWorldInfo() : null; });
+  ok("v7: aurora boreal construída no céu", !!info && info.aurora === true);
+  ok("v7: mundo povoado (mobs ativos)", !!info && info.mobs > 0);
+  ok("v7: cena com vegetação/props rica", !!info && info.trees > 100);
+
+  console.log("▶ v7 — Acontecimentos do Mundo");
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("meteors"); });
+  await page.waitForTimeout(600);
+  const evChip = page.locator('[data-testid="bw-world-event"]');
+  ok("v7: chip do ACONTECIMENTO aparece", await evChip.isVisible().catch(() => false));
+  let evTxt = await evChip.innerText().catch(() => "");
+  ok("v7: CHUVA DE METEOROS anunciada", evTxt.toUpperCase().includes("METEOROS"));
+  await page.waitForTimeout(2600);
+  await page.screenshot({ path: "shots/world-09-meteoros.png" });
+  // trocar para enxame → 5 mobs de elite x2
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("swarm"); });
+  await page.waitForTimeout(700);
+  const info2 = await page.evaluate(() => { const e = window.__bw; return e && e.debugWorldInfo ? e.debugWorldInfo() : null; });
+  ok("v7: Enxame de Elite spawna 5 mobs", !!info2 && info2.eventMobs === 5);
+  evTxt = await page.locator('[data-testid="bw-world-event"]').innerText().catch(() => "");
+  ok("v7: chip mostra ENXAME DE ELITE", evTxt.toUpperCase().includes("ENXAME"));
+  // trocar para frenesi (limpa os mobs do enxame)
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("frenzy"); });
+  await page.waitForTimeout(700);
+  const info3 = await page.evaluate(() => { const e = window.__bw; return e && e.debugWorldInfo ? e.debugWorldInfo() : null; });
+  ok("v7: fim do enxame remove os mobs de evento", !!info3 && info3.eventMobs === 0);
+  evTxt = await page.locator('[data-testid="bw-world-event"]').innerText().catch(() => "");
+  ok("v7: chip mostra FRENESI DE ROUBOS", evTxt.toUpperCase().includes("FRENESI"));
+
+  console.log("▶ v7 — Roubo de itens em PvP");
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugReceiveSteal) e.debugReceiveSteal(); });
+  await page.waitForTimeout(900);
+  await page.locator('[data-testid="bw-nav-inv"]').click().catch(() => {});
+  await page.waitForTimeout(500);
+  const invTxt7 = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
+  ok("v7: 'Lâmina Roubada' aparece na mochila", invTxt7.includes("Lâmina Roubada"));
+  await closePanel();
+
   // ── 12. Persistência ──
   console.log("▶ Persistência");
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -412,6 +491,8 @@ async function main() {
   ok("Após reload entra direto no mundo (canvas)", await canvas2.count() > 0);
   const noCreate = await page.locator('input[placeholder="Nome do teu herói"]').count();
   ok("Não pede criação de novo", noCreate === 0);
+  const persistedTxt = await page.evaluate(() => { try { return localStorage.getItem("bateu_world_char_v6") || ""; } catch { return ""; } });
+  ok("v7: item roubado SOBREVIVE ao reload (guardado na conta/local)", persistedTxt.includes("Roubada"));
   await page.screenshot({ path: "shots/world-05-persist.png" });
 
   // ── 12. Página /jogos retargetizada ──

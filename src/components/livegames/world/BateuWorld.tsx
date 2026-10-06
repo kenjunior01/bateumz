@@ -62,7 +62,7 @@ interface Char {
   streak: number;
   lastDaily: string;
   vouchers: { id: string; code: string; label: string }[];
-  quests: { date: string; kills: number; chest: number; visit: number; steal: number; waves: number; cK: boolean; cC: boolean; cV: boolean; cS: boolean; cW: boolean };
+  quests: { date: string; kills: number; chest: number; visit: number; steal: number; waves: number; cK: boolean; cC: boolean; cV: boolean; cS: boolean; cW: boolean; item: number; duel: number; atk: number; cI: boolean; cD: boolean; cA: boolean };
   // v2
   pts: number;         // Pontos de Troféu (economia do mundo)
   discoveries: string[];
@@ -122,7 +122,7 @@ function newChar(name: string, classId: number, avatar?: AvatarConfig): Char {
     allocAtk: 0, allocHp: 0, allocSpd: 0, allocDef: 0,
     kills: 0, deaths: 0, streak: 0,
     lastDaily: "", vouchers: [],
-    quests: { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false },
+    quests: { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false, item: 0, duel: 0, atk: 0, cI: false, cD: false, cA: false },
     pts: 0, discoveries: [], sagaIdx: 0,
     saga: { kills: 0, bosses: 0, chests: 0, steals: 0, discovers: 0 },
     chal: { date: todayStr(), c1: false, c2: false },
@@ -201,8 +201,15 @@ function loadChar(): Char | null {
     const c = JSON.parse(raw) as Char;
     if (!c?.name || !c?.uid) return null;
     if (c.quests?.date !== todayStr()) {
-      c.quests = { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false };
+      c.quests = { date: todayStr(), kills: 0, chest: 0, visit: 0, steal: 0, waves: 0, cK: false, cC: false, cV: false, cS: false, cW: false, item: 0, duel: 0, atk: 0, cI: false, cD: false, cA: false };
     }
+    // v7: garantir campos novos em saves v6
+    c.quests.item = c.quests.item || 0;
+    c.quests.duel = c.quests.duel || 0;
+    c.quests.atk = c.quests.atk || 0;
+    c.quests.cI = !!c.quests.cI;
+    c.quests.cD = !!c.quests.cD;
+    c.quests.cA = !!c.quests.cA;
     if (c.chal?.date !== todayStr()) {
       c.chal = { date: todayStr(), c1: false, c2: false };
     }
@@ -313,6 +320,15 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   const [compass, setCompass] = useState<{ angle: number; dist: number } | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
 
+  // v7 — Acontecimento do Mundo ativo (chip com contagem)
+  const [worldEvent, setWorldEvent] = useState<{ kind: string; name: string; emoji: string; until: number } | null>(null);
+  const [eventNow, setEventNow] = useState(Date.now());
+  useEffect(() => {
+    if (!worldEvent) return;
+    const iv = setInterval(() => setEventNow(Date.now()), 500);
+    return () => clearInterval(iv);
+  }, [worldEvent]);
+
   // v4 — combo, arena, modo foto, qualidade
   const [combo, setCombo] = useState(0);
   const [arenaHud, setArenaHud] = useState<{ wave: number; alive: number } | null>(null);
@@ -340,6 +356,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     "📸 Modo Foto (tecla P): esconde a HUD e captura o mundo",
     "🐾 Nível 5: o teu companheiro alado une-se a ti (+8% ataque)",
     "🛡️ Foste roubado? Tens 3 minutos de escudo — usa bem o tempo",
+    "☄️ ACONTECIMENTOS: chuva de meteoros, frenesi de roubos e enxames de elite surgem do nada — ficas atento!",
+    "🎒 No PvP também podes ROUBAR ITENS da mochila do derrotado — esconde os teus melhores!",
     "⚙️ Ajusta a qualidade gráfica nas Definições se o jogo abrandar",
     "❤️ A Fonte da Vida (junto ao Banco) cura-te de graça",
   ];
@@ -740,7 +758,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             setChar((p) => {
               if (!p) return p;
               const q = { ...p.quests };
-              if (q.date !== todayStr()) { q.date = todayStr(); q.kills = 0; q.chest = 0; q.visit = 0; q.steal = 0; q.waves = 0; }
+              if (q.date !== todayStr()) { q.date = todayStr(); q.kills = 0; q.chest = 0; q.visit = 0; q.steal = 0; q.waves = 0; q.item = 0; q.duel = 0; q.atk = 0; }
               const saga = { ...p.saga };
               if (ev.kind === "chest") { q.chest += 1; saga.chests += 1; }
               if (ev.kind === "visit") q.visit += 1;
@@ -767,6 +785,23 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             }
             break;
           }
+          case "pvpatk":
+            setChar((p) => {
+              if (!p) return p;
+              const q = { ...p.quests };
+              if (q.date === todayStr()) q.atk += 1; else { q.date = todayStr(); q.atk = 1; }
+              return { ...p, quests: q };
+            });
+            break;
+          case "worldevent":
+            setWorldEvent({ kind: ev.kind, name: ev.name, emoji: ev.emoji, until: Date.now() + (ev.dur || 60000) });
+            showBanner({ kind: "wave", emoji: ev.emoji, title: String(ev.name || "").toUpperCase(), sub: ev.desc || "" });
+            pushToast(`${ev.emoji} ${ev.name}: ${ev.desc}`, "info");
+            break;
+          case "worldeventend":
+            setWorldEvent(null);
+            pushToast(`⏳ ${ev.name || "Acontecimento"} terminou — até à próxima!`, "info");
+            break;
           case "guard":
             setGuardOn(!!ev.on);
             break;
@@ -781,11 +816,13 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             if (ev.action === "steal") {
               setChar((p) => {
                 if (!p) return p;
-                const n = { ...p, pts: p.pts + (ev.pts || 0), stolenFrom: p.stolenFrom + 1, saga: { ...p.saga, steals: p.saga.steals + 1 } };
+                const n = { ...p, pts: p.pts + (ev.pts || 0) + (ev.bonus || 0), stolenFrom: p.stolenFrom + 1, saga: { ...p.saga, steals: p.saga.steals + 1 } };
                 const q = { ...p.quests };
-                if (q.date === todayStr()) q.steal += 1; else { q.date = todayStr(); q.steal = 1; }
+                if (q.date === todayStr()) { q.steal += 1; q.duel += 1; } else { q.date = todayStr(); q.steal = 1; q.duel = 1; }
+                if (ev.item) q.item += 1;
                 n.quests = q;
                 if (ev.coupon) n.vouchers = [...p.vouchers, ev.coupon];
+                if (ev.item) n.inv = [...p.inv, ev.item];
                 return n;
               });
               if (ev.coupon) {
@@ -796,11 +833,11 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                   } catch { /* silencioso */ }
                 })();
               }
-              pushToast(`💀 Roubaste ${ev.pts} pts a ${ev.victim}${ev.coupon ? ` + cupão ${ev.coupon.code}!` : "!"}`, "good");
+              pushToast(`💀 Roubaste ${ev.pts} pts a ${ev.victim}${ev.bonus ? ` +${ev.bonus} FRENESI!` : ""}${ev.coupon ? ` + cupão ${ev.coupon.code}!` : ""}${ev.item ? ` + ITEM ${ev.item.emoji} ${ev.item.name}!` : ""}`, "good");
               worldAudio.play("steal");
-              confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: ["#f43f5e", "#fbbf24"] });
+              confetti({ particleCount: ev.item || ev.coupon ? 140 : 100, spread: 70, origin: { y: 0.5 }, colors: ["#f43f5e", "#fbbf24"] });
             } else if (ev.action === "death") {
-              // Fui roubado — calcula perdas e transmite
+              // Fui roubado — calcula perdas e transmite (v7: também posso perder um ITEM)
               setChar((p) => {
                 if (!p) return p;
                 const stolenPts = Math.min(p.pts, Math.max(10, Math.ceil(p.pts * 0.25)));
@@ -808,20 +845,25 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 if (p.vouchers.length > 0 && Math.random() < 0.35) {
                   coupon = p.vouchers[Math.floor(Math.random() * p.vouchers.length)];
                 }
+                let item: LootItem | null = null;
+                if (p.inv.length > 0 && Math.random() < 0.3) {
+                  item = p.inv[Math.floor(Math.random() * p.inv.length)];
+                }
                 const n: Char = {
                   ...p,
                   pts: p.pts - stolenPts,
                   vouchers: coupon ? p.vouchers.filter((v) => v.id !== coupon.id) : p.vouchers,
+                  inv: item ? p.inv.filter((it) => it.id !== item.id) : p.inv,
                   lostTo: p.lostTo + 1,
                   deaths: p.deaths + 1,
                   shieldUntil: Date.now() + 180000,
                 };
                 engineRef.current?.setShield(180000);
-                engineRef.current?.broadcastPvpDeath(ev.killerId, ev.by, stolenPts, coupon);
+                engineRef.current?.broadcastPvpDeath(ev.killerId, ev.by, stolenPts, coupon, item);
                 return n;
               });
               setDeathFx(true);
-              pushToast(`💀 ${ev.by} derrotou-te e roubou-te pontos/cupões! Proteção de 3 min ativa.`, "bad");
+              pushToast(`💀 ${ev.by} derrotou-te e roubou-te pontos/cupões/itens! Proteção de 3 min ativa.`, "bad");
               setTimeout(() => setDeathFx(false), 1600);
             } else if (ev.action === "feed") {
               pushToast(`⚔️ ${ev.kn} roubou ${ev.vn}... o mundo é perigoso!`, "info");
@@ -988,23 +1030,26 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
     });
   };
 
-  const claimQuest = (k: "K" | "C" | "V" | "S" | "W") => {
+  const claimQuest = (k: "K" | "C" | "V" | "S" | "W" | "I" | "D" | "A") => {
     setChar((p) => {
       if (!p) return p;
       const q = { ...p.quests };
-      const key = k === "K" ? "cK" : k === "C" ? "cC" : k === "V" ? "cV" : k === "S" ? "cS" : "cW";
-      if (q[key]) return p;
-      const done = k === "K" ? q.kills >= 10 : k === "C" ? q.chest >= 1 : k === "V" ? q.visit >= 1 : k === "S" ? q.steal >= 1 : q.waves >= 3;
+      const key = k === "K" ? "cK" : k === "C" ? "cC" : k === "V" ? "cV" : k === "S" ? "cS" : k === "W" ? "cW" : k === "I" ? "cI" : k === "D" ? "cD" : "cA";
+      if ((q as any)[key]) return p;
+      const done = k === "K" ? q.kills >= 10 : k === "C" ? q.chest >= 1 : k === "V" ? q.visit >= 1 : k === "S" ? q.steal >= 1 : k === "W" ? q.waves >= 3 : k === "I" ? q.item >= 1 : k === "D" ? q.duel >= 3 : q.atk >= 5;
       if (!done) return p;
-      q[key] = true;
+      (q as any)[key] = true;
       let { gold, xp, pts } = p;
       if (k === "K") { gold += 250; }
       if (k === "C") { xp += 120; }
       if (k === "V") { xp += 80; }
       if (k === "S") { gold += 150; }
       if (k === "W") { gold += 350; pts += 20; }
+      if (k === "I") { gold += 300; pts += 20; }
+      if (k === "D") { gold += 250; pts += 15; }
+      if (k === "A") { gold += 200; pts += 10; }
       const n = applyXp({ ...p, gold, xp, pts, quests: q }, 0);
-      pushToast(k === "K" ? "✅ Missão: +250 ouro" : k === "S" ? "✅ Missão de ladrão: +150 ouro" : k === "W" ? "✅ Missão de arena: +350 ouro · +20 pts" : "✅ Missão concluída: +XP", "good");
+      pushToast(k === "K" ? "✅ Missão: +250 ouro" : k === "S" ? "✅ Missão de ladrão: +150 ouro" : k === "W" ? "✅ Missão de arena: +350 ouro · +20 pts" : k === "I" ? "✅ Ladrão de Relíquias: +300 ouro · +20 pts" : k === "D" ? "✅ Duelista: +250 ouro · +15 pts" : k === "A" ? "✅ Predador: +200 ouro · +10 pts" : "✅ Missão concluída: +XP", "good");
       return n;
     });
   };
@@ -1421,6 +1466,28 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 <span className="h-3 w-px bg-white/25" />
                 <span className="text-xs font-bold text-white/85">{arenaHud.alive > 0 ? `${arenaHud.alive} restantes` : "prepara..."}</span>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* v7: ACONTECIMENTO DO MUNDO — chip com contagem regressiva */}
+        <AnimatePresence>
+          {worldEvent && (
+            <motion.div
+              key="world-event"
+              initial={{ opacity: 0, y: -14, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -14 }}
+              className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2"
+              data-testid="bw-world-event"
+            >
+              <motion.div
+                className="flex items-center gap-2 rounded-full border border-fuchsia-400/60 bg-black/80 px-4 py-1.5 backdrop-blur"
+                animate={{ boxShadow: ["0 0 14px rgba(232,121,249,0.35)", "0 0 30px rgba(232,121,249,0.6)", "0 0 14px rgba(232,121,249,0.35)"] }}
+                transition={{ duration: 1.3, repeat: Infinity }}
+              >
+                <motion.span className="text-base" animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.15, 1] }} transition={{ duration: 1.1, repeat: Infinity }}>{worldEvent.emoji}</motion.span>
+                <span className="text-xs font-black uppercase tracking-wider text-fuchsia-200">{worldEvent.name}</span>
+                <span className="h-3 w-px bg-white/25" />
+                <span className="text-[11px] font-black tabular-nums text-white/85">{Math.max(0, Math.ceil((worldEvent.until - eventNow) / 1000))}s</span>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -2018,7 +2085,11 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 <QuestRow emoji="🎁" title="Visita um sorteio/concurso/bem" progress={`${Math.min(q.visit, 1)}/1`} done={q.cV} canClaim={q.visit >= 1 && !q.cV} reward="+80 XP" onClaim={() => claimQuest("V")} />
                 <QuestRow emoji="💀" title="Rouba pontos a 1 jogador (PvP)" progress={`${Math.min(q.steal, 1)}/1`} done={q.cS} canClaim={q.steal >= 1 && !q.cS} reward="+150 ouro" onClaim={() => claimQuest("S")} />
                 <QuestRow emoji="🏟️" title="Limpa 3 ondas na Arena" progress={`${Math.min(q.waves, 3)}/3`} done={q.cW} canClaim={q.waves >= 3 && !q.cW} reward="+350 ouro · +20 pts" onClaim={() => claimQuest("W")} />
-                <p className="mt-3 text-[10px] text-muted-foreground">As missões diárias reiniciam todos os dias. PvP ativo fora da praça — jogadores abaixo do Nv3 estão protegidos.</p>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-rose-400">⚔️ Caça entre heróis — missões PvP</p>
+                <QuestRow emoji="🎒" title="Rouba 1 ITEM a outro herói (PvP)" progress={`${Math.min(q.item, 1)}/1`} done={q.cI} canClaim={q.item >= 1 && !q.cI} reward="+300 ouro · +20 pts" onClaim={() => claimQuest("I")} testid="bw-quest-item" />
+                <QuestRow emoji="🩸" title="Vence 3 heróis em duelo (PvP)" progress={`${Math.min(q.duel, 3)}/3`} done={q.cD} canClaim={q.duel >= 3 && !q.cD} reward="+250 ouro · +15 pts" onClaim={() => claimQuest("D")} testid="bw-quest-duel" />
+                <QuestRow emoji="🎯" title="Acerta 5 golpes em heróis (PvP)" progress={`${Math.min(q.atk, 5)}/5`} done={q.cA} canClaim={q.atk >= 5 && !q.cA} reward="+200 ouro · +10 pts" onClaim={() => claimQuest("A")} testid="bw-quest-atk" />
+                <p className="mt-3 text-[10px] text-muted-foreground">As missões diárias reiniciam todos os dias. PvP ativo fora da praça — jogadores abaixo do Nv3 estão protegidos. Durante o Frenesi de Roubos cada roubo rende +25 pts bónus!</p>
               </>
             )}
 
@@ -2402,9 +2473,9 @@ function StatRow({ icon, label, value, addLabel = "+1", disabled, onAdd }: { ico
   );
 }
 
-function QuestRow({ emoji, title, progress, done, canClaim, reward, onClaim }: { emoji: string; title: string; progress: string; done: boolean; canClaim: boolean; reward: string; onClaim: () => void }) {
+function QuestRow({ emoji, title, progress, done, canClaim, reward, onClaim, testid }: { emoji: string; title: string; progress: string; done: boolean; canClaim: boolean; reward: string; onClaim: () => void; testid?: string }) {
   return (
-    <div className={`mb-2 flex items-center gap-2.5 rounded-xl border p-2.5 ${done ? "border-emerald-500/40 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
+    <div data-testid={testid} className={`mb-2 flex items-center gap-2.5 rounded-xl border p-2.5 ${done ? "border-emerald-500/40 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
       <span className="text-2xl">{emoji}</span>
       <div className="flex-1">
         <p className="text-xs font-bold">{title}</p>
