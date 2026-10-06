@@ -81,6 +81,7 @@ const FruitNinjaGame = lazy(() => import("@/components/livegames/FruitNinjaGame"
 const TypingRacer = lazy(() => import("@/components/livegames/TypingRacer"));
 const CampaignRPGGame = lazy(() => import("@/components/livegames/CampaignRPGGame"));
 const BateuWorld = lazy(() => import("@/components/livegames/world/BateuWorld"));
+const BateuLife = lazy(() => import("@/components/livegames/BateuLife"));
 const P2PBetArena = lazy(() => import("@/components/livegames/P2PBetArena"));
 const NtchuvaGame = lazy(() => import("@/components/livegames/NtchuvaGame"));
 const DjikotaGame = lazy(() => import("@/components/livegames/DjikotaGame"));
@@ -141,7 +142,7 @@ class GameErrorBoundary extends Component<{children: ReactNode; gameName: string
     return <div key={this.state.resetKey}>{this.props.children}</div>;
   }
 }
-type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "chigogo" | "urusse" | "capulanaquiz" | "carromboard" | "teenpatti" | "kabaddiraid" | "rpgarena" | "battleroyale" | "chess" | "flappybird" | "fruitninja" | "typingracer" | "campaignrpg" | "mmorpg" | "p2pbet" | "ntchuva" | "djikota" | "bicho" | "uri" | "mines" | "plinko" | "crash" | "hilo" | "raspadinha" | "keno" | "limbo" | "snakesladders";
+type GameId = "wheel" | "tap" | "quiz" | "mystery" | "keyword" | "emoji" | "millionaire" | "kahoot" | "bingo" | "challenge" | "vsduel" | "speed" | "truthordare" | "memory" | "punishment" | "boknowledge" | "guessEmoji" | "quickdraw" | "hotpotato" | "numguess" | "chaos" | "checkers" | "ludo" | "connect4" | "battleship" | "tictactoe" | "uno" | "snakebattle" | "rps" | "colorsequence" | "spaceshooter" | "ballbreaker" | "reactionrace" | "quickmath" | "memorycards" | "wordscramble" | "tictactoepro" | "guessnumber100" | "colormatch" | "targettap" | "diceluel" | "patternmemory" | "triviaflash" | "dominoes" | "mazerace" | "slotsvs" | "match4" | "towerstack" | "cannonbattle" | "spotdifference" | "wordchain" | "numbertetris" | "pongvs" | "whackamole" | "colorcatch" | "mexerica" | "chigogo" | "urusse" | "capulanaquiz" | "carromboard" | "teenpatti" | "kabaddiraid" | "rpgarena" | "battleroyale" | "chess" | "flappybird" | "fruitninja" | "typingracer" | "campaignrpg" | "bateulife" | "mmorpg" | "p2pbet" | "ntchuva" | "djikota" | "bicho" | "uri" | "mines" | "plinko" | "crash" | "hilo" | "raspadinha" | "keno" | "limbo" | "snakesladders";
 
 interface SavedWheelGame {
   id: string;
@@ -162,6 +163,7 @@ interface SavedWheelGame {
 }
 
 const GAME_DEFS: { id: GameId; icon: any; emoji: string; grad: string }[] = [
+  { id: "bateulife", icon: Sparkles, emoji: "🏙️", grad: "from-fuchsia-600 to-cyan-500" },
   { id: "mmorpg", icon: Globe, emoji: "🌍", grad: "from-blue-600 to-purple-700" },
   { id: "wheel", icon: RotateCcw, emoji: "🎰", grad: "from-violet-500 to-fuchsia-500" },
   { id: "keyword", icon: Search, emoji: "🔎", grad: "from-amber-500 to-orange-500" },
@@ -664,29 +666,29 @@ const LiveHub = () => {
           onCategoryChange={(id) => setActive(id as GameId)}
         />
 
-        {/* ⭐ BATEU WORLD 3D — banner destaque permanente */}
-        {active !== "mmorpg" && (
+        {/* ⭐ BATEU LIFE — banner destaque permanente */}
+        {active !== "bateulife" && (
           <motion.button
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-            onClick={() => setActive("mmorpg" as GameId)}
-            data-testid="livehub-destaque-mundo-aberto"
+            onClick={() => setActive("bateulife" as GameId)}
+            data-testid="livehub-destaque-bateu-life"
             className="relative w-full overflow-hidden rounded-2xl mb-4 mt-3 text-left"
-            style={{ background: "linear-gradient(120deg, #4c0519 0%, #831843 40%, #312e81 100%)", border: "1px solid rgba(244,63,94,0.5)", boxShadow: "0 0 36px rgba(244,63,94,0.3)" }}
+            style={{ background: "linear-gradient(120deg, #4a044e 0%, #701a75 40%, #164e63 100%)", border: "1px solid rgba(232,121,249,0.5)", boxShadow: "0 0 36px rgba(232,121,249,0.3)" }}
           >
             <motion.div className="absolute inset-0" style={{ background: "radial-gradient(circle at 12% 25%, rgba(255,255,255,0.16), transparent 50%), radial-gradient(circle at 88% 80%, rgba(56,189,248,0.25), transparent 45%)" }} animate={{ opacity: [0.5, 0.9, 0.5] }} transition={{ duration: 4, repeat: Infinity }} />
             <div className="relative z-10 px-4 py-3.5 flex items-center gap-3">
-              <motion.span className="text-3xl" animate={{ y: [0, -3, 0] }} transition={{ duration: 2.2, repeat: Infinity }}>🌍</motion.span>
+              <motion.span className="text-3xl" animate={{ y: [0, -3, 0] }} transition={{ duration: 2.2, repeat: Infinity }}>🏙️</motion.span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-display text-base font-black text-white">🌍 BATEU WORLD 3D</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[8px] font-black animate-pulse">MMO 3D · DESTAQUE</span>
+                  <span className="font-display text-base font-black text-white">🏙️ BATEU LIFE</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white text-[8px] font-black animate-pulse">MUNDO SOCIAL · DESTAQUE</span>
                 </div>
                 <p className="text-[10px] font-semibold text-white/80 truncate">
-                  Combate em tempo real, jogadores ao vivo — participa em sorteios, compra na Feira e apanha cupões dentro do mundo!
+                  Cria o teu avatar com capulana, decora o quarto, abre baús com cupões reais e encontra amigos na praça!
                 </p>
               </div>
-              <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[10px] font-black">JOGAR ▶</span>
+              <span className="shrink-0 px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white text-[10px] font-black">JOGAR ▶</span>
             </div>
           </motion.button>
         )}
@@ -694,7 +696,7 @@ const LiveHub = () => {
         <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 mt-4">
           {GAMES.map((g) => {
             const isActive = active === g.id;
-            const featured = g.id === "mmorpg";
+            const featured = g.id === "bateulife";
             return (
               <button
                 key={g.id}
@@ -707,18 +709,18 @@ const LiveHub = () => {
               >
                 {featured && (
                   <span className="absolute right-0 top-0 rounded-bl-xl bg-gradient-to-r from-rose-500 to-orange-500 px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
-                    ⭐ DESTAQUE 3D
+                    ⭐ DESTAQUE
                   </span>
                 )}
-                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2 ${featured ? "h-12 w-12 ring-2 ring-rose-400/50" : ""}`}>
+                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${g.grad} mb-2 ${featured ? "h-12 w-12 ring-2 ring-fuchsia-400/50" : ""}`}>
                   <g.icon className={`text-white ${featured ? "h-6 w-6" : "h-5 w-5"}`} />
                 </div>
                 <p className={`font-display font-bold mb-1 ${featured ? "text-base" : "text-sm"}`}>{g.label}</p>
                 <p className="text-[11px] text-muted-foreground line-clamp-2">{g.desc}</p>
                 {featured && (
-                  <p className="mt-1.5 text-[10px] font-bold text-rose-400 flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
-                    MMO em tempo real · sorteios, feira e cupões no mundo
+                  <p className="mt-1.5 text-[10px] font-bold text-fuchsia-400 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-400 animate-pulse" />
+                    Mundo social · avatar, quarto e prémios reais
                   </p>
                 )}
               </button>
@@ -1301,6 +1303,12 @@ const LiveHub = () => {
                 <motion.div key="mmorpg" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <GameErrorBoundary gameName="Bateu World 3D">
                   <BateuWorld onScore={recordScore("Bateu World")} onNavigate={(route: string) => navigate(route)} />
+                  </GameErrorBoundary>
+                </motion.div>              )}
+              {active === "bateulife" && (
+                <motion.div key="bateulife" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <GameErrorBoundary gameName="Bateu Life">
+                  <BateuLife onScore={recordScore("Bateu Life")} onNavigate={(route: string) => navigate(route)} />
                   </GameErrorBoundary>
                 </motion.div>              )}
               {active === "p2pbet" && (

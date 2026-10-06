@@ -809,7 +809,7 @@ export default function Index() {
                 border: `1px solid ${PURPLE}25`,
                 boxShadow: `0 0 60px ${PURPLE}15, 0 0 120px ${CYAN}08, 0 20px 60px rgba(0,0,0,0.5)`,
               }}
-              onClick={() => { sfx.buttonClick(); navigate("/mmorpg"); }}
+              onClick={() => { sfx.buttonClick(); navigate("/life"); }}
             >
               {/* Animated glow border */}
               <motion.div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ border: `2px solid ${PURPLE}` }} animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 3, repeat: Infinity }} />
@@ -830,17 +830,17 @@ export default function Index() {
                     <span className="text-[10px] font-black tracking-widest px-3 py-1 rounded-full" style={{ background: `${GREEN}20`, color: GREEN, border: `1px solid ${GREEN}30` }}>MUNDO REAL</span>
                   </div>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3 leading-tight">
-                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Bateu World 3D</span>
+                    <span style={{ background: `linear-gradient(135deg, #fff, ${PURPLE}, ${CYAN})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Bateu Life</span>
                   </h2>
                   <p className="text-sm sm:text-base text-zinc-400 max-w-lg mb-5 leading-relaxed">
-                    O jogo permanente da Bateu! Cria o teu herói, explora o mapa REAL da tua cidade com GPS, derrota criaturas que crescem contigo, distribui pontos de atributo, melhora o teu equipamento, sobe de rank e troca bilhetes por prémios verdadeiros.
+                    O mundo social da Bateu! Cria o teu avatar com capulana, decora o teu quarto, encontra amigos na praça ao vivo, abre baús com cupões verdadeiros, participa em sorteios reais no palco e salta para os mini-jogos da plataforma a partir do portal.
                   </p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mb-5">
                     {[
-                      { icon: Users, label: "4 Classes", color: CYAN },
-                      { icon: Swords, label: "Ranks e Pontos", color: PURPLE },
-                      { icon: Coins, label: "Loja e Conquistas", color: GOLD },
-                      { icon: Globe, label: "Mapa Real + GPS", color: GREEN },
+                      { icon: Users, label: "Praça ao Vivo", color: CYAN },
+                      { icon: Swords, label: "Quarto Decorável", color: PURPLE },
+                      { icon: Coins, label: "Loja de Moda", color: GOLD },
+                      { icon: Globe, label: "Prémios Reais", color: GREEN },
                     ].map((f) => {
                       const FIcon = f.icon;
                       return (

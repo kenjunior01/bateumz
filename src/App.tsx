@@ -231,6 +231,9 @@ function AnimatedRoutes() {
             <Route path="/empresas" element={<BusinessDirectory />} />
             <Route path="/empresa/:id" element={<BusinessProfile />} />
             <Route path="/empresa/:id/publico" element={<CompanyPublicProfile />} />
+            <Route path="/life" element={<Navigate to="/lives?game=bateulife" replace />} />
+            <Route path="/vida" element={<Navigate to="/lives?game=bateulife" replace />} />
+            <Route path="/bateulife" element={<Navigate to="/lives?game=bateulife" replace />} />
             <Route path="/mmorpg" element={<Navigate to="/lives?game=mmorpg" replace />} />
             <Route path="/world" element={<Navigate to="/lives?game=mmorpg" replace />} />
             <Route path="/mundo" element={<Navigate to="/lives?game=mmorpg" replace />} />
