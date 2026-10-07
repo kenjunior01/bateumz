@@ -32,6 +32,9 @@ const NOISE = [
   "websocket", "WebSocket", "realtime", "supabase", "ERR_", "net::",
   "ResizeObserver", "AudioContext", "React Router Future Flag",
   "404", "406", "fetchPriority", "does not recognize", "PGRST301", "JWT",
+  // v8: serviços externos de geo-localização (ipapi.co) bloqueados por CORS no sandbox
+  "ipapi", "Access to fetch", "CORS", "cross-origin",
+  "Error detecting region from IP", "Failed to fetch",
 ];
 
 async function main() {
