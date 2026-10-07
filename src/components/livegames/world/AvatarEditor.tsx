@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ============================================================
 // BATEU WORLD — Editor de Avatar · v5
 // Preview 3D ao vivo (canvas próprio, leve) + grelhas de

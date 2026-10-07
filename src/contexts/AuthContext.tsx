@@ -165,6 +165,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       await fetchProfile(nextSession.user.id, nextSession.user);
       if (active) setLoading(false);
+      const oauthNext = localStorage.getItem("bateu_oauth_next");
+      if (oauthNext && oauthNext.startsWith("/") && !oauthNext.startsWith("//")) {
+        localStorage.removeItem("bateu_oauth_next");
+        if (window.location.pathname !== oauthNext) window.location.assign(oauthNext);
+      }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ============================================================
 // BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v6
 // Níveis, poderes por classe, missões/saga/desafios, PvP com

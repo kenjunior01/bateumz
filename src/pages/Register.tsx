@@ -1,3 +1,4 @@
+import { lovable } from "@/integrations/lovable/index";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -168,10 +169,10 @@ export default function Register() {
 
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
+        const result = await lovable.auth.signInWithOAuth('google', { redirect_uri: window.location.origin });
+    const error = result.error;
+    if (result.redirected) return;
+    if (!error) { const n = localStorage.getItem('bateu_oauth_next'); localStorage.removeItem('bateu_oauth_next'); window.location.href = n || '/'; return; }
     if (error) {
       setError("Could not connect with Google. Please try again.");
       setGoogleLoading(false);
@@ -180,10 +181,10 @@ export default function Register() {
 
   const handleAppleSignUp = async () => {
     setAppleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: window.location.origin },
-    });
+        const result = await lovable.auth.signInWithOAuth('apple', { redirect_uri: window.location.origin });
+    const error = result.error;
+    if (result.redirected) return;
+    if (!error) { const n = localStorage.getItem('bateu_oauth_next'); localStorage.removeItem('bateu_oauth_next'); window.location.href = n || '/'; return; }
     if (error) {
       setError("Could not connect with Apple. Please try again.");
       setAppleLoading(false);

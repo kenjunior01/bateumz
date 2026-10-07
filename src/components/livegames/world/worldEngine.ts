@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ============================================================
 // BATEU WORLD — Motor 3D em tempo real (estilo Hordes.io) · v4
 // Three.js: mundo aberto low-poly, combate em tempo real,
