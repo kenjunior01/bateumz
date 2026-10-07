@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2, Edit2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import { COUNTRIES } from "@/lib/regions";
 
 interface RegionalPlan {
@@ -211,7 +210,7 @@ export default function AdminPlans() {
   const currentCountryCurrency = availableCountries.find((c) => c.code === selectedCountry)?.currency;
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestão de Planos</h1>
@@ -223,7 +222,7 @@ export default function AdminPlans() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-4">
-          <Card className="shadow-[0_0_15px_hsl(var(--primary)/0.15)]">
+          <Card>
             <CardHeader>
               <CardTitle>
                 {editingId ? "Editar Plano" : "Novo Plano"}
@@ -397,7 +396,7 @@ export default function AdminPlans() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {plans.map((plan) => (
-                <Card key={plan.id} className="relative hover:shadow-[0_0_20px_hsl(var(--primary)/0.2)] transition-shadow">
+                <Card key={plan.id} className="relative">
                   {plan.is_popular && (
                     <div className="absolute -top-3 -right-3 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                       Popular
@@ -458,6 +457,6 @@ export default function AdminPlans() {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

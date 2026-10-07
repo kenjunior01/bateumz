@@ -22,7 +22,7 @@ export interface RegionalSettings {
   region_id?: string;
   enable_spin_wheel: boolean;
   enable_millionaire_game: boolean;
-  enable_challenge_games: boolean;
+  enable_world_cup_challenges: boolean;
   enable_predictions: boolean;
   enable_live_games: boolean;
   maintenance_mode: boolean;
@@ -52,7 +52,7 @@ const DEFAULT_BRANDING: RegionalBranding = {
 const DEFAULT_SETTINGS: RegionalSettings = {
   enable_spin_wheel: true,
   enable_millionaire_game: true,
-  enable_challenge_games: true,
+  enable_world_cup_challenges: true,
   enable_predictions: true,
   enable_live_games: true,
   maintenance_mode: false,
@@ -90,40 +90,31 @@ export const detectUserRegion = async (): Promise<string> => {
     console.error('Error getting user metadata:', err);
   }
 
-  // 3. Try IP geolocation (multiple fallbacks)
+  // 3. Try IP geolocation (fallback to free service)
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    const response = await fetch('https://ipwho.is/', { signal: controller.signal });
-    clearTimeout(timeoutId);
+    const response = await fetch('https://ipapi.co/json/');
     const data = await response.json();
-    if (data?.country_code) {
+    if (data.country_code) {
       return data.country_code;
     }
-  } catch {
-    try {
-      const controller2 = new AbortController();
-      const timeoutId2 = setTimeout(() => controller2.abort(), 3000);
-      const r2 = await fetch('https://freeipapi.com/api/json', { signal: controller2.signal });
-      clearTimeout(timeoutId2);
-      const d2 = await r2.json();
-      if (d2?.countryCode) return d2.countryCode;
-    } catch {
-      // Both services failed, continue to fallbacks
-    }
+  } catch (err) {
+    console.error('Error detecting region from IP:', err);
   }
 
   // 4. Browser language
   const browserLang = navigator.language.split('-')[0].toUpperCase();
   const langMap: Record<string, string> = {
-    'PT': 'MZ',
+    'PT': 'PT',
     'BR': 'BR',
-    'EN': 'MZ',
+    'ES': 'ES',
+    'FR': 'FR',
+    'EN': 'US',
+    'HI': 'IN',
   };
   if (langMap[browserLang]) return langMap[browserLang];
 
-  // 5. Default to Mozambique
-  return 'MZ';
+  // 5. Default
+  return 'US';
 };
 
 /**
@@ -151,31 +142,19 @@ export const fetchRegionalConfig = async (countryCode: string): Promise<Regional
       };
     }
 
-    // Fetch branding (table may not exist yet — return defaults on 404)
-    let branding = null;
-    try {
-      const res = await (supabase as any)
-        .from('regional_branding')
-        .select('*')
-        .eq('region_id', region.id)
-        .maybeSingle();
-      branding = res.data;
-    } catch {
-      branding = null;
-    }
+    // Fetch branding
+    const { data: branding } = await (supabase as any)
+      .from('regional_branding')
+      .select('*')
+      .eq('region_id', region.id)
+      .maybeSingle();
 
-    // Fetch settings (table may not exist yet — return defaults on 404)
-    let settings = null;
-    try {
-      const res = await (supabase as any)
-        .from('regional_settings')
-        .select('*')
-        .eq('region_id', region.id)
-        .maybeSingle();
-      settings = res.data;
-    } catch {
-      settings = null;
-    }
+    // Fetch settings
+    const { data: settings } = await (supabase as any)
+      .from('regional_settings')
+      .select('*')
+      .eq('region_id', region.id)
+      .maybeSingle();
 
     const r: any = region;
     return {

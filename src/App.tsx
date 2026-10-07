@@ -111,6 +111,9 @@ const EditRaffle = lazy(() => import("./pages/dashboard/EditRaffle.tsx"));
 const SocialRaffleManager = lazy(() => import("./pages/dashboard/SocialRaffleManager.tsx"));
 const Blog = lazy(() => import("./pages/Blog.tsx"));
 const BlogPostDetail = lazy(() => import("./pages/BlogPostDetail.tsx"));
+// v8: Mundial (Copa do Mundo) — páginas do lado Lovable do utilizador, integradas à plataforma
+const WorldCupCentral = lazy(() => import("./pages/WorldCupCentral.tsx"));
+const WorldCupForum = lazy(() => import("./pages/WorldCupForum.tsx"));
 const AllGames = lazy(() => import("./pages/AllGames.tsx"));
 const AdminContests = lazy(() => import("./pages/admin/AdminContests.tsx"));
 const DashboardContests = lazy(() => import("./pages/dashboard/DashboardContests.tsx"));
@@ -221,6 +224,8 @@ function AnimatedRoutes() {
             <Route path="/historico" element={<RaffleHistory />} />
             <Route path="/concursos" element={<SorteiosLayout />}>            <Route index element={<Contests />} />          </Route>
             <Route path="/blog" element={<Blog />} />
+            <Route path="/mundial" element={<WorldCupCentral />} />
+            <Route path="/forum-mundial" element={<WorldCupForum />} />
             <Route path="/blog/:slug" element={<BlogPostDetail />} />
             <Route path="/jogos" element={<JogosLayout />}>            <Route index element={<AllGames />} />          </Route>
             <Route path="/pontos" element={<EngagementLeaderboard />} />

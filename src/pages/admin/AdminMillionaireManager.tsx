@@ -15,7 +15,6 @@ import { Loader2, Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { ImageUpload } from "@/components/ImageUpload";
-import { motion } from "framer-motion";
 
 interface PrizeLevel {
   level: number;
@@ -385,7 +384,7 @@ export default function AdminMillionaireManager() {
   }
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold">Gerenciar Quem Quer Ser Milionário</h1>
 
       <Tabs defaultValue="games" className="w-full">
@@ -406,7 +405,7 @@ export default function AdminMillionaireManager() {
               {games.map((game) => (
                 <Card
                   key={game.id}
-                  className="cursor-pointer hover:shadow-lg hover:shadow-[0_0_20px_hsl(var(--primary)/0.2)] transition-shadow"
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
                   onClick={() => selectGameForEdit(game)}
                 >
                   <CardHeader>
@@ -728,6 +727,6 @@ export default function AdminMillionaireManager() {
           </CardContent>
         </Card>
       )}
-    </motion.div>
+    </div>
   );
 }

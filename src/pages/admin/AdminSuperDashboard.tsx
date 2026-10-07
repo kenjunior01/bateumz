@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Globe, Users, TrendingUp, DollarSign, Plus, Trash2, Edit2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 interface Region {
@@ -257,14 +256,16 @@ export default function AdminSuperDashboard() {
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Globe className="h-6 w-6 text-primary" />
         <h1 className="font-display text-2xl font-bold">Super Admin Dashboard</h1>
       </div>
 
+      {/* Global Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="shadow-[0_0_15px_hsl(var(--primary)/0.15)]">
+        <Card>
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
               <div>
@@ -288,7 +289,7 @@ export default function AdminSuperDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-[0_0_15px_hsl(var(--primary)/0.15)]">
+        <Card>
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
               <div>
@@ -300,7 +301,7 @@ export default function AdminSuperDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-[0_0_15px_hsl(var(--primary)/0.15)]">
+        <Card>
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
               <div>
@@ -313,6 +314,7 @@ export default function AdminSuperDashboard() {
         </Card>
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="regions" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="regions">Regiões</TabsTrigger>
@@ -320,7 +322,9 @@ export default function AdminSuperDashboard() {
           <TabsTrigger value="settings">Configurações Globais</TabsTrigger>
         </TabsList>
 
+        {/* Regions Tab */}
         <TabsContent value="regions" className="space-y-4">
+          {/* Create Region */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -364,7 +368,8 @@ export default function AdminSuperDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-[0_0_20px_hsl(var(--primary)/0.2)] transition-shadow">
+          {/* Regions List */}
+          <Card>
             <CardHeader>
               <CardTitle>Todas as Regiões</CardTitle>
             </CardHeader>
@@ -421,7 +426,9 @@ export default function AdminSuperDashboard() {
           </Card>
         </TabsContent>
 
+        {/* Admins Tab */}
         <TabsContent value="admins" className="space-y-4">
+          {/* Assign Admin */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -462,7 +469,8 @@ export default function AdminSuperDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-[0_0_20px_hsl(var(--primary)/0.2)] transition-shadow">
+          {/* Admins List */}
+          <Card>
             <CardHeader>
               <CardTitle>Admins Regionais</CardTitle>
             </CardHeader>
@@ -527,6 +535,7 @@ export default function AdminSuperDashboard() {
           </Card>
         </TabsContent>
 
+        {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
@@ -554,6 +563,6 @@ export default function AdminSuperDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
-    </motion.div>
+    </div>
   );
 }

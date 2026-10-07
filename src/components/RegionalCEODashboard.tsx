@@ -172,6 +172,7 @@ export const RegionalCEODashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
         <div className="space-y-2">
           <h1 className="text-4xl font-black text-white">CEO Regional Dashboard</h1>
           <p className="text-gray-400">
@@ -183,6 +184,7 @@ export const RegionalCEODashboard: React.FC = () => {
           </Badge>
         </div>
 
+        {/* Main Tabs */}
         <Tabs defaultValue="branding" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-white/10">
             <TabsTrigger value="branding" className="gap-2">
@@ -199,8 +201,9 @@ export const RegionalCEODashboard: React.FC = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Branding Tab */}
           <TabsContent value="branding" className="space-y-6">
-            <Card className="border-white/10 bg-white/5 shadow-[0_0_15px_hsl(var(--primary)/0.1)]">
+            <Card className="border-white/10 bg-white/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Palette className="w-5 h-5" />
@@ -252,7 +255,7 @@ export const RegionalCEODashboard: React.FC = () => {
                   />
                 </div>
 
-                <Button onClick={handleSaveBranding} disabled={saving} className="w-full gap-2 shadow-[0_0_12px_hsl(var(--primary)/0.15)]">
+                <Button onClick={handleSaveBranding} disabled={saving} className="w-full gap-2">
                   {saving ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -268,6 +271,7 @@ export const RegionalCEODashboard: React.FC = () => {
               </CardContent>
             </Card>
 
+            {/* Logo Upload */}
             <Card className="border-white/10 bg-white/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -295,6 +299,7 @@ export const RegionalCEODashboard: React.FC = () => {
             </Card>
           </TabsContent>
 
+          {/* Translations Tab */}
           <TabsContent value="translations" className="space-y-6">
             <Card className="border-white/10 bg-white/5">
               <CardHeader>
@@ -314,7 +319,7 @@ export const RegionalCEODashboard: React.FC = () => {
                       className="grid grid-cols-2 gap-2"
                     >
                       <Input
-                        placeholder="Chave (e.g., 'live.title')"
+                        placeholder="Chave (e.g., 'worldcup.title')"
                         value={translation.key}
                         onChange={(e) => handleTranslationChange(index, 'key', e.target.value)}
                       />
@@ -331,7 +336,7 @@ export const RegionalCEODashboard: React.FC = () => {
                   + Adicionar Tradução
                 </Button>
 
-                <Button onClick={handleSaveTranslations} disabled={saving} className="w-full gap-2 shadow-[0_0_12px_hsl(var(--primary)/0.15)]">
+                <Button onClick={handleSaveTranslations} disabled={saving} className="w-full gap-2">
                   {saving ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -348,6 +353,7 @@ export const RegionalCEODashboard: React.FC = () => {
             </Card>
           </TabsContent>
 
+          {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
             <Card className="border-white/10 bg-white/5">
               <CardHeader>

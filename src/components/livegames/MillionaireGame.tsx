@@ -238,7 +238,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
     return safeAmount;
   };
 
-  const handleLifeline = (type: string) => {
+  const useLifeline = (type: string) => {
     if (lifelinesUsed[type] || answered) return;
     setLifelinesUsed(prev => ({ ...prev, [type]: true }));
     
@@ -294,9 +294,10 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
     >
       <div className="absolute inset-0 bg-gradient-to-b from-[#0a0e17]/80 via-[#0a0e17]/60 to-[#0a0e17]/95"></div>
 
+      {/* Top Header */}
       <div className="relative z-10 p-6 flex justify-between items-center border-b border-white/10 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_hsl(var(--primary)/0.5)]">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.5)]">
             <Trophy className="text-black w-6 h-6" />
           </div>
           <div>
@@ -318,8 +319,10 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
 
       <div className="relative z-10 flex-1 container mx-auto px-4 py-8 grid lg:grid-cols-[1fr_320px] gap-8">
         
+        {/* Main Game Area */}
         <div className="flex flex-col justify-center space-y-12">
           
+          {/* Question Box with Branding */}
           <div className="relative space-y-6">
             {(game.company_logo_url || game.company_slogan) && (
               <motion.div 
@@ -352,6 +355,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
             </div>
           </div>
 
+          {/* Options Grid */}
           <div className="grid md:grid-cols-2 gap-4">
             {['A', 'B', 'C', 'D'].map((letter) => {
               const optionKey = `option_${letter.toLowerCase()}` as keyof Question;
@@ -361,7 +365,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
               const isDisabled = disabledOptions.includes(letter);
 
               let stateClass = "border-white/20 bg-white/5 hover:bg-white/10";
-              if (isSelected) stateClass = "border-primary bg-primary/20 text-primary shadow-[0_0_20px_hsl(var(--primary)/0.3)]";
+              if (isSelected) stateClass = "border-primary bg-primary/20 text-primary shadow-[0_0_20px_rgba(var(--primary),0.3)]";
               if (answered && isCorrect) stateClass = "border-green-500 bg-green-500/20 text-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)] animate-pulse";
               if (answered && isSelected && !isCorrect) stateClass = "border-red-500 bg-red-500/20 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]";
               if (isDisabled) stateClass = "opacity-20 pointer-events-none grayscale";
@@ -371,12 +375,10 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
                   key={letter}
                   initial={{ opacity: 0, x: letter < 'C' ? -20 : 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  whileHover={{ scale: 1.03 }}
                   transition={{ delay: (letter.charCodeAt(0) - 'A'.charCodeAt(0)) * 0.1 }}
                   onClick={() => handleAnswer(letter)}
                   disabled={answered || isDisabled || status !== 'playing'}
                   className={`relative group flex items-center p-1 rounded-full border-2 transition-all duration-300 ${stateClass}`}
-                  style={{ boxShadow: "0 0 15px rgba(250,204,21,0.1)" }}
                 >
                   <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-black text-primary group-hover:bg-primary group-hover:text-black transition-colors">
                     {letter}
@@ -389,13 +391,15 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
           </div>
         </div>
 
+        {/* Sidebar: Pyramid & Lifelines */}
         <div className="space-y-6">
+          {/* Lifelines */}
           <Card className="bg-black/40 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <h3 className="text-xs font-black uppercase tracking-widest opacity-50 mb-4">Ajudas Disponíveis</h3>
               <div className="grid grid-cols-3 gap-3">
                 <button 
-                  onClick={() => handleLifeline('50_50')}
+                  onClick={() => useLifeline('50_50')}
                   disabled={lifelinesUsed['50_50'] || answered}
                   className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${lifelinesUsed['50_50'] ? 'opacity-30 grayscale border-white/10' : 'border-primary/30 bg-primary/5 hover:bg-primary/20'}`}
                 >
@@ -414,6 +418,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
             </CardContent>
           </Card>
 
+          {/* Prize Pyramid */}
           <Card className="bg-black/40 border-white/10 backdrop-blur-xl overflow-hidden">
             <CardContent className="p-0">
               <div className="bg-white/5 p-4 border-b border-white/10 flex justify-between items-center">
@@ -444,6 +449,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
         </div>
       </div>
 
+      {/* Status Overlays */}
       <AnimatePresence>
         {status !== 'playing' && (
           <motion.div 
@@ -480,7 +486,7 @@ export default function MillionaireGame({ gameId: propGameId, onComplete }: Prop
                 </>
               )}
               <div className="flex gap-4 justify-center pt-4">
-                <Button size="lg" className="px-12 py-8 text-xl font-black rounded-full" style={{ boxShadow: "0 0 25px rgba(250,204,21,0.3)" }} onClick={restartGame}>TENTAR NOVAMENTE</Button>
+                <Button size="lg" className="px-12 py-8 text-xl font-black rounded-full" onClick={restartGame}>TENTAR NOVAMENTE</Button>
                 <Button size="lg" variant="outline" className="px-12 py-8 text-xl font-black rounded-full border-white/20" onClick={() => window.location.href = '/'}>SAIR</Button>
               </div>
             </motion.div>

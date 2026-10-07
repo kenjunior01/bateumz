@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useRegionalTheme } from "@/contexts/RegionalThemeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,21 +27,9 @@ export default function BlogNewsWidget() {
   }, [region]);
 
   const loadLatestPosts = async () => {
-    try {
-      const query = (supabase as any)
-        .from('blog_posts')
-        .select(`id, title, slug, summary, image_url, published_at, is_trending, view_count, category:blog_categories(name, slug, color)`)
-        .eq('published', true)
-        .order('published_at', { ascending: false })
-        .limit(5);
-
-      const { data, error } = await query;
-      if (!error && data) setPosts(data as BlogPost[]);
-    } catch (e) {
-      // Table may not exist yet, silently fail
-    } finally {
-      setLoading(false);
-    }
+    // Blog posts table not yet available; render empty state.
+    setPosts([]);
+    setLoading(false);
   };
 
 
@@ -66,13 +53,8 @@ export default function BlogNewsWidget() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Card className="border-primary/10 overflow-hidden shadow-[0_0_10px_hsl(var(--primary)/0.1)]">
-        <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
+    <Card className="border-primary/10 overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             📰 Últimas Notícias
@@ -90,6 +72,7 @@ export default function BlogNewsWidget() {
             <Link key={post.id} to={`/blog/${post.slug}`}>
               <div className="p-4 hover:bg-muted/50 transition-colors group cursor-pointer">
                 <div className="flex gap-4">
+                  {/* Image */}
                   <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
                     <img 
                       src={post.image_url || "/placeholder.svg"} 
@@ -98,12 +81,12 @@ export default function BlogNewsWidget() {
                     />
                   </div>
                   
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-none">
                         {post.category?.name || "Geral"}
                       </Badge>
-                      {(post as any).is_trending && <span className="text-xs">🔥</span>}
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(post.published_at).toLocaleDateString("pt-BR")}
@@ -129,7 +112,6 @@ export default function BlogNewsWidget() {
           </Link>
         </div>
       </CardContent>
-      </Card>
-    </motion.div>
+    </Card>
   );
 }

@@ -20,12 +20,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import MobileDiscoveryHeader from "@/components/meituan/MobileDiscoveryHeader";
 import MobileFilterSheet from "@/components/meituan/MobileFilterSheet";
 import MarketplaceEmptyState from "@/components/MarketplaceEmptyState";
-import ProvablyFair from "@/components/ProvablyFair";
 import OptimizedImage from "@/components/OptimizedImage";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useSEO } from "@/hooks/useSEO";
-
-const sb: any = supabase;
 
 interface Raffle {
   id: string;
@@ -75,19 +71,6 @@ const Marketplace = () => {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  useSEO({
-    title: 'Sorteios e Rifas Online',
-    description: 'Explore todos os sorteios ativos na Bateu. Rifas de prémios reais, bilhetes acessíveis, sorteios ao vivo com verificação justa. Novos sorteios adicionados diariamente.',
-    canonicalPath: '/marketplace',
-    structuredData: {
-      '@context': 'https://schema.org',
-      '@type': 'CollectionPage',
-      name: 'Sorteios Ativos — Bateu',
-      description: 'Todos os sorteios e rifas ativas na plataforma Bateu',
-      url: 'https://bateu.online/marketplace'
-    }
-  });
-
   useEffect(() => {
     const tab = searchParams.get("tab") as ContentType;
     if (tab && (tab === "all" || tab === "raffles" || tab === "contests" || tab === "games")) {
@@ -122,10 +105,10 @@ const Marketplace = () => {
   useEffect(() => {
     const fetchData = async () => {
       const [rafflesRes, contestsRes, spinRes, millRes] = await Promise.all([
-        sb.from("raffles").select("*").eq("status", "active").order("created_at", { ascending: false }),
-        sb.from("contests").select("*").in("status", ["active", "voting", "completed"]).order("created_at", { ascending: false }),
-        sb.from("spin_wheel_games").select("*").eq("is_published", true),
-        sb.from("millionaire_games").select("*").eq("is_published", true),
+        supabase.from("raffles").select("*").eq("status", "active").order("created_at", { ascending: false }),
+        supabase.from("contests").select("*").in("status", ["active", "voting", "completed"]).order("created_at", { ascending: false }),
+        supabase.from("spin_wheel_games").select("*").eq("is_published", true),
+        supabase.from("millionaire_games").select("*").eq("is_published", true),
       ]);
       if (rafflesRes.data) setRaffles(rafflesRes.data as Raffle[]);
       if (contestsRes.data) setContests(contestsRes.data as Contest[]);
@@ -216,8 +199,8 @@ const Marketplace = () => {
       <div>
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ordenar</p>
         <div className="flex flex-wrap gap-2">
-          {(["newest", "ending", "popular"]).map((s) => (
-            <Button key={s} variant={sortBy === s ? "default" : "outline"} size="sm" onClick={() => setSortBy(s as "newest" | "ending" | "popular")}>
+          {(["newest", "ending", "popular"] as const).map((s) => (
+            <Button key={s} variant={sortBy === s ? "default" : "outline"} size="sm" onClick={() => setSortBy(s)}>
               {s === "newest" ? "Recentes" : s === "ending" ? "A terminar" : "Populares"}
             </Button>
           ))}
@@ -227,8 +210,8 @@ const Marketplace = () => {
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Modalidade de sorteio</p>
           <div className="flex flex-wrap gap-2">
-            {(["all", "paid", "free", "points"]).map((t) => (
-              <Button key={t} variant={typeFilter === t ? "default" : "outline"} size="sm" onClick={() => setTypeFilter(t as "all" | "paid" | "free" | "points")} className="gap-1">
+            {(["all", "paid", "free", "points"] as const).map((t) => (
+              <Button key={t} variant={typeFilter === t ? "default" : "outline"} size="sm" onClick={() => setTypeFilter(t)} className="gap-1">
                 {t === "all" ? "Todos" : t === "paid" ? <><Ticket className="h-3 w-3" /> Pagos</> : t === "free" ? <><Gift className="h-3 w-3" /> Gratuitos</> : <><Star className="h-3 w-3" /> Pontos</>}
               </Button>
             ))}
@@ -276,11 +259,13 @@ const Marketplace = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Desktop navbar */}
       <div className="hidden md:block">
         <Navbar />
       </div>
 
       <div className="container mx-auto px-4 md:pt-28 pb-20">
+        {/* Mobile sticky header (Meituan) */}
         <MobileDiscoveryHeader
           title={t("marketplace.title")}
           searchValue={search}
@@ -292,11 +277,13 @@ const Marketplace = () => {
           onOpenFilters={() => setFilterSheetOpen(true)}
         />
 
+        {/* Desktop title */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10 hidden md:block">
-          <h1 className="font-display text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">{t("marketplace.title")}</h1>
+          <h1 className="font-display text-4xl font-bold text-foreground mb-2">{t("marketplace.title")}</h1>
           <p className="text-muted-foreground text-lg">{t("marketplace.subtitle")}</p>
         </motion.div>
 
+        {/* Desktop search + filter */}
         <div className="hidden md:flex flex-col gap-3 mb-8">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -346,6 +333,7 @@ const Marketplace = () => {
           )}
         </div>
 
+        {/* Mobile filter sheet */}
         <MobileFilterSheet
           open={filterSheetOpen && isMobile}
           onOpenChange={setFilterSheetOpen}
@@ -371,6 +359,7 @@ const Marketplace = () => {
           </div>
         ) : (
           <div className="space-y-10">
+            {/* Games Section */}
             {showGames && games.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="flex items-center gap-2 mb-4">
@@ -418,6 +407,7 @@ const Marketplace = () => {
               </motion.div>
             )}
 
+            {/* Contests Section */}
             {showContests && filteredContests.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 {contentType === "all" && (
@@ -437,7 +427,7 @@ const Marketplace = () => {
                       whileHover={{ y: -4 }}
                     >
                       <Link to={`/concursos/${contest.id}`}>
-                        <Card className="glass group hover:border-primary/30 transition-all overflow-hidden h-full shadow-[0_0_15px_hsl(var(--primary)/0.15)] hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]">
+                        <Card className="glass group hover:border-primary/30 transition-all overflow-hidden h-full">
                           <div className="relative aspect-[4/3] bg-secondary overflow-hidden">
                             {contest.image_url ? (
                               <OptimizedImage
@@ -489,6 +479,7 @@ const Marketplace = () => {
               </motion.div>
             )}
 
+            {/* Raffles Section */}
             {showRaffles && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                 {contentType === "all" && filteredRaffles.length > 0 && (
@@ -511,7 +502,7 @@ const Marketplace = () => {
                 ) : filteredRaffles.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
                     {filteredRaffles.map((raffle, i) => {
-                      const pct = raffle.total_tickets > 0 ? (raffle.sold_tickets / raffle.total_tickets) * 100 : 0;
+                      const pct = (raffle.sold_tickets / raffle.total_tickets) * 100;
                       return (
                         <motion.div
                           key={raffle.id}
@@ -521,7 +512,7 @@ const Marketplace = () => {
                           whileHover={{ y: -4 }}
                         >
                           <Link to={getRaffleUrl(raffle)}>
-                            <Card className="glass group hover:border-primary/30 transition-all overflow-hidden shadow-[0_0_15px_hsl(var(--primary)/0.15)] hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]">
+                            <Card className="glass group hover:border-primary/30 transition-all overflow-hidden">
                               <div className="relative aspect-[4/3] bg-secondary overflow-hidden">
                                 {raffle.image_url ? (
                                   <OptimizedImage
@@ -575,6 +566,7 @@ const Marketplace = () => {
               </motion.div>
             )}
 
+            {/* No contests message */}
             {showContests && filteredContests.length === 0 && contentType === "contests" && (
               <div className="text-center py-20">
                 <Trophy className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
@@ -584,9 +576,6 @@ const Marketplace = () => {
           </div>
         )}
       </div>
-      <div className="max-w-4xl mx-auto px-4 py-12 md:py-16">
-          <ProvablyFair />
-        </div>
       <div className="hidden md:block"><Footer /></div>
     </div>
   );

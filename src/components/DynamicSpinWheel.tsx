@@ -181,7 +181,6 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
 
   useEffect(() => {
     if (canvasRef.current && segments.length > 0) drawWheel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segments, wheelConfig]);
 
   const drawWheel = () => {
@@ -325,6 +324,7 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
 
   return (
     <div className="flex flex-col items-center gap-6 p-4" style={bgStyle}>
+      {/* Minimum segments warning */}
       {segments.length < 4 && (
         <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
           <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400" />
@@ -332,6 +332,7 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
         </div>
       )}
 
+      {/* Company branding */}
       {wheelConfig?.company_logo_url && (
         <motion.div
           initial={{ y: -20, opacity: 0 }}
@@ -346,6 +347,7 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
       )}
 
       <div className="relative">
+        {/* Pointer */}
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-20 w-0 h-0 border-l-[16px] border-r-[16px] border-t-[28px] border-l-transparent border-r-transparent border-t-primary drop-shadow-lg" />
 
         <motion.div
@@ -354,7 +356,6 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
             duration: wheelConfig?.rotation_duration || 4,
             ease: [0.17, 0.67, 0.12, 0.99],
           }}
-          className="shadow-[0_0_20px_hsl(var(--primary)/0.15)] rounded-full"
         >
           <canvas
             ref={canvasRef}
@@ -370,7 +371,7 @@ const DynamicSpinWheel = ({ gameId }: SpinWheelProps) => {
         whileTap={{ scale: 0.95 }}
         onClick={spin}
         disabled={spinning}
-        className="group relative px-10 py-4 rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-lg hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 transition-all shadow-lg shadow-primary/25 shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_0_35px_hsl(var(--primary)/0.5)]"
+        className="group relative px-10 py-4 rounded-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-lg hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 transition-all shadow-lg shadow-primary/25"
       >
         <span className="flex items-center gap-2">
           {spinning ? (

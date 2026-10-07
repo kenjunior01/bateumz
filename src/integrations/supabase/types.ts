@@ -49,54 +49,6 @@ export type Database = {
           },
         ]
       }
-      analytics_snapshots: {
-        Row: {
-          avg_session_duration: number | null
-          business_user_id: string
-          created_at: string | null
-          date: string
-          id: string
-          metadata: Json | null
-          top_game_name: string | null
-          top_game_type: string | null
-          total_players: number | null
-          total_prize_value: number | null
-          total_sessions: number | null
-          total_winners: number | null
-          unique_players: number | null
-        }
-        Insert: {
-          avg_session_duration?: number | null
-          business_user_id: string
-          created_at?: string | null
-          date?: string
-          id?: string
-          metadata?: Json | null
-          top_game_name?: string | null
-          top_game_type?: string | null
-          total_players?: number | null
-          total_prize_value?: number | null
-          total_sessions?: number | null
-          total_winners?: number | null
-          unique_players?: number | null
-        }
-        Update: {
-          avg_session_duration?: number | null
-          business_user_id?: string
-          created_at?: string | null
-          date?: string
-          id?: string
-          metadata?: Json | null
-          top_game_name?: string | null
-          top_game_type?: string | null
-          total_players?: number | null
-          total_prize_value?: number | null
-          total_sessions?: number | null
-          total_winners?: number | null
-          unique_players?: number | null
-        }
-        Relationships: []
-      }
       audit_logs: {
         Row: {
           action: string
@@ -167,149 +119,6 @@ export type Database = {
             columns: ["raffle_id"]
             isOneToOne: true
             referencedRelation: "raffles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      blog_categories: {
-        Row: {
-          color: string | null
-          created_at: string
-          description: string | null
-          icon: string | null
-          id: string
-          name: string
-          post_count: number | null
-          slug: string
-        }
-        Insert: {
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          name: string
-          post_count?: number | null
-          slug: string
-        }
-        Update: {
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          name?: string
-          post_count?: number | null
-          slug?: string
-        }
-        Relationships: []
-      }
-      blog_likes: {
-        Row: {
-          created_at: string
-          post_slug: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          post_slug: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          post_slug?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      blog_posts: {
-        Row: {
-          author_id: string | null
-          author_name: string | null
-          category_id: string | null
-          content: string
-          created_at: string
-          id: string
-          image_url: string | null
-          is_featured: boolean | null
-          is_trending: boolean | null
-          like_count: number | null
-          published: boolean | null
-          published_at: string | null
-          reading_time_min: number | null
-          region_id: string | null
-          seo_description: string | null
-          seo_keywords: string[] | null
-          seo_title: string | null
-          share_count: number | null
-          slug: string
-          source_url: string | null
-          summary: string | null
-          title: string
-          trending_score: number | null
-          updated_at: string
-          view_count: number | null
-        }
-        Insert: {
-          author_id?: string | null
-          author_name?: string | null
-          category_id?: string | null
-          content?: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
-          is_trending?: boolean | null
-          like_count?: number | null
-          published?: boolean | null
-          published_at?: string | null
-          reading_time_min?: number | null
-          region_id?: string | null
-          seo_description?: string | null
-          seo_keywords?: string[] | null
-          seo_title?: string | null
-          share_count?: number | null
-          slug: string
-          source_url?: string | null
-          summary?: string | null
-          title: string
-          trending_score?: number | null
-          updated_at?: string
-          view_count?: number | null
-        }
-        Update: {
-          author_id?: string | null
-          author_name?: string | null
-          category_id?: string | null
-          content?: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
-          is_trending?: boolean | null
-          like_count?: number | null
-          published?: boolean | null
-          published_at?: string | null
-          reading_time_min?: number | null
-          region_id?: string | null
-          seo_description?: string | null
-          seo_keywords?: string[] | null
-          seo_title?: string | null
-          share_count?: number | null
-          slug?: string
-          source_url?: string | null
-          summary?: string | null
-          title?: string
-          trending_score?: number | null
-          updated_at?: string
-          view_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "blog_posts_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "blog_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -444,105 +253,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      company_branding: {
-        Row: {
-          accent_color: string | null
-          background_color: string | null
-          background_image_url: string | null
-          company_logo_url: string | null
-          company_name: string | null
-          company_slogan: string | null
-          created_at: string | null
-          enabled: boolean | null
-          font_family: string | null
-          id: string
-          overlay_style: string | null
-          primary_color: string | null
-          secondary_color: string | null
-          text_color: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          accent_color?: string | null
-          background_color?: string | null
-          background_image_url?: string | null
-          company_logo_url?: string | null
-          company_name?: string | null
-          company_slogan?: string | null
-          created_at?: string | null
-          enabled?: boolean | null
-          font_family?: string | null
-          id?: string
-          overlay_style?: string | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          text_color?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          accent_color?: string | null
-          background_color?: string | null
-          background_image_url?: string | null
-          company_logo_url?: string | null
-          company_name?: string | null
-          company_slogan?: string | null
-          created_at?: string | null
-          enabled?: boolean | null
-          font_family?: string | null
-          id?: string
-          overlay_style?: string | null
-          primary_color?: string | null
-          secondary_color?: string | null
-          text_color?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      company_game_configs: {
-        Row: {
-          company_id: string
-          created_at: string
-          game_id: string
-          game_label: string
-          id: string
-          is_enabled: boolean
-          is_published: boolean
-          play_count: number
-          settings: Json
-          total_prizes_awarded: number
-          updated_at: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          game_id: string
-          game_label: string
-          id?: string
-          is_enabled?: boolean
-          is_published?: boolean
-          play_count?: number
-          settings?: Json
-          total_prizes_awarded?: number
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          game_id?: string
-          game_label?: string
-          id?: string
-          is_enabled?: boolean
-          is_published?: boolean
-          play_count?: number
-          settings?: Json
-          total_prizes_awarded?: number
-          updated_at?: string
-        }
-        Relationships: []
       }
       contest_submissions: {
         Row: {
@@ -818,60 +528,6 @@ export type Database = {
         }
         Relationships: []
       }
-      game_sessions: {
-        Row: {
-          business_user_id: string | null
-          created_at: string | null
-          duration_seconds: number | null
-          game_id: string | null
-          game_name: string
-          game_type: string
-          id: string
-          is_winner: boolean | null
-          live_code: string | null
-          metadata: Json | null
-          player_count: number | null
-          player_name: string | null
-          prize: string | null
-          prize_value: number | null
-          score: number | null
-        }
-        Insert: {
-          business_user_id?: string | null
-          created_at?: string | null
-          duration_seconds?: number | null
-          game_id?: string | null
-          game_name: string
-          game_type: string
-          id?: string
-          is_winner?: boolean | null
-          live_code?: string | null
-          metadata?: Json | null
-          player_count?: number | null
-          player_name?: string | null
-          prize?: string | null
-          prize_value?: number | null
-          score?: number | null
-        }
-        Update: {
-          business_user_id?: string | null
-          created_at?: string | null
-          duration_seconds?: number | null
-          game_id?: string | null
-          game_name?: string
-          game_type?: string
-          id?: string
-          is_winner?: boolean | null
-          live_code?: string | null
-          metadata?: Json | null
-          player_count?: number | null
-          player_name?: string | null
-          prize?: string | null
-          prize_value?: number | null
-          score?: number | null
-        }
-        Relationships: []
-      }
       live_ambassador_prizes: {
         Row: {
           award_mode: string | null
@@ -1143,48 +799,6 @@ export type Database = {
           },
         ]
       }
-      live_templates: {
-        Row: {
-          branding: Json
-          challenges: Json
-          created_at: string
-          description: string | null
-          game_ids: Json
-          id: string
-          is_active: boolean
-          name: string
-          rules: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          branding?: Json
-          challenges?: Json
-          created_at?: string
-          description?: string | null
-          game_ids?: Json
-          id?: string
-          is_active?: boolean
-          name: string
-          rules?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          branding?: Json
-          challenges?: Json
-          created_at?: string
-          description?: string | null
-          game_ids?: Json
-          id?: string
-          is_active?: boolean
-          name?: string
-          rules?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       luck_points: {
         Row: {
           action: string
@@ -1326,54 +940,6 @@ export type Database = {
           },
         ]
       }
-      millionaire_leaderboard: {
-        Row: {
-          created_at: string
-          game_id: string
-          highest_level: number
-          highest_prize: number
-          id: string
-          total_plays: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          game_id: string
-          highest_level?: number
-          highest_prize?: number
-          id?: string
-          total_plays?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          game_id?: string
-          highest_level?: number
-          highest_prize?: number
-          id?: string
-          total_plays?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "millionaire_leaderboard_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "millionaire_leaderboard_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles_public"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
       millionaire_questions: {
         Row: {
           correct_answer: string
@@ -1478,50 +1044,6 @@ export type Database = {
           },
         ]
       }
-      native_games: {
-        Row: {
-          config: Json
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          name: string
-          region_id: string
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          config?: Json
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          region_id: string
-          type?: string
-          updated_at?: string
-        }
-        Update: {
-          config?: Json
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          region_id?: string
-          type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "native_games_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       newsletter_signups: {
         Row: {
           country: string | null
@@ -1590,69 +1112,6 @@ export type Database = {
           },
         ]
       }
-      overlay_configs: {
-        Row: {
-          animation_intensity: string | null
-          border_radius: number | null
-          created_at: string | null
-          custom_css: string | null
-          id: string
-          is_default: boolean | null
-          layout: string | null
-          name: string | null
-          opacity: number | null
-          position: string | null
-          show_branding: boolean | null
-          show_confetti: boolean | null
-          show_player_count: boolean | null
-          show_score: boolean | null
-          show_sound_effects: boolean | null
-          show_timer: boolean | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          animation_intensity?: string | null
-          border_radius?: number | null
-          created_at?: string | null
-          custom_css?: string | null
-          id?: string
-          is_default?: boolean | null
-          layout?: string | null
-          name?: string | null
-          opacity?: number | null
-          position?: string | null
-          show_branding?: boolean | null
-          show_confetti?: boolean | null
-          show_player_count?: boolean | null
-          show_score?: boolean | null
-          show_sound_effects?: boolean | null
-          show_timer?: boolean | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          animation_intensity?: string | null
-          border_radius?: number | null
-          created_at?: string | null
-          custom_css?: string | null
-          id?: string
-          is_default?: boolean | null
-          layout?: string | null
-          name?: string | null
-          opacity?: number | null
-          position?: string | null
-          show_branding?: boolean | null
-          show_confetti?: boolean | null
-          show_player_count?: boolean | null
-          show_score?: boolean | null
-          show_sound_effects?: boolean | null
-          show_timer?: boolean | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       participants: {
         Row: {
           created_at: string
@@ -1705,45 +1164,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      password_reset_events: {
-        Row: {
-          created_at: string
-          email: string | null
-          error_message: string | null
-          id: string
-          ip_hint: string | null
-          link_type: string | null
-          metadata: Json
-          reason: string | null
-          stage: string
-          user_agent: string | null
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          error_message?: string | null
-          id?: string
-          ip_hint?: string | null
-          link_type?: string | null
-          metadata?: Json
-          reason?: string | null
-          stage: string
-          user_agent?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          error_message?: string | null
-          id?: string
-          ip_hint?: string | null
-          link_type?: string | null
-          metadata?: Json
-          reason?: string | null
-          stage?: string
-          user_agent?: string | null
-        }
-        Relationships: []
       }
       platform_settings: {
         Row: {
@@ -1929,7 +1349,6 @@ export type Database = {
           phone: string | null
           province: string | null
           referral_code: string | null
-          slug: string | null
           updated_at: string
           user_id: string
         }
@@ -1945,7 +1364,6 @@ export type Database = {
           phone?: string | null
           province?: string | null
           referral_code?: string | null
-          slug?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1961,7 +1379,6 @@ export type Database = {
           phone?: string | null
           province?: string | null
           referral_code?: string | null
-          slug?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -2149,145 +1566,6 @@ export type Database = {
         }
         Relationships: []
       }
-      region_managers: {
-        Row: {
-          created_at: string
-          id: string
-          manager_id: string
-          region_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          manager_id: string
-          region_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          manager_id?: string
-          region_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "region_managers_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "regional_managers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "region_managers_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      regional_announcements: {
-        Row: {
-          created_at: string
-          cta_label: string | null
-          cta_url: string | null
-          enabled: boolean
-          id: string
-          region_id: string
-          text: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          cta_label?: string | null
-          cta_url?: string | null
-          enabled?: boolean
-          id?: string
-          region_id: string
-          text?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          cta_label?: string | null
-          cta_url?: string | null
-          enabled?: boolean
-          id?: string
-          region_id?: string
-          text?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regional_announcements_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: true
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      regional_branding: {
-        Row: {
-          accent_color: string | null
-          background_color: string | null
-          banner_url: string | null
-          created_at: string
-          custom_css: string | null
-          font_family: string | null
-          id: string
-          logo_url: string | null
-          primary_color: string | null
-          region_id: string
-          secondary_color: string | null
-          text_color: string | null
-          theme_name: string | null
-          updated_at: string
-        }
-        Insert: {
-          accent_color?: string | null
-          background_color?: string | null
-          banner_url?: string | null
-          created_at?: string
-          custom_css?: string | null
-          font_family?: string | null
-          id?: string
-          logo_url?: string | null
-          primary_color?: string | null
-          region_id: string
-          secondary_color?: string | null
-          text_color?: string | null
-          theme_name?: string | null
-          updated_at?: string
-        }
-        Update: {
-          accent_color?: string | null
-          background_color?: string | null
-          banner_url?: string | null
-          created_at?: string
-          custom_css?: string | null
-          font_family?: string | null
-          id?: string
-          logo_url?: string | null
-          primary_color?: string | null
-          region_id?: string
-          secondary_color?: string | null
-          text_color?: string | null
-          theme_name?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regional_branding_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: true
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       regional_commissions: {
         Row: {
           commission_percentage: number
@@ -2329,221 +1607,65 @@ export type Database = {
           },
         ]
       }
-      regional_managers: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          id: string
-          is_active: boolean
-          last_login: string | null
-          region_ids: string[]
-          role: string
-          updated_at: string
-          user_email: string | null
-          user_id: string | null
-          user_name: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          last_login?: string | null
-          region_ids?: string[]
-          role?: string
-          updated_at?: string
-          user_email?: string | null
-          user_id?: string | null
-          user_name?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          last_login?: string | null
-          region_ids?: string[]
-          role?: string
-          updated_at?: string
-          user_email?: string | null
-          user_id?: string | null
-          user_name?: string | null
-        }
-        Relationships: []
-      }
-      regional_settings: {
-        Row: {
-          created_at: string
-          enable_challenge_games: boolean
-          enable_live_games: boolean
-          enable_millionaire_game: boolean
-          enable_spin_wheel: boolean
-          id: string
-          maintenance_mode: boolean
-          region_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          enable_challenge_games?: boolean
-          enable_live_games?: boolean
-          enable_millionaire_game?: boolean
-          enable_spin_wheel?: boolean
-          id?: string
-          maintenance_mode?: boolean
-          region_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          enable_challenge_games?: boolean
-          enable_live_games?: boolean
-          enable_millionaire_game?: boolean
-          enable_spin_wheel?: boolean
-          id?: string
-          maintenance_mode?: boolean
-          region_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regional_settings_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: true
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      regional_translations: {
-        Row: {
-          created_at: string
-          id: string
-          is_custom: boolean
-          language_code: string
-          region_id: string
-          translation_key: string
-          translation_value: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_custom?: boolean
-          language_code?: string
-          region_id: string
-          translation_key: string
-          translation_value: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_custom?: boolean
-          language_code?: string
-          region_id?: string
-          translation_key?: string
-          translation_value?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regional_translations_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       regions: {
         Row: {
           accent_color: string | null
           banner_url: string | null
           country_code: string
-          country_name: string | null
           created_at: string
           currency: string
-          currency_code: string | null
           custom_css: string | null
           default_language: string | null
-          description: string | null
           flag: string | null
           id: string
           is_active: boolean
           label: string
-          language_code: string | null
           logo_url: string | null
-          manager_id: string | null
           name: string | null
           primary_color: string | null
           secondary_color: string | null
           tagline: string | null
-          timezone: string | null
           updated_at: string
-          user_count: number
         }
         Insert: {
           accent_color?: string | null
           banner_url?: string | null
           country_code: string
-          country_name?: string | null
           created_at?: string
           currency?: string
-          currency_code?: string | null
           custom_css?: string | null
           default_language?: string | null
-          description?: string | null
           flag?: string | null
           id?: string
           is_active?: boolean
           label: string
-          language_code?: string | null
           logo_url?: string | null
-          manager_id?: string | null
           name?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           tagline?: string | null
-          timezone?: string | null
           updated_at?: string
-          user_count?: number
         }
         Update: {
           accent_color?: string | null
           banner_url?: string | null
           country_code?: string
-          country_name?: string | null
           created_at?: string
           currency?: string
-          currency_code?: string | null
           custom_css?: string | null
           default_language?: string | null
-          description?: string | null
           flag?: string | null
           id?: string
           is_active?: boolean
           label?: string
-          language_code?: string | null
           logo_url?: string | null
-          manager_id?: string | null
           name?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           tagline?: string | null
-          timezone?: string | null
           updated_at?: string
-          user_count?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "regions_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "regional_managers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       rewards: {
         Row: {
@@ -2662,12 +1784,10 @@ export type Database = {
           external_url: string | null
           id: string
           live_code: string | null
-          region_id: string | null
           scheduled_at: string
           slug: string
           source_type: string
           status: string
-          template_id: string | null
           title: string
           updated_at: string
         }
@@ -2681,12 +1801,10 @@ export type Database = {
           external_url?: string | null
           id?: string
           live_code?: string | null
-          region_id?: string | null
           scheduled_at: string
           slug: string
           source_type?: string
           status?: string
-          template_id?: string | null
           title: string
           updated_at?: string
         }
@@ -2700,31 +1818,14 @@ export type Database = {
           external_url?: string | null
           id?: string
           live_code?: string | null
-          region_id?: string | null
           scheduled_at?: string
           slug?: string
           source_type?: string
           status?: string
-          template_id?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "scheduled_lives_region_id_fkey"
-            columns: ["region_id"]
-            isOneToOne: false
-            referencedRelation: "regions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "scheduled_lives_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "live_templates"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       social_participations: {
         Row: {
@@ -3299,48 +2400,6 @@ export type Database = {
       }
     }
     Views: {
-      live_ambassador_prizes_public: {
-        Row: {
-          awarded_at: string | null
-          business_user_id: string | null
-          created_at: string | null
-          description: string | null
-          id: string | null
-          is_awarded: boolean | null
-          live_code: string | null
-          position: number | null
-          scheduled_live_id: string | null
-          scope: string | null
-          title: string | null
-        }
-        Insert: {
-          awarded_at?: string | null
-          business_user_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_awarded?: never
-          live_code?: string | null
-          position?: number | null
-          scheduled_live_id?: string | null
-          scope?: string | null
-          title?: string | null
-        }
-        Update: {
-          awarded_at?: string | null
-          business_user_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_awarded?: never
-          live_code?: string | null
-          position?: number | null
-          scheduled_live_id?: string | null
-          scope?: string | null
-          title?: string | null
-        }
-        Relationships: []
-      }
       platform_settings_public: {
         Row: {
           key: string | null
@@ -3441,7 +2500,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           is_verified: boolean | null
-          slug: string | null
+          referral_code: string | null
           user_id: string | null
         }
         Insert: {
@@ -3450,7 +2509,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           is_verified?: boolean | null
-          slug?: string | null
+          referral_code?: string | null
           user_id?: string | null
         }
         Update: {
@@ -3459,7 +2518,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           is_verified?: boolean | null
-          slug?: string | null
+          referral_code?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -3534,20 +2593,6 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
-      get_business_directory: {
-        Args: never
-        Returns: {
-          avatar_url: string
-          city: string
-          company_name: string
-          country: string
-          display_name: string
-          is_verified: boolean
-          province: string
-          slug: string
-          user_id: string
-        }[]
-      }
       get_live_ambassador_ranking: {
         Args: {
           p_business_user_id?: string
@@ -3568,15 +2613,6 @@ export type Database = {
         Args: { p_scheduled_live_id: string }
         Returns: Json
       }
-      get_my_managed_regions: {
-        Args: never
-        Returns: {
-          country_code: string
-          id: string
-          is_active: boolean
-          label: string
-        }[]
-      }
       get_prestacao_whatsapp: {
         Args: { p_product_id: string }
         Returns: string
@@ -3595,42 +2631,6 @@ export type Database = {
           visits: number
         }[]
       }
-      get_trending_posts: {
-        Args: { limit_count?: number }
-        Returns: {
-          author_id: string | null
-          author_name: string | null
-          category_id: string | null
-          content: string
-          created_at: string
-          id: string
-          image_url: string | null
-          is_featured: boolean | null
-          is_trending: boolean | null
-          like_count: number | null
-          published: boolean | null
-          published_at: string | null
-          reading_time_min: number | null
-          region_id: string | null
-          seo_description: string | null
-          seo_keywords: string[] | null
-          seo_title: string | null
-          share_count: number | null
-          slug: string
-          source_url: string | null
-          summary: string | null
-          title: string
-          trending_score: number | null
-          updated_at: string
-          view_count: number | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "blog_posts"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3638,15 +2638,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      increment_blog_view: { Args: { post_slug: string }; Returns: undefined }
       increment_prestacao_product_views: {
         Args: { _product_id: string }
         Returns: undefined
-      }
-      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
-      is_regional_manager_for_region: {
-        Args: { p_region_id: string }
-        Returns: boolean
       }
       is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
@@ -3666,20 +2660,9 @@ export type Database = {
           read_ct: number
         }[]
       }
-      refresh_daily_analytics: {
-        Args: { p_date?: string; p_user_id: string }
-        Returns: undefined
-      }
-      resolve_referral_code: { Args: { _code: string }; Returns: string }
-      toggle_blog_like: { Args: { post_slug: string }; Returns: boolean }
     }
     Enums: {
-      app_role:
-        | "admin"
-        | "business"
-        | "user"
-        | "superadmin"
-        | "regional_manager"
+      app_role: "admin" | "business" | "user" | "superadmin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3695,12 +2678,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3724,11 +2707,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3749,11 +2732,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3774,11 +2757,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3791,11 +2774,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3807,7 +2790,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "business", "user", "superadmin", "regional_manager"],
+      app_role: ["admin", "business", "user", "superadmin"],
     },
   },
 } as const
