@@ -1,6 +1,6 @@
 // @ts-nocheck
 // ============================================================
-// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v6
+// BATEU WORLD — MMO 3D da plataforma (estilo Hordes.io) · v8
 // Níveis, poderes por classe, missões/saga/desafios, PvP com
 // roubo de cupões e pontos, Banco de Pontos (moeda da
 // plataforma), descobertas, partículas e transições.
@@ -16,6 +16,12 @@
 // MUNDO 55% MAIOR com 7 regiões nomeadas e 18 marcos com
 // SIGNIFICADO, MAPA GRANDE com legenda e bússola de destino,
 // e super-sincronização com a conta (progresso na nuvem).
+// v8: REWORK ESTILO HORDES.IO — câmara de TOPO TÁTICA (~62°)
+// + modo AÇÃO em 3ª pessoa (tecla C), zoom amplo (roda),
+// ATMOSFERA DARK FANTASY (céu de aço, entardecer de brasa,
+// noite abissal, névoa densa), biomas sombrios, floresta
+// mais densa (700 árvores) e HUD de vidro escuro com aro
+// dourado.
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -24,7 +30,7 @@ import {
   Swords, Sparkles, ArrowUp, User, ScrollText, Trophy, MessageSquare,
   X, Copy, Coins, Heart, Zap, Crown, ExternalLink, Check, Wifi, Users,
   Landmark, Map, Shield, Flame, Volume2, VolumeX, MapPin, Smile, Target,
-  Backpack, Settings, Camera, Music, PawPrint, Cloud,
+  Backpack, Settings, Camera, Music, PawPrint, Cloud, Video,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { WorldEngine, SKILLS, LANDMARKS, REGIONS, PVP_SAFE_RADIUS, RARITY_META, type LootItem } from "./worldEngine";
@@ -309,6 +315,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   // v3 — HUD cinematográfico
   const [muted, setMuted] = useState(worldAudio.isMuted);
   const [musicOff, setMusicOff] = useState(worldAudio.isMusicOff);
+  // v8: tipo de câmara ativo (tática = topo estilo Hordes.io / ação = 3ª pessoa)
+  const [camMode, setCamMode] = useState<"tatica" | "acao">("tatica");
   const [bossBar, setBossBar] = useState<{ name: string; pct: number } | null>(null);
   const [buffs, setBuffs] = useState({ atk: 0, hot: 0 });
   const [banner, setBanner] = useState<{ kind: "discover" | "levelup" | "wave"; emoji: string; title: string; sub: string } | null>(null);
@@ -1148,14 +1156,14 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   // ── v6: GATE — só membros registados entram no Bateu World ──
   if (phase === "gate") {
     return (
-      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video overflow-hidden rounded-2xl bg-slate-950 text-white" data-testid="bateu-gate">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
+      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video overflow-hidden rounded-2xl bg-[#07090d] text-white" data-testid="bateu-gate">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#07090d] via-[#0d1420] to-[#07090d]" />
         <motion.div
           className="absolute inset-0 opacity-25"
           animate={{ background: [
-            "radial-gradient(circle at 25% 25%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #38bdf8 0%, transparent 45%)",
-            "radial-gradient(circle at 75% 25%, #8b5cf6 0%, transparent 45%), radial-gradient(circle at 25% 75%, #fbbf24 0%, transparent 45%)",
-            "radial-gradient(circle at 25% 25%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #38bdf8 0%, transparent 45%)",
+            "radial-gradient(circle at 25% 25%, #92400e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #1e3a5f 0%, transparent 45%)",
+            "radial-gradient(circle at 75% 25%, #4c1d95 0%, transparent 45%), radial-gradient(circle at 25% 75%, #7c2d12 0%, transparent 45%)",
+            "radial-gradient(circle at 25% 25%, #92400e 0%, transparent 45%), radial-gradient(circle at 75% 75%, #1e3a5f 0%, transparent 45%)",
           ] }}
           transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
         />
@@ -1165,7 +1173,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
             animate={{ y: [0, -8, 0], rotate: [-4, 4, -4] }}
             transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
           >🔒</motion.div>
-          <h2 className="font-display text-2xl md:text-3xl font-black bg-gradient-to-r from-rose-300 via-amber-200 to-sky-300 bg-clip-text text-transparent">
+          <h2 className="font-display text-2xl md:text-3xl font-black bg-gradient-to-r from-amber-200 via-rose-300 to-amber-100 bg-clip-text text-transparent">
             MUNDO EXCLUSIVO PARA MEMBROS
           </h2>
           <p className="max-w-md text-sm text-white/70">
@@ -1203,15 +1211,15 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   if (phase === "create") {
     const sel = CLASSES[pickClass];
     return (
-      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden text-white bg-slate-950" data-testid="bateu-create">
-        {/* fundo animado v3 */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
+      <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden text-white bg-[#07090d]" data-testid="bateu-create">
+        {/* fundo animado v8 — dark fantasy */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#07090d] via-[#101722] to-[#07090d]" />
         <motion.div
           className="absolute inset-0 opacity-30"
           animate={{ background: [
-            "radial-gradient(circle at 70% 20%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 20% 80%, #38bdf8 0%, transparent 40%)",
-            "radial-gradient(circle at 30% 70%, #8b5cf6 0%, transparent 45%), radial-gradient(circle at 80% 30%, #fbbf24 0%, transparent 40%)",
-            "radial-gradient(circle at 70% 20%, #f43f5e 0%, transparent 45%), radial-gradient(circle at 20% 80%, #38bdf8 0%, transparent 40%)",
+            "radial-gradient(circle at 70% 20%, #7c2d12 0%, transparent 45%), radial-gradient(circle at 20% 80%, #1e3a5f 0%, transparent 40%)",
+            "radial-gradient(circle at 30% 70%, #4c1d95 0%, transparent 45%), radial-gradient(circle at 80% 30%, #92400e 0%, transparent 40%)",
+            "radial-gradient(circle at 70% 20%, #7c2d12 0%, transparent 45%), radial-gradient(circle at 20% 80%, #1e3a5f 0%, transparent 40%)",
           ] }}
           transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
         />
@@ -1233,8 +1241,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               animate={{ y: [0, -6, 0], rotate: [-3, 3, -3] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >🌍</motion.div>
-            <h2 className="font-display text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-rose-300 via-amber-200 to-sky-300 bg-clip-text text-transparent">BATEU WORLD 3D</h2>
-            <p className="text-white/70 text-xs md:text-sm mt-0.5">O MMO da plataforma — luta, sobe de nível, rouba cupões e troca pontos por moeda real</p>
+            <h2 className="font-display text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-300 bg-clip-text text-transparent">BATEU WORLD 3D</h2>
+            <p className="text-white/60 text-xs md:text-sm mt-0.5">O MMO dark fantasy da plataforma — luta, sobe de nível, rouba cupões e troca pontos por moeda real</p>
           </div>
 
           {/* classes com anel de seleção v3 */}
@@ -1244,7 +1252,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 key={cl.name}
                 onClick={() => { setPickClass(i); worldAudio.play("click"); }}
                 whileTap={{ scale: 0.94 }}
-                className={`relative rounded-2xl border-2 p-3 text-center transition-all overflow-hidden ${pickClass === i ? "border-white/70 bg-white/15 scale-[1.04]" : "border-white/15 bg-white/5 hover:border-white/40"}`}
+                className={`relative rounded-2xl border-2 p-3 text-center transition-all overflow-hidden ${pickClass === i ? "border-amber-300/70 bg-amber-400/10 scale-[1.04]" : "border-white/10 bg-white/5 hover:border-amber-300/40"}`}
               >
                 {pickClass === i && (
                   <motion.div
@@ -1432,7 +1440,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
   }
 
   return (
-    <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden bg-slate-900 select-none" data-testid="bateu-world">
+    <div className="relative z-10 w-full aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden bg-[#0a0e13] select-none" data-testid="bateu-world">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
       {/* flash de dano / morte */}
@@ -1441,7 +1449,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <motion.div key={`hit-${hud.hit}`} className="pointer-events-none absolute inset-0 bg-red-600/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />
         )}
         {/* v3: vinheta permanente subtil para foco */}
-        <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 90px 20px rgba(2,6,23,0.55)" }} />
+        <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 130px 42px rgba(0,0,0,0.68)" }} />
         {deathFx && (
           <motion.div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-2 bg-red-950/70 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.p className="font-display text-3xl md:text-4xl font-black text-red-300 drop-shadow-[0_0_18px_rgba(248,113,113,0.8)]" initial={{ scale: 0.6, rotate: -6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}>
@@ -1575,8 +1583,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       {/* ── HUD principal (esconde-se no modo foto) ── */}
       {!photoMode && (
         <>
-      {/* HUD topo-esquerda v3 (vidro + anel de classe + buffs) */}
-      <div className="pointer-events-none absolute left-2 top-2 w-[214px] rounded-2xl border border-white/15 bg-black/55 p-2.5 text-white shadow-xl backdrop-blur-md">
+      {/* HUD topo-esquerda v8 (vidro dark fantasy + anel de classe + buffs) */}
+      <div className="pointer-events-none absolute left-2 top-2 w-[214px] rounded-2xl border border-amber-200/15 bg-[#0a0e15]/75 p-2.5 text-white shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl text-lg" style={{ background: CLASSES[char!.classId]?.color + "33", border: `1.5px solid ${CLASSES[char!.classId]?.color}` }}>
             {CLS_EMOJIS[char!.classId]}
@@ -1633,7 +1641,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         <motion.button
           onClick={() => setPanel("quests")}
           initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-          className="absolute left-2 top-[118px] z-10 w-[214px] rounded-xl border border-amber-400/30 bg-black/50 p-2 text-left text-white backdrop-blur-md hover:bg-black/70 transition-colors"
+          className="absolute left-2 top-[118px] z-10 w-[214px] rounded-xl border border-amber-400/25 bg-[#0a0e15]/70 p-2 text-left text-white backdrop-blur-md hover:bg-[#0a0e15]/90 transition-colors"
           data-testid="bw-tracker"
         >
           <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-amber-300"><Target className="h-2.5 w-2.5" /> Objetivo da Saga</p>
@@ -1659,7 +1667,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           {/* v4: modo foto */}
           <button
             onClick={togglePhoto}
-            className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-black/75 transition-colors"
+            className="flex items-center gap-1 rounded-full bg-[#0a0e15]/70 px-1.5 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-[#0a0e15]/90 transition-colors"
             data-testid="bw-photo"
             title="Modo Foto (P)"
           >
@@ -1668,33 +1676,44 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           {/* v3: som on/off */}
           <button
             onClick={() => setMuted(worldAudio.toggleMute())}
-            className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-black/75 transition-colors"
+            className="flex items-center gap-1 rounded-full bg-[#0a0e15]/70 px-1.5 py-1 text-[11px] font-bold text-white backdrop-blur hover:bg-[#0a0e15]/90 transition-colors"
             data-testid="bw-sound"
             title={muted ? "Ligar som (M)" : "Desligar som (M)"}
           >
             {muted ? <VolumeX className="h-3 w-3 text-red-300" /> : <Volume2 className="h-3 w-3 text-emerald-300" />}
           </button>
-          <div className="pointer-events-none flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+          {/* v8: tipo de câmara — movido para a linha dos Emotes para não cruzar a navegação */}
+          <div className="pointer-events-none flex items-center gap-1 rounded-full bg-[#0a0e15]/70 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
             <Users className="h-3 w-3 text-sky-400" /> {online} online
             {platform?.live && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
           </div>
         </div>
         <div className="relative">
-          <canvas id="bw-minimap" width={100} height={100} className="rounded-xl border border-white/25 shadow-lg" />
+          <canvas id="bw-minimap" width={100} height={100} className="rounded-xl border border-amber-200/30 shadow-lg" />
           <span className="pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-[7px] font-black text-white/80">N</span>
         </div>
         <div className="pointer-events-none rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold text-white/80 backdrop-blur-sm">
           <MapPin className="mr-0.5 inline h-2.5 w-2.5 text-amber-300" />{char!.discoveries.length}/{LANDMARKS.length} descobertas
         </div>
-        {/* v3: roda de emotes */}
+        {/* v3: roda de emotes + v8: tipo de câmara */}
         <div className="flex flex-col items-end gap-1">
-          <button
-            onClick={() => setEmoteOpen((o) => !o)}
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur transition-colors ${emoteOpen ? "bg-white text-slate-900" : "bg-black/55 text-white hover:bg-black/75"}`}
-            data-testid="bw-emote-btn"
-          >
-            <Smile className="h-3 w-3" /> Emotes
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCamMode(engineRef.current?.toggleCam() || "tatica")}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur transition-colors ${camMode === "acao" ? "bg-amber-300/90 text-slate-950" : "bg-[#0a0e15]/70 text-white hover:bg-[#0a0e15]/90"}`}
+              data-testid="bw-cam"
+              title="Mudar tipo de câmara (C) — Tática / Ação"
+            >
+              <Video className="h-3 w-3 text-amber-200" /> {camMode === "tatica" ? "Tática" : "Ação"}
+            </button>
+            <button
+              onClick={() => setEmoteOpen((o) => !o)}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur transition-colors ${emoteOpen ? "bg-amber-300/90 text-slate-950" : "bg-[#0a0e15]/70 text-white hover:bg-[#0a0e15]/90"}`}
+              data-testid="bw-emote-btn"
+            >
+              <Smile className="h-3 w-3" /> Emotes
+            </button>
+          </div>
           <AnimatePresence>
             {emoteOpen && (
               <motion.div
@@ -1807,7 +1826,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       <AnimatePresence>
         {guardOn && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
             className="absolute left-2 top-24 z-10 rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-1 text-[10px] font-black text-amber-200 backdrop-blur"
             data-testid="bw-guard-indicator"
           >
@@ -1817,7 +1836,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
       </AnimatePresence>
 
       {/* painel de navegação superior */}
-      <div className="absolute top-2 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+      <div className="absolute top-2 left-1/2 z-10 flex -translate-x-1/2 gap-1">
         {([
           ["char", <User key="u" className="h-4 w-4" />, "Herói"],
           ["inv", <Backpack key="i" className="h-4 w-4" />, "Mochila"],
@@ -1830,7 +1849,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           <button
             key={id}
             onClick={() => setPanel((p) => (p === id ? "none" : id))}
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-bold backdrop-blur transition-colors ${panel === id ? "bg-white text-slate-900" : "bg-black/55 text-white hover:bg-black/75"}`}
+            className={`flex items-center gap-0.5 rounded-full px-2 py-1.5 text-[10px] font-bold backdrop-blur transition-colors ${panel === id ? "bg-amber-300/90 text-slate-950" : "bg-[#0a0e15]/70 text-white hover:bg-[#0a0e15]/90"}`}
             data-testid={`bw-nav-${id}`}
           >
             {icon} {label}
@@ -1859,7 +1878,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 disabled={locked || cd > 0}
                 data-testid={`bw-skill-${i}`}
                 title={`${sk.name} — ${sk.desc}${locked ? ` (Nv${sk.lvl})` : ""}`}
-                className={`relative flex h-12 w-12 items-center justify-center rounded-full text-xl font-black shadow-lg transition-all active:scale-90 ${locked ? "bg-slate-800/85 text-white/35" : cd > 0 ? "bg-slate-700/85 text-white/50" : "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-amber-500/40 hover:scale-105"}`}
+                className={`relative flex h-12 w-12 items-center justify-center rounded-full text-xl font-black shadow-lg transition-all active:scale-90 ${locked ? "bg-[#11161f]/90 text-white/35" : cd > 0 ? "bg-[#1a2230]/90 text-white/50" : "bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-amber-500/40 hover:scale-105"}`}
               >
                 {!locked && cd <= 0 && <motion.span className="absolute inset-0 rounded-full border-2 border-white/60" animate={{ scale: [1, 1.12, 1], opacity: [0.7, 0, 0.7] }} transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }} />}
                 {locked ? "🔒" : sk.emoji}
@@ -1893,7 +1912,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
               onClick={() => engineRef.current?.toggleGuard()}
               data-testid="bw-guard"
               title="Modo Guarda (Shift) — bloqueia 40% do dano"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full shadow-lg active:scale-90 ${guardOn ? "bg-gradient-to-br from-amber-300 to-yellow-500 text-slate-900 ring-2 ring-white" : "bg-slate-700/90 text-white"}`}
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full shadow-lg active:scale-90 ${guardOn ? "bg-gradient-to-br from-amber-300 to-yellow-500 text-slate-900 ring-2 ring-white" : "bg-[#1a2230]/90 text-white"}`}
             >
               {guardOn && <motion.span className="absolute inset-0 rounded-full border-2 border-amber-200" animate={{ scale: [1, 1.25, 1], opacity: [0.8, 0, 0.8] }} transition={{ duration: 1.2, repeat: Infinity }} />}
               <Shield className="h-5 w-5" />
@@ -1920,7 +1939,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           </motion.p>
         </AnimatePresence>
         <p className="text-[9px] text-white/40">
-          WASD mover · rato girar · clique/F atacar (jogadores perto = PvP!) · 1/2/3 poderes · E interagir · M som
+          WASD mover · rato girar · clique/F atacar (jogadores perto = PvP!) · 1/2/3 poderes · E interagir · C câmara · M som
         </p>
       </div>
 
@@ -2355,7 +2374,7 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
                 >Sincronizar</button>
               </div>
             </div>
-            <p className="mt-3 text-[10px] text-muted-foreground">Teclas: WASD mover · F/clique atacar · 1/2/3 poderes · E interagir · Shift escudo · Tab mapa · M som · P foto.</p>
+            <p className="mt-3 text-[10px] text-muted-foreground">Teclas: WASD mover · F/clique atacar · 1/2/3 poderes · E interagir · Shift escudo · C câmara · Tab mapa · M som · P foto.</p>
           </Panel>
         )}
       </AnimatePresence>

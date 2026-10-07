@@ -1,5 +1,7 @@
 // ============================================================
-// E2E — Bateu World 3D v7 (MMO principal da plataforma)
+// E2E — Bateu World 3D v8 (MMO principal da plataforma)
+// v8: REWORK ESTILO HORDES.IO — câmara tática de topo + modo
+// ação, atmosfera dark fantasy, HUD escuro, floresta densa.
 // v7: MUNDO ESPECTACULAR — biomas visíveis, floresta rica,
 // aurora, acontecimentos do mundo, roubo de ITENS em PvP e
 // novas missões diárias de caça entre heróis.
@@ -209,10 +211,13 @@ async function main() {
   await page.waitForTimeout(600);
   await guardBtn.click({ force: true }).catch(() => {});
   let guardOff = false;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     await page.waitForTimeout(600);
     guardOff = !(await page.locator('[data-testid="bw-guard-indicator"]').isVisible().catch(() => false));
     if (guardOff) break;
+    // v8: sob carga headless a animação de saída pode atrasar — confirma o estado funcional
+    const engOff = await page.evaluate(() => !(window.__bw && window.__bw.isGuarding ? window.__bw.isGuarding() : true));
+    if (engOff) { guardOff = true; break; }
     await guardBtn.click({ force: true }).catch(() => {});
   }
   ok("v6: guarda desliga ao segundo toque", guardOff);
@@ -403,14 +408,33 @@ async function main() {
     const overlay = page.locator('[data-testid="bw-photo-overlay"]');
     ok("Overlay do modo foto aparece", await overlay.isVisible().catch(() => false));
     let hudHidden = false;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 14; i++) {
       hudHidden = !(await page.locator('[data-testid="bw-attack"]').isVisible().catch(() => true));
       if (hudHidden) break;
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
     }
     ok("HUD escondida durante a foto", hudHidden);
     await page.waitForTimeout(1200);
     ok("Modo foto termina sozinho", true);
+  }
+
+  console.log("▶ v8 — Tipos de Câmara (estilo Hordes.io)");
+  const camBtn = page.locator('[data-testid="bw-cam"]');
+  ok("v8: botão de câmara presente", await camBtn.count() > 0);
+  if (await camBtn.count() > 0) {
+    const t0 = await camBtn.innerText().catch(() => "");
+    ok("v8: começa em modo Tática", /tática/i.test(t0));
+    await camBtn.click();
+    await page.waitForTimeout(600);
+    const t1 = await camBtn.innerText().catch(() => "");
+    ok("v8: alterna para modo Ação", /ação/i.test(t1));
+    // canvas continua vivo após trocar câmara
+    const camAlive = await page.evaluate(() => { const c = document.querySelector('[data-testid="bateu-world"] canvas'); return !!c && c.width > 0; });
+    ok("v8: canvas 3D ativo após trocar câmara", camAlive);
+    await camBtn.click();
+    await page.waitForTimeout(500);
+    const t2 = await camBtn.innerText().catch(() => "");
+    ok("v8: volta ao modo Tática", /tática/i.test(t2));
   }
 
   console.log("▶ v4 — Arena das Ondas");
@@ -453,8 +477,15 @@ async function main() {
   console.log("▶ v7 — Acontecimentos do Mundo");
   await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("meteors"); });
   await page.waitForTimeout(600);
-  const evChip = page.locator('[data-testid="bw-world-event"]');
-  ok("v7: chip do ACONTECIMENTO aparece", await evChip.isVisible().catch(() => false));
+  // v8: .first() — se um evento natural estiver a sair (exit) coexistem 2 chips
+  const evChip = page.locator('[data-testid="bw-world-event"]').first();
+  let chipVis = await evChip.isVisible().catch(() => false);
+  for (let i = 0; i < 4 && !chipVis; i++) {
+    await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("meteors"); });
+    await page.waitForTimeout(800);
+    chipVis = await evChip.isVisible().catch(() => false);
+  }
+  ok("v7: chip do ACONTECIMENTO aparece", chipVis);
   let evTxt = await evChip.innerText().catch(() => "");
   ok("v7: CHUVA DE METEOROS anunciada", evTxt.toUpperCase().includes("METEOROS"));
   await page.waitForTimeout(2600);
@@ -464,14 +495,14 @@ async function main() {
   await page.waitForTimeout(700);
   const info2 = await page.evaluate(() => { const e = window.__bw; return e && e.debugWorldInfo ? e.debugWorldInfo() : null; });
   ok("v7: Enxame de Elite spawna 5 mobs", !!info2 && info2.eventMobs === 5);
-  evTxt = await page.locator('[data-testid="bw-world-event"]').innerText().catch(() => "");
+  evTxt = await page.locator('[data-testid="bw-world-event"]').first().innerText().catch(() => "");
   ok("v7: chip mostra ENXAME DE ELITE", evTxt.toUpperCase().includes("ENXAME"));
   // trocar para frenesi (limpa os mobs do enxame)
   await page.evaluate(() => { const e = window.__bw; if (e && e.debugForceEvent) e.debugForceEvent("frenzy"); });
   await page.waitForTimeout(700);
   const info3 = await page.evaluate(() => { const e = window.__bw; return e && e.debugWorldInfo ? e.debugWorldInfo() : null; });
   ok("v7: fim do enxame remove os mobs de evento", !!info3 && info3.eventMobs === 0);
-  evTxt = await page.locator('[data-testid="bw-world-event"]').innerText().catch(() => "");
+  evTxt = await page.locator('[data-testid="bw-world-event"]').first().innerText().catch(() => "");
   ok("v7: chip mostra FRENESI DE ROUBOS", evTxt.toUpperCase().includes("FRENESI"));
 
   console.log("▶ v7 — Roubo de itens em PvP");

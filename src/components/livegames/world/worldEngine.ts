@@ -353,18 +353,19 @@ function groundY(x: number, z: number): number {
 }
 
 // ── v7: bioma dominante numa posição (índice de REGIONS) ────
+// v8: biomas mais sombrios e saturados no escuro — dark fantasy Hordes.io
 const BIOME_COLORS = [
-  { base: 0x4e9c40, alt: 0x63b04b },  // 0 planície — verde savana
-  { base: 0x1e6b3c, alt: 0x2d8549 },  // 1 floresta — verde profundo
-  { base: 0xddb06a, alt: 0xecca8f },  // 2 dunas — areia
-  { base: 0x7fb04c, alt: 0x9cc35e },  // 3 litoral — verde claro
-  { base: 0x41584a, alt: 0x52684f },  // 4 pântano — verde sombrio
-  { base: 0x6e7b74, alt: 0x87928c },  // 5 montanhas — cinza-rocha
-  { base: 0x4a3d3a, alt: 0x5c4a44 },  // 6 vulcânicas — cinza incandescente
+  { base: 0x3f7c33, alt: 0x4f8f3b },  // 0 planície — verde savana sombrio
+  { base: 0x174f2e, alt: 0x215f39 },  // 1 floresta — verde profundo e denso
+  { base: 0xb98d55, alt: 0xd0a469 },  // 2 dunas — areia queimada
+  { base: 0x648c3d, alt: 0x7aa44c },  // 3 litoral — verde frio
+  { base: 0x32443a, alt: 0x3f5346 },  // 4 pântano — verde pantanoso morto
+  { base: 0x565f5a, alt: 0x6b736e },  // 5 montanhas — cinza-rocha frio
+  { base: 0x3a302e, alt: 0x473a36 },  // 6 vulcânicas — obsidiana
 ];
 const C_SAND = new THREE.Color(0xe4c48c);
 const C_STONE = new THREE.Color(0x9aa0a6);
-const C_ROAD = new THREE.Color(0x8a6a3d);
+const C_ROAD = new THREE.Color(0x6f5533);
 
 function biomeOf(x: number, z: number): number {
   let best = 0;
@@ -443,8 +444,10 @@ export class WorldEngine {
   private onGround = true;
   private moveDirFace = new THREE.Vector3(0, 0, -1);
   private camYaw = 0;
-  private camDist = 12;
-  private camPos = new THREE.Vector3(0, 8, 18);
+  private camDist = 13;
+  private camPos = new THREE.Vector3(0, 14, 7);
+  // v8: TIPOS DE CÂMARA — "tatica" (topo íngreme, estilo Hordes.io) | "acao" (3ª pessoa baixa)
+  private camMode: "tatica" | "acao" = "tatica";
 
   private keys = new Set<string>();
   private joy = { x: 0, y: 0 };
@@ -593,17 +596,18 @@ export class WorldEngine {
     });
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87ceeb);
-    this.scene.fog = new THREE.FogExp2(0x9bd0e8, 0.0052); // v6: mundo maior — névoa mais longe
+    // v8: atmossfera dark fantasy estilo Hordes.io — aço-azulado sombrio + névoa densa
+    this.scene.background = new THREE.Color(0x6b93a6);
+    this.scene.fog = new THREE.FogExp2(0x8fb0b8, 0.0074);
 
-    this.camera = new THREE.PerspectiveCamera(58, 1, 0.1, 560);
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 560);
 
-    this.hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3d6b35, 0.95);
+    this.hemi = new THREE.HemisphereLight(0xa8c2d4, 0x2b4524, 0.78);
     this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xfff3d6, 1.15);
+    this.sun = new THREE.DirectionalLight(0xffe8c4, 0.92);
     this.sun.position.set(40, 60, 20);
     this.scene.add(this.sun);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    this.scene.add(new THREE.AmbientLight(0xdfe8f2, 0.12)); // v8: ambiente mínimo — sombras dramáticas
 
     this.buildTerrain();
     this.buildSky();
@@ -1361,8 +1365,9 @@ export class WorldEngine {
 
     // listas de árvores geradas primeiro (2 passadas → instancing limpo)
     const trees: { x: number; z: number; y: number; s: number; type: string; tilt: number; rot: number; b: number }[] = [];
-    for (let i = 0; i < 640; i++) {
-      const bias = Math.random() < 0.4 ? { x: -120, z: -40, r: 88, w: 0.85 }
+    // v8: floresta mais densa — mais árvores com enviesamento para a Floresta Ancestral
+    for (let i = 0; i < 700; i++) {
+      const bias = Math.random() < 0.5 ? { x: -120, z: -40, r: 92, w: 0.88 }
         : Math.random() < 0.5 ? { x: 150, z: 55, r: 75, w: 0.7 } : undefined;
       const [x, z] = spot(bias);
       if (x > 9000) continue;
@@ -2774,6 +2779,8 @@ export class WorldEngine {
     if (e.key === "3") this.skill(2);
     // v6: Shift = erguer/abaixar o escudo (modo guarda)
     if (e.key === "Shift") { e.preventDefault(); this.toggleGuard(); }
+    // v8: C = alterna o tipo de câmara (tática ↔ ação)
+    if (e.key.toLowerCase() === "c") this.toggleCam();
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -2808,7 +2815,8 @@ export class WorldEngine {
   };
 
   private onWheel = (e: WheelEvent): void => {
-    this.camDist = Math.max(6, Math.min(18, this.camDist + (e.deltaY > 0 ? 1.2 : -1.2)));
+    // v8: zoom amplo estilo Hordes.io — de perto (tático) a longe (tático-militar)
+    this.camDist = Math.max(7, Math.min(22, this.camDist + (e.deltaY > 0 ? 1.2 : -1.2)));
   };
 
   setJoystick(x: number, y: number): void {
@@ -2822,6 +2830,14 @@ export class WorldEngine {
       this.onGround = false;
       this.burst(this.pos.clone(), 0xd6c8a8, 5, 1.6, 0.4, 0.07, 3);
     }
+  }
+
+  // v8: alterna entre os tipos de câmara (tecla C / botão HUD)
+  toggleCam(): "tatica" | "acao" {
+    this.camMode = this.camMode === "tatica" ? "acao" : "tatica";
+    this.camDist = this.camMode === "tatica" ? 13 : 11;
+    worldAudio.play("click");
+    return this.camMode;
   }
 
   // ── Combate ─────────────────────────────────────────────────
@@ -4121,10 +4137,11 @@ export class WorldEngine {
     const phase = (t % DAY_LEN) / DAY_LEN; // 0..1
     const dayAmt = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2); // 1=meio-dia, 0=meia-noite
     // v4: paleta em 4 fases (dia / entardecer / noite / amanhecer)
-    const cNoon = new THREE.Color(0x87ceeb);
-    const cDusk = new THREE.Color(0xf59e6b);
-    const cNight = new THREE.Color(0x0b1026);
-    const cDawn = new THREE.Color(0xf9a8d4);
+    // v8: paleta dark fantasy — dia de aço, entardecer de brasa, noite abissal
+    const cNoon = new THREE.Color(0x6b93a6);
+    const cDusk = new THREE.Color(0xbf6b42);
+    const cNight = new THREE.Color(0x05070f);
+    const cDawn = new THREE.Color(0x8f6c8a);
     const sky = new THREE.Color();
     if (dayAmt > 0.55) {
       sky.copy(cDusk).lerp(cNoon, smooth01((dayAmt - 0.55) / 0.45));
@@ -4137,8 +4154,8 @@ export class WorldEngine {
     }
     this.scene.background = sky;
     (this.scene.fog as THREE.FogExp2).color.copy(sky);
-    this.hemi.intensity = 0.35 + dayAmt * 0.65;
-    this.sun.intensity = 0.25 + dayAmt * 0.95;
+    this.hemi.intensity = 0.22 + dayAmt * 0.52;
+    this.sun.intensity = 0.15 + dayAmt * 0.8;
     // luz do sol aquecida ao entardecer
     this.sun.color.setHex(dayAmt < 0.55 && dayAmt > 0.2 ? 0xffb27a : 0xfff3d6);
     const ang = phase * Math.PI * 2;
@@ -4179,9 +4196,9 @@ export class WorldEngine {
     if (this.skyDome) {
       this.skyDome.position.set(this.pos.x, 0, this.pos.z);
       const u = (this.skyDome.material as THREE.ShaderMaterial).uniforms;
-      u.top.value.copy(sky).lerp(new THREE.Color(0x1b4c8c), dayAmt * 0.7);
+      u.top.value.copy(sky).lerp(new THREE.Color(0x153452), dayAmt * 0.7);
       u.mid.value.copy(sky);
-      u.bot.value.copy(sky).lerp(new THREE.Color(0xffffff), 0.18);
+      u.bot.value.copy(sky).lerp(new THREE.Color(0xe8eef2), 0.1);
     }
     // v4: estrelas cadentes à noite
     for (const s of this.shootStars) {
@@ -4336,10 +4353,14 @@ export class WorldEngine {
   }
 
   private updateCamera(dt: number): void {
+    // v8: CÂMARA ESTILO HORDES.IO — vista de topo íngreme (~62°), herói sempre
+    // no foco, rotação por arrasto e zoom amplo. Sensação de "comandar o campo".
+    const back = this.camMode === "tatica" ? this.camDist * 0.5 : this.camDist * 1.05;
+    const height = this.camMode === "tatica" ? this.camDist * 0.98 : this.camDist * 0.42;
     const target = new THREE.Vector3(
-      this.pos.x + Math.sin(this.camYaw) * this.camDist,
-      this.pos.y + 5.5 + this.camDist * 0.32,
-      this.pos.z + Math.cos(this.camYaw) * this.camDist
+      this.pos.x + Math.sin(this.camYaw) * back,
+      this.pos.y + height,
+      this.pos.z + Math.cos(this.camYaw) * back
     );
     this.camPos.lerp(target, Math.min(1, dt * 5));
     this.camera.position.copy(this.camPos);
@@ -4349,7 +4370,7 @@ export class WorldEngine {
       this.camera.position.z += (Math.random() - 0.5) * this.shakeAmp;
       this.shakeAmp *= Math.max(0, 1 - dt * 6);
     }
-    this.camera.lookAt(this.pos.x, this.pos.y + 1.6, this.pos.z);
+    this.camera.lookAt(this.pos.x, this.pos.y + (this.camMode === "tatica" ? 1.1 : 1.9), this.pos.z);
   }
 
   private resize(): void {
