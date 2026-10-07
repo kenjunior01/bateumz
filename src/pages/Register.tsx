@@ -174,7 +174,7 @@ export default function Register() {
     if (result.redirected) return;
     if (!error) { const n = localStorage.getItem('bateu_oauth_next'); localStorage.removeItem('bateu_oauth_next'); window.location.href = n || '/'; return; }
     if (error) {
-      setError("Could not connect with Google. Please try again.");
+      setError(`Could not connect with Google. ${(error as any)?.message ? "(" + (error as any).message + ") " : ""}Please try again — allow pop-ups for this site.`); console.error("[oauth]", error);
       setGoogleLoading(false);
     }
   };
@@ -186,7 +186,7 @@ export default function Register() {
     if (result.redirected) return;
     if (!error) { const n = localStorage.getItem('bateu_oauth_next'); localStorage.removeItem('bateu_oauth_next'); window.location.href = n || '/'; return; }
     if (error) {
-      setError("Could not connect with Apple. Please try again.");
+      setError(`Could not connect with Apple. ${(error as any)?.message ? "(" + (error as any).message + ") " : ""}Please try again — allow pop-ups for this site.`); console.error("[oauth]", error);
       setAppleLoading(false);
     }
   };
