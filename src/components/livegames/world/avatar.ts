@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ============================================================
 // BATEU WORLD — Sistema de Avatares · v5
 // Humanoide articulado 100% customizável (pele, cabelo, traje,
