@@ -13,7 +13,7 @@
 // do jogo e visual sincronizado entre todos os jogadores.
 // v6: SÓ MEMBROS REGISTADOS jogam (conta da plataforma),
 // ESCUDO + DEFESA (stat DEF, modo Guarda, loot de escudos),
-// MUNDO 55% MAIOR com 7 regiões nomeadas e 18 marcos com
+// MUNDO 55% MAIOR com 7 regiões nomeadas e 19 marcos com
 // SIGNIFICADO, MAPA GRANDE com legenda e bússola de destino,
 // e super-sincronização com a conta (progresso na nuvem).
 // v8: REWORK ESTILO HORDES.IO — câmara de TOPO TÁTICA (~62°)
@@ -352,12 +352,15 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
 
   const EMOTES = ["👋", "😄", "❤️", "😤", "🎉", "🙏"];
   const TIPS = [
-    "🗺️ Mundo gigante: 18 marcos com significado — TAB abre o MAPA-MÚNDI",
+    "🗺️ Mundo gigante: 19 marcos com significado — TAB abre o MAPA-MÚNDI",
+    "🏠 Bairro Capulana (a noroeste): ENTRA nas casas, SOBE as escadas e abre os baús escondidos!",
+    "🏦 A IMOBILIÁRIA do Bairro mostra casas e imóveis REAIS à venda na plataforma",
     "🛡️ Segura SHIFT (ou o botão de escudo) para DEFENDER — bloqueia 40% do dano!",
     "🧭 No mapa grande, toca num lugar para marcar o destino — a bússola guia-te",
     "💡 Aproxima-te de um baú e prime E (ou toca no botão) para abrir",
     "⚔️ Clique no mundo = atacar. Perto de jogadores = PvP com roubo!",
-    "🗺️ Explora o mundo gigante: 18 marcos com significado — cada descoberta dá XP e pontos",
+    "🗺️ Explora o mundo gigante: 19 marcos com significado — cada descoberta dá XP e pontos",
+    "🏘️ Dentro de uma casa estás SEGURO — os bugs desistem de te perseguir!",
     "🏟️ A Arena das Ondas (este do mapa) paga pontos e ouro por onda",
     "🎒 Inimigos e chefes dropam equipamento — equipa na Mochila!",
     "🔥 Combo de mortes em menos de 4s = até +50% de XP",
@@ -1393,6 +1396,28 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
           </button>
         </>
       );
+    } else if (card.kind === "imoveis") {
+      // v9: IMOBILIÁRIA BATEU — imóveis REAIS da plataforma (Feira/Alienação)
+      const list = platform.assets.slice(0, 5);
+      cardData = (
+        <>
+          <div className="text-4xl mb-2">🏦</div>
+          <h3 className="font-display font-black text-lg">Imobiliária Bateu</h3>
+          <p className="text-xs text-muted-foreground">Casas, lojas e terrenos REAIS à venda e em leasing — ligados à Feira da plataforma.</p>
+          {list.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {list.map((a) => (
+                <button key={a.id} onClick={() => go(worldRoute("asset", a))} className="flex w-full items-center justify-between rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-left hover:bg-emerald-500/20 transition-colors">
+                  <span className="min-w-0 truncate text-xs font-bold">🏠 {a.title}</span>
+                  <span className="ml-2 shrink-0 text-[11px] font-black text-emerald-400">{fmtMZN(a.value)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">Sem imóveis ativos neste momento — visita a Feira Bateu no leste da praça.</p>
+          )}
+        </>
+      );
     } else if (card.kind === "voucher") {
       const v = platform.vouchers.find((x) => x.id === card.id);
       if (v) {
@@ -1448,8 +1473,8 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         {hud.hit > 0 && (
           <motion.div key={`hit-${hud.hit}`} className="pointer-events-none absolute inset-0 bg-red-600/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />
         )}
-        {/* v3: vinheta permanente subtil para foco */}
-        <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 130px 42px rgba(0,0,0,0.68)" }} />
+        {/* v3: vinheta permanente — v9: mais suave para não roubar visão */}
+        <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 100px 26px rgba(0,0,0,0.5)" }} />
         {deathFx && (
           <motion.div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-2 bg-red-950/70 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.p className="font-display text-3xl md:text-4xl font-black text-red-300 drop-shadow-[0_0_18px_rgba(248,113,113,0.8)]" initial={{ scale: 0.6, rotate: -6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}>
@@ -1636,28 +1661,20 @@ export default function BateuWorld({ onScore, onNavigate }: Props) {
         )}
       </div>
 
-      {/* v3: rastreador de objetivos (saga + diária) sob o HUD */}
+      {/* v9: rastreador COMPACTO — uma linha só, não rouba visão */}
       {char && SAGA[char.sagaIdx] && (
         <motion.button
           onClick={() => setPanel("quests")}
           initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-          className="absolute left-2 top-[118px] z-10 w-[214px] rounded-xl border border-amber-400/25 bg-[#0a0e15]/70 p-2 text-left text-white backdrop-blur-md hover:bg-[#0a0e15]/90 transition-colors"
+          className="absolute left-2 top-[118px] z-10 flex max-w-[250px] items-center gap-1.5 rounded-full border border-amber-400/25 bg-[#0a0e15]/70 px-2.5 py-1 text-left text-white backdrop-blur-md hover:bg-[#0a0e15]/90 transition-colors"
           data-testid="bw-tracker"
+          title="Objetivo da Saga — toca para abrir Missões"
         >
-          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-amber-300"><Target className="h-2.5 w-2.5" /> Objetivo da Saga</p>
-          <p className="truncate text-[11px] font-bold">{SAGA[char.sagaIdx].title}</p>
-          {(() => {
-            const step = SAGA[char.sagaIdx];
-            const prog = Math.min(step.prog(char), step.goal);
-            return (
-              <div className="mt-1">
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all" style={{ width: `${(prog / step.goal) * 100}%` }} />
-                </div>
-                <p className="mt-0.5 text-[9px] text-white/60">{step.desc} · {prog}/{step.goal}</p>
-              </div>
-            );
-          })()}
+          <Target className="h-3 w-3 shrink-0 text-amber-300" />
+          <span className="truncate text-[10px] font-bold">{SAGA[char.sagaIdx].title}</span>
+          <span className="shrink-0 text-[9px] font-black text-amber-300">
+            {Math.min(SAGA[char.sagaIdx].prog(char), SAGA[char.sagaIdx].goal)}/{SAGA[char.sagaIdx].goal}
+          </span>
         </motion.button>
       )}
 

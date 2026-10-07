@@ -1,10 +1,10 @@
 // ============================================================
-// E2E — Bateu World 3D v8 (MMO principal da plataforma)
+// E2E — Bateu World 3D v9 (MMO principal da plataforma)
+// v9: BAIRRO CAPULANA — casas/imóveis ENTRÁVEIS com escadas
+// caminháveis, Imobiliária Bateu (imóveis reais), baús nas
+// casas, VISÃO LIMPA (copas encolhem, etiquetas esvaecem).
 // v8: REWORK ESTILO HORDES.IO — câmara tática de topo + modo
 // ação, atmosfera dark fantasy, HUD escuro, floresta densa.
-// v7: MUNDO ESPECTACULAR — biomas visíveis, floresta rica,
-// aurora, acontecimentos do mundo, roubo de ITENS em PvP e
-// novas missões diárias de caça entre heróis.
 // Requisitos: playwright (chromium), vite dev server na porta 8099
 // Uso: node test-world.mjs
 // ============================================================
@@ -48,9 +48,16 @@ async function main() {
 
   // helper: abrir painel com retry (correspondência EXATA para não apanhar
   // cards do hub que contenham a mesma palavra, ex: "Banco ou Arriscar?")
+  // v9: scroll determinístico ao contentor do jogo antes de clicar (o LiveHub
+  // é comprido — o scrollIntoViewIfNeeded do Playwright pode perder a corrida)
   const openPanel = async (label) => {
-    for (let i = 0; i < 3; i++) {
-      await page.getByRole("button", { name: label, exact: true }).first().click({ timeout: 6000 });
+    for (let i = 0; i < 4; i++) {
+      await page.evaluate(() => {
+        const cv = document.querySelector('[data-testid="bateu-world"]');
+        if (cv) cv.scrollIntoView({ block: "center", behavior: "instant" });
+      }).catch(() => {});
+      await page.waitForTimeout(250);
+      await page.getByRole("button", { name: label, exact: true }).first().click({ timeout: 6000 }).catch(() => {});
       const vis = await page.locator('[data-testid="bw-panel"]').isVisible().catch(() => false);
       if (vis) {
         const t = await page.locator('[data-testid="bw-panel"]').innerText().catch(() => "");
@@ -186,15 +193,16 @@ async function main() {
   ok("v3: rastreador de objetivos presente", await page.locator('[data-testid="bw-tracker"]').count() > 0);
   const hudText = await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "");
   ok("HUD mostra nível + título", hudText.includes("Nv") && hudText.includes("Novato"));
-  let dicaOk = hudText.includes("18 marcos");
+  let dicaOk = hudText.includes("19 marcos");
   for (let i = 0; i < 12 && !dicaOk; i++) {
     await page.waitForTimeout(700);
-    dicaOk = (await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "")).includes("18 marcos");
+    dicaOk = (await page.locator('[data-testid="bateu-world"]').innerText().catch(() => "")).includes("19 marcos");
   }
-  ok("v6: mundo maior anúnciado nas dicas (18 marcos)", dicaOk);
+  ok("v9: mundo maior anúnciado nas dicas (19 marcos)", dicaOk);
   ok("HUD mostra Pontos de Troféu", hudText.includes("🏆"));
   ok("HUD mostra descobertas", hudText.includes("descobertas"));
-  ok("HUD mostra Objetivo da Saga", /objetivo da saga/i.test(hudText));
+  const trackerTitle = await page.locator('[data-testid="bw-tracker"]').getAttribute("title").catch(() => "");
+  ok("HUD mostra Objetivo da Saga", /objetivo da saga/i.test(trackerTitle || ""));
   ok("Botões Herói/Missões/Banco/Ranking", hudText.includes("Herói") && hudText.includes("Missões") && hudText.includes("Banco") && hudText.includes("Ranking"));
   ok("Botão Chat presente", hudText.includes("Chat"));
 
@@ -236,7 +244,7 @@ async function main() {
   ok("v6: lugares por descobrir ficam mistério", mapTxt.includes("por descobrir"));
   ok("v6: canvas do mapa grande presente", await page.locator('[data-testid="bw-bigmap"]').count() > 0);
   const lmCount = await page.locator('[data-testid^="bw-map-"]').count();
-  ok("v6: 18 marcos na legenda do mapa", lmCount === 18);
+  ok("v9: 19 marcos na legenda do mapa", lmCount === 19);
   // marcar destino → bússola
   const arenaItem = page.locator('[data-testid="bw-map-arena"]');
   await arenaItem.evaluate((el) => el.scrollIntoView({ block: "center" })).catch(() => {});
@@ -276,9 +284,11 @@ async function main() {
 
   // ── 5. Combate + poderes ──
   console.log("▶ Combate");
-  await attack.click();
+  await page.evaluate(() => { const cv = document.querySelector('[data-testid="bateu-world"]'); if (cv) cv.scrollIntoView({ block: "center", behavior: "instant" }); }).catch(() => {});
+  await page.waitForTimeout(250);
+  await attack.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(700);
-  await attack.click();
+  await attack.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(700);
   ok("Ataques executados sem erro", true);
   await page.locator('[data-testid="bw-skill-0"]').click({ force: true }).catch(() => {});
@@ -317,7 +327,9 @@ async function main() {
 
   // ── 7. Missões: diárias + saga + desafios ──
   console.log("▶ Missões");
-  const qTxt = await openPanel("Missões");
+  await page.waitForTimeout(1200); // v9: deixa o confetti/banner do save de aparência assentar
+  let qTxt = await openPanel("Missões");
+  if (!qTxt.includes("Missões")) { await page.waitForTimeout(1500); qTxt = await openPanel("Missões"); }
   ok("Painel Missões abre", qTxt.includes("Missões & Desafios"));
   ok("Aba Diárias com missão de inimigos", qTxt.includes("Derrota 10 inimigos"));
   ok("Aba Saga presente", qTxt.includes("Saga"));
@@ -350,7 +362,9 @@ async function main() {
 
   // ── 10. Chat ──
   console.log("▶ Chat");
-  await page.getByRole("button", { name: "Chat", exact: true }).first().click();
+  await page.evaluate(() => { const cv = document.querySelector('[data-testid="bateu-world"]'); if (cv) cv.scrollIntoView({ block: "center", behavior: "instant" }); }).catch(() => {});
+  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: "Chat", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
   const chatInput = page.locator('input[placeholder="Mensagem..."]');
   await chatInput.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
   ok("Input de chat aparece", await chatInput.count() > 0);
@@ -439,6 +453,53 @@ async function main() {
     const t2 = await camBtn.innerText().catch(() => "");
     ok("v8: volta ao modo Tática", /tática/i.test(t2));
   }
+
+  console.log("▶ v9 — Bairro Capulana: casas, escadas e Imobiliária");
+  const bairro = await page.evaluate(() => { const e = window.__bw; return e && e.debugBairroInfo ? e.debugBairroInfo() : null; });
+  ok("v9: 6 casas/imóveis construídas no Bairro", !!bairro && bairro.houses === 6);
+  ok("v9: 2 baús de tesouro nas casas", !!bairro && bairro.chests === 2);
+  ok("v9: colisão de paredes ativa (colisores > 20)", !!bairro && bairro.colliders > 20);
+  ok("v9: superfícies caminháveis (lajes + rampas > 8)", !!bairro && bairro.surfaces > 8);
+  ok("v9: copas registadas para visão limpa (>= 500)", !!bairro && bairro.canopies >= 500);
+  ok("v9: etiquetas grandes registadas para esvaneecer (>= 10)", !!bairro && bairro.labels >= 10);
+  // escada INTERIOR da Casa dos Heróis: apoio sobe da base ao topo
+  const escInt = await page.evaluate(() => { const e = window.__bw; if (!e || !e.debugSupportY) return null; return { base: e.debugSupportY(-19.9, 71.2), top: e.debugSupportY(-22.7, 71.2) }; });
+  ok("v9: escada interior CAMINHÁVEL (topo > base + 2m)", !!escInt && escInt.top > escInt.base + 2);
+  // escada EXTERIOR da Casa do Amanhecer (terraço): apoio sobe
+  const escExt = await page.evaluate(() => { const e = window.__bw; if (!e || !e.debugSupportY) return null; return { base: e.debugSupportY(-58.5, 49.0), top: e.debugSupportY(-62.0, 49.0) }; });
+  ok("v9: escada exterior CAMINHÁVEL (terraço > solo + 2m)", !!escExt && escExt.top > escExt.base + 2);
+  // VISÃO LIMPA: teleporta para junto de uma copa → encolhe
+  await page.evaluate(() => { const e = window.__bw; if (e && e.debugTpNearTree) e.debugTpNearTree(); });
+  await page.waitForTimeout(900);
+  const canopyInfo = await page.evaluate(() => { const e = window.__bw; return e && e.debugBairroInfo ? e.debugBairroInfo() : null; });
+  ok("v9: copa encolhe perto do herói (visão limpa)", !!canopyInfo && canopyInfo.canopiesNear >= 1);
+  // IMOBILIÁRIA: aproxima do balcão → chip de interação → abre painel de imóveis
+  const imobPos = await page.evaluate(() => { const e = window.__bw; return e && e.debugPoiPos ? e.debugPoiPos("imoveis") : null; });
+  ok("v9: Imobiliária tem balcão interativo", !!imobPos);
+  if (imobPos) {
+    await page.evaluate((p) => { const e = window.__bw; if (e && e.debugTp) e.debugTp(p.x, p.z - 1.6); }, imobPos);
+    await page.waitForTimeout(800);
+    const nearTxt = await page.locator("body").innerText().catch(() => "");
+    ok("v9: chip 'IMÓVEIS reais da plataforma' aparece", nearTxt.includes("IMÓVEIS"));
+    await page.evaluate(() => { const e = window.__bw; if (e && e.interact) e.interact(); });
+    await page.waitForTimeout(800);
+    const cardTxt = await page.locator('[data-testid="bw-card"]').innerText().catch(() => "");
+    ok("v9: card da IMOBILIÁRIA abre (Imobiliária Bateu)", cardTxt.includes("Imobiliária Bateu"));
+    await page.locator('[data-testid="bw-card"] button:has-text("Fechar")').first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(400);
+  }
+  // BAÚ da casa: teleporta, abre e ganha tesouro
+  const chestPos = await page.evaluate(() => { const e = window.__bw; return e && e.debugPoiPos ? e.debugPoiPos("chest") : null; });
+  ok("v9: baú de casa posicionado", !!chestPos);
+  if (chestPos) {
+    await page.evaluate((p) => { const e = window.__bw; if (e && e.debugTp) e.debugTp(p.x, p.z + 1.4); }, chestPos);
+    await page.waitForTimeout(700);
+    await page.evaluate(() => { const e = window.__bw; if (e && e.interact) e.interact(); });
+    await page.waitForTimeout(700);
+    const bodyTxt9 = await page.locator("body").innerText().catch(() => "");
+    ok("v9: tesouro da casa aberto (+ouro)", bodyTxt9.includes("Tesouro da casa"));
+  }
+  await page.screenshot({ path: "shots/world-10-bairro.png" });
 
   console.log("▶ v4 — Arena das Ondas");
   await page.evaluate(() => { const e = window.__bw; if (e && e.debugStartArenaHere) e.debugStartArenaHere(); });

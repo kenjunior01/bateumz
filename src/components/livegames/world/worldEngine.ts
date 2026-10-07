@@ -20,6 +20,14 @@
 // ACONTECIMENTOS DO MUNDO (meteoros, frenesi de roubos,
 // enxame de elite), roubo de ITENS em PvP e novas missões
 // diárias de caça entre heróis.
+// v9: BAIRRO CAPULANA — CASAS E IMÓVEIS ENTRÁVEIS com escadas
+// caminháveis (rampas de apoio), pisos superiores, terraços,
+// móveis, baús de tesouro, IMOBILIÁRIA BATEU ligada à Feira
+// (imóveis REAIS da plataforma), colisão de paredes (mobs
+// ficam fora — casas são refúgio seguro), telhados que
+// desaparecem quando entras, janelas que se acendem à noite,
+// VISÃO LIMPA: copas encolhem perto do herói e etiquetas
+// grandes esvaecem quando chegas perto.
 // ============================================================
 
 import * as THREE from "three";
@@ -176,6 +184,8 @@ export const LANDMARKS: { id: string; name: string; x: number; z: number; r: num
   { id: "cacamp", name: "Acampamento dos Caçadores", x: 150, z: 90, r: 10, emoji: "⛺", desc: "Base dos heróis no deserto — fogueira com bónus de XP" },
   { id: "eclipse", name: "Portal do Eclipse", x: -150, z: -140, r: 11, emoji: "🌀", desc: "Portal instável — por aqui entram os bugs mais perigosos" },
   { id: "eco", name: "Gruta do Eco", x: 155, z: -70, r: 9, emoji: "🕳️", desc: "Cada golpe ressoa sete vezes — treina os teus poderes aqui" },
+  // v9 — Bairro Capulana: casas e imóveis entráveis
+  { id: "bairro", name: "Bairro Capulana", x: -40, z: 62, r: 26, emoji: "🏠", desc: "Casas do povo Bateu — entra, sobe as escadas, abre os baús e visita a IMOBILIÁRIA com imóveis REAIS da plataforma" },
 ];
 
 export const ARENA_CENTER = new THREE.Vector3(112, 0, 0);
@@ -272,13 +282,43 @@ interface FloatText {
 
 interface Interactable {
   group: THREE.Group;
-  kind: "raffle" | "contest" | "voucher" | "asset" | "games" | "bank" | "fountain" | "arena";
+  kind: "raffle" | "contest" | "voucher" | "asset" | "games" | "bank" | "fountain" | "arena" | "chest" | "imoveis";
   id: string;
   label: string;
   pos: THREE.Vector3;
   used: boolean;
   lid?: THREE.Mesh;
   icon?: THREE.Sprite;
+}
+
+// v9 — colisores AABB de paredes (bloqueiam herói E mobs)
+interface Collider {
+  minX: number; maxX: number; minZ: number; maxZ: number;
+  y0: number; y1: number;
+}
+// v9 — superfícies caminháveis: lajes (y0=y1) e rampas de escada (y0→y1)
+interface Surface {
+  minX: number; maxX: number; minZ: number; maxZ: number;
+  y0: number; y1: number;
+  axis: "x" | "z";
+  dir: 1 | -1; // direção de subida ao longo do eixo
+}
+// v9 — registo de copas de árvores (para encolher perto do herói)
+interface CanopyInst {
+  mesh: THREE.InstancedMesh;
+  idx: number;
+  x: number; z: number;
+  px: number; py: number; pz: number;
+  rx: number; ry: number; rz: number;
+  sx: number; sy: number; sz: number;
+  cur: number; target: number;
+}
+// v9 — casa construída (para esconder telhado quando dentro)
+interface House {
+  x: number; z: number; w: number; d: number;
+  topParts: THREE.Object3D[];
+  upperParts: THREE.Object3D | null;
+  upperTop: number;
 }
 
 // v4 — loot no chão
@@ -324,7 +364,7 @@ export interface RegionDef {
   color: string;
 }
 export const REGIONS: RegionDef[] = [
-  { id: "planicie", name: "Planície Central", desc: "Zona inicial segura — a Praça, o Banco e a Fonte", cx: 0, cz: 0, r: 70, color: "#4ade80" },
+  { id: "planicie", name: "Planície Central", desc: "Zona inicial segura — a Praça, o Banco, a Fonte e o Bairro Capulana", cx: 0, cz: 0, r: 80, color: "#4ade80" },
   { id: "floresta", name: "Floresta Ancestral", desc: "Árvores milenares a oeste — bugs sombrios nas sombras", cx: -120, cz: -40, r: 85, color: "#15803d" },
   { id: "dunas", name: "Dunas Escaldantes", desc: "Deserto do norte — calor extremo e bugs de elite", cx: -40, cz: -150, r: 85, color: "#f59e0b" },
   { id: "litoral", name: "Litoral das Ondas", desc: "Costa a leste — a Arena e o Lago Misterioso", cx: 130, cz: 20, r: 85, color: "#38bdf8" },
@@ -500,6 +540,17 @@ export class WorldEngine {
   // Vaga-lumes noturnos
   private fireflies: { spr: THREE.Sprite; a: number; r: number; s: number; y0: number }[] = [];
 
+  // v9 — BAIRRO CAPULANA: colisão, escadas caminháveis, casas, visão limpa
+  private colliders: Collider[] = [];
+  private surfaces: Surface[] = [];
+  private canopyReg: CanopyInst[] = [];
+  private canopyDirty = false;
+  private fadeSprites: { spr: THREE.Sprite; wx: number; wz: number; cur: number }[] = [];
+  private houses: House[] = [];
+  private glowMats: { mat: THREE.MeshBasicMaterial; day: THREE.Color; night: THREE.Color }[] = [];
+  private houseLights: THREE.PointLight[] = [];
+  private visT = 0;
+
   // v7 — atmosfera por bioma + cenário vivo
   private ambFx: { spr: THREE.Sprite; kind: "mist" | "dust" | "ash"; cx: number; cz: number; a: number; r: number; s: number; y0: number; size: number; phase: number }[] = [];
   private aurora: THREE.Group | null = null;
@@ -615,6 +666,7 @@ export class WorldEngine {
     this.buildPlaza();
     this.buildPOIs();
     this.buildLandmarks();
+    this.buildBairro(); // v9: casas e imóveis entráveis com escadas
     this.buildArena();
     this.buildNature();
     // v5: configuração do avatar antes de construir o corpo
@@ -649,12 +701,12 @@ export class WorldEngine {
       this.composer.addPass(new RenderPass(this.scene, this.camera));
       this.bloomPass = new UnrealBloomPass(size, 0.42, 0.6, 0.82);
       this.composer.addPass(this.bloomPass);
-      // vinheta + saturação suave (film look)
+      // vinheta + saturação suave (film look) — v9: mais SUAVE, não rouba visão
       this.vignettePass = new ShaderPass({
         uniforms: {
           tDiffuse: { value: null },
-          offset: { value: 1.12 },
-          darkness: { value: 0.62 },
+          offset: { value: 1.24 },
+          darkness: { value: 0.4 },
           saturation: { value: 1.07 },
         },
         vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
@@ -1055,6 +1107,7 @@ export class WorldEngine {
     label.scale.set(15, 3.75, 1);
     label.position.set(0, groundY(0, -52) + 9, -60);
     this.scene.add(label);
+    this.registerFade(label); // v9: esvanece quando chegas perto
   }
 
   private buildMarket(): void {
@@ -1063,6 +1116,7 @@ export class WorldEngine {
     label.scale.set(11, 2.75, 1);
     label.position.set(60, groundY(52, 0) + 8, 0);
     this.scene.add(label);
+    this.registerFade(label); // v9
   }
 
   private buildTower(): void {
@@ -1071,6 +1125,7 @@ export class WorldEngine {
     label.scale.set(16, 4, 1);
     label.position.set(-60, groundY(-52, 0) + 8.5, 0);
     this.scene.add(label);
+    this.registerFade(label); // v9
   }
 
   private buildVault(): void {
@@ -1079,6 +1134,7 @@ export class WorldEngine {
     label.scale.set(13, 3.25, 1);
     label.position.set(0, groundY(0, 52) + 8, 60);
     this.scene.add(label);
+    this.registerFade(label); // v9
   }
 
   // ── Marcos exploráveis (descobertas) ────────────────────────
@@ -1173,6 +1229,543 @@ export class WorldEngine {
     this.scene.add(baoba);
   }
 
+  // ══ v9: BAIRRO CAPULANA — casas e imóveis ENTRÁVEIS ════════
+
+  private registerFade(spr: THREE.Sprite): void {
+    const wp = new THREE.Vector3();
+    spr.getWorldPosition(wp);
+    this.fadeSprites.push({ spr, wx: wp.x, wz: wp.z, cur: 1 });
+  }
+
+  private addSurface(s: Surface): void { this.surfaces.push(s); }
+
+  /** v9: regista um colisor de parede (bloqueia herói e mobs). */
+  private addCollider(c: Collider): void { this.colliders.push(c); }
+
+  /** v9: regista uma copa instanciada para encolher perto do herói (visão limpa). */
+  private regCanopy(mesh: THREE.InstancedMesh, idx: number, dummy: THREE.Object3D): void {
+    this.canopyReg.push({
+      mesh, idx,
+      x: dummy.position.x, z: dummy.position.z,
+      px: dummy.position.x, py: dummy.position.y, pz: dummy.position.z,
+      rx: dummy.rotation.x, ry: dummy.rotation.y, rz: dummy.rotation.z,
+      sx: dummy.scale.x, sy: dummy.scale.y, sz: dummy.scale.z,
+      cur: 1, target: 1,
+    });
+  }
+
+  /** v9: o herói está dentro de alguma casa? (refúgio seguro) */
+  inAnyHouse(x: number, z: number): boolean {
+    for (const h of this.houses) {
+      if (Math.abs(x - h.x) < h.w / 2 + 0.6 && Math.abs(z - h.z) < h.d / 2 + 0.6) return true;
+    }
+    return false;
+  }
+
+  /** v9: altura de apoio real (terreno + lajes + rampas de escada). */
+  supportY(x: number, z: number, curY: number): number {
+    let y = groundY(x, z);
+    for (const s of this.surfaces) {
+      if (x < s.minX || x > s.maxX || z < s.minZ || z > s.maxZ) continue;
+      const span = s.axis === "x" ? s.maxX - s.minX : s.maxZ - s.minZ;
+      const t = span > 0.001 ? (s.axis === "x" ? x - s.minX : z - s.minZ) / span : 0;
+      const sy = s.y0 + (s.y1 - s.y0) * (s.dir === 1 ? t : 1 - t);
+      if (curY >= sy - 1.15 && sy > y) y = sy;
+    }
+    return y;
+  }
+
+  /** v9: empurra uma posição fora de paredes (herói e mobs). */
+  private resolveXZ(p: THREE.Vector3, radius: number): void {
+    for (const c of this.colliders) {
+      if (p.y >= c.y1 - 0.3) continue; // por cima da parede
+      if (p.y + 1.6 < c.y0) continue; // muito abaixo (piso superior)
+      const nx = Math.max(c.minX, Math.min(p.x, c.maxX));
+      const nz = Math.max(c.minZ, Math.min(p.z, c.maxZ));
+      const dx = p.x - nx, dz = p.z - nz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 > radius * radius) continue;
+      if (d2 > 0.0001) {
+        const d = Math.sqrt(d2);
+        p.x = nx + (dx / d) * radius;
+        p.z = nz + (dz / d) * radius;
+      } else {
+        // centro dentro da parede — sai pelo eixo mais raso
+        const pushL = p.x - (c.minX - radius), pushR = (c.maxX + radius) - p.x;
+        const pushB = p.z - (c.minZ - radius), pushF = (c.maxZ + radius) - p.z;
+        const m = Math.min(pushL, pushR, pushB, pushF);
+        if (m === pushL) p.x = c.minX - radius;
+        else if (m === pushR) p.x = c.maxX + radius;
+        else if (m === pushB) p.z = c.minZ - radius;
+        else p.z = c.maxZ + radius;
+      }
+    }
+  }
+
+  private buildBairro(): void {
+    const CX = -40, CZ = 62;
+    const baseY = groundY(CX, CZ);
+
+    // ── praça de pedra central ──
+    const plaza = new THREE.Mesh(
+      new THREE.CylinderGeometry(11, 11.8, 0.4, 26),
+      new THREE.MeshLambertMaterial({ color: 0x767066 })
+    );
+    plaza.position.set(CX, baseY + 0.16, CZ);
+    this.scene.add(plaza);
+    this.addSurface({ minX: CX - 7.6, maxX: CX + 7.6, minZ: CZ - 7.6, maxZ: CZ + 7.6, y0: baseY + 0.36, y1: baseY + 0.36, axis: "x", dir: 1 });
+
+    // ── poço central ──
+    const well = new THREE.Group();
+    const wWall = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.2, 1.0, 12), new THREE.MeshLambertMaterial({ color: 0x8d8578 }));
+    wWall.position.y = 0.5;
+    const wWater = new THREE.Mesh(new THREE.CircleGeometry(0.85, 12), new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.85 }));
+    wWater.rotation.x = -Math.PI / 2; wWater.position.y = 0.88;
+    const wPost1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.4), new THREE.MeshLambertMaterial({ color: 0x6b4a2b }));
+    wPost1.position.set(-0.9, 1.7, 0);
+    const wPost2 = wPost1.clone(); wPost2.position.x = 0.9;
+    const wRoof = new THREE.Mesh(new THREE.ConeGeometry(1.7, 0.9, 4), new THREE.MeshLambertMaterial({ color: 0x9c4a3c }));
+    wRoof.position.y = 3.1; wRoof.rotation.y = Math.PI / 4;
+    well.add(wWall, wWater, wPost1, wPost2, wRoof);
+    well.position.set(CX, baseY + 0.36, CZ);
+    this.scene.add(well);
+    const wLight = new THREE.PointLight(0x22d3ee, 12, 8);
+    wLight.position.set(CX, baseY + 1.6, CZ);
+    this.scene.add(wLight);
+
+    // ── etiqueta do bairro ──
+    const bLabel = makeTextSprite("🏠 BAIRRO CAPULANA", { size: 44, bg: true, accent: "#fbbf24" });
+    bLabel.scale.set(15, 3.75, 1);
+    bLabel.position.set(CX, baseY + 11, CZ - 22);
+    this.scene.add(bLabel);
+    this.registerFade(bLabel);
+
+    // ── 4 lanternas da praça (acendem à noite) ──
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const lx = CX + Math.cos(a) * 8.6, lz = CZ + Math.sin(a) * 8.6;
+      const ly = groundY(lx, lz);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 3.4, 6), new THREE.MeshLambertMaterial({ color: 0x3d3a35 }));
+      pole.position.set(lx, ly + 1.7, lz);
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.5), new THREE.MeshBasicMaterial({ color: 0x2a3440 }));
+      box.position.set(lx, ly + 3.6, lz);
+      this.glowMats.push({ mat: box.material as THREE.MeshBasicMaterial, day: new THREE.Color(0x2a3440), night: new THREE.Color(0xffd9a0) });
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.35, 4), new THREE.MeshLambertMaterial({ color: 0x3d3a35 }));
+      cap.position.set(lx, ly + 4.05, lz); cap.rotation.y = Math.PI / 4;
+      const pl = new THREE.PointLight(0xffc98a, 0, 11);
+      pl.position.set(lx, ly + 3.6, lz);
+      this.houseLights.push(pl);
+      this.scene.add(pole, box, cap, pl);
+    }
+
+    // ── CASAS em redor da praça (porta virada ao centro) ──
+    // posição por ângulo → lado da porta calculado
+    const place = (angDeg: number, dist: number): { x: number; z: number; door: "n" | "s" | "e" | "w" } => {
+      const a = (angDeg * Math.PI) / 180;
+      const x = CX + Math.cos(a) * dist, z = CZ + Math.sin(a) * dist;
+      const dx = CX - x, dz = CZ - z;
+      let door: "n" | "s" | "e" | "w" = "s";
+      if (Math.abs(dx) > Math.abs(dz)) door = dx > 0 ? "e" : "w";
+      else door = dz > 0 ? "s" : "n";
+      return { x, z, door };
+    };
+
+    // Casa do Amanhecer — terraço no telhado com escada exterior
+    const p1 = place(205, 20);
+    this.buildHouse(p1.x, p1.z, {
+      w: 8.4, d: 7, door: p1.door, wallCol: 0xd8c8a8, roofCol: 0xb45f4d,
+      name: "Casa do Amanhecer", emoji: "🌅", accent: "#fbbf24", terrace: true, chest: true,
+    });
+    // Casa Capulana — cores de capulana
+    const p2 = place(255, 21);
+    this.buildHouse(p2.x, p2.z, {
+      w: 8, d: 7.2, door: p2.door, wallCol: 0x2f6f5e, roofCol: 0xd99a3d,
+      name: "Casa Capulana", emoji: "🧵", accent: "#34d399",
+    });
+    // Casa do Pescador
+    const p3 = place(305, 20);
+    this.buildHouse(p3.x, p3.z, {
+      w: 7.6, d: 6.8, door: p3.door, wallCol: 0x7fa8c9, roofCol: 0x4a6d8c,
+      name: "Casa do Pescador", emoji: "🎣", accent: "#38bdf8",
+    });
+    // Casa dos Heróis — 2 andares com escada interior
+    const p4 = place(35, 21);
+    this.buildHouse(p4.x, p4.z, {
+      w: 9.2, d: 8, door: p4.door, wallCol: 0x8c6f5a, roofCol: 0x4d3d30,
+      name: "Casa dos Heróis", emoji: "⚔️", accent: "#f87171", floors: 2, chest: true,
+    });
+    // Casa do Ferreiro
+    const p5 = place(85, 20);
+    this.buildHouse(p5.x, p5.z, {
+      w: 7.8, d: 6.8, door: p5.door, wallCol: 0x5a5a62, roofCol: 0x38383f,
+      name: "Casa do Ferreiro", emoji: "🔨", accent: "#a8a29e",
+    });
+    // IMOBILIÁRIA BATEU — 2 andares, ligada à Feira (imóveis reais)
+    const p6 = place(135, 23);
+    this.buildHouse(p6.x, p6.z, {
+      w: 13, d: 9.4, door: p6.door, wallCol: 0x273449, roofCol: 0xf59e0b,
+      name: "IMOBILIÁRIA BATEU", emoji: "🏦", accent: "#fbbf24", floors: 2, imobiliaria: true,
+    });
+  }
+
+  /** v9: constrói uma casa ENTRÁVEL — porta, janelas, móveis, escadas,
+   *  pisos superiores, terraço ou telhado, baús e luzes noturnas. */
+  private buildHouse(
+    cx: number, cz: number,
+    opts: {
+      w: number; d: number; door: "n" | "s" | "e" | "w";
+      wallCol: number; roofCol: number; name: string; emoji: string; accent: string;
+      floors?: 1 | 2; terrace?: boolean; chest?: boolean; imobiliaria?: boolean;
+    }
+  ): void {
+    const { w, d, door } = opts;
+    const fy = groundY(cx, cz);
+    const floors = opts.floors || 1;
+    const wallH = floors === 2 ? 5.9 : 3.2;
+    const th = 0.26;
+    const floorTop = fy + 0.38;
+    const g = new THREE.Group();
+    const topParts: THREE.Object3D[] = [];
+    let upperParts: THREE.Object3D | null = null;
+    let upperTop = 0;
+
+    // fundação + piso
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.7, 0.55, d + 1.7), new THREE.MeshLambertMaterial({ color: 0x6f6a60 }));
+    slab.position.y = fy + 0.08;
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), new THREE.MeshLambertMaterial({ color: 0x9c7a52 }));
+    floor.position.y = fy + 0.24;
+    g.add(slab, floor);
+    this.addSurface({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, y0: floorTop, y1: floorTop, axis: "x", dir: 1 });
+
+    const wallMat = new THREE.MeshLambertMaterial({ color: opts.wallCol });
+    const trimMat = new THREE.MeshLambertMaterial({ color: 0x4a3b2c });
+
+    // paredes com colisor — doorSide define onde fica o vão (1.7 × 2.5)
+    const DW = 1.7, DH = 2.5;
+    const segW = (len: number) => (len - DW) / 2;
+    const mkWall = (axis: "x" | "z", fixed: number, len: number, collide = true): void => {
+      // axis="x" → parede ao longo de X (norte/sul, z=fixed); axis="z" → ao longo de Z (este/oeste, x=fixed)
+      const seg = segW(len);
+      const mk = (gw: number, gd: number, ox: number, oz: number, solid = true) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(gw, wallH, gd), wallMat);
+        m.position.set(cx + ox, fy + wallH / 2 + 0.38, cz + oz);
+        g.add(m);
+        if (solid && collide) this.addCollider({
+          minX: cx + ox - gw / 2, maxX: cx + ox + gw / 2,
+          minZ: cz + oz - gd / 2, maxZ: cz + oz + gd / 2,
+          y0: fy, y1: fy + 0.38 + wallH,
+        });
+      };
+      if (axis === "x") {
+        const zc = fixed;
+        // vão no lado "s" (z = cz + d/2) ou "n" (z = cz - d/2) → parte ao meio
+        const hasDoor = (door === "s" && zc > cz) || (door === "n" && zc < cz);
+        if (hasDoor) {
+          mk(seg, th, -(DW / 2 + seg / 2), zc - cz);
+          mk(seg, th, (DW / 2 + seg / 2), zc - cz);
+          // verga sobre a porta
+          const lintel = new THREE.Mesh(new THREE.BoxGeometry(DW + 0.3, wallH - DH, th), wallMat);
+          lintel.position.set(cx, fy + 0.38 + DH + (wallH - DH) / 2, zc);
+          g.add(lintel);
+          // marco da porta
+          const jamb1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, DH, th + 0.1), trimMat);
+          jamb1.position.set(cx - DW / 2 - 0.08, fy + 0.38 + DH / 2, zc);
+          const jamb2 = jamb1.clone(); jamb2.position.x = cx + DW / 2 + 0.08;
+          const head = new THREE.Mesh(new THREE.BoxGeometry(DW + 0.46, 0.16, th + 0.1), trimMat);
+          head.position.set(cx, fy + 0.38 + DH + 0.08, zc);
+          g.add(jamb1, jamb2, head);
+        } else {
+          mk(len, th, 0, zc - cz);
+        }
+      } else {
+        const xc = fixed;
+        const hasDoor = (door === "e" && xc > cx) || (door === "w" && xc < cx);
+        if (hasDoor) {
+          mk(th, seg, xc - cx, -(DW / 2 + seg / 2));
+          mk(th, seg, xc - cx, (DW / 2 + seg / 2));
+          const lintel = new THREE.Mesh(new THREE.BoxGeometry(th, wallH - DH, DW + 0.3), wallMat);
+          lintel.position.set(xc, fy + 0.38 + DH + (wallH - DH) / 2, cz);
+          g.add(lintel);
+          const jamb1 = new THREE.Mesh(new THREE.BoxGeometry(th + 0.1, DH, 0.16), trimMat);
+          jamb1.position.set(xc, fy + 0.38 + DH / 2, cz - DW / 2 - 0.08);
+          const jamb2 = jamb1.clone(); jamb2.position.z = cz + DW / 2 + 0.08;
+          const head = new THREE.Mesh(new THREE.BoxGeometry(th + 0.1, 0.16, DW + 0.46), trimMat);
+          head.position.set(xc, fy + 0.38 + DH + 0.08, cz);
+          g.add(jamb1, jamb2, head);
+        } else {
+          mk(th, len, xc - cx, 0);
+        }
+      }
+    };
+    mkWall("x", cz + d / 2, w); // sul
+    mkWall("x", cz - d / 2, w); // norte
+    mkWall("z", cx + w / 2, d); // este
+    mkWall("z", cx - w / 2, d); // oeste
+
+    // janelas luminosas (acendem à noite) — vidro saliente para o marco emoldurar
+    const winMat = new THREE.MeshBasicMaterial({ color: 0x2a3440 });
+    this.glowMats.push({ mat: winMat, day: new THREE.Color(0x2a3440), night: new THREE.Color(0xffd9a0) });
+    const winYs = floors === 2 ? [1.7, 4.5] : [1.8];
+    const addWin = (x: number, z: number, alongX: boolean, y: number) => {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(alongX ? 1.0 : 0.24, 0.9, alongX ? 0.24 : 1.0), winMat);
+      win.position.set(x, fy + 0.38 + y, z);
+      g.add(win);
+      const frame = new THREE.Mesh(
+        new THREE.BoxGeometry(alongX ? 1.3 : 0.14, 1.2, alongX ? 0.14 : 1.3),
+        trimMat
+      );
+      frame.position.set(x, fy + 0.38 + y, z);
+      g.add(frame);
+    };
+    for (const wy of winYs) {
+      addWin(cx - w * 0.26, cz - d / 2 - th / 2 - 0.02, true, wy); // norte
+      addWin(cx + w * 0.26, cz - d / 2 - th / 2 - 0.02, true, wy);
+      addWin(cx - w * 0.26, cz + d / 2 + th / 2 + 0.02, true, wy); // sul
+      addWin(cx + w * 0.26, cz + d / 2 + th / 2 + 0.02, true, wy);
+      addWin(cx - w / 2 - th / 2 - 0.02, cz, false, wy); // oeste
+      addWin(cx + w / 2 + th / 2 + 0.02, cz, false, wy); // este
+    }
+
+    // ── interior: móveis do piso térreo ──
+    const furnMat = new THREE.MeshLambertMaterial({ color: 0x7c5a3a });
+    const clothMat = new THREE.MeshLambertMaterial({ color: 0xb0563c });
+    // cama
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 2.1), furnMat);
+    bed.position.set(cx - w / 2 + 1.1, floorTop + 0.25, cz - d / 2 + 1.6);
+    const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.18, 0.5), clothMat);
+    pillow.position.set(bed.position.x, floorTop + 0.58, bed.position.z - 0.65);
+    g.add(bed, pillow);
+    // mesa + 2 bancos
+    const table = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.14, 1.0), furnMat);
+    table.position.set(cx + w * 0.18, floorTop + 0.86, cz + d * 0.12);
+    const tLeg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.72, 0.12), furnMat);
+    tLeg.position.set(table.position.x - 0.7, floorTop + 0.36, table.position.z - 0.35);
+    const tLeg2 = tLeg.clone(); tLeg2.position.x += 1.4; tLeg2.position.z += 0.7;
+    const tLeg3 = tLeg.clone(); tLeg3.position.z += 0.7;
+    const tLeg4 = tLeg.clone(); tLeg4.position.x += 1.4;
+    g.add(table, tLeg, tLeg2, tLeg3, tLeg4);
+    for (const sx of [-0.45, 0.45]) {
+      const stool = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), furnMat);
+      stool.position.set(table.position.x + sx, floorTop + 0.25, table.position.z + 1.1);
+      g.add(stool);
+    }
+    // tapete
+    const rug = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.05, 1.9), new THREE.MeshLambertMaterial({ color: 0xc2803f }));
+    rug.position.set(cx + 0.2, floorTop + 0.03, cz + 0.4);
+    g.add(rug);
+    // prateleira na parede de trás
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.3, 0.3), trimMat);
+    const backZ = door === "n" ? cz + d / 2 - 0.5 : cz - d / 2 + 0.5;
+    shelf.position.set(cx - w * 0.24, floorTop + 0.75, backZ);
+    g.add(shelf);
+
+    // luz interior (acende à noite)
+    const inLight = new THREE.PointLight(0xffc98a, 0, 11);
+    inLight.position.set(cx, floorTop + 2.3, cz);
+    this.houseLights.push(inLight);
+    g.add(inLight);
+
+    // ── pisos superiores / telhado ──
+    const roofGrp = new THREE.Group();
+    if (floors === 2) {
+      // piso superior na metade oeste, escada interior no lado este
+      upperTop = floorTop + 2.9;
+      const upGrp = new THREE.Group();
+      const slab2 = new THREE.Mesh(new THREE.BoxGeometry(w / 2 - 0.26, 0.26, d - 0.5), new THREE.MeshLambertMaterial({ color: 0x8a6a44 }));
+      slab2.position.set(cx - w / 4 + 0.05, upperTop - 0.13, cz);
+      upGrp.add(slab2);
+      // v9: laje superior CAMINHÁVEL (liga com o topo da escada)
+      this.addSurface({ minX: cx - w / 2 + 0.2, maxX: cx - 0.08, minZ: cz - d / 2 + 0.25, maxZ: cz + d / 2 - 0.25, y0: upperTop, y1: upperTop, axis: "x", dir: 1 });
+      // guarda-corpo do piso superior (com abertura onde a escada chega)
+      const parMat = new THREE.MeshLambertMaterial({ color: 0x5c4530 });
+      const ph = 0.85, pth = 0.14;
+      const rail = (gw: number, gd: number, x: number, z: number) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(gw, ph, gd), parMat);
+        m.position.set(x, upperTop + ph / 2, z);
+        upGrp.add(m);
+        this.addCollider({ minX: x - gw / 2, maxX: x + gw / 2, minZ: z - gd / 2, maxZ: z + gd / 2, y0: upperTop - 0.4, y1: upperTop + ph });
+      };
+      const stairZ0 = cz - d / 2 + 0.62, stairZ1 = stairZ0 + 1.14; // banda da escada
+      const eX = cx - 0.14; // borda leste do piso
+      rail(w / 2 - 0.5, pth, cx - w / 4 + 0.1, cz - d / 2 + 0.36); // norte
+      rail(w / 2 - 0.5, pth, cx - w / 4 + 0.1, cz + d / 2 - 0.36); // sul
+      rail(pth, d - 0.7, cx - w / 2 + 0.36, cz); // oeste
+      // leste em duas partes (abertura na banda da escada)
+      const zSouthLen = cz + d / 2 - 0.36 - stairZ1;
+      if (zSouthLen > 0.3) rail(pth, zSouthLen, eX, stairZ1 + zSouthLen / 2);
+      const zNorthLen = stairZ0 - (cz - d / 2 + 0.36);
+      if (zNorthLen > 0.3) rail(pth, zNorthLen, eX, cz - d / 2 + 0.36 + zNorthLen / 2);
+      // móveis de cima: mesa de mapas + baú decorativo
+      const upTable = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 0.9), furnMat);
+      upTable.position.set(cx - w / 4, upperTop + 0.7, cz - d * 0.18);
+      const mapSpr = makeTextSprite("🗺️", { size: 60 });
+      mapSpr.scale.set(0.9, 0.9, 1);
+      mapSpr.position.set(upTable.position.x, upperTop + 1.35, upTable.position.z);
+      upGrp.add(upTable, mapSpr);
+      const upperLight = new THREE.PointLight(0xffc98a, 0, 9);
+      upperLight.position.set(cx - w / 4, upperTop + 1.8, cz);
+      this.houseLights.push(upperLight);
+      upGrp.add(upperLight);
+      upperParts = upGrp;
+      g.add(upGrp);
+      // escada interior: 9 degraus ao longo de X, chega à borda leste do piso
+      const run = 3.06, rise = 2.9 / 9;
+      for (let i = 0; i < 9; i++) {
+        const hgt = rise * (i + 1);
+        const st = new THREE.Mesh(new THREE.BoxGeometry(0.34, hgt, 1.14), new THREE.MeshLambertMaterial({ color: 0x8a6a44 }));
+        st.position.set(cx + run - i * 0.34 - 0.17, floorTop + hgt / 2, stairZ0 + 0.57);
+        g.add(st);
+      }
+      this.addSurface({ minX: cx - 0.02, maxX: cx + run, minZ: stairZ0, maxZ: stairZ1, y0: floorTop, y1: upperTop, axis: "x", dir: -1 });
+      // telhado alto
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.72, 2.4, 4), new THREE.MeshLambertMaterial({ color: opts.roofCol }));
+      roof.position.y = fy + wallH + 1.2 + 0.38;
+      roof.rotation.y = Math.PI / 4;
+      roofGrp.add(roof);
+    } else if (opts.terrace) {
+      // telhado-plano terraço com guarda-corpo e escada EXTERIOR
+      const roofTop = fy + 0.38 + wallH + 0.18;
+      upperTop = roofTop;
+      const roofSlab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.24, d + 0.7), new THREE.MeshLambertMaterial({ color: 0x5f574c }));
+      roofSlab.position.y = roofTop - 0.12;
+      roofGrp.add(roofSlab);
+      // v9: terraço CAMINHÁVEL (liga com o topo da escada exterior)
+      this.addSurface({ minX: cx - w / 2 - 0.35, maxX: cx + w / 2 + 0.35, minZ: cz - d / 2 - 0.35, maxZ: cz + d / 2 + 0.35, y0: roofTop, y1: roofTop, axis: "x", dir: 1 });
+      const parMat = new THREE.MeshLambertMaterial({ color: 0xd8c8a8 });
+      const ph = 0.9, pth = 0.16;
+      const rail = (gw: number, gd: number, x: number, z: number) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(gw, ph, gd), parMat);
+        m.position.set(x, roofTop + ph / 2, z);
+        roofGrp.add(m);
+        this.addCollider({ minX: x - gw / 2, maxX: x + gw / 2, minZ: z - gd / 2, maxZ: z + gd / 2, y0: roofTop - 0.4, y1: roofTop + ph });
+      };
+      // escada exterior sobe ao longo de X no lado NORTE, chega no canto oeste
+      const run = 4.2;
+      const arrX0 = cx - w / 2 - 0.2, arrX1 = arrX0 + 1.7; // abertura no guarda-corpo norte
+      const nLen = cx + w / 2 + 0.35 - arrX1; // norte a leste da abertura
+      if (nLen > 0.4) rail(nLen, pth, arrX1 + nLen / 2, cz - d / 2 - 0.3);
+      rail(pth, d + 0.7, cx - w / 2 - 0.3, cz); // oeste completo
+      rail(w + 0.7, pth, cx, cz + d / 2 + 0.3); // sul
+      rail(pth, d + 0.7, cx + w / 2 + 0.3, cz); // este
+      // mobília do terraço
+      const chair = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.55, 0.6), clothMat);
+      chair.position.set(cx + 1.2, roofTop + 0.28, cz + 0.8);
+      const chair2 = chair.clone(); chair2.position.set(cx - 0.4, roofTop + 0.28, cz + 1.1);
+      const tTable = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.8), furnMat);
+      tTable.position.set(cx + 0.4, roofTop + 0.42, cz + 0.2);
+      roofGrp.add(chair, chair2, tTable);
+      // pergola com luzinhas
+      for (const [px, pz] of [[cx - w / 2 + 0.6, cz - d / 2 + 0.6], [cx + w / 2 - 0.6, cz - d / 2 + 0.6], [cx - w / 2 + 0.6, cz + d / 2 - 0.6], [cx + w / 2 - 0.6, cz + d / 2 - 0.6]]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.7, 6), trimMat);
+        post.position.set(px, roofTop + 0.85, pz);
+        roofGrp.add(post);
+      }
+      for (let i = 0; i < 3; i++) {
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), new THREE.MeshBasicMaterial({ color: 0x2a3440 }));
+        bulb.position.set(cx - 1.2 + i * 1.2, roofTop + 1.72, 0);
+        bulb.position.z = cz;
+        this.glowMats.push({ mat: bulb.material as THREE.MeshBasicMaterial, day: new THREE.Color(0x2a3440), night: new THREE.Color(0xffd9a0) });
+        roofGrp.add(bulb);
+      }
+      const terrLight = new THREE.PointLight(0xffc98a, 0, 9);
+      terrLight.position.set(cx, roofTop + 1.8, cz);
+      this.houseLights.push(terrLight);
+      roofGrp.add(terrLight);
+      // degraus exteriores (span exato da rampa: [arrX0+0.1, arrX0+0.1+run])
+      const steps = 10, rise = (roofTop - fy) / steps, tread = run / steps;
+      const sx0 = arrX0 + 0.1;
+      for (let i = 0; i < steps; i++) {
+        const hgt = rise * (i + 1);
+        const st = new THREE.Mesh(new THREE.BoxGeometry(tread, hgt, 1.2), new THREE.MeshLambertMaterial({ color: 0x6f6a60 }));
+        st.position.set(sx0 + run - i * tread - tread / 2, fy + hgt / 2, cz - d / 2 - 1.05);
+        g.add(st);
+      }
+      this.addSurface({ minX: arrX0 + 0.1, maxX: arrX0 + 0.1 + run, minZ: cz - d / 2 - 1.65, maxZ: cz - d / 2 - 0.45, y0: fy, y1: roofTop, axis: "x", dir: -1 });
+    } else {
+      // telhado piramidal clássico
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.76, 2.2, 4), new THREE.MeshLambertMaterial({ color: opts.roofCol }));
+      roof.position.y = fy + wallH + 1.1 + 0.38;
+      roof.rotation.y = Math.PI / 4;
+      roofGrp.add(roof);
+    }
+    // ícone flutuante sobre a casa (some junto com o telhado quando entras)
+    const icon = makeIconSprite(opts.emoji);
+    icon.scale.set(1.6, 1.6, 1);
+    icon.position.y = fy + (floors === 2 ? wallH + 2.6 : opts.terrace ? wallH + 2.6 : wallH + 2.4);
+    roofGrp.add(icon);
+    g.add(roofGrp);
+    topParts.push(roofGrp);
+    this.houses.push({ x: cx, z: cz, w, d, topParts, upperParts, upperTop });
+
+    // etiqueta com o nome (esvanece quando chegas perto)
+    const label = makeTextSprite(`${opts.emoji} ${opts.name}`, { size: 32, bg: true, accent: opts.accent });
+    label.scale.set(9, 2.25, 1);
+    label.position.set(cx, fy + (floors === 2 ? wallH + 3.4 : opts.terrace ? wallH + 3.2 : wallH + 2.9), cz);
+    g.add(label);
+    this.registerFade(label);
+    // baú de tesouro (uma vez por sessão)
+    if (opts.chest) {
+      const chest = new THREE.Group();
+      const cBase = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.62, 0.66), new THREE.MeshLambertMaterial({ color: 0x8a5a2b }));
+      cBase.position.y = 0.31;
+      const cLid = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.26, 0.7), new THREE.MeshLambertMaterial({ color: 0x6b4423 }));
+      cLid.position.set(0, 0.68, -0.33);
+      cLid.geometry.translate(0, 0, 0.33);
+      cLid.position.z = -0.33;
+      const band = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.14, 0.74), new THREE.MeshLambertMaterial({ color: 0xfbbf24 }));
+      band.position.y = 0.5;
+      chest.add(cBase, cLid, band);
+      chest.position.set(cx + w * 0.3, floorTop, backZ + (door === "n" ? 1.1 : -1.1));
+      g.add(chest);
+      const cIcon = makeIconSprite("🎁");
+      cIcon.scale.set(1.0, 1.0, 1);
+      cIcon.position.set(chest.position.x, floorTop + 1.9, chest.position.z);
+      g.add(cIcon);
+      this.interactables.push({
+        group: chest, kind: "chest", id: `chest-${opts.name}`,
+        label: "🎁 Abrir baú do tesouro da casa",
+        pos: chest.position.clone(), used: false, lid: cLid, icon: cIcon,
+      });
+    }
+
+    // ── IMOBILIÁRIA: balcão + painéis + interactable "imoveis" ──
+    if (opts.imobiliaria) {
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.1, 0.9), new THREE.MeshLambertMaterial({ color: 0x273449 }));
+      const cTop = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.1, 1.05), new THREE.MeshLambertMaterial({ color: 0xf59e0b }));
+      const doorZ = door === "n" ? cz + d / 2 - 1.4 : cz - d / 2 + 1.4;
+      counter.position.set(cx, floorTop + 0.55, doorZ + (door === "n" ? -2.6 : 2.6));
+      cTop.position.set(counter.position.x, floorTop + 1.14, counter.position.z);
+      g.add(counter, cTop);
+      // painéis de imóveis na parede do fundo
+      const boards = ["🏠 CASAS · T2/T3", "🏪 LOJAS E ESCRITÓRIOS", "🌾 TERRENOS"];
+      for (let i = 0; i < 3; i++) {
+        const bd = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.1, 0.1), new THREE.MeshLambertMaterial({ color: 0x1b2436 }));
+        bd.position.set(cx - 3.6 + i * 3.6, floorTop + 2.5, door === "n" ? cz + d / 2 - 0.4 : cz - d / 2 + 0.4);
+        g.add(bd);
+        const bt = makeTextSprite(boards[i], { size: 30, bg: false, accent: "#fbbf24" });
+        bt.scale.set(2.7, 0.68, 1);
+        bt.position.set(bd.position.x, bd.position.y, bd.position.z + (door === "n" ? 0.1 : -0.1));
+        g.add(bt);
+      }
+      const iIcon = makeIconSprite("🏠");
+      iIcon.scale.set(1.2, 1.2, 1);
+      iIcon.position.set(counter.position.x, floorTop + 2.4, counter.position.z);
+      g.add(iIcon);
+      this.interactables.push({
+        group: g, kind: "imoveis", id: "imobiliaria",
+        label: "🏦 Ver IMÓVEIS reais da plataforma",
+        pos: new THREE.Vector3(counter.position.x, floorTop, counter.position.z),
+        used: false, icon: iIcon,
+      });
+    }
+
+    g.position.set(0, 0, 0);
+    this.scene.add(g);
+    // regista peças de topo para a atualização de visibilidade
+    for (const tp of topParts) if (!tp.parent) this.scene.add(tp);
+  }
+
+
   // ── v4: ARENA DAS ONDAS (sobrevivência) ───────────────────
 
   private buildArena(): void {
@@ -1228,6 +1821,7 @@ export class WorldEngine {
     aLab.scale.set(6, 1.5, 1);
     aLab.position.set(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 6.4, ARENA_CENTER.z);
     g.add(portalRing, disc, aIcon, aLab);
+    this.registerFade(aLab); // v9
     // interactable do portal
     const portalPos = new THREE.Vector3(ARENA_CENTER.x - ARENA_RADIUS - 3.5, 0, ARENA_CENTER.z);
     this.interactables.push({
@@ -1314,11 +1908,12 @@ export class WorldEngine {
     const dummy = new THREE.Object3D();
     const col = new THREE.Color();
 
-    // ── zonas protegidas (sem vegetação): POIs, marcos, arena ──
+    // ── zonas protegidas (sem vegetação): POIs, marcos, arena, BAIRRO ──
     const SAFE: [number, number, number][] = [
       [0, -52, 16], [52, 0, 16], [-52, 0, 16], [0, 52, 16],
       [-100, -60, 12], [95, 70, 15], [-90, 85, 10], [60, -100, 12], [112, 0, 30],
       [-140, 20, 11], [40, 140, 13], [-35, -150, 10], [150, 90, 11], [-150, -140, 12], [155, -70, 10],
+      [-40, 62, 30], // v9: Bairro Capulana
     ];
     const inSafe = (x: number, z: number, pad = 0): boolean => {
       if (Math.abs(x) < 6 + pad || Math.abs(z) < 6 + pad) return true; // estradas
@@ -1424,6 +2019,7 @@ export class WorldEngine {
         dummy.scale.set(2.1 * s, 0.72 * s, 2.1 * s);
         dummy.updateMatrix();
         canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, pickCol(type, b));
+        this.regCanopy(canSph, si - 1, dummy);
       } else if (type === "giant") {
         const layers: [number, number, number][] = [[1.55, 3.9, 1], [1.15, 5.3, 1.25], [0.85, 6.5, 1.6]];
         for (const [r, yy, sw] of layers) {
@@ -1432,6 +2028,7 @@ export class WorldEngine {
           dummy.scale.set(r * s * sw, r * 0.85 * s, r * s * sw);
           dummy.updateMatrix();
           canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, pickCol(type, b));
+          this.regCanopy(canSph, si - 1, dummy);
         }
       } else if (type === "baoba") {
         for (const [ox, oy, oz] of [[-0.9, 3.4, 0.2], [0.9, 3.7, -0.3]]) {
@@ -1440,6 +2037,7 @@ export class WorldEngine {
           dummy.scale.setScalar(1.05 * s);
           dummy.updateMatrix();
           canSph.setMatrixAt(si, dummy.matrix); canSph.setColorAt(si++, col.setHex(0x65a30d).offsetHSL(0, (Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.08).clone());
+          this.regCanopy(canSph, si - 1, dummy);
         }
       } else if (type === "pine") {
         for (const [sc, yy] of [[1.15, 2.7], [0.8, 4.15]]) {
@@ -1448,6 +2046,7 @@ export class WorldEngine {
           dummy.scale.set(sc * s, sc * s * (b === 5 ? 1.25 : 1), sc * s);
           dummy.updateMatrix();
           canCone.setMatrixAt(ci, dummy.matrix); canCone.setColorAt(ci++, pickCol(type, b));
+          this.regCanopy(canCone, ci - 1, dummy);
         }
       } else if (type === "palm") {
         const hTop = 2.4 * th * s;
@@ -2162,6 +2761,13 @@ export class WorldEngine {
             : 122 + Math.random() * 95;
           x = Math.cos(a) * r;
           z = Math.sin(a) * r;
+          // v9: não nascer dentro do Bairro Capulana (casas entráveis)
+          let tries = 0;
+          while (Math.hypot(x + 40, z - 62) < 30 && tries++ < 8) {
+            const a2 = Math.random() * Math.PI * 2;
+            x = Math.cos(a2) * r;
+            z = Math.sin(a2) * r;
+          }
         }
         this.spawnMob(d.tier, x, z, !!d.boss, !!d.guard);
       }
@@ -3292,6 +3898,50 @@ export class WorldEngine {
     };
   }
 
+  /** v9: debug/testes — info do Bairro Capulana e da visão limpa. */
+  debugBairroInfo(): { houses: number; chests: number; colliders: number; surfaces: number; canopies: number; canopiesNear: number; labels: number } {
+    let chests = 0;
+    for (const it of this.interactables) if (it.kind === "chest") chests++;
+    let near = 0;
+    for (const c of this.canopyReg) {
+      const d = Math.hypot(c.x - this.pos.x, c.z - this.pos.z);
+      if (d < 4.6) near++;
+    }
+    return {
+      houses: this.houses.length,
+      chests,
+      colliders: this.colliders.length,
+      surfaces: this.surfaces.length,
+      canopies: this.canopyReg.length,
+      canopiesNear: near,
+      labels: this.fadeSprites.length,
+    };
+  }
+
+  /** v9: debug/testes — teletransporta o herói. */
+  debugTp(x: number, z: number): void {
+    this.pos.set(x, this.supportY(x, z, 60), z);
+    this.vy = 0;
+    this.onGround = true;
+  }
+
+  /** v9: debug/testes — altura de apoio numa posição (lajes/rampas incluídas). */
+  debugSupportY(x: number, z: number): number {
+    return this.supportY(x, z, 100);
+  }
+
+  /** v9: debug/testes — posição de um interativo pelo kind (primeiro). */
+  debugPoiPos(kind: string): { x: number; z: number } | null {
+    const it = this.interactables.find((i) => i.kind === kind);
+    return it ? { x: it.pos.x, z: it.pos.z } : null;
+  }
+
+  /** v9: debug/testes — teleporta para junto da primeira copa (teste de visão limpa). */
+  debugTpNearTree(): void {
+    const c = this.canopyReg[0];
+    if (c) this.debugTp(c.x, c.z);
+  }
+
   // ── Efeitos ─────────────────────────────────────────────────
 
   private burst(at: THREE.Vector3, color: number, n: number, speed = 3, life = 0.6, size = 0.09, gravity = 6): void {
@@ -3411,6 +4061,33 @@ export class WorldEngine {
       if (it.icon) it.icon.visible = false;
       this.opts.onEvent({ type: "open", kind: "voucher", id: it.id });
       this.opts.onEvent({ type: "quest", kind: "chest" });
+    } else if (it.kind === "chest") {
+      // v9: baú de tesouro das casas do Bairro Capulana
+      if (it.used) {
+        this.opts.onEvent({ type: "notify", msg: "O baú está vazio — os tesouros das casas renovam amanhã!", tone: "info" });
+        return;
+      }
+      it.used = true;
+      worldAudio.play("chest");
+      if (it.lid) {
+        const lid = it.lid;
+        const t0 = performance.now();
+        const anim = () => {
+          if (this.disposed) return;
+          const t = Math.min(1, (performance.now() - t0) / 350);
+          lid.rotation.x = -1.25 * t;
+          if (t < 1) requestAnimationFrame(anim);
+        };
+        anim();
+      }
+      if (it.icon) it.icon.visible = false;
+      const gold = 90 + Math.floor(Math.random() * 80);
+      const xp = 45 + Math.floor(Math.random() * 45);
+      this.opts.onEvent({ type: "gain", gold, xp });
+      this.opts.onEvent({ type: "quest", kind: "chest" });
+      this.burst(this.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfbbf24, 14, 2.6, 0.7, 0.08, 3);
+      this.floatText(this.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), `+${gold} 💰`, "#fbbf24", 1);
+      this.opts.onEvent({ type: "notify", msg: `🏠 Tesouro da casa: +${gold} ouro · +${xp} XP!`, tone: "good" });
     } else if (it.kind === "fountain") {
       this.hp = this.opts.stats.maxHp;
       worldAudio.play("heal");
@@ -3476,6 +4153,7 @@ export class WorldEngine {
         { x: 0, z: -52, k: "raffle" }, { x: 52, z: 0, k: "asset" },
         { x: -52, z: 0, k: "contest" }, { x: 0, z: 52, k: "voucher" }, { x: 8, z: 8, k: "games" },
         { x: -14, z: -14, k: "bank" }, { x: 112, z: 0, k: "arena" },
+        { x: -40, z: 62, k: "asset" }, // v9: Bairro Capulana (Imobiliária)
       ],
       players: [...this.remotes.values()].map((r) => ({ x: r.group.position.x, z: r.group.position.z })),
       marks: LANDMARKS.map((l) => ({ id: l.id, x: l.x, z: l.z, found: this.discovered.has(l.id) })),
@@ -3539,6 +4217,8 @@ export class WorldEngine {
     this.updateWorldEvent(t, dt);
     this.updateCamera(dt);
     this.checkDiscoveries(t);
+    this.updateVision(dt, t); // v9: copas perto do herói, etiquetas e telhados
+    this.updateGlowNight(t); // v9: janelas e lanternas acendem à noite
 
     for (let i = 0; i < 3; i++) this.skillCds[i] = Math.max(0, this.skillCds[i] - dt);
     this.atkCd = Math.max(0, this.atkCd - dt);
@@ -3768,8 +4448,11 @@ export class WorldEngine {
       this.pos.z *= WORLD_RADIUS / r;
     }
 
-    // gravidade / salto
-    const gy = groundY(this.pos.x, this.pos.z);
+    // v9: colisão com paredes de casas/imóveis (escadas e lajes são caminháveis)
+    this.resolveXZ(this.pos, 0.5);
+
+    // v9: gravidade / salto com SUPERFÍCIES (lajes + rampas de escada)
+    const gy = this.supportY(this.pos.x, this.pos.z, this.pos.y);
     if (!this.onGround) {
       this.vy -= 16 * dt;
       this.pos.y += this.vy * dt;
@@ -3812,7 +4495,7 @@ export class WorldEngine {
         if (m.arena) {
           // mobs da arena nascem já agressivos
           m.state = "chase";
-        } else if (distP < aggro && !this.dead && Math.hypot(this.pos.x, this.pos.z) > (m.isGuard ? 12 : PVP_SAFE_RADIUS)) {
+        } else if (distP < aggro && !this.dead && !this.inAnyHouse(this.pos.x, this.pos.z) && Math.hypot(this.pos.x, this.pos.z) > (m.isGuard ? 12 : PVP_SAFE_RADIUS)) {
           m.state = "chase";
           // v3: anel de aviso + som quando o inimigo te nota
           this.ringEffectAt(m.group.position.clone().add(new THREE.Vector3(0, 0.15, 0)), m.isBoss ? 0xdc2626 : 0xf97316, m.isBoss ? 4.5 : 2.8);
@@ -3824,7 +4507,7 @@ export class WorldEngine {
       }
 
       if (m.state === "chase") {
-        if (!m.arena && (this.dead || distP > aggro + 9 || Math.hypot(gp.x, gp.z) < (m.isGuard ? 13 : 20))) {
+        if (!m.arena && (this.dead || distP > aggro + 9 || this.inAnyHouse(this.pos.x, this.pos.z) || Math.hypot(gp.x, gp.z) < (m.isGuard ? 13 : 20))) {
           m.state = "return";
         } else if (distP < 1.7) {
           // atacar
@@ -3840,6 +4523,7 @@ export class WorldEngine {
           const dir = new THREE.Vector3(this.pos.x - gp.x, 0, this.pos.z - gp.z).normalize();
           gp.x += dir.x * spd * dt;
           gp.z += dir.z * spd * dt;
+          this.resolveXZ(gp, 0.7); // v9: mobs não atravessam paredes
           m.group.rotation.y = Math.atan2(dir.x, dir.z);
         }
       }
@@ -4371,6 +5055,68 @@ export class WorldEngine {
       this.shakeAmp *= Math.max(0, 1 - dt * 6);
     }
     this.camera.lookAt(this.pos.x, this.pos.y + (this.camMode === "tatica" ? 1.1 : 1.9), this.pos.z);
+  }
+
+  // ══ v9: VISÃO LIMPA — copas, etiquetas e telhados ═══════════
+
+  private updateVision(dt: number, t: number): void {
+    // ── copas encolhem quando o herói passa por baixo (não bloqueiam a vista) ──
+    const R = 4.6;
+    let dirty = false;
+    const dummy = new THREE.Object3D();
+    for (const c of this.canopyReg) {
+      const dx = c.x - this.pos.x, dz = c.z - this.pos.z;
+      c.target = dx * dx + dz * dz < R * R ? 0.07 : 1;
+      if (Math.abs(c.target - c.cur) > 0.01) {
+        c.cur += (c.target - c.cur) * Math.min(1, dt * 9);
+        if (Math.abs(c.target - c.cur) <= 0.012) c.cur = c.target;
+        dummy.position.set(c.px, c.py, c.pz);
+        dummy.rotation.set(c.rx, c.ry, c.rz);
+        dummy.scale.set(c.sx * c.cur, c.sy * c.cur, c.sz * c.cur);
+        dummy.updateMatrix();
+        c.mesh.setMatrixAt(c.idx, dummy.matrix);
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      for (const c of this.canopyReg) c.mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    // ── etiquetas grandes esvaecem quando o herói chega perto ──
+    if (t > this.visT) {
+      this.visT = t + 160;
+      for (const f of this.fadeSprites) {
+        const d = Math.hypot(f.wx - this.pos.x, f.wz - this.pos.z);
+        const want = d < 10 ? 0.12 : d > 14 ? 1 : (f.cur < 0.5 ? 0.12 : 1);
+        if (Math.abs(want - f.cur) > 0.02) {
+          f.cur += (want - f.cur) * 0.5;
+          (f.spr.material as THREE.SpriteMaterial).opacity = f.cur;
+          f.spr.visible = f.cur > 0.02;
+        }
+      }
+      // ── telhados/pisos de cima desaparecem quando entras na casa ──
+      for (const h of this.houses) {
+        const inside = Math.abs(this.pos.x - h.x) < h.w / 2 + 0.9 && Math.abs(this.pos.z - h.z) < h.d / 2 + 0.9;
+        for (const tp of h.topParts) {
+          if (tp.visible === inside) tp.visible = !inside;
+        }
+        if (h.upperParts) {
+          const low = this.pos.y < h.upperTop - 1.2;
+          const hide = inside && low;
+          if (h.upperParts.visible === hide) h.upperParts.visible = !hide;
+        }
+      }
+    }
+  }
+
+  /** v9: janelas, lanternas e casas acendem à noite (ciclo dia/noite). */
+  private updateGlowNight(t: number): void {
+    if (!this.glowMats.length && !this.houseLights.length) return;
+    const dayAmt = 0.5 + 0.5 * Math.sin(((t % DAY_LEN) / DAY_LEN) * Math.PI * 2);
+    const nightF = Math.max(0, 1 - dayAmt * 1.9);
+    for (const gm of this.glowMats) gm.mat.color.copy(gm.day).lerp(gm.night, nightF);
+    const flick = 0.88 + Math.sin(t * 0.004) * 0.12;
+    for (const l of this.houseLights) l.intensity = 24 * nightF * flick;
   }
 
   private resize(): void {
